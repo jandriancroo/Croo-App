@@ -32,6 +32,8 @@ struct WatchShift: Codable, Hashable, Identifiable {
     let hours: Double?
     let initials: String?
     let live: String?
+    let startMin: Double?
+    let endMin: Double?
 
     var resolvedStatus: String { status ?? "later" }
     var resolvedInitials: String {
@@ -46,11 +48,11 @@ struct WatchShift: Codable, Hashable, Identifiable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, role, time, isMe, status, hours, initials, live
+        case id, name, role, time, isMe, status, hours, initials, live, startMin, endMin
     }
 
     init(id: String, name: String, role: String, time: String, isMe: Bool, status: String? = nil, hours: Double? = nil,
-         initials: String? = nil, live: String? = nil) {
+         initials: String? = nil, live: String? = nil, startMin: Double? = nil, endMin: Double? = nil) {
         self.id = id
         self.name = name
         self.role = role
@@ -60,6 +62,8 @@ struct WatchShift: Codable, Hashable, Identifiable {
         self.hours = hours
         self.initials = initials
         self.live = live
+        self.startMin = startMin
+        self.endMin = endMin
     }
 
     init(from decoder: Decoder) throws {
@@ -86,6 +90,8 @@ struct WatchShift: Codable, Hashable, Identifiable {
         }
         initials = try? c.decode(String.self, forKey: .initials)
         live = try? c.decode(String.self, forKey: .live)
+        startMin = try? c.decode(Double.self, forKey: .startMin)
+        endMin = try? c.decode(Double.self, forKey: .endMin)
     }
 }
 
@@ -93,11 +99,15 @@ struct WatchScheduleSummary: Codable, Hashable {
     let onNow: Int?
     let later: Int?
     let totalHours: Double?
+    let nowMin: Double?
 }
 
 /// One period (Today / Week / Month) of the dashboard Sales Summary, preformatted by the server.
 struct WatchSalesPeriod: Codable, Hashable {
     let label: String?
+    let salesValue: Double?
+    let goalValue: Double?
+    let paceValue: Double?
     let sales: String?
     let status: String?
     let vsLy: String?
@@ -119,6 +129,25 @@ struct WatchSalesSummary: Codable, Hashable {
     let month: WatchSalesPeriod?
     let wtd: String?
     let mtd: String?
+}
+
+struct WatchChat: Codable, Hashable, Identifiable {
+    let id: String
+    let title: String
+    let initials: String
+    let kind: String
+    let unread: Int
+    let preview: String
+    let time: String
+    let canReply: Bool
+}
+
+struct WatchChatMessage: Codable, Hashable, Identifiable {
+    let id: String
+    let mine: Bool
+    let sender: String
+    let text: String
+    let time: String
 }
 
 struct WatchLocation: Codable, Hashable, Identifiable {
@@ -270,6 +299,28 @@ final class WatchAPIClient {
         if let snapshot = envelope.snapshot { return snapshot }
         throw NSError(domain: "CrooWatch", code: 0,
                       userInfo: [NSLocalizedDescriptionKey: envelope.error ?? "No snapshot returned"])
+    }
+}
+
+extension WatchAPIClient {
+    /// Chat calls (list / thread / send). Same device token as the snapshot; the server scopes to the pairing user's own chats.
+    func chatCall(pairing: WatchPairing, locationId: String?, _ payload: [String: Any]) async throws -> [String: Any] {
+        let urlString = pairing.apiUrl.isEmpty ? WatchPairing.defaultApiUrl : pairing.apiUrl
+        guard let url = URL(string: urlString) else { throw URLError(.badURL) }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 20
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(pairing.token, forHTTPHeaderField: "x-watch-token")
+        var body = payload
+        if let locationId, !locationId.isEmpty { body["locationId"] = locationId }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let obj = (try JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+        if let err = obj["error"] as? String, obj["messages"] == nil, obj["chats"] == nil, obj["ok"] == nil {
+            throw NSError(domain: "CrooWatch", code: 1, userInfo: [NSLocalizedDescriptionKey: err])
+        }
+        return obj
     }
 }
 

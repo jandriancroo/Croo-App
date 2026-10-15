@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1C0FFEE00000000000000C2 /* ChatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE00000000000000C1 /* ChatsView.swift */; };
 		0576420AE434419FAA09B17A /* SalesSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67381E66D8514CACB89FA447 /* SalesSummaryView.swift */; };
 		0DA94250F6D74B22BEC8EEF2 /* CubesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0967835FE6A34F72A9436121 /* CubesView.swift */; };
 		1719B5794A16435CA97AAE39 /* WatchDataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E25DBD2B95104AD8ACB07078 /* WatchDataStore.swift */; };
@@ -52,6 +53,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A1C0FFEE00000000000000C1 /* ChatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsView.swift; sourceTree = "<group>"; };
 		0223276538FD4DC88390D665 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		0967835FE6A34F72A9436121 /* CubesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CubesView.swift; sourceTree = "<group>"; };
 		13F8767856034FCAB5EF7E84 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -156,6 +158,7 @@
 				0967835FE6A34F72A9436121 /* CubesView.swift */,
 				67381E66D8514CACB89FA447 /* SalesSummaryView.swift */,
 				92AB601A6AA5442A96F14E01 /* ScheduleView.swift */,
+				A1C0FFEE00000000000000C1 /* ChatsView.swift */,
 				E25DBD2B95104AD8ACB07078 /* WatchDataStore.swift */,
 				A1B2C3D40001444488880001AAAA0001 /* LocationSwitcherView.swift */,
 				CFFD3593888549798B2BF514 /* StatusView.swift */,
@@ -325,6 +328,7 @@
 				0DA94250F6D74B22BEC8EEF2 /* CubesView.swift in Sources */,
 				0576420AE434419FAA09B17A /* SalesSummaryView.swift in Sources */,
 				F0353A8E87E34AFA834B6BB9 /* ScheduleView.swift in Sources */,
+				A1C0FFEE00000000000000C2 /* ChatsView.swift in Sources */,
 				1719B5794A16435CA97AAE39 /* WatchDataStore.swift in Sources */,
 				A1B2C3D40002444488880002AAAA0002 /* LocationSwitcherView.swift in Sources */,
 				30495C619E4C49D4B58DA37F /* StatusView.swift in Sources */,
@@ -373,7 +377,7 @@
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 5Y4D3V56HU;
 				ENABLE_TESTABILITY = YES;
@@ -508,7 +512,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 5Y4D3V56HU;
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = CrooHQ;
@@ -531,7 +535,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 5Y4D3V56HU;
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = CrooHQ;
@@ -560,7 +564,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 5Y4D3V56HU;
 				ENABLE_NS_ASSERTIONS = NO;

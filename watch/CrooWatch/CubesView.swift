@@ -90,7 +90,17 @@ private struct CubeScreen: View {
 
     private let rotateInterval: TimeInterval = 10
 
+    @EnvironmentObject private var store: WatchDataStore
+
     private var accent: Color { Color(hex: cube.accentColor) }
+
+    /// Today's sales ÷ goal, but only when this cube actually shows sales.
+    private var goalFraction: Double? {
+        let showsSales = cube.faces.contains { f in f.metrics.contains { $0.label.lowercased().contains("sales") } }
+        guard showsSales, let t = store.snapshot.salesSummary?.today,
+              let sales = t.salesValue, let goal = t.goalValue, goal > 0 else { return nil }
+        return sales / goal
+    }
 
     var body: some View {
         let safeIndex = cube.faces.isEmpty ? 0 : min(faceIndex, cube.faces.count - 1)
@@ -106,6 +116,17 @@ private struct CubeScreen: View {
             isPaused: isPaused
         )
         .background(accent)
+        .overlay(alignment: .center) {
+            // Goal ring traced around the screen edge, only on cubes that show Sales.
+            if let f = goalFraction {
+                RoundedRectangle(cornerRadius: 44, style: .continuous)
+                    .trim(from: 0, to: min(f, 1))
+                    .stroke(Color.white.opacity(0.9), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .padding(1.5)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+            }
+        }
         .containerBackground(accent, for: .tabView)
         .contentShape(Rectangle())
         .onTapGesture {

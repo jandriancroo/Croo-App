@@ -7,6 +7,7 @@
 //   list     (authed org admin)   → list watch devices for an org
 //   revoke   (authed org admin)   → revoke a watch device
 //   snapshot (watch device token) → read-only cubes + today's schedule + sales
+//   chats / thread / send (watch device token) → the pairing user's own chats (membership-scoped)
 //   version  (no auth)            → deployed WATCH_SERVICE_VERSION
 //
 // Read-only for all business data. Never mutates cubes, sales, labor or schedules.
@@ -18,7 +19,7 @@ import { computePace, laborPct, resolveGoal, storeNow } from "../_shared/cubeMet
 import { clockedInUserIds } from "../_shared/onClock.ts";
 
 // Bump on every change so a deploy can be confirmed: POST {"action":"version"}.
-const WATCH_SERVICE_VERSION = "2026-10-15.1";
+const WATCH_SERVICE_VERSION = "2026-10-15.2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -477,6 +478,8 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
         status,
         live: liveLabel,
         hours,
+        startMin: start,
+        endMin: end,
         isMe: !!userId && s.user_id === userId,
         _sort: s.start_time || '',
       };
@@ -487,6 +490,7 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
   const scheduleSummary = {
     onNow: schedule.filter((s: any) => s.status === 'active' || s.status === 'break').length,
     later: schedule.filter((s: any) => s.status === 'later' || s.status === 'late').length,
+    nowMin: nowMinutes,
     totalHours: Math.round(schedule.reduce((t: number, s: any) => t + (s.hours || 0), 0) * 10) / 10,
   };
 
@@ -533,6 +537,9 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
     const change = vsLy(o.sales, o.lyAtPoint);
     return {
       label: o.label,
+      salesValue: o.sales ?? null,
+      goalValue: o.goal ?? null,
+      paceValue: o.pace ?? null,
       sales: money(o.sales),
       status: paceStatus(o.sales, o.pace, o.goal),
       vsLy: change == null ? null : `${change >= 0 ? '+' : ''}${change.toFixed(1)}% vs LY`,
@@ -633,6 +640,137 @@ serve(async (req) => {
       const snapshot = await buildSnapshot(sb, device, activeLocationId);
       await sb.from('watch_devices').update({ last_active_at: new Date().toISOString() }).eq('id', device.id);
       return json({ snapshot: { ...snapshot, locations: allowedLocations || [] } });
+    }
+
+
+    // -------------------------------------------------- chats (device token)
+    if (action === 'chats' || action === 'thread' || action === 'send') {
+      const token = req.headers.get('x-watch-token') || body.token;
+      if (!token) return json({ error: 'Missing device token' }, 401);
+      const { data: device } = await sb
+        .from('watch_devices')
+        .select('id, location_id, revoked_at, allowed_location_ids, created_by')
+        .eq('token_hash', await sha256(String(token)))
+        .maybeSingle();
+      if (!device || device.revoked_at) return json({ error: 'Device not paired' }, 401);
+      const me: string | null = device.created_by;
+      if (!me) return json({ chats: [], error: 'Re-pair this watch to use chats' });
+
+      const allowedIds: string[] = (device.allowed_location_ids?.length ? device.allowed_location_ids : [device.location_id]).filter(Boolean);
+      const requested = body.locationId ? String(body.locationId) : null;
+      const locationId = requested && allowedIds.includes(requested) ? requested : device.location_id;
+
+      // Only chats this person is a member of, at this store (same filter as _shared/messagePlan.ts scopeChats).
+      const { data: mine } = await sb.from('chat_members').select('chat_id, last_read_at').eq('user_id', me);
+      const lastRead = new Map((mine || []).map((m: any) => [m.chat_id, m.last_read_at]));
+      const myIds = (mine || []).map((m: any) => m.chat_id);
+      if (!myIds.length) return json({ chats: [] });
+      const { data: chatRows } = await sb
+        .from('chats')
+        .select('id, title, is_group, is_announcement, location_id, chat_members(user_id)')
+        .in('id', myIds)
+        .eq('location_id', locationId);
+      const chats = (chatRows || []).filter((c: any) => (c.chat_members || []).some((m: any) => m.user_id === me));
+      const kindOf = (c: any) => c.is_announcement ? 'announcement'
+        : (c.is_group && String(c.title || '').trim() === 'Shift Marketplace') ? 'marketplace'
+        : c.is_group ? 'group' : 'dm';
+
+      const nameOf = async (ids: string[]) => {
+        const { data: ps } = await sb.from('profiles').select('id, full_name, nickname').in('id', ids);
+        return new Map((ps || []).map((p: any) => [p.id, p.nickname || p.full_name || 'Team member']));
+      };
+      const initialsFor = (n: string) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?';
+      const stamp = (iso?: string) => {
+        if (!iso) return '';
+        const dt = DateTime.fromISO(iso).setZone(tz0);
+        if (!dt.isValid) return '';
+        const today0 = DateTime.now().setZone(tz0).startOf('day');
+        if (dt >= today0) return dt.toFormat('h:mma').replace('AM', 'a').replace('PM', 'p');
+        if (dt >= today0.minus({ days: 6 })) return dt.toFormat('ccc');
+        return dt.toFormat('M/d');
+      };
+      const { data: ls } = await sb.from('location_settings').select('timezone').eq('location_id', locationId).maybeSingle();
+      const tz0 = ls?.timezone || 'America/Los_Angeles';
+
+      if (action === 'chats') {
+        const rows: any[] = [];
+        const others = new Set<string>();
+        for (const c of chats) for (const m of c.chat_members || []) others.add(m.user_id);
+        const { data: lastMsgs } = await sb
+          .from('messages')
+          .select('id, chat_id, sender_id, content, created_at, is_deleted_for_everyone, attachment_type')
+          .in('chat_id', chats.map((c: any) => c.id))
+          .order('created_at', { ascending: false })
+          .limit(400);
+        for (const m of lastMsgs || []) others.add(m.sender_id);
+        const names = await nameOf(Array.from(others));
+        for (const c of chats) {
+          const kind = kindOf(c);
+          if (kind === 'marketplace') continue;
+          const msgs = (lastMsgs || []).filter((m: any) => m.chat_id === c.id);
+          const last = msgs[0];
+          const lr = lastRead.get(c.id) ? Date.parse(lastRead.get(c.id)) : 0;
+          const unread = msgs.filter((m: any) => m.sender_id !== me && !m.is_deleted_for_everyone && Date.parse(m.created_at) > lr).length;
+          const otherId = (c.chat_members || []).map((m: any) => m.user_id).find((u: string) => u !== me);
+          const title = c.title || (kind === 'dm' ? names.get(otherId) : 'Group') || 'Chat';
+          const preview = !last ? '' : last.is_deleted_for_everyone ? 'Message deleted'
+            : last.content ? `${last.sender_id === me ? 'You' : (names.get(last.sender_id) || '').split(' ')[0]}: ${last.content}`.replace(/^: /, '')
+            : last.attachment_type ? 'Sent an attachment' : '';
+          rows.push({
+            id: c.id, title, initials: initialsFor(title), kind, unread, preview,
+            time: stamp(last?.created_at), at: last?.created_at || '',
+            canReply: kind === 'dm' || kind === 'group',
+          });
+        }
+        rows.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+        return json({ chats: rows.slice(0, 20), unreadTotal: rows.reduce((t, r) => t + r.unread, 0) });
+      }
+
+      const chatId = String(body.chatId || '');
+      const chat = chats.find((c: any) => c.id === chatId);
+      if (!chat) return json({ error: 'Chat not found' }, 404);
+      const kind = kindOf(chat);
+
+      if (action === 'thread') {
+        const { data: msgs } = await sb
+          .from('messages')
+          .select('id, sender_id, content, created_at, is_deleted_for_everyone, attachment_type')
+          .eq('chat_id', chatId)
+          .order('created_at', { ascending: false })
+          .limit(25);
+        const names = await nameOf(Array.from(new Set((msgs || []).map((m: any) => m.sender_id))));
+        await sb.from('chat_members').update({ last_read_at: new Date().toISOString() }).eq('chat_id', chatId).eq('user_id', me);
+        const out = (msgs || []).reverse().map((m: any) => ({
+          id: m.id,
+          mine: m.sender_id === me,
+          sender: m.sender_id === me ? 'You' : String(names.get(m.sender_id) || '').split(' ')[0],
+          text: m.is_deleted_for_everyone ? 'Message deleted' : (m.content || (m.attachment_type ? 'Attachment' : '')),
+          time: stamp(m.created_at),
+        }));
+        return json({ messages: out, canReply: kind === 'dm' || kind === 'group' });
+      }
+
+      // send: same row and same push as src/lib/chatMessages.ts sendChatMessage (plain text only, ordinary DMs/groups).
+      if (kind !== 'dm' && kind !== 'group') return json({ error: 'Read-only chat' }, 403);
+      const content = String(body.content || '').trim().slice(0, 1000);
+      if (!content) return json({ error: 'Empty message' }, 400);
+      const { data: row, error: insErr } = await sb
+        .from('messages')
+        .insert({ chat_id: chatId, sender_id: me, content })
+        .select('id, created_at')
+        .single();
+      if (insErr) return json({ error: insErr.message }, 500);
+      try {
+        const memberIds = (chat.chat_members || []).map((m: any) => m.user_id).filter((u: string) => u !== me);
+        if (memberIds.length) {
+          const sender = (await nameOf([me])).get(me) || 'New Message';
+          await sb.functions.invoke('send-push-notification', {
+            body: { user_ids: memberIds, sender_id: me, title: sender, body: content.substring(0, 100),
+                    notification_type: 'chat_messages', data: { chat_id: chatId, type: 'message', message_id: row.id } },
+          });
+        }
+      } catch (e) { console.error('watch chat push failed', e); }
+      return json({ ok: true, id: row.id });
     }
 
     // -------------------------------------------------- issue (authed admin)

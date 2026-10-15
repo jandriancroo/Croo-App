@@ -97,52 +97,68 @@ struct SalesSummaryView: View {
         .background(Capsule().fill(CrooBrand.card))
     }
 
+    /// Activity-style rings: outer orange = sales vs goal, inner teal = pace vs goal.
     private func scoreboard(_ p: WatchSalesPeriod) -> some View {
-        VStack(spacing: 5) {
+        let goal = p.goalValue ?? 0
+        let salesFrac = goal > 0 ? (p.salesValue ?? 0) / goal : 0
+        let paceFrac = goal > 0 ? (p.paceValue ?? 0) / goal : 0
+        return VStack(spacing: 6) {
             Text(p.label ?? "SALES")
                 .font(.system(size: 10, weight: .bold, design: .rounded))
                 .tracking(0.8)
-                .opacity(0.88)
-            Text(p.sales ?? "—")
-                .font(.system(size: 34, weight: .heavy, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
+                .foregroundStyle(CrooBrand.orange)
+            ZStack {
+                RingShape(color: CrooBrand.orange, fraction: salesFrac, width: 11)
+                    .frame(width: 124, height: 124)
+                RingShape(color: CrooBrand.tealBright, fraction: paceFrac, width: 11)
+                    .frame(width: 96, height: 96)
+                VStack(spacing: 0) {
+                    Text(p.sales ?? "—")
+                        .font(.system(size: 20, weight: .heavy, design: .rounded))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                    Text(goal > 0 ? "of \(p.goal ?? "—")" : "no goal")
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .frame(width: 70)
+            }
+            .padding(.vertical, 2)
+
+            HStack(spacing: 10) {
+                legend(CrooBrand.orange, goal > 0 ? "Sales \(Int((salesFrac * 100).rounded()))%" : "Sales")
+                legend(CrooBrand.tealBright, goal > 0 ? "Pace \(Int((paceFrac * 100).rounded()))%" : "Pace")
+            }
 
             if p.status != nil || p.vsLy != nil {
                 HStack(spacing: 4) {
-                    if let status = p.status {
-                        chip(text: status, icon: statusIcon(status))
-                    }
-                    if let vs = p.vsLy {
-                        chip(text: vs, icon: (p.vsLyUp ?? true) ? "arrow.up.right" : "arrow.down.right")
-                    }
+                    if let status = p.status { chip(text: status, icon: statusIcon(status)) }
+                    if let vs = p.vsLy { chip(text: vs, icon: (p.vsLyUp ?? true) ? "arrow.up.right" : "arrow.down.right") }
                 }
             }
 
             HStack(spacing: 0) {
                 scoreStat("Last Year", p.lastYear)
                 stripDivider(opacity: 0.22)
-                scoreStat("Goal", p.goal)
-                stripDivider(opacity: 0.22)
                 scoreStat("Pace", p.pace)
             }
             .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .fill(Color.black.opacity(0.13))
-            )
-            .padding(.top, 2)
+            .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color.white.opacity(0.07)))
         }
         .padding(.horizontal, 8)
-        .padding(.top, 10)
-        .padding(.bottom, 8)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
         .foregroundStyle(.white)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(CrooBrand.orange)
-        )
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(CrooBrand.card))
+    }
+
+    private func legend(_ color: Color, _ text: String) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 6, height: 6)
+            Text(text).font(.system(size: 10, weight: .bold, design: .rounded)).lineLimit(1).minimumScaleFactor(0.7)
+        }
     }
 
     private func statusIcon(_ status: String) -> String {
@@ -254,5 +270,30 @@ struct SalesSummaryView: View {
         let out = DateFormatter()
         out.dateFormat = "h:mm a"
         return out.string(from: date)
+    }
+}
+
+
+/// A progress ring that can pass 100% (second lap draws on top, like Activity).
+struct RingShape: View {
+    let color: Color
+    let fraction: Double
+    let width: CGFloat
+
+    var body: some View {
+        let f = max(0, fraction)
+        ZStack {
+            Circle().stroke(color.opacity(0.22), lineWidth: width)
+            Circle()
+                .trim(from: 0, to: min(f, 1))
+                .stroke(color, style: StrokeStyle(lineWidth: width, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            if f > 1 {
+                Circle()
+                    .trim(from: 0, to: min(f - 1, 1))
+                    .stroke(color.opacity(0.65), style: StrokeStyle(lineWidth: width, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            }
+        }
     }
 }

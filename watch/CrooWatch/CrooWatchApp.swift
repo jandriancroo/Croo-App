@@ -30,6 +30,8 @@ struct RootView: View {
                 .containerBackground(Color.black, for: .tabView)
             SalesSummaryView()
                 .containerBackground(Color.black, for: .tabView)
+            ChatsView()
+                .containerBackground(Color.black, for: .tabView)
             StatusView()
                 .containerBackground(Color.black, for: .tabView)
         }
