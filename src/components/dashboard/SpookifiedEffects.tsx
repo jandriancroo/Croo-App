@@ -42,17 +42,28 @@ export function SpookifiedEffects() {
   }, []);
 
   // Loop: a small flock crosses every 8-15s while Spookified is on and motion is allowed.
+  // Starts only once the Dash is idle and at least 3s after mount; no new bats while Theo's voice screen is open.
   useEffect(() => {
     if (!enabled || !motionOk) { setBats([]); return; }
-    let timer: ReturnType<typeof setTimeout>;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let idleId: number | undefined;
+    let stopped = false;
+    const theoOpen = () => !!document.querySelector('[aria-label="Close Theo voice"]');
     const schedule = (ms: number) => {
       timer = setTimeout(() => {
-        if (!document.hidden) setBats(prev => [...prev, ...makeFlock()].slice(-6));
+        if (!document.hidden && !theoOpen()) setBats(prev => [...prev, ...makeFlock()].slice(-6));
         schedule(rand(8000, 15000));
       }, ms);
     };
-    schedule(1200);
-    return () => clearTimeout(timer);
+    const mountedAt = performance.now();
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+    const begin = () => { if (!stopped) schedule(Math.max(0, 3000 - (performance.now() - mountedAt))); };
+    if (w.requestIdleCallback) idleId = w.requestIdleCallback(begin, { timeout: 5000 }); else timer = setTimeout(begin, 300);
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+      if (idleId !== undefined) w.cancelIdleCallback?.(idleId);
+    };
   }, [enabled, motionOk]);
 
   if (!enabled) return null;
