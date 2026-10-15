@@ -2879,7 +2879,7 @@ async function handleSyncOrders(supabase: any, body: any): Promise<Response> {
 
   console.log(`[PFG Sync] Found ${integrations.length} active integrations`);
 
-  const results: { locationId: string; success: boolean; ordersImported: number; error?: string }[] = [];
+  const results: { locationId: string; success: boolean; ordersImported: number; error?: string; unreadableOrderLines?: number }[] = [];
 
   for (const integration of integrations) {
     const credentials = integration.credentials as unknown as PFGCredentials;

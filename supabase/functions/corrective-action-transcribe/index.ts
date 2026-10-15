@@ -31,7 +31,7 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function base64ToBytes(b64: string): Uint8Array {
+function base64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
   const clean = b64.includes(',') ? b64.split(',')[1] : b64;
   const bin = atob(clean);
   const out = new Uint8Array(bin.length);
@@ -39,7 +39,7 @@ function base64ToBytes(b64: string): Uint8Array {
   return out;
 }
 
-async function transcribeOnce(bytes: Uint8Array, mimeType: string, model: string) {
+async function transcribeOnce(bytes: Uint8Array<ArrayBuffer>, mimeType: string, model: string) {
   const base = (mimeType || 'audio/webm').split(';')[0];
   const ext = EXT_BY_MIME[base] ?? 'webm';
   const form = new FormData();
@@ -68,7 +68,7 @@ async function handleTranscribeChunk(payload: any) {
     return json({ error: 'audioBase64 is required' }, 400);
   }
 
-  let bytes: Uint8Array;
+  let bytes: Uint8Array<ArrayBuffer>;
   try {
     bytes = base64ToBytes(audioBase64);
   } catch {
