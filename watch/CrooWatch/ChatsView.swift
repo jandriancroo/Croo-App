@@ -209,8 +209,7 @@ private struct ThreadView: View {
     let chat: WatchChat
     @EnvironmentObject var store: WatchDataStore
     @EnvironmentObject var chatStore: WatchChatStore
-    @State private var draft = ""
-    @State private var composing = false
+    @State private var quickOpen = false
 
     private let quickReplies = ["On it", "Be right there", "Thanks!", "Can't today"]
 
@@ -234,25 +233,17 @@ private struct ThreadView: View {
                 .padding(.horizontal, 2)
             }
             .onChange(of: chatStore.messages) { _, _ in
+                proxy.scrollTo("reply", anchor: .bottom)
+            }
+            .onChange(of: quickOpen) { _, _ in
                 withAnimation { proxy.scrollTo("reply", anchor: .bottom) }
             }
+            .onAppear { proxy.scrollTo("reply", anchor: .bottom) }
         }
         .navigationTitle(chat.title)
-        .task { await chatStore.loadThread(store, chatId: chat.id) }
-        .sheet(isPresented: $composing) {
-            NavigationStack {
-                VStack(spacing: 8) {
-                    TextField("Message", text: $draft)
-                    Button("Send") {
-                        let text = draft
-                        draft = ""
-                        composing = false
-                        Task { await chatStore.send(store, chatId: chat.id, text: text) }
-                    }
-                    .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
-                    .tint(CrooBrand.orange)
-                }
-            }
+        .task {
+            chatStore.messages = []
+            await chatStore.loadThread(store, chatId: chat.id)
         }
     }
 
@@ -284,31 +275,51 @@ private struct ThreadView: View {
         .frame(maxWidth: .infinity, alignment: m.mine ? .trailing : .leading)
     }
 
+    /// One row: "Quick Reply" (expands to the presets) + a reply arrow that opens the system input (dictate / scribble / type).
     private var replyArea: some View {
         VStack(spacing: 5) {
-            ForEach(quickReplies, id: \.self) { text in
+            HStack(spacing: 6) {
                 Button {
-                    Task { await chatStore.send(store, chatId: chat.id, text: text) }
+                    withAnimation(.easeInOut(duration: 0.2)) { quickOpen.toggle() }
                 } label: {
-                    Text(text)
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 7)
-                        .background(Capsule().fill(CrooBrand.card))
+                    HStack(spacing: 4) {
+                        Text("Quick Reply")
+                            .font(.system(size: 13, weight: .heavy, design: .rounded))
+                        Image(systemName: quickOpen ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 9, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+                    .background(Capsule().fill(CrooBrand.card))
+                }
+                .buttonStyle(.plain)
+
+                TextFieldLink(prompt: Text("Reply")) {
+                    Image(systemName: "arrowshape.turn.up.left.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .frame(width: 42, height: 34)
+                        .background(Capsule().fill(CrooBrand.orange))
+                } onSubmit: { text in
+                    Task { await chatStore.send(store, chatId: chat.id, text: text) }
                 }
                 .buttonStyle(.plain)
             }
-            Button {
-                composing = true
-            } label: {
-                Label("Dictate or type", systemImage: "mic.fill")
-                    .font(.system(size: 13, weight: .heavy, design: .rounded))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(Capsule().fill(CrooBrand.orange))
-            }
-            .buttonStyle(.plain)
+            if quickOpen {
+                ForEach(quickReplies, id: \.self) { text in
+                    Button {
+                        quickOpen = false
+                        Task { await chatStore.send(store, chatId: chat.id, text: text) }
+                    } label: {
+                        Text(text)
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 7)
+                            .background(Capsule().fill(CrooBrand.card.opacity(0.7)))
                     }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
         .foregroundStyle(.white)
         .padding(.top, 4)
     }
