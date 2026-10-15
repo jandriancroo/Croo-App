@@ -64,14 +64,15 @@ export async function loadChecklistHistory(
   db: TaskHistoryDb,
   ctx: TaskHistoryCtx
 ): Promise<ChecklistHistoryRow[]> {
-  const { locationId, dateStr: historyDateStr, timezone, closeTime } = ctx;
+  const { locationId, dateStr: historyDateStr } = ctx;
   if (!locationId) return [];
 
   const periodStartBusiness = ctx.periodStart;
   const periodEndBusiness = ctx.periodEnd;
-  const [yr, mo, dy] = historyDateStr.split('-').map(Number);
-  const histDateLocal = new Date(yr, mo - 1, dy, 12, 0, 0); // noon to avoid DST edge
-  const currentDay = getDateDayOfWeekInTimezone(histDateLocal, timezone);
+  const [yr, mo] = historyDateStr.split('-').map(Number);
+  // Browser-local month window (known quirk — preserved; same as planChecklistDay).
+  const monthStart = new Date(yr, mo - 1, 1, 0, 0, 0, 0);
+  const monthEnd = new Date(yr, mo, 0, 23, 59, 59, 999);
 
   const { data: allChecklistVersions } = await db
     .from('checklists')
