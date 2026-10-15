@@ -72,16 +72,10 @@ private struct TimelineBoard: View {
         return "\(h12)\(suffix)"
     }
 
-    private static let rolePalette: [Color] = [
-        Color(hex: "#4FB3C8"), Color(hex: "#EB7D3C"), Color(hex: "#9B7BE0"),
-        Color(hex: "#4CC38A"), Color(hex: "#E5617E"), Color(hex: "#E2B93B")
-    ]
-
-    /// Same role = same color, so you can read the day by position at a glance.
+    /// The shift template's color (same as the schedule screens); a neutral blue-gray for people with no shift.
     private func roleColor(_ s: WatchShift) -> Color {
-        let key = s.role.isEmpty ? s.name : s.role
-        let sum = key.unicodeScalars.reduce(0) { $0 + Int($1.value) }
-        return TimelineBoard.rolePalette[sum % TimelineBoard.rolePalette.count]
+        if let hex = s.color, !hex.isEmpty { return Color(hex: hex) }
+        return Color(hex: "#7D8FA3")
     }
 
     private func barColor(_ s: WatchShift) -> Color {

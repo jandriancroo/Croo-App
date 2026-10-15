@@ -34,6 +34,7 @@ struct WatchShift: Codable, Hashable, Identifiable {
     let live: String?
     let startMin: Double?
     let endMin: Double?
+    let color: String?
 
     var resolvedStatus: String { status ?? "later" }
     var resolvedInitials: String {
@@ -48,11 +49,11 @@ struct WatchShift: Codable, Hashable, Identifiable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, role, time, isMe, status, hours, initials, live, startMin, endMin
+        case id, name, role, time, isMe, status, hours, initials, live, startMin, endMin, color
     }
 
     init(id: String, name: String, role: String, time: String, isMe: Bool, status: String? = nil, hours: Double? = nil,
-         initials: String? = nil, live: String? = nil, startMin: Double? = nil, endMin: Double? = nil) {
+         initials: String? = nil, live: String? = nil, startMin: Double? = nil, endMin: Double? = nil, color: String? = nil) {
         self.id = id
         self.name = name
         self.role = role
@@ -64,6 +65,7 @@ struct WatchShift: Codable, Hashable, Identifiable {
         self.live = live
         self.startMin = startMin
         self.endMin = endMin
+        self.color = color
     }
 
     init(from decoder: Decoder) throws {
@@ -92,6 +94,7 @@ struct WatchShift: Codable, Hashable, Identifiable {
         live = try? c.decode(String.self, forKey: .live)
         startMin = try? c.decode(Double.self, forKey: .startMin)
         endMin = try? c.decode(Double.self, forKey: .endMin)
+        color = try? c.decode(String.self, forKey: .color)
     }
 }
 

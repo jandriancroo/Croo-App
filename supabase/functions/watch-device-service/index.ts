@@ -19,7 +19,7 @@ import { computePace, laborPct, resolveGoal, storeNow } from "../_shared/cubeMet
 import { clockedInUserIds } from "../_shared/onClock.ts";
 
 // Bump on every change so a deploy can be confirmed: POST {"action":"version"}.
-const WATCH_SERVICE_VERSION = "2026-10-15.3";
+const WATCH_SERVICE_VERSION = "2026-10-15.4";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -366,7 +366,7 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
   // ---------------- today's published schedule, with live clock status
   const { data: shiftRows, error: shiftErr } = await sb
     .from('scheduled_shifts')
-    .select('id, user_id, start_time, end_time, is_time_off, schedule:schedules!inner(is_published, location_id), template:shift_templates(template_name)')
+    .select('id, user_id, start_time, end_time, is_time_off, schedule:schedules!inner(is_published, location_id), template:shift_templates(template_name, color)')
     .eq('shift_date', today)
     .eq('schedule.location_id', locationId)
     .eq('schedule.is_published', true);
@@ -378,13 +378,6 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
     .filter((s: any) => !s.is_time_off)
     .filter((s: any) => seesFullSchedule || s.user_id === userId);
 
-  const userIds = [...new Set(shifts.map((s: any) => s.user_id).filter(Boolean))] as string[];
-  const profileMap = new Map<string, any>();
-  if (userIds.length) {
-    const { data: profiles } = await sb.from('profiles').select('id, full_name, nickname').in('id', userIds);
-    (profiles || []).forEach((p: any) => profileMap.set(p.id, p));
-  }
-
   // Who is on the clock: the ONE read (_shared/onClock.ts). Punch times are read
   // separately for display only.
   let onClock = new Set<string>();
@@ -393,6 +386,17 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
   } catch (e) {
     console.error('[watch-device-service] onClock read failed', e);
   }
+
+  const scheduledIds = [...new Set(shifts.map((s: any) => s.user_id).filter(Boolean))] as string[];
+  // People punched in with no shift today (same visibility rule as the schedule).
+  const unscheduledIds = [...onClock].filter((u) => !scheduledIds.includes(u) && (seesFullSchedule || u === userId));
+  const userIds = [...scheduledIds, ...unscheduledIds];
+  const profileMap = new Map<string, any>();
+  if (userIds.length) {
+    const { data: profiles } = await sb.from('profiles').select('id, full_name, nickname').in('id', userIds);
+    (profiles || []).forEach((p: any) => profileMap.set(p.id, p));
+  }
+
   const since = new Date(Date.now() - 24 * 3600_000).toISOString();
   type Live = { clockIn?: string; clockOut?: string; breakStart?: string; onBreak?: boolean };
   const liveByUser = new Map<string, Live>();
@@ -448,7 +452,7 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
     return h * 60 + (m || 0);
   };
 
-  const schedule = shifts
+  const scheduleRows = shifts
     .map((s: any) => {
       const p = profileMap.get(s.user_id);
       const name = s.user_id ? (p?.nickname || p?.full_name || 'Team member') : 'Open Shift';
@@ -474,6 +478,7 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
         name,
         initials: s.user_id ? initialsOf(name) : '—',
         role: s.template?.template_name || '',
+        color: s.template?.color || null,
         time: [fmtTime(s.start_time), fmtTime(s.end_time)].filter(Boolean).join(' – '),
         status,
         live: liveLabel,
@@ -484,6 +489,38 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
         _sort: s.start_time || '',
       };
     })
+    ;
+
+  // Unscheduled but punched in: a bar from clock-in to now, no template color.
+  const minutesOf = (iso?: string) => {
+    if (!iso) return null;
+    const dt = DateTime.fromISO(iso).setZone(tz);
+    return dt.isValid ? dt.hour * 60 + dt.minute : null;
+  };
+  const extraRows = unscheduledIds.map((uid) => {
+    const p = profileMap.get(uid);
+    const name = p?.nickname || p?.full_name || 'Team member';
+    const live = liveByUser.get(uid) || {};
+    const onBreak = !!live.onBreak;
+    const start = minutesOf(live.clockIn);
+    return {
+      id: `unscheduled-${uid}`,
+      name,
+      initials: initialsOf(name),
+      role: 'No shift scheduled',
+      color: null,
+      time: live.clockIn ? `In ${fmtStamp(live.clockIn)}` : 'Clocked in',
+      status: onBreak ? 'break' : 'active',
+      live: onBreak ? `On break · ${fmtStamp(live.breakStart)}` : (live.clockIn ? `In ${fmtStamp(live.clockIn)}` : 'Clocked in'),
+      hours: 0,
+      startMin: start,
+      endMin: start !== null ? Math.max(nowMinutes, start + 30) : null,
+      isMe: uid === userId,
+      _sort: live.clockIn ? DateTime.fromISO(live.clockIn).setZone(tz).toFormat('HH:mm') : '99:99',
+    };
+  });
+
+  const schedule = [...scheduleRows, ...extraRows]
     .sort((a: any, b: any) => String(a._sort).localeCompare(String(b._sort)))
     .map(({ _sort, ...rest }: any) => rest);
 
