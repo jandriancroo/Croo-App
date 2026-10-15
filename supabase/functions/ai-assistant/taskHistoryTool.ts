@@ -102,6 +102,8 @@ export async function runQueryTaskHistory(db: any, args: any, c: TaskHistoryTool
 
   const out = days.map((d) => ({
     date: d.dateStr,
+    // Header average uses every checklist that day (before any title/person filter).
+    avg: d.cl.length ? Math.round(d.cl.reduce((sum: number, h: any) => sum + Math.round(h.completionRate * 100), 0) / d.cl.length) : null,
     checklists: d.cl.map((h: any) => ({
       title: h.title,
       completed_items: h.completedCount,
@@ -137,7 +139,7 @@ export async function runQueryTaskHistory(db: any, args: any, c: TaskHistoryTool
   }
 
   const result = out.map((d) => {
-    const avg = d.checklists.length ? Math.round(d.checklists.reduce((s, h) => s + h.percent, 0) / d.checklists.length) : null;
+    const avg = d.avg;
     const day: any = { date: d.date };
     if (want("checklist")) {
       day.checklists = d.checklists;
