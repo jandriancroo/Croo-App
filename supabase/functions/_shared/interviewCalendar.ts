@@ -3,7 +3,7 @@
 // - Store-local wall time -> UTC via the store's location_settings.timezone (Coop's Central, Blaze Pacific).
 // - Stable UID per application so a rescheduled link updates the same calendar event.
 // - Virtual: calendar files contain a signed CrooHQ join link, never the raw Meet URL.
-import { DateTime } from "npm:luxon@3.4.4";
+import { DateTime } from "npm:luxon";
 
 export const CAL_FUNCTION_URL = `${Deno.env.get("SUPABASE_URL")}/functions/v1/interview-calendar`;
 
