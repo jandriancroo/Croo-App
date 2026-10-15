@@ -36,6 +36,7 @@ export const TheoVoiceOrb = forwardRef<TheoVoiceOrbHandle, { phase: Phase; level
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const glowRef = useRef<HTMLDivElement>(null);
   const lightningRef = useRef<SVGSVGElement>(null);
+  const pumpkinRef = useRef<HTMLDivElement>(null);
   const impulseRef = useRef<(cue: TheoCue, n: number) => void>(() => {});
   const cueTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const phaseRef = useRef(phase);
@@ -45,6 +46,13 @@ export const TheoVoiceOrb = forwardRef<TheoVoiceOrbHandle, { phase: Phase; level
 
   useImperativeHandle(ref, () => ({
     cue(name) {
+      // Spookified jack-o'-lantern: inner-glow flare on READY / GOT IT, dim on CLOSED (CSS-driven).
+      const pk = pumpkinRef.current;
+      if (pk) {
+        pk.removeAttribute('data-cue');
+        void pk.offsetWidth; // restart the CSS animation
+        pk.setAttribute('data-cue', name);
+      }
       CUE_TAPS[name].forEach(([, ,], n) => {
         const tapOffset = CUE_TAPS[name][n][0];
         const timer = setTimeout(() => impulseRef.current(name, n), (0.03 + tapOffset) * 1000);
@@ -115,6 +123,7 @@ export const TheoVoiceOrb = forwardRef<TheoVoiceOrbHandle, { phase: Phase; level
     const draw = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
+      if (spooky) { raf = requestAnimationFrame(draw); return; }
       const p = phaseRef.current;
       const still = reduced || p === 'error';
       smooth += ((p === 'speaking' ? levelRef.current : 0) - smooth) * 0.25;
@@ -201,8 +210,28 @@ export const TheoVoiceOrb = forwardRef<TheoVoiceOrbHandle, { phase: Phase; level
 
   return (
     <>
-      <div ref={glowRef} aria-hidden className="absolute left-10 top-10 h-[200px] w-[200px] rounded-full blur-[34px]" style={{ background: 'hsl(var(--primary-light, 190 57% 60%) / 0.32)' }} />
-      <canvas ref={canvasRef} aria-hidden style={{ width: SIZE, height: SIZE }} className="relative block" />
+      <div ref={pumpkinRef} aria-hidden className="spooky-pumpkin" data-phase={phase}>
+        <div className="spooky-pumpkin-glow" />
+        <div className="spooky-pumpkin-turn">
+          <svg viewBox="0 0 200 200" className="spooky-pumpkin-svg">
+            <defs>
+              <radialGradient id="spk-body" cx="45%" cy="40%" r="65%"><stop offset="0" stopColor="#ffa347" /><stop offset=".6" stopColor="#f06d12" /><stop offset="1" stopColor="#8a3204" /></radialGradient>
+              <radialGradient id="spk-flame" cx="50%" cy="55%" r="60%"><stop offset="0" stopColor="#fff6c2" /><stop offset=".45" stopColor="#ffd257" /><stop offset="1" stopColor="#ff8a1a" /></radialGradient>
+            </defs>
+            <path d="M100 42c0-14 6-22 18-26" stroke="#3d6b2a" strokeWidth="9" fill="none" strokeLinecap="round" />
+            <ellipse cx="62" cy="112" rx="50" ry="62" fill="url(#spk-body)" />
+            <ellipse cx="138" cy="112" rx="50" ry="62" fill="url(#spk-body)" />
+            <ellipse cx="100" cy="112" rx="50" ry="66" fill="url(#spk-body)" />
+            <path d="M62 60q-12 52 0 112M138 60q12 52 0 112M100 48v130" stroke="#b9480a" strokeWidth="2.5" fill="none" opacity=".5" />
+            <g className="spooky-pumpkin-face" fill="url(#spk-flame)">
+              <path d="M52 98l22-24 16 26z" /><path d="M110 100l16-26 22 24z" /><path d="M92 120l8-14 8 14z" />
+              <path d="M44 132q56 46 112 0l-12 4-6 12-12-9-10 12-12-12-10 12-12-9-6-12z" />
+            </g>
+          </svg>
+        </div>
+      </div>
+      <div ref={glowRef} aria-hidden className="theo-orb-default absolute left-10 top-10 h-[200px] w-[200px] rounded-full blur-[34px]" style={{ background: 'hsl(var(--primary-light, 190 57% 60%) / 0.32)' }} />
+      <canvas ref={canvasRef} aria-hidden style={{ width: SIZE, height: SIZE }} className="theo-orb-default relative block" />
       <svg ref={lightningRef} aria-hidden className="spookified-orb-lightning" viewBox="0 0 60 100">
         <path d="M38 2L8 52H28L19 98L54 39H33Z" />
       </svg>
