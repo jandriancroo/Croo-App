@@ -28,11 +28,11 @@ If a screen in the app shows a number, Theo must get that number from the same f
 
 All actions below are available in typed chat and voice. "Managers and up" means only `manager`, `admin`, `org_admin` and `super_admin`, AND `has_location_access` for this store. Shift managers, shift managers in training and team members get no actions. Brand admins get only `quick_nudge`, with store access.
 
-Theo only builds a preview card. Nothing saves until the manager taps that card's save button; saying "yes" does not save. The tap is rechecked, `cancel_pending_action` drops an open preview, and the wizard logs previews and saved actions in `theo_action_log`.
+Theo only builds a preview card. Nothing saves until the manager taps that card's save button; saying "yes" does not save. Most taps have a server recheck; quick-task creation uses the shared client save and database permissions without a separate recheck call. `cancel_pending_action` drops an open preview, and the wizard logs previews and saved actions in `theo_action_log`.
 
 | Action | Who (role) | How it saves | Notes |
 |---|---|---|---|
-| `create_task` (quick task) | Managers and up, with store access | Preview → tap Create task → recheck → shared quick-task save | Standard quick task for a person or role |
+| `create_task` (quick task) | Managers and up, with store access | Preview → tap Create task → shared quick-task save under database permissions | Standard quick task for a person or role; no separate server recheck call |
 | `create_event` | Managers and up, with store access | Preview → tap Add event → recheck → shared event save | One-time or recurring; categories, notes, role tags, daily-task and meeting flags. Creating a new category requires admin or above; managers can use existing categories |
 | `cover_shift` | Managers and up, with store access | Preview → tap Confirm change → recheck → shared schedule save | Checked cover candidates; published weeks also run Update |
 | `add_shift` | Managers and up, with store access | Preview → tap Add shift → recheck → shared schedule save | Checked day preview; a new week starts as a draft |
