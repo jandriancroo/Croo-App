@@ -2466,19 +2466,59 @@ html[data-theme="spookified"] body.spookified-dashboard .spookified-fog i { posi
 html[data-theme="spookified"] body.spookified-dashboard .spookified-fog i:nth-child(2) { transform: translateX(-12%); animation-duration: 32s; animation-delay: -12s; }
 html[data-theme="spookified"] body.spookified-dashboard .spookified-fog i:nth-child(3) { transform: translateX(12%); animation-duration: 38s; animation-delay: -20s; }
 html[data-theme="spookified"] body.spookified-dashboard .spookified-fog-front { z-index: 2; height: 11%; opacity: 0.1; animation: spooky-fog-roll 2.5s ease-out both; }
-html[data-theme="spookified"] body.spookified-dashboard .spookified-bat { position: fixed; left: -60px; top: 17%; pointer-events: none; z-index: 3; opacity: 0; fill: hsl(var(--spooky-night)); filter: drop-shadow(0 0 1px hsl(var(--spooky-moon) / 0.4)); animation: fly-across 5s linear both; }
+html[data-theme="spookified"] body.spookified-dashboard .spookified-bat { position: fixed; left: -60px; top: 17%; pointer-events: none; z-index: 3; opacity: 0; fill: hsl(var(--spooky-night)); filter: drop-shadow(0 0 1px hsl(var(--spooky-moon) / 0.4)); will-change: transform; animation: spooky-bat-cross 6s linear both; }
+html[data-theme="spookified"] body.spookified-dashboard .spookified-bat-rtl { animation-name: spooky-bat-cross-rtl; }
 html[data-theme="spookified"] body.spookified-dashboard .spookified-bat-wing { transform-origin: center; animation: flapWing 0.18s ease-in-out infinite alternate; }
-html[data-theme="spookified"] body.spookified-dashboard .spookified-bat-1 { top: 26%; animation-delay: 0.4s; }
-html[data-theme="spookified"] body.spookified-dashboard .spookified-bat-2 { top: 12%; animation-delay: 0.9s; }
-html[data-theme="spookified"] body.spookified-dashboard .spookified-bat-3 { top: 35%; animation-delay: 1.4s; }
-html[data-theme="spookified"] body.spookified-dashboard .spookified-bat-4 { top: 21%; animation-delay: 2s; }
 @keyframes spooky-fog-roll { from { transform: translateY(65%) scale(0.85); opacity: 0; } to { transform: translateY(0) scale(1); } }
 @keyframes spooky-fog-drift { from { transform: translateX(-6%) translateY(5%); } to { transform: translateX(6%) translateY(-4%); } }
 .spookified-orb-lightning { display: none; }
+@keyframes spooky-bat-cross {
+  0% { opacity: 0; transform: translate(0, 0) scale(var(--bat-scale, 1)); }
+  8% { opacity: 1; }
+  50% { transform: translate(calc(50vw + 60px), calc(var(--bat-dy, 0vh) / 2 + var(--bat-arc, 0vh))) scale(var(--bat-scale, 1)); }
+  92% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(100vw + 120px), var(--bat-dy, 0vh)) scale(var(--bat-scale, 1)); }
+}
+@keyframes spooky-bat-cross-rtl {
+  0% { opacity: 0; transform: translate(calc(100vw + 120px), 0) scale(calc(var(--bat-scale, 1) * -1), var(--bat-scale, 1)); }
+  8% { opacity: 1; }
+  50% { transform: translate(calc(50vw + 60px), calc(var(--bat-dy, 0vh) / 2 + var(--bat-arc, 0vh))) scale(calc(var(--bat-scale, 1) * -1), var(--bat-scale, 1)); }
+  92% { opacity: 1; }
+  100% { opacity: 0; transform: translate(0, var(--bat-dy, 0vh)) scale(calc(var(--bat-scale, 1) * -1), var(--bat-scale, 1)); }
+}
+/* Theo voice orb: jack-o'-lantern replaces the particle orb + lightning in Spookified only. */
+.spooky-pumpkin { display: none; }
+html[data-theme="spookified"] .theo-orb-default,
+html[data-theme="spookified"] .spookified-orb-lightning { display: none !important; }
+html[data-theme="spookified"] .spooky-pumpkin { display: block; position: absolute; inset: 0; perspective: 600px; pointer-events: none; }
+.spooky-pumpkin-glow { position: absolute; left: 40px; top: 40px; width: 200px; height: 200px; border-radius: 50%; filter: blur(34px); background: radial-gradient(circle, #ffb347, #ff7a1a 50%, transparent 75%); opacity: .85; animation: spk-glow 1.6s ease-in-out infinite alternate; }
+.spooky-pumpkin-turn { position: absolute; inset: 0; transform-style: preserve-3d; animation: spk-bob 3s ease-in-out infinite; }
+.spooky-pumpkin-svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 0 22px rgba(255,140,30,.65)); transition: filter .3s; }
+.spooky-pumpkin-face { animation: spk-flicker .9s steps(1) infinite; }
+.spooky-pumpkin[data-phase="listening"] .spooky-pumpkin-turn { animation: spk-turn 6s ease-in-out infinite; }
+.spooky-pumpkin[data-phase="speaking"] .spooky-pumpkin-turn { animation: spk-wobble .7s ease-in-out infinite; }
+.spooky-pumpkin[data-phase="connecting"] .spooky-pumpkin-glow, .spooky-pumpkin[data-phase="thinking"] .spooky-pumpkin-glow { animation-duration: .8s; }
+.spooky-pumpkin[data-phase="idle"] .spooky-pumpkin-glow { opacity: .6; }
+.spooky-pumpkin[data-phase="error"] { opacity: .6; }
+.spooky-pumpkin[data-cue="ready"] .spooky-pumpkin-svg, .spooky-pumpkin[data-cue="heard"] .spooky-pumpkin-svg { animation: spk-flare .7s ease-out; }
+.spooky-pumpkin[data-cue="ready"] .spooky-pumpkin-glow, .spooky-pumpkin[data-cue="heard"] .spooky-pumpkin-glow { animation: spk-glow-flare .7s ease-out; }
+.spooky-pumpkin[data-cue="closed"] .spooky-pumpkin-svg { animation: spk-dim .9s ease-in-out; }
+@keyframes spk-glow { from { opacity: .7; transform: scale(.96); } to { opacity: 1; transform: scale(1.06); } }
+@keyframes spk-bob { 50% { transform: translateY(-6px); } }
+@keyframes spk-flicker { 0% { opacity: 1; } 22% { opacity: .82; } 35% { opacity: 1; } 61% { opacity: .9; } 74% { opacity: .7; } 86% { opacity: 1; } }
+@keyframes spk-turn { 0%, 100% { transform: rotateY(-28deg) translateY(0); } 50% { transform: rotateY(28deg) translateY(-4px); } }
+@keyframes spk-wobble { 0%, 100% { transform: rotate(0) translateY(0) scale(1); } 25% { transform: rotate(-5deg) translateY(-8px) scale(1.03, .97); } 50% { transform: rotate(0) translateY(0) scale(.97, 1.03); } 75% { transform: rotate(5deg) translateY(-8px) scale(1.03, .97); } }
+@keyframes spk-flare { 0% { filter: drop-shadow(0 0 22px rgba(255,140,30,.65)) brightness(1); } 30% { filter: drop-shadow(0 0 44px rgba(255,210,90,1)) brightness(1.45); } 100% { filter: drop-shadow(0 0 22px rgba(255,140,30,.65)) brightness(1); } }
+@keyframes spk-glow-flare { 0% { opacity: .85; transform: scale(1); } 30% { opacity: 1.6; transform: scale(1.3); } 100% { opacity: .85; transform: scale(1); } }
+@keyframes spk-dim { 0%, 100% { filter: drop-shadow(0 0 22px rgba(255,140,30,.65)) brightness(1); } 40% { filter: drop-shadow(0 0 6px rgba(255,140,30,.3)) brightness(.55); } }
 html[data-theme="spookified"] .spookified-orb-lightning { display: block; position: absolute; width: 42px; height: 70px; top: 16px; right: 24px; opacity: 0; pointer-events: none; fill: hsl(var(--spooky-electric)); filter: drop-shadow(0 0 8px hsl(var(--spooky-electric) / 0.8)); }
 @media (prefers-reduced-motion: reduce) {
   html[data-theme="spookified"] body.spookified-dashboard .spookified-bats,
   html[data-theme="spookified"] .spookified-orb-lightning { display: none !important; }
+  .spooky-pumpkin-glow, .spooky-pumpkin-turn, .spooky-pumpkin-face,
+  .spooky-pumpkin[data-phase] .spooky-pumpkin-turn { animation: none !important; transform: none !important; }
+  /* Cues still give a static-ish brightness change (no motion). */
+  .spooky-pumpkin[data-cue] .spooky-pumpkin-svg { animation-duration: .4s; }
   html[data-theme="spookified"] body.spookified-dashboard .spookified-fog { animation: none; height: 15%; opacity: 0.16; }
   html[data-theme="spookified"] body.spookified-dashboard .spookified-fog i { animation: none; transform: none; }
   html[data-theme="spookified"] body.spookified-dashboard .spookified-fog-front { display: none; }
