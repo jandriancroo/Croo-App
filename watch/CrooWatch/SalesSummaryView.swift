@@ -60,6 +60,7 @@ struct SalesSummaryView: View {
         }
         .navigationTitle("Sales")
         }
+        .background(Color.black.ignoresSafeArea())
     }
 
     private var header: some View {

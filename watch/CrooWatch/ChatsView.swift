@@ -136,6 +136,7 @@ struct ChatsView: View {
                 ThreadView(chat: chat).environmentObject(chatStore)
             }
         }
+        .background(Color.black.ignoresSafeArea())
         .task(id: store.selectedLocationId) { await chatStore.loadChats(store) }
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
             Task { await chatStore.loadChats(store) }
