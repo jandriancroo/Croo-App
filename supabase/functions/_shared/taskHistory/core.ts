@@ -64,14 +64,15 @@ export async function loadChecklistHistory(
   db: TaskHistoryDb,
   ctx: TaskHistoryCtx
 ): Promise<ChecklistHistoryRow[]> {
-  const { locationId, dateStr: historyDateStr, timezone, closeTime } = ctx;
+  const { locationId, dateStr: historyDateStr } = ctx;
   if (!locationId) return [];
 
   const periodStartBusiness = ctx.periodStart;
   const periodEndBusiness = ctx.periodEnd;
-  const [yr, mo, dy] = historyDateStr.split('-').map(Number);
-  const histDateLocal = new Date(yr, mo - 1, dy, 12, 0, 0); // noon to avoid DST edge
-  const currentDay = getDateDayOfWeekInTimezone(histDateLocal, timezone);
+  const [yr, mo] = historyDateStr.split('-').map(Number);
+  // Browser-local month window (known quirk — preserved; same as planChecklistDay).
+  const monthStart = new Date(yr, mo - 1, 1, 0, 0, 0, 0);
+  const monthEnd = new Date(yr, mo, 0, 23, 59, 59, 999);
 
   const { data: allChecklistVersions } = await db
     .from('checklists')
@@ -93,54 +94,7 @@ export async function loadChecklistHistory(
     .eq('location_id', locationId)
     .order('display_order', { ascending: true });
 
-  // Closed period ignores is_active; one live version per family per day.
-  // deno-lint-ignore no-explicit-any
-  const checklistsData = versionsLiveOnDay((allChecklistVersions ?? []) as any[], periodStartBusiness);
-  if (!checklistsData || checklistsData.length === 0) return [];
-
-  // Browser-local month window (known quirk — preserved).
-  const monthStart = new Date(yr, mo - 1, 1, 0, 0, 0, 0);
-  const monthEnd = new Date(yr, mo, 0, 23, 59, 59, 999);
-
-  // deno-lint-ignore no-explicit-any
-  const checklistInfo = checklistsData.map((checklist: any) => {
-    if (checklist.frequency === 'single_day') {
-      const sd = checklist.scheduled_date;
-      if (sd && sd !== historyDateStr) return null;
-    }
-    const scoreStart = getScorePeriodStart({
-      templateType: checklist.template_type,
-      frequency: checklist.frequency,
-      businessDateStr: historyDateStr,
-      dayOfWeekMon0: currentDay,
-      timezone,
-      closeTime,
-    });
-    const answerableItems = (checklist.checklist_items || []).filter(
-      // deno-lint-ignore no-explicit-any
-      (item: any) => item.item_type !== 'section_header' && isItemExpectedInPeriod(item, scoreStart)
-    );
-    const expectedItems = checklist.template_type === 'dynamic'
-      // deno-lint-ignore no-explicit-any
-      ? answerableItems.filter((item: any) => item.days_of_week && item.days_of_week.includes(currentDay))
-      : answerableItems;
-    const itemCount = expectedItems.length;
-    // deno-lint-ignore no-explicit-any
-    const expectedItemIds = new Set<string>(expectedItems.map((item: any) => item.id));
-
-    const isMonthly = checklist.frequency === 'monthly';
-    if (isMonthly && checklist.visible_days_before_month_end) {
-      const viewDate = new Date(historyDateStr + 'T12:00:00');
-      const lastDayOfMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0);
-      const daysUntilMonthEnd = lastDayOfMonth.getDate() - viewDate.getDate();
-      if (daysUntilMonthEnd >= checklist.visible_days_before_month_end) return null;
-    }
-
-    const periodStart = isMonthly ? monthStart : periodStartBusiness;
-    const periodEnd = isMonthly ? monthEnd : periodEndBusiness;
-    return { ...checklist, itemCount, expectedItemIds, periodStart, periodEnd };
-    // deno-lint-ignore no-explicit-any
-  }).filter((c: any) => c !== null && c.itemCount > 0);
+  const checklistInfo = planChecklistDay(allChecklistVersions, ctx);
 
   if (checklistInfo.length === 0) return [];
 
@@ -237,6 +191,73 @@ export async function loadChecklistHistory(
       dueByTime: checklist.due_by_time || null,
     };
   });
+}
+
+/**
+ * Which checklists count on ctx.dateStr and which items they expect — exactly the set
+ * Tasks > History scores (live version that day, no section headers, archive rule,
+ * dynamic days_of_week, single_day, monthly window). Pure; used by loadChecklistHistory
+ * and Theo's item-level lookup. Each row keeps its checklist fields plus itemCount,
+ * expectedItemIds, expectedItems, periodStart, periodEnd.
+ */
+// deno-lint-ignore no-explicit-any
+export function planChecklistDay(allChecklistVersions: any[] | null | undefined, ctx: TaskHistoryCtx): any[] {
+  const { dateStr: historyDateStr, timezone, closeTime } = ctx;
+  const periodStartBusiness = ctx.periodStart;
+  const periodEndBusiness = ctx.periodEnd;
+  const [yr, mo, dy] = historyDateStr.split('-').map(Number);
+  const histDateLocal = new Date(yr, mo - 1, dy, 12, 0, 0); // noon to avoid DST edge
+  const currentDay = getDateDayOfWeekInTimezone(histDateLocal, timezone);
+  // Closed period ignores is_active; one live version per family per day.
+  // deno-lint-ignore no-explicit-any
+  const checklistsData = versionsLiveOnDay((allChecklistVersions ?? []) as any[], periodStartBusiness);
+  if (!checklistsData || checklistsData.length === 0) return [];
+
+  // Browser-local month window (known quirk — preserved).
+  const monthStart = new Date(yr, mo - 1, 1, 0, 0, 0, 0);
+  const monthEnd = new Date(yr, mo, 0, 23, 59, 59, 999);
+
+  // deno-lint-ignore no-explicit-any
+  const checklistInfo = checklistsData.map((checklist: any) => {
+    if (checklist.frequency === 'single_day') {
+      const sd = checklist.scheduled_date;
+      if (sd && sd !== historyDateStr) return null;
+    }
+    const scoreStart = getScorePeriodStart({
+      templateType: checklist.template_type,
+      frequency: checklist.frequency,
+      businessDateStr: historyDateStr,
+      dayOfWeekMon0: currentDay,
+      timezone,
+      closeTime,
+    });
+    const answerableItems = (checklist.checklist_items || []).filter(
+      // deno-lint-ignore no-explicit-any
+      (item: any) => item.item_type !== 'section_header' && isItemExpectedInPeriod(item, scoreStart)
+    );
+    const expectedItems = checklist.template_type === 'dynamic'
+      // deno-lint-ignore no-explicit-any
+      ? answerableItems.filter((item: any) => item.days_of_week && item.days_of_week.includes(currentDay))
+      : answerableItems;
+    const itemCount = expectedItems.length;
+    // deno-lint-ignore no-explicit-any
+    const expectedItemIds = new Set<string>(expectedItems.map((item: any) => item.id));
+
+    const isMonthly = checklist.frequency === 'monthly';
+    if (isMonthly && checklist.visible_days_before_month_end) {
+      const viewDate = new Date(historyDateStr + 'T12:00:00');
+      const lastDayOfMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0);
+      const daysUntilMonthEnd = lastDayOfMonth.getDate() - viewDate.getDate();
+      if (daysUntilMonthEnd >= checklist.visible_days_before_month_end) return null;
+    }
+
+    const periodStart = isMonthly ? monthStart : periodStartBusiness;
+    const periodEnd = isMonthly ? monthEnd : periodEndBusiness;
+    return { ...checklist, itemCount, expectedItemIds, expectedItems, periodStart, periodEnd };
+    // deno-lint-ignore no-explicit-any
+  }).filter((c: any) => c !== null && c.itemCount > 0);
+
+  return checklistInfo;
 }
 
 // ─── Completed Quick Tasks ────────────────────────────────────
