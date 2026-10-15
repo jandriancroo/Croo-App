@@ -1,3 +1,4 @@
+import { requestDashSlideUp } from '@/lib/startupSequence';
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Pin } from 'lucide-react';
 import { createPortal } from 'react-dom';
@@ -258,7 +259,8 @@ export function AiAssistantBubble() {
     return () => window.removeEventListener('open-theo', handler);
   }, []);
 
-  // ── Theo voice: offer each 4-hour opener once per person per store ──
+  // ── 4-hour opener, once per person per store: the manager dash slides up.
+  // Theo's voice screen never auto-opens; it opens only when Theo is tapped. ──
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [voiceIntent, setVoiceIntent] = useState<'update' | 'talk'>('talk');
   const [streaming, setStreaming] = useState(false);
@@ -275,8 +277,7 @@ export function AiAssistantBubble() {
       const storeKey = `theo-voice-seen:${uid}:${currentLocation.id}`;
       if (localStorage.getItem(storeKey) === key) return;
       localStorage.setItem(storeKey, key);
-      setVoiceIntent('update');
-      setVoiceOpen(true);
+      requestDashSlideUp();
     };
     check();
     document.addEventListener('visibilitychange', check);

@@ -41,6 +41,7 @@ import { BillingActivationBanner } from '@/components/billing/BillingActivationB
 import { PageTitle } from '@/components/PageTitle';
 import { SpookifiedEffects } from '@/components/dashboard/SpookifiedEffects';
 import { SpookifiedInvite } from '@/components/dashboard/SpookifiedInvite';
+import { markDashReady } from '@/lib/startupSequence';
 
 
 // Lazy-loaded components (only needed conditionally)
@@ -75,6 +76,7 @@ export default function Dashboard() {
   // Themed dashboard backgrounds (beach + playa)
   useEffect(() => {
     document.body.classList.add('beach-dashboard', 'playa-dashboard', 'blaze-dashboard', 'spookified-dashboard');
+    markDashReady(); // starts the login sequence (dash slide-up, then Spookified invite) once idle
     return () => document.body.classList.remove('beach-dashboard', 'playa-dashboard', 'blaze-dashboard', 'spookified-dashboard');
   }, []);
   const [selectedCateringOrder, setSelectedCateringOrder] = useState<CateringOrder | null>(null);
