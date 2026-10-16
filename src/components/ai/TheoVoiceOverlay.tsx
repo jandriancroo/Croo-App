@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Keyboard, MessageSquareText, Mic, Volume2, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { FunctionRegion } from '@supabase/supabase-js';
 import { pcmBuffer, outputRateFrom } from '@/lib/theoPcm';
 import { useLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/lib/auth';
@@ -257,7 +258,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     if (!id) return;
     const cur = sessionRef.current;
     if (cur && cur.locationId === id && Date.now() - cur.at < 240_000) return;
-    const p = supabase.functions.invoke('theo-voice', { body: { action: 'session', location_id: id } })
+    const p = supabase.functions.invoke('theo-voice', { region: FunctionRegion.EuWest2, body: { action: 'session', location_id: id } })
       .then(({ data, error }) => (error || !data?.token ? null : data));
     sessionRef.current = { locationId: id, at: Date.now(), promise: p };
     void p.then((d) => { if (!d && sessionRef.current?.promise === p) sessionRef.current = null; });
@@ -270,7 +271,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     const d = s ? await s.promise : null;
     const keep = (x: any) => { actionsRef.current = readActs(x?.actions); return x; };
     if (d) return keep(d);
-    const { data, error } = await supabase.functions.invoke('theo-voice', { body: { action: 'session', location_id: currentLocation!.id } });
+    const { data, error } = await supabase.functions.invoke('theo-voice', { region: FunctionRegion.EuWest2, body: { action: 'session', location_id: currentLocation!.id } });
     if (error || !data?.token) throw new Error(data?.error || 'Theo’s voice isn’t available right now.');
     return keep(data);
   };
@@ -367,7 +368,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     const schedAct = acts.cover_shift || acts.add_shift || acts.delete_shift || acts.swap_shift || acts.change_shift;
     const canAct = acts.create_task || schedAct || acts.create_event || acts.send_message || acts.clock_punch || acts.quick_nudge || acts.post_announcement;
     const sc = screenRef.current;
-    const { data, error: e } = await supabase.functions.invoke('ai-assistant', {
+    const { data, error: e } = await supabase.functions.invoke('ai-assistant', { region: FunctionRegion.EuWest2,
       body: {
         messages: [
           // Last few voice turns, same shape as typed chat; ids let follow-ups ("nudge them about that") pass target_id.
@@ -590,7 +591,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
       if (!withOpener) prefetchSession();
 
       const [upd, stream] = await Promise.all([
-        withOpener ? supabase.functions.invoke('theo-voice', { body: { action: 'update', location_id: currentLocation.id } }) : Promise.resolve(null),
+        withOpener ? supabase.functions.invoke('theo-voice', { region: FunctionRegion.EuWest2, body: { action: 'update', location_id: currentLocation.id } }) : Promise.resolve(null),
         navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }),
       ]);
       if (!ctxRef.current) { stream.getTracks().forEach((t) => t.stop()); return; }

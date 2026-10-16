@@ -6,13 +6,15 @@ import { encodeBase64 } from "jsr:@std/encoding@1/base64";
 import { roleForUser, theoActionsAt, type TheoActions } from "../_shared/theoActions.ts";
 import { isWarmPing, warmResponse } from "../_shared/warm.ts";
 
+const cors = { ...corsHeaders, "Access-Control-Allow-Headers": corsHeaders["Access-Control-Allow-Headers"] + ", x-region" };
+
 const AI_URL = "https://ai.gateway.lovable.dev/v1/responses";
 const MANAGER_ROLES = ["shift_manager", "shift_manager_in_training", "manager", "general_manager", "admin", "org_admin", "fbc", "brand_admin", "super_admin"];
 const ALL_ACCESS_ROLES = ["super_admin", "brand_admin", "org_admin", "fbc"];
 const VOICES = ["eve", "ara", "leo", "rex", "sal"];
 
 const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
 function localParts(tz: string) {
   const p = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" }).formatToParts(new Date());
@@ -111,9 +113,9 @@ For action requests (tasks, shifts, messages, punches, nudges, announcements), p
 Stay on restaurant operations.${hands}`;
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   // Keep-warm ping (exact {"warm": true} body): before auth, no TTS, no pass, no data.
-  if (await isWarmPing(req)) return warmResponse(corsHeaders);
+  if (await isWarmPing(req)) return warmResponse(cors);
   const url = Deno.env.get("SUPABASE_URL")!;
   const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   let body: any = {};

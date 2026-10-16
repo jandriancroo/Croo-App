@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { X, Send, Loader2, Mic, MicOff, RotateCcw, ThumbsUp } from 'lucide-react';
 import { TheoOrb } from '@/components/dock/TheoOrb';
 import { supabase } from '@/integrations/supabase/client';
+import { FunctionRegion } from '@supabase/supabase-js';
 import { useLocation } from '@/hooks/useLocation';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
@@ -410,7 +411,7 @@ export function AiAssistantBubble() {
         dropPartial();
         if (!(se instanceof TheoStreamError) || !se.retry) throw se;
         // Stream broke before the final answer: retry once the normal way (no stream).
-        const r = await supabase.functions.invoke('ai-assistant', { body: reqBody });
+        const r = await supabase.functions.invoke('ai-assistant', { region: FunctionRegion.EuWest2, body: reqBody });
         if (r.error) throw r.error;
         data = r.data;
       }
