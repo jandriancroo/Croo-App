@@ -33,10 +33,11 @@ export async function askTheoStream(body: Record<string, unknown>, onDelta: (tex
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
   let res: Response;
   try {
-    res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`, {
+    res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant?forceFunctionRegion=eu-west-2`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-region': 'eu-west-2',
         apikey: key,
         Authorization: `Bearer ${session?.access_token ?? key}`,
       },

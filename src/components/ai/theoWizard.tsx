@@ -15,6 +15,7 @@ import { sendQuickNudge, nameList, NUDGE_ICON } from '@/lib/quickNudges';
 import { createScheduleEvent, deleteScheduleEvent, createEventCategory, deleteEventCategory } from '@/lib/scheduleEvents';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { supabase } from '@/integrations/supabase/client';
+import { FunctionRegion } from '@supabase/supabase-js';
 import { useLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/lib/auth';
 
@@ -255,7 +256,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     setPicking(true);
     setScreenNote('');
     try {
-      const { data, error: e } = await supabase.functions.invoke('ai-assistant', {
+      const { data, error: e } = await supabase.functions.invoke('ai-assistant', { region: FunctionRegion.EuWest2,
         body: { messages: [], location_id: currentLocation?.id, location_name: currentLocation?.name, source: ownerRef.current, pick },
       });
       if (e) { setScreenNote('Theo could not reach the schedule right now.'); return; }
@@ -285,7 +286,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     const p = a.proposal;
     setAction({ ...a, stage: 'saving', error: undefined });
     try {
-      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', {
+      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', { region: FunctionRegion.EuWest2,
         body: { messages: [], location_id: currentLocation.id, location_name: currentLocation.name, source: ownerRef.current, pick: { kind: 'recheck', proposal: p } },
       });
       if (ce || !chk?.recheck) throw new Error('Could not re-check the shift.');
@@ -347,7 +348,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     try {
       // Server store + role check first (same switch as the request and the Confirm re-check).
       const weekIds = p.action === 'swap_shift' ? [p.a.schedule_id, p.b.schedule_id] : [a.scheduleId || p.schedule_id];
-      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', {
+      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', { region: FunctionRegion.EuWest2,
         body: { messages: [], location_id: currentLocation.id, location_name: currentLocation.name, source: ownerRef.current, pick: { kind: 'undo_shift', action: p.action, schedule_ids: weekIds } },
       });
       if (ce || !chk?.undo) throw new Error('check');
@@ -419,7 +420,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     setAction({ ...a, stage: 'saving', error: undefined });
     let newCategoryId: string | null = null;
     try {
-      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', {
+      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', { region: FunctionRegion.EuWest2,
         body: { messages: [], location_id: locationId, location_name: currentLocation.name, source: ownerRef.current, pick: { kind: 'recheck', proposal: p } },
       });
       if (ce || !chk?.recheck) throw new Error('Could not re-check the event.');
@@ -460,7 +461,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     const p = a.proposal;
     setAction({ ...a, stage: 'undoing', error: undefined });
     try {
-      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', {
+      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', { region: FunctionRegion.EuWest2,
         body: { messages: [], location_id: currentLocation.id, location_name: currentLocation.name, source: ownerRef.current, pick: { kind: 'undo_event', event_id: a.eventId, category_id: a.newCategoryId ?? null } },
       });
       if (ce || !chk?.undo) throw new Error('check');
@@ -483,7 +484,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     setAction({ ...a, stage: 'saving', error: undefined });
     try {
       await a.logId; // the preview must be in the action log: the re-check compares the words against it
-      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', {
+      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', { region: FunctionRegion.EuWest2,
         body: { messages: [], location_id: currentLocation.id, location_name: currentLocation.name, source: ownerRef.current, pick: { kind: 'recheck', proposal: p } },
       });
       if (ce || !chk?.recheck) throw new Error('Could not re-check the message.');
@@ -531,7 +532,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     setAction({ ...a, stage: 'saving', error: undefined });
     try {
       await a.logId; // the re-check compares against the logged preview
-      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', {
+      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', { region: FunctionRegion.EuWest2,
         body: { messages: [], location_id: currentLocation.id, location_name: currentLocation.name, source: ownerRef.current, pick: { kind: 'recheck', proposal: p } },
       });
       if (ce || !chk?.recheck) throw new Error('Could not re-check the announcement.');
@@ -592,7 +593,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     setAction({ ...a, stage: 'saving', error: undefined });
     try {
       await a.logId; // the re-check compares against the logged preview
-      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', {
+      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', { region: FunctionRegion.EuWest2,
         body: { messages: [], location_id: currentLocation.id, location_name: currentLocation.name, source: ownerRef.current, pick: { kind: 'recheck', proposal: p } },
       });
       if (ce || !chk?.recheck) throw new Error('Could not re-check the punch.');
@@ -620,7 +621,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
     const p = a.proposal;
     setAction({ ...a, stage: 'undoing', error: undefined });
     try {
-      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', {
+      const { data: chk, error: ce } = await supabase.functions.invoke('ai-assistant', { region: FunctionRegion.EuWest2,
         body: { messages: [], location_id: currentLocation.id, location_name: currentLocation.name, source: ownerRef.current, pick: { kind: 'undo_punch', punch_id: a.punchId } },
       });
       if (ce || !chk?.undo) throw new Error('check');
