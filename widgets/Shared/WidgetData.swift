@@ -125,6 +125,12 @@ extension WSnapshot {
         guard let l = labor else { return "—" }
         return String(format: "%.1f%%", l)
     }
+    /// "goal 25" when the store has a labor goal; nil otherwise (never guessed).
+    var laborGoalText: String? {
+        guard let g = today?.laborGoalPct, g > 0 else { return nil }
+        let t = g.rounded() == g ? String(Int(g)) : String(format: "%.1f", g)
+        return "goal \(t)"
+    }
     var laborState: LaborState {
         guard let l = labor, let g = today?.laborGoalPct, g > 0 else { return .unknown }
         return l <= g ? .under : .over

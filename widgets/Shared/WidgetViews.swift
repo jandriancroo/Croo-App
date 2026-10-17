@@ -597,7 +597,12 @@ struct AccStoreRect: View {
                     WProgressLine(progress: snap.salesProgress, color: WColor.orange, track: WColor.trackOrange, height: 5)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("LABOR").font(.system(size: 9, weight: .bold, design: .rounded)).foregroundStyle(.secondary)
+                    HStack(spacing: 3) {
+                        Text("LABOR").font(.system(size: 9, weight: .bold, design: .rounded)).foregroundStyle(.secondary)
+                        if let goal = snap.laborGoalText {
+                            Text(goal).font(.system(size: 8, design: .rounded)).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                    }
                     Text(snap.laborText).font(.system(size: 18, weight: .bold, design: .rounded)).lineLimit(1)
                     WProgressLine(progress: 1, color: snap.laborColor, track: snap.laborColor.opacity(0.25), height: 5)
                 }
