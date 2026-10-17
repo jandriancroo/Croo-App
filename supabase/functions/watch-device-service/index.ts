@@ -19,7 +19,7 @@ import { computePace, laborPct, resolveGoal, storeNow } from "../_shared/cubeMet
 import { clockedInUserIds } from "../_shared/onClock.ts";
 
 // Bump on every change so a deploy can be confirmed: POST {"action":"version"}.
-const WATCH_SERVICE_VERSION = "2026-10-15.4";
+const WATCH_SERVICE_VERSION = "2026-10-17.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -208,6 +208,13 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
     return { cost, hours, percent: laborPct(cost, salesTotal) ?? undefined };
   };
   const dayLabor = laborAgg(today, dailySales);
+  // Labor goal for today (Weekly Template / store default via labor_goal_pct). Never guessed: undefined when the store has none.
+  let laborGoalPct: number | undefined;
+  try {
+    const { data: g } = await sb.rpc('labor_goal_pct', { _location_id: locationId, _date: today });
+    const n = Number(g);
+    if (g != null && Number.isFinite(n) && n > 0) laborGoalPct = n;
+  } catch (_) { /* leave undefined */ }
   const weekLabor = laborAgg(weekStart, wtdSales);
   const monthLabor = laborAgg(monthStart, mtdSales);
 
@@ -569,7 +576,7 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
   const vsLy = (salesNow?: number, ly?: number) => (salesNow != null && ly ? (salesNow / ly - 1) * 100 : undefined);
   const period = (o: {
     label: string; sales?: number; goal?: number; pace?: number; lastYear?: number; lyAtPoint?: number;
-    labor: { cost?: number; hours?: number; percent?: number }; pizzas?: number; guests?: number; ticket?: number;
+    labor: { cost?: number; hours?: number; percent?: number }; laborGoalPct?: number; pizzas?: number; guests?: number; ticket?: number;
   }) => {
     const change = vsLy(o.sales, o.lyAtPoint);
     return {
@@ -584,6 +591,8 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
       lastYear: money(o.lastYear),
       goal: money(o.goal),
       pace: money(o.pace),
+      laborPercentValue: o.labor.percent ?? null,
+      laborGoalPct: o.laborGoalPct ?? null,
       laborPercent: o.labor.percent == null ? '—' : `${o.labor.percent.toFixed(1)}%`,
       laborCost: money(o.labor.cost),
       laborHours: o.labor.hours == null ? '—' : `${o.labor.hours.toFixed(1)}h`,
@@ -599,7 +608,7 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
     today: period({
       label: "TODAY'S SALES", sales: dailySales, goal: projectionFor(todayRow), pace: todayPace,
       lastYear: tot?.ly_day_total != null ? Number(tot.ly_day_total) : lyFullDay, lyAtPoint: lyAt.day,
-      labor: dayLabor, pizzas: values.pizza_count_today, guests: values.guest_count_today, ticket: values.avg_ticket,
+      labor: dayLabor, laborGoalPct, pizzas: values.pizza_count_today, guests: values.guest_count_today, ticket: values.avg_ticket,
     }),
     week: period({
       label: 'WEEK-TO-DATE', sales: wtdSales || undefined, goal: goalSum(weekStart, weekEnd), pace: values.sales_pace_week,

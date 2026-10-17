@@ -28,6 +28,16 @@
 		A20000000000000000000002 /* WatchBridgePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* WatchBridgePlugin.swift */; };
 		C1DB58957DBA464EBD777E36 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13F8767856034FCAB5EF7E84 /* Assets.xcassets */; };
 		F0353A8E87E34AFA834B6BB9 /* ScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92AB601A6AA5442A96F14E01 /* ScheduleView.swift */; };
+		A1C0FFEE0000000000000100 /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE00000000000000F1 /* WidgetData.swift */; };
+		A1C0FFEE0000000000000101 /* LocationIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE00000000000000F2 /* LocationIntent.swift */; };
+		A1C0FFEE0000000000000102 /* WidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE00000000000000F3 /* WidgetViews.swift */; };
+		A1C0FFEE0000000000000103 /* CrooWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE00000000000000F4 /* CrooWidgets.swift */; };
+		A1C0FFEE0000000000000104 /* WidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE00000000000000F1 /* WidgetData.swift */; };
+		A1C0FFEE0000000000000105 /* LocationIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE00000000000000F2 /* LocationIntent.swift */; };
+		A1C0FFEE0000000000000106 /* WidgetViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE00000000000000F3 /* WidgetViews.swift */; };
+		A1C0FFEE0000000000000107 /* CrooWatchWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE00000000000000F5 /* CrooWatchWidgets.swift */; };
+		A1C0FFEE0000000000000108 /* CrooWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1C0FFEE00000000000000E3 /* CrooWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A1C0FFEE0000000000000109 /* CrooWatchWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1C0FFEE00000000000000E4 /* CrooWatchWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -37,6 +47,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = B8B50115CEE146C3B871B988;
 			remoteInfo = CrooWatch;
+		};
+		A1C0FFEE0000000000000142 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1C0FFEE00000000000000E1;
+			remoteInfo = CrooWidgets;
+		};
+		A1C0FFEE0000000000000143 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1C0FFEE00000000000000E2;
+			remoteInfo = CrooWatchWidgets;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -50,6 +74,28 @@
 				86A8D1677C4044B5B3A9BB0F /* CrooWatch.app in Embed Watch Content */,
 			);
 			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1C0FFEE0000000000000130 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A1C0FFEE0000000000000108 /* CrooWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1C0FFEE0000000000000131 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A1C0FFEE0000000000000109 /* CrooWatchWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -81,6 +127,19 @@
 		CFFD3593888549798B2BF514 /* StatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusView.swift; sourceTree = "<group>"; };
 		E25DBD2B95104AD8ACB07078 /* WatchDataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchDataStore.swift; sourceTree = "<group>"; };
 		FC68EB0AF532CFC21C3344DD /* Pods-App.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.debug.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"; sourceTree = "<group>"; };
+		A1C0FFEE00000000000000F1 /* WidgetData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetData.swift; sourceTree = "<group>"; };
+		A1C0FFEE00000000000000F2 /* LocationIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationIntent.swift; sourceTree = "<group>"; };
+		A1C0FFEE00000000000000F3 /* WidgetViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetViews.swift; sourceTree = "<group>"; };
+		A1C0FFEE00000000000000F4 /* CrooWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrooWidgets.swift; sourceTree = "<group>"; };
+		A1C0FFEE00000000000000F5 /* CrooWatchWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrooWatchWidgets.swift; sourceTree = "<group>"; };
+		A1C0FFEE00000000000000F6 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1C0FFEE00000000000000F7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1C0FFEE00000000000000F8 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
+		A1C0FFEE00000000000000F9 /* CrooWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CrooWatch.entitlements; sourceTree = "<group>"; };
+		A1C0FFEE00000000000000FA /* CrooWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CrooWidgets.entitlements; sourceTree = "<group>"; };
+		A1C0FFEE00000000000000FB /* CrooWatchWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CrooWatchWidgets.entitlements; sourceTree = "<group>"; };
+		A1C0FFEE00000000000000E3 /* CrooWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CrooWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1C0FFEE00000000000000E4 /* CrooWatchWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = CrooWatchWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -93,6 +152,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		BFB4B855D485498398B2B7C3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1C0FFEE0000000000000121 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1C0FFEE0000000000000124 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -116,6 +189,7 @@
 				504EC3061FED79650016851F /* App */,
 				504EC3051FED79650016851F /* Products */,
 				F75F117CF82246D79B1B2EF7 /* ../../watch/CrooWatch */,
+				A1C0FFEE0000000000000160 /* ../../widgets */,
 				7F8756D8B27F46E3366F6CEA /* Pods */,
 				27E2DDA53C4D2A4D1A88CE4A /* Frameworks */,
 			);
@@ -126,6 +200,8 @@
 			children = (
 				504EC3041FED79650016851F /* App.app */,
 				6B4360635AA6485CB058E880 /* CrooWatch.app */,
+				A1C0FFEE00000000000000E3 /* CrooWidgets.appex */,
+				A1C0FFEE00000000000000E4 /* CrooWatchWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -139,6 +215,7 @@
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				A1C0FFEE00000000000000D1 /* PrivacyInfo.xcprivacy */,
+				A1C0FFEE00000000000000F8 /* App.entitlements */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
 				504EC3131FED79650016851F /* Info.plist */,
 				2FAD9762203C412B000D30F8 /* config.xml */,
@@ -170,8 +247,49 @@
 				0223276538FD4DC88390D665 /* Info.plist */,
 				13F8767856034FCAB5EF7E84 /* Assets.xcassets */,
 				A1C0FFEE00000000000000D3 /* PrivacyInfo.xcprivacy */,
+				A1C0FFEE00000000000000F9 /* CrooWatch.entitlements */,
 			);
 			path = ../../watch/CrooWatch;
+			sourceTree = "<group>";
+		};
+		A1C0FFEE0000000000000160 /* ../../widgets */ = {
+			isa = PBXGroup;
+			children = (
+				A1C0FFEE0000000000000161 /* Shared */,
+				A1C0FFEE0000000000000162 /* iOS */,
+				A1C0FFEE0000000000000163 /* Watch */,
+			);
+			path = ../../widgets;
+			sourceTree = "<group>";
+		};
+		A1C0FFEE0000000000000161 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				A1C0FFEE00000000000000F1 /* WidgetData.swift */,
+				A1C0FFEE00000000000000F2 /* LocationIntent.swift */,
+				A1C0FFEE00000000000000F3 /* WidgetViews.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		A1C0FFEE0000000000000162 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				A1C0FFEE00000000000000F4 /* CrooWidgets.swift */,
+				A1C0FFEE00000000000000F6 /* Info.plist */,
+				A1C0FFEE00000000000000FA /* CrooWidgets.entitlements */,
+			);
+			path = iOS;
+			sourceTree = "<group>";
+		};
+		A1C0FFEE0000000000000163 /* Watch */ = {
+			isa = PBXGroup;
+			children = (
+				A1C0FFEE00000000000000F5 /* CrooWatchWidgets.swift */,
+				A1C0FFEE00000000000000F7 /* Info.plist */,
+				A1C0FFEE00000000000000FB /* CrooWatchWidgets.entitlements */,
+			);
+			path = Watch;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -185,6 +303,7 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
+				A1C0FFEE0000000000000130 /* Embed Foundation Extensions */,
 				9592DBEFFC6D2A0C8D5DEB22 /* [CP] Embed Pods Frameworks */,
 				2AD2707A94614CC4AF0794B5 /* Embed Watch Content */,
 			);
@@ -192,6 +311,7 @@
 			);
 			dependencies = (
 				64A9CB36D0C94DD090183DFA /* PBXTargetDependency */,
+				A1C0FFEE0000000000000140 /* PBXTargetDependency */,
 			);
 			name = App;
 			productName = App;
@@ -205,15 +325,51 @@
 				E286A53ED7AB4D999ADDD766 /* Sources */,
 				BFB4B855D485498398B2B7C3 /* Frameworks */,
 				BAA3CDC3943E4970B024F836 /* Resources */,
+				A1C0FFEE0000000000000131 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				A1C0FFEE0000000000000141 /* PBXTargetDependency */,
 			);
 			name = CrooWatch;
 			productName = CrooWatch;
 			productReference = 6B4360635AA6485CB058E880 /* CrooWatch.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A1C0FFEE00000000000000E1 /* CrooWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1C0FFEE0000000000000150 /* Build configuration list for PBXNativeTarget "CrooWidgets" */;
+			buildPhases = (
+				A1C0FFEE0000000000000120 /* Sources */,
+				A1C0FFEE0000000000000121 /* Frameworks */,
+				A1C0FFEE0000000000000122 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CrooWidgets;
+			productName = CrooWidgets;
+			productReference = A1C0FFEE00000000000000E3 /* CrooWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		A1C0FFEE00000000000000E2 /* CrooWatchWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1C0FFEE0000000000000151 /* Build configuration list for PBXNativeTarget "CrooWatchWidgets" */;
+			buildPhases = (
+				A1C0FFEE0000000000000123 /* Sources */,
+				A1C0FFEE0000000000000124 /* Frameworks */,
+				A1C0FFEE0000000000000125 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CrooWatchWidgets;
+			productName = CrooWatchWidgets;
+			productReference = A1C0FFEE00000000000000E4 /* CrooWatchWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -230,6 +386,14 @@
 						ProvisioningStyle = Automatic;
 					};
 					B8B50115CEE146C3B871B988 = {
+						CreatedOnToolsVersion = 15.0;
+						ProvisioningStyle = Automatic;
+					};
+					A1C0FFEE00000000000000E1 = {
+						CreatedOnToolsVersion = 15.0;
+						ProvisioningStyle = Automatic;
+					};
+					A1C0FFEE00000000000000E2 = {
 						CreatedOnToolsVersion = 15.0;
 						ProvisioningStyle = Automatic;
 					};
@@ -252,6 +416,8 @@
 			targets = (
 				504EC3031FED79650016851F /* App */,
 				B8B50115CEE146C3B871B988 /* CrooWatch */,
+				A1C0FFEE00000000000000E1 /* CrooWidgets */,
+				A1C0FFEE00000000000000E2 /* CrooWatchWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -277,6 +443,20 @@
 			files = (
 				C1DB58957DBA464EBD777E36 /* Assets.xcassets in Resources */,
 				A1C0FFEE00000000000000D4 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1C0FFEE0000000000000122 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1C0FFEE0000000000000125 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -343,6 +523,28 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A1C0FFEE0000000000000120 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1C0FFEE0000000000000100 /* WidgetData.swift in Sources */,
+				A1C0FFEE0000000000000101 /* LocationIntent.swift in Sources */,
+				A1C0FFEE0000000000000102 /* WidgetViews.swift in Sources */,
+				A1C0FFEE0000000000000103 /* CrooWidgets.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1C0FFEE0000000000000123 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1C0FFEE0000000000000104 /* WidgetData.swift in Sources */,
+				A1C0FFEE0000000000000105 /* LocationIntent.swift in Sources */,
+				A1C0FFEE0000000000000106 /* WidgetViews.swift in Sources */,
+				A1C0FFEE0000000000000107 /* CrooWatchWidgets.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -350,6 +552,16 @@
 			isa = PBXTargetDependency;
 			target = B8B50115CEE146C3B871B988 /* CrooWatch */;
 			targetProxy = B18D815B15994BC090A96E84 /* PBXContainerItemProxy */;
+		};
+		A1C0FFEE0000000000000140 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1C0FFEE00000000000000E1 /* CrooWidgets */;
+			targetProxy = A1C0FFEE0000000000000142 /* PBXContainerItemProxy */;
+		};
+		A1C0FFEE0000000000000141 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1C0FFEE00000000000000E2 /* CrooWatchWidgets */;
+			targetProxy = A1C0FFEE0000000000000143 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -385,11 +597,12 @@
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 5Y4D3V56HU;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
+				CODE_SIGN_ENTITLEMENTS = ../../watch/CrooWatch/CrooWatch.entitlements;
 				INFOPLIST_FILE = ../../watch/CrooWatch/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "CrooHQ Tap";
 				MARKETING_VERSION = 1.0;
@@ -519,13 +732,14 @@
 			baseConfigurationReference = FC68EB0AF532CFC21C3344DD /* Pods-App.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 5Y4D3V56HU;
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = CrooHQ;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
@@ -542,13 +756,14 @@
 			baseConfigurationReference = AF51FD2D460BCFE21FA515B2 /* Pods-App.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_TEAM = 5Y4D3V56HU;
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = CrooHQ;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.croohq.kitchenmate;
@@ -572,16 +787,99 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 5Y4D3V56HU;
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
+				CODE_SIGN_ENTITLEMENTS = ../../watch/CrooWatch/CrooWatch.entitlements;
 				INFOPLIST_FILE = ../../watch/CrooWatch/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "CrooHQ Tap";
 				MARKETING_VERSION = 1.0;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.croohq.kitchenmate.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		A1C0FFEE0000000000000152 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ../../widgets/iOS/CrooWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 11;
+				DEVELOPMENT_TEAM = 5Y4D3V56HU;
+				INFOPLIST_FILE = ../../widgets/iOS/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.croohq.kitchenmate.CrooWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A1C0FFEE0000000000000153 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ../../widgets/iOS/CrooWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 11;
+				DEVELOPMENT_TEAM = 5Y4D3V56HU;
+				INFOPLIST_FILE = ../../widgets/iOS/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.croohq.kitchenmate.CrooWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A1C0FFEE0000000000000154 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ../../widgets/Watch/CrooWatchWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 11;
+				DEVELOPMENT_TEAM = 5Y4D3V56HU;
+				INFOPLIST_FILE = ../../widgets/Watch/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.croohq.kitchenmate.watchkitapp.CrooWatchWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		A1C0FFEE0000000000000155 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = ../../widgets/Watch/CrooWatchWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 11;
+				DEVELOPMENT_TEAM = 5Y4D3V56HU;
+				INFOPLIST_FILE = ../../widgets/Watch/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.croohq.kitchenmate.watchkitapp.CrooWatchWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -618,6 +916,24 @@
 			buildConfigurations = (
 				408FEA12020C489FBF0C031C /* Debug */,
 				9FFA8D7D3CA042AB837F86BB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1C0FFEE0000000000000150 /* Build configuration list for PBXNativeTarget "CrooWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1C0FFEE0000000000000152 /* Debug */,
+				A1C0FFEE0000000000000153 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1C0FFEE0000000000000151 /* Build configuration list for PBXNativeTarget "CrooWatchWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1C0FFEE0000000000000154 /* Debug */,
+				A1C0FFEE0000000000000155 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

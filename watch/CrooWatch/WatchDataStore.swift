@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import WatchConnectivity
+import WidgetKit
 import SwiftUI
 
 // MARK: - Snapshot model (mirrors the phone payload / API response)
@@ -435,6 +436,7 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
     private func storeLocations(_ list: [WatchLocation]) {
         guard !list.isEmpty else { return }
         locations = list
+        CrooSharedGroup.writeLocations(list)
         if let out = try? JSONEncoder().encode(list), let json = String(data: out, encoding: .utf8) {
             UserDefaults.standard.set(json, forKey: locationsKey)
         }
@@ -453,6 +455,7 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
             locationName: meta["locationName"] ?? "",
             apiUrl: meta["apiUrl"] ?? WatchPairing.defaultApiUrl
         )
+        if let loaded = pairing { CrooSharedGroup.writePairing(loaded) }
         isPaired = true
     }
 
@@ -468,6 +471,7 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
             forKey: pairingKey
         )
         pairing = WatchPairing(token: token, locationId: locationId, locationName: locationName, apiUrl: apiUrl)
+        if let fresh = pairing { CrooSharedGroup.writePairing(fresh) }
 
         var incoming: [WatchLocation] = []
         if let raw = dict["locations"] as? String, let data = raw.data(using: .utf8) {
@@ -495,6 +499,7 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
 
     func unpair() {
         TokenKeychain.clear()
+        CrooSharedGroup.clear()
         UserDefaults.standard.removeObject(forKey: pairingKey)
         UserDefaults.standard.removeObject(forKey: locationsKey)
         UserDefaults.standard.removeObject(forKey: selectedLocationKey)
@@ -563,6 +568,7 @@ final class WatchDataStore: NSObject, ObservableObject, WCSessionDelegate {
         if let out = try? JSONEncoder().encode(fresh), let outJson = String(data: out, encoding: .utf8) {
             UserDefaults.standard.set(outJson, forKey: cacheKey)
         }
+        CrooSharedGroup.reloadComplications()
         print("[WatchBridge] server snapshot applied — cubes: \(fresh.cubes.count), shifts: \(fresh.schedule.count)")
     }
 
@@ -678,5 +684,41 @@ extension Color {
         let g = Double((value & 0x00FF00) >> 8) / 255
         let b = Double(value & 0x0000FF) / 255
         self.init(red: r, green: g, blue: b)
+    }
+}
+
+
+/// Mirrors the pairing and store list into the App Group so the watch complications can fetch
+/// their own data (same device token, read-only snapshot) when the app is closed.
+enum CrooSharedGroup {
+    static let groupId = "group.com.croohq.kitchenmate"
+    static let pairingKey = "croo.shared.pairing"
+    static let locationsKey = "croo.shared.locations"
+
+    private static var defaults: UserDefaults? { UserDefaults(suiteName: groupId) }
+
+    static func writePairing(_ pairing: WatchPairing) {
+        defaults?.set([
+            "token": pairing.token,
+            "locationId": pairing.locationId,
+            "locationName": pairing.locationName,
+            "apiUrl": pairing.apiUrl
+        ], forKey: pairingKey)
+    }
+
+    static func writeLocations(_ list: [WatchLocation]) {
+        guard !list.isEmpty,
+              let data = try? JSONEncoder().encode(list),
+              let json = String(data: data, encoding: .utf8) else { return }
+        defaults?.set(json, forKey: locationsKey)
+    }
+
+    static func clear() {
+        defaults?.removeObject(forKey: pairingKey)
+        defaults?.removeObject(forKey: locationsKey)
+    }
+
+    static func reloadComplications() {
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }

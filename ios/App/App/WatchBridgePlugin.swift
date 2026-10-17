@@ -1,6 +1,7 @@
 import Foundation
 import Capacitor
 import WatchConnectivity
+import WidgetKit
 
 /// Bridges the CrooHQ web app to the Apple Watch app.
 /// Read-only mirror: it forwards a snapshot of the dashboard (Data Cubes,
@@ -92,13 +93,18 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
         let session = WCSession.default
         session.delegate = self
         session.activate()
+        // Make sure widgets see a pairing that was made before widgets existed.
+        if let existing = latestPairing { CrooSharedGroup.writePairing(existing) }
         print("[WatchBridge] phone session activation requested — cached snapshot: \(latestPayload == nil ? "no" : "yes")")
     }
 
     private let pairingCacheKey = "croo.phone.watch.pairing"
     private var latestPairing: [String: String]? {
         get { UserDefaults.standard.dictionary(forKey: pairingCacheKey) as? [String: String] }
-        set { UserDefaults.standard.set(newValue, forKey: pairingCacheKey) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: pairingCacheKey)
+            if let value = newValue { CrooSharedGroup.writePairing(value) }
+        }
     }
 
     /// Context always carries the newest snapshot AND the current pairing, since
@@ -133,6 +139,7 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
             return false
         }
         latestPayload = payload
+        CrooSharedGroup.writeLocations(fromSnapshot: payload)
         let session = WCSession.default
         guard canTalkToWatch(session) else { return false }
         print("[WatchBridge] sending snapshot — reachable: \(session.isReachable)")
@@ -194,5 +201,43 @@ final class WatchSessionManager: NSObject, WCSessionDelegate {
         } else {
             replyHandler([:])
         }
+    }
+}
+
+
+/// Mirrors the watch pairing (and the store list) into the App Group so the iPhone widgets
+/// can fetch their own data without the app being open. Read-only data; same device token the watch uses.
+enum CrooSharedGroup {
+    static let groupId = "group.com.croohq.kitchenmate"
+    static let pairingKey = "croo.shared.pairing"
+    static let locationsKey = "croo.shared.locations"
+
+    private static var defaults: UserDefaults? { UserDefaults(suiteName: groupId) }
+
+    static func writePairing(_ pairing: [String: String]) {
+        guard let defaults else { return }
+        var meta: [String: String] = [:]
+        for key in ["token", "locationId", "locationName", "apiUrl"] {
+            if let v = pairing[key] { meta[key] = v }
+        }
+        defaults.set(meta, forKey: pairingKey)
+        if let json = pairing["locations"], !json.isEmpty { defaults.set(json, forKey: locationsKey) }
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    /// `locations` from a dashboard snapshot payload: [{id, name}].
+    static func writeLocations(fromSnapshot payload: String) {
+        guard let defaults,
+              let data = payload.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let arr = obj["locations"] as? [[String: Any]] else { return }
+        let list: [[String: String]] = arr.compactMap { item in
+            guard let id = item["id"] as? String, let name = item["name"] as? String else { return nil }
+            return ["id": id, "name": name]
+        }
+        guard !list.isEmpty,
+              let out = try? JSONSerialization.data(withJSONObject: list),
+              let json = String(data: out, encoding: .utf8) else { return }
+        defaults.set(json, forKey: locationsKey)
     }
 }
