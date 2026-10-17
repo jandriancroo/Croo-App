@@ -418,7 +418,7 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {calculations.removalSuggestions.map((suggestion, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 bg-amber-50 dark:bg-amber-950/30 rounded border border-amber-200 dark:border-amber-800">
+                      <div key={idx} className="flex items-center justify-between p-2 bg-amber-50 dark:bg-amber-950/30 rounded border border-amber-200 dark:border-amber-800 [[data-theme=spookified]_&]:bg-muted [[data-theme=spookified]_&]:text-foreground [[data-theme=spookified]_&]:border-primary/40">
                         <span className="text-sm">{suggestion.count}× {suggestion.denomination}</span>
                         <Badge variant="outline" className="text-xs">{formatCurrency(suggestion.value)}</Badge>
                       </div>

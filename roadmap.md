@@ -1,5 +1,8 @@
 # Roadmap
 
+## Spookified deposit readability — Oct 17
+- [x] Fix cash-removal label contrast shown in Jordan's screenshot; Spookified-only dark tiles and readable text, phone-width display verified, build OK; no deposit logic changes or publication.
+
 ## Spookified theme — Oct 14
 - [x] Add palette and theme selection/persistence with no data changes.
 - [x] Dashboard-only moon/forest/cobweb/fog/bats and theme-only voice orb lightning; reduced motion respected.
