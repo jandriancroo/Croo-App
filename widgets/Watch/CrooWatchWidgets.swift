@@ -27,7 +27,7 @@ private struct CornerSalesView: View {
             .widgetCurvesContent()
             .widgetLabel {
                 Gauge(value: snap.salesProgress) {
-                    Text("\(snap.shortName.uppercased()) \(snap.laborText)")
+                    Text("\(snap.compactName.uppercased()) \(snap.laborText)")
                 }
                 .tint(WColor.orange)
             }

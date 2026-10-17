@@ -70,15 +70,18 @@ struct WArcText: View {
     let text: String
     let radius: CGFloat
     let fontSize: CGFloat
+    var maxTotal: Double = 100
 
     var body: some View {
         let chars = Array(text)
-        let step = Double(fontSize * 0.78 / radius)
+        let natural = Double(fontSize * 0.78 / radius)
+        let step = min(natural, maxTotal / Double(max(chars.count - 1, 1)))
+        let size = fontSize * CGFloat(step / natural)
         let total = step * Double(max(chars.count - 1, 0))
         ZStack {
             ForEach(0..<chars.count, id: \.self) { i in
                 Text(String(chars[i]))
-                    .font(.system(size: fontSize, weight: .bold, design: .rounded))
+                    .font(.system(size: size, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .offset(y: -radius)
                     .rotationEffect(.radians(-total / 2 + step * Double(i)))
@@ -94,6 +97,8 @@ struct WGapRing: View {
     let name: String
     let lineWidth: CGFloat
     let fontSize: CGFloat
+    var color: Color = WColor.orange
+    var track: Color = WColor.trackOrange
 
     private let span: CGFloat = 260.0 / 360.0
 
@@ -104,15 +109,15 @@ struct WGapRing: View {
             ZStack {
                 Circle()
                     .trim(from: 0, to: span)
-                    .stroke(WColor.trackOrange, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                    .stroke(track, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                     .rotationEffect(.degrees(-40))
                     .scaleEffect(x: -1, y: 1)
                 Circle()
                     .trim(from: 0, to: span * CGFloat(min(max(progress, 0), 1)))
-                    .stroke(WColor.orange, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                    .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                     .rotationEffect(.degrees(-40))
                     .scaleEffect(x: -1, y: 1)
-                WArcText(text: name, radius: radius, fontSize: fontSize)
+                WArcText(text: name, radius: radius, fontSize: fontSize, maxTotal: 1.3)
             }
             .frame(width: size, height: size)
             .position(x: geo.size.width / 2, y: geo.size.height / 2)
@@ -210,7 +215,7 @@ struct SalesRingSmallView: View {
     let snap: WSnapshot
     var body: some View {
         ZStack {
-            WGapRing(progress: snap.salesProgress, name: snap.shortName.uppercased(), lineWidth: 9, fontSize: 11)
+            WGapRing(progress: snap.salesProgress, name: snap.compactName.uppercased(), lineWidth: 9, fontSize: 11)
                 .aspectRatio(1, contentMode: .fit)
             VStack(spacing: 4) {
                 Text(WFormat.short(snap.sales)).font(wFont(22)).foregroundStyle(WColor.orange)
@@ -419,17 +424,18 @@ struct StoreLargeView: View {
 
 // MARK: - Accessory (lock screen + watch face)
 
-/// Circular · sales ring.
+/// Circular · sales ring with the store name in the top gap.
 struct AccSalesCircular: View {
     let snap: WSnapshot
     var body: some View {
-        Gauge(value: snap.salesProgress) {
-            Text("SALES")
-        } currentValueLabel: {
+        ZStack {
+            WGapRing(progress: snap.salesProgress, name: snap.compactName.uppercased(), lineWidth: 4, fontSize: 7)
             Text(snap.salesPercentText)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .minimumScaleFactor(0.6).lineLimit(1)
+                .padding(.top, 5)
         }
-        .gaugeStyle(.accessoryCircularCapacity)
-        .tint(WColor.orange)
+        .padding(2)
     }
 }
 
@@ -439,7 +445,7 @@ struct AccStoreRing: View {
     let snap: WSnapshot
     var body: some View {
         ZStack {
-            WGapRing(progress: snap.salesProgress, name: snap.shortName.uppercased(), lineWidth: 4, fontSize: 7)
+            WGapRing(progress: snap.salesProgress, name: snap.compactName.uppercased(), lineWidth: 4, fontSize: 7)
             VStack(spacing: 0) {
                 Text(WFormat.short(snap.sales))
                     .font(.system(size: 13, weight: .bold, design: .rounded))
@@ -457,7 +463,7 @@ struct AccStoreRing: View {
     }
 }
 
-/// Circular · labor %, green under goal / red over.
+/// Circular · labor %, ring and number green under goal / red over, store name in the top gap.
 struct AccLaborCircular: View {
     let snap: WSnapshot
     private var fill: Double {
@@ -466,27 +472,32 @@ struct AccLaborCircular: View {
         return min(max(l / 50, 0), 1)
     }
     var body: some View {
-        Gauge(value: fill) {
-            Text("LABOR")
-        } currentValueLabel: {
-            Text(snap.laborText.replacingOccurrences(of: "%", with: ""))
+        ZStack {
+            WGapRing(progress: fill, name: snap.compactName.uppercased(), lineWidth: 4, fontSize: 7,
+                     color: snap.laborColor, track: snap.laborColor.opacity(0.25))
+            Text(snap.laborText)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .minimumScaleFactor(0.6).lineLimit(1)
+                .padding(.top, 5)
         }
-        .gaugeStyle(.accessoryCircularCapacity)
-        .tint(snap.laborColor)
+        .padding(2)
     }
 }
 
-/// Circular · headcount on the clock.
+/// Circular · headcount on the clock, store name in the top gap.
 struct AccOnNowCircular: View {
     let snap: WSnapshot
     var body: some View {
         ZStack {
-            AccessoryWidgetBackground()
+            WGapRing(progress: 0, name: snap.compactName.uppercased(), lineWidth: 4, fontSize: 7,
+                     color: WColor.orange, track: Color.white.opacity(0.25))
             VStack(spacing: 0) {
-                Text("\(snap.onNowCount)").font(.system(size: 22, weight: .bold, design: .rounded))
-                Text("ON").font(.system(size: 9, weight: .semibold, design: .rounded))
+                Text("\(snap.onNowCount)").font(.system(size: 16, weight: .bold, design: .rounded))
+                Text("ON").font(.system(size: 8, weight: .semibold, design: .rounded))
             }
+            .padding(.top, 5)
         }
+        .padding(2)
     }
 }
 
@@ -496,7 +507,7 @@ struct AccSalesGoalRect: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
-                Text("\(snap.shortName.uppercased()) · SALES")
+                Text("\(snap.compactName.uppercased()) · SALES")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .lineLimit(1)
                 Spacer(minLength: 2)
@@ -523,7 +534,7 @@ struct AccStoreRect: View {
     let snap: WSnapshot
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(snap.name.uppercased())
+            Text(snap.compactName.uppercased())
                 .font(.system(size: 12, weight: .bold, design: .rounded))
                 .lineLimit(1).minimumScaleFactor(0.6)
             HStack(alignment: .top, spacing: 10) {
@@ -553,7 +564,7 @@ struct AccNextShiftRect: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
-                Text("\(snap.shortName.uppercased()) · NEXT UP")
+                Text("\(snap.compactName.uppercased()) · NEXT UP")
                     .font(.system(size: 10, weight: .bold, design: .rounded))
                     .lineLimit(1)
                 Spacer(minLength: 2)
@@ -580,6 +591,6 @@ struct AccNextShiftRect: View {
 struct AccInline: View {
     let snap: WSnapshot
     var body: some View {
-        Text("\(snap.shortName) \(WFormat.short(snap.sales)) · \(snap.laborText)")
+        Text("\(snap.compactName) \(WFormat.short(snap.sales)) · \(snap.laborText)")
     }
 }
