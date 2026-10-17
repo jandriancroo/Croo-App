@@ -58,6 +58,23 @@ struct CrooProvider: AppIntentTimelineProvider {
         return Timeline(entries: [entry], policy: .after(next))
     }
 
+    #if os(watchOS)
+    // watchOS requires this: one ready-made choice per location in the complication gallery.
+    func recommendations() -> [AppIntentRecommendation<SelectLocationIntent>] {
+        let locs = CrooStore.locations()
+        if locs.isEmpty {
+            return [AppIntentRecommendation(intent: SelectLocationIntent(),
+                                            description: LocalizedStringResource(stringLiteral: "CrooHQ"))]
+        }
+        return locs.map { loc in
+            var intent = SelectLocationIntent()
+            intent.location = LocationEntity(id: loc.id, name: loc.name)
+            return AppIntentRecommendation(intent: intent,
+                                           description: LocalizedStringResource(stringLiteral: loc.name))
+        }
+    }
+    #endif
+
     private func makeEntry(_ configuration: SelectLocationIntent) async -> CrooEntry {
         let snap = await CrooStore.load(locationId: configuration.location?.id)
         return CrooEntry(date: Date(), snapshot: snap, paired: CrooStore.pairing() != nil)
