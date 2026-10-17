@@ -162,6 +162,25 @@ struct WLaborLine: View {
     }
 }
 
+/// Same-height progress line used for both sales and labor, so the two always match.
+struct WProgressLine: View {
+    let progress: Double
+    let color: Color
+    let track: Color
+    let height: CGFloat
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(track)
+                Capsule().fill(color)
+                    .frame(width: geo.size.width * CGFloat(min(max(progress, 0), 1)))
+            }
+        }
+        .frame(height: height)
+    }
+}
+
 private func wFont(_ size: CGFloat, _ weight: Font.Weight = .bold) -> Font {
     .system(size: size, weight: weight, design: .rounded)
 }
@@ -575,12 +594,12 @@ struct AccStoreRect: View {
                         Text(snap.salesPercentText).font(.system(size: 9, design: .rounded)).foregroundStyle(.secondary)
                     }
                     Text(WFormat.short(snap.sales)).font(.system(size: 18, weight: .bold, design: .rounded)).lineLimit(1)
-                    ProgressView(value: snap.salesProgress).progressViewStyle(.linear).tint(WColor.orange)
+                    WProgressLine(progress: snap.salesProgress, color: WColor.orange, track: WColor.trackOrange, height: 5)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("LABOR").font(.system(size: 9, weight: .bold, design: .rounded)).foregroundStyle(.secondary)
                     Text(snap.laborText).font(.system(size: 18, weight: .bold, design: .rounded)).lineLimit(1)
-                    WLaborLine(color: snap.laborColor, width: nil, height: 4)
+                    WProgressLine(progress: 1, color: snap.laborColor, track: snap.laborColor.opacity(0.25), height: 5)
                 }
             }
         }
