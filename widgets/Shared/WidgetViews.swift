@@ -35,13 +35,13 @@ struct WUnpaired: View {
 struct WLogo: View {
     @Environment(\.widgetFamily) private var family
     var body: some View {
-        let size: CGFloat = family == .systemSmall ? 20 : 24
+        let size: CGFloat = family == .systemSmall ? 18 : 22
         Image("WidgetLogo")
             .resizable()
             .scaledToFit()
             .frame(width: size, height: size)
             .clipShape(RoundedRectangle(cornerRadius: size * 0.225, style: .continuous))
-            .padding(10)
+            .padding(8)
     }
 }
 
@@ -221,6 +221,7 @@ struct OnNowSmallView: View {
             }
             Spacer(minLength: 0)
             Text(footer(active.count)).font(wFont(10, .regular)).foregroundStyle(WColor.muted).lineLimit(1)
+                .padding(.trailing, 24)
         }
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -230,7 +231,7 @@ struct OnNowSmallView: View {
         var parts: [String] = []
         let more = snap.onNowCount - min(shown, 3)
         if more > 0 { parts.append("+\(more) more") }
-        if let next = snap.nextShift { parts.append("Next: \(next.firstName) \(next.startLabel)") }
+        if let next = snap.nextShift { parts.append("\(next.firstName) \(next.startLabel)") }
         return parts.joined(separator: " · ")
     }
 }
@@ -250,6 +251,7 @@ struct SalesRingSmallView: View {
             }
             .padding(.top, 6)
         }
+        .padding(6)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
@@ -303,6 +305,7 @@ struct ScoreboardMediumView: View {
                 MetricRow(label: "On now", value: "\(snap.onNowCount)", color: WColor.green)
             }
         }
+        .padding(.bottom, 16)
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -383,6 +386,7 @@ struct TimelineMediumView: View {
             WTimeline(snap: snap, maxRows: 4)
             Spacer(minLength: 0)
         }
+        .padding(.bottom, 12)
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
@@ -432,6 +436,7 @@ struct StoreLargeView: View {
             if let next = snap.nextShift {
                 Text("Next: \(next.firstName) · \(next.startLabel)")
                     .font(wFont(12, .regular)).foregroundStyle(WColor.muted).lineLimit(1)
+                    .padding(.trailing, 30)
             }
         }
         .foregroundStyle(.white)
