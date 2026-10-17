@@ -433,6 +433,30 @@ struct AccSalesCircular: View {
     }
 }
 
+/// Circular · one ring: store name in the top gap, the rest fills with sales vs goal,
+/// sales $ and labor % stacked in the middle.
+struct AccStoreRing: View {
+    let snap: WSnapshot
+    var body: some View {
+        ZStack {
+            WGapRing(progress: snap.salesProgress, name: snap.shortName.uppercased(), lineWidth: 4, fontSize: 7)
+            VStack(spacing: 0) {
+                Text(WFormat.short(snap.sales))
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+                Text(snap.laborText)
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundStyle(snap.laborColor)
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
+            }
+            .padding(.top, 5)
+        }
+        .padding(2)
+    }
+}
+
 /// Circular · labor %, green under goal / red over.
 struct AccLaborCircular: View {
     let snap: WSnapshot

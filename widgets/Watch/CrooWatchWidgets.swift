@@ -41,6 +41,14 @@ struct SalesRingComplication: Widget {
     }
 }
 
+struct StoreRingComplication: Widget {
+    var body: some WidgetConfiguration {
+        accessoryConfig(kind: "CrooWStoreRing", name: "Sales + labor + store ring",
+                        summary: "One ring: store name on top, sales to goal around it, sales and labor % inside.",
+                        families: [.accessoryCircular]) { AccStoreRing(snap: $0) }
+    }
+}
+
 struct LaborRingComplication: Widget {
     var body: some WidgetConfiguration {
         accessoryConfig(kind: "CrooWLaborRing", name: "Labor %", summary: "Labor %, green under goal and red over.",
@@ -99,6 +107,7 @@ struct InlineComplication: Widget {
 struct CrooWatchWidgetBundle: WidgetBundle {
     var body: some Widget {
         SalesRingComplication()
+        StoreRingComplication()
         LaborRingComplication()
         OnNowComplication()
         CornerSalesComplication()

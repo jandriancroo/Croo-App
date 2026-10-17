@@ -86,6 +86,14 @@ struct LockSalesWidget: Widget {
     }
 }
 
+struct LockStoreRingWidget: Widget {
+    var body: some WidgetConfiguration {
+        lockConfig(kind: "CrooLockStoreRing", name: "Sales + labor + store ring",
+                   summary: "Store name on top, sales to goal around it, sales and labor % inside.",
+                   families: [.accessoryCircular]) { AccStoreRing(snap: $0) }
+    }
+}
+
 struct LockLaborWidget: Widget {
     var body: some WidgetConfiguration {
         lockConfig(kind: "CrooLockLabor", name: "Labor %", summary: "Labor %, green under goal and red over.",
@@ -131,6 +139,7 @@ struct CrooWidgetBundle: WidgetBundle {
         TimelineMediumWidget()
         StoreLargeWidget()
         LockSalesWidget()
+        LockStoreRingWidget()
         LockLaborWidget()
         LockOnNowWidget()
         LockSummaryWidget()
