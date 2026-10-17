@@ -93,12 +93,12 @@ extension WSnapshot {
         return n
     }
 
-    /// Short label for small spots: "Palm Springs" -> "P. Springs"; short names stay as they are.
+    /// Short label for small spots: "Palm Springs" -> "P. Springs"; names up to 10 characters stay as they are.
     var compactName: String {
         let s = shortName
-        if s.count <= 8 { return s }
+        if s.count <= 10 { return s }
         let words = s.split(separator: " ").map(String.init)
-        if words.count >= 2, let first = words.first?.first {
+        if words.count >= 2, (words.last?.count ?? 0) > 3, let first = words.first?.first {
             return "\(first). " + words.dropFirst().joined(separator: " ")
         }
         return s
