@@ -30,6 +30,31 @@ struct WUnpaired: View {
 }
 
 /// Renders content once a snapshot exists, otherwise a short "pair" hint.
+/// Small CrooHQ app icon in the bottom-right corner of home screen widgets.
+/// Lives in the widget background so it sits near the corner, outside the content margins.
+struct WLogo: View {
+    @Environment(\.widgetFamily) private var family
+    var body: some View {
+        let size: CGFloat = family == .systemSmall ? 20 : 24
+        Image("WidgetLogo")
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: size * 0.225, style: .continuous))
+            .padding(10)
+    }
+}
+
+/// Home screen background plus the logo.
+struct WHomeBackground: View {
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            WBackground()
+            WLogo()
+        }
+    }
+}
+
 struct WidgetBody<Content: View>: View {
     let entry: CrooEntry
     let content: (WSnapshot) -> Content

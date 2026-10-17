@@ -11,7 +11,7 @@ private func homeConfig<Content: View>(
 ) -> some WidgetConfiguration {
     AppIntentConfiguration(kind: kind, intent: SelectLocationIntent.self, provider: CrooProvider()) { entry in
         WidgetBody(entry: entry, content: content)
-            .containerBackground(for: .widget) { WBackground() }
+            .containerBackground(for: .widget) { WHomeBackground() }
     }
     .configurationDisplayName(name)
     .description(summary)

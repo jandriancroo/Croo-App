@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1C0FFEE0000000000000171 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE0000000000000170 /* Assets.xcassets */; };
 		A1C0FFEE00000000000000D2 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE00000000000000D1 /* PrivacyInfo.xcprivacy */; };
 		A1C0FFEE00000000000000D4 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE00000000000000D3 /* PrivacyInfo.xcprivacy */; };
 		A1C0FFEE00000000000000C2 /* ChatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE00000000000000C1 /* ChatsView.swift */; };
@@ -101,6 +102,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A1C0FFEE0000000000000170 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1C0FFEE00000000000000D1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A1C0FFEE00000000000000D3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A1C0FFEE00000000000000C1 /* ChatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsView.swift; sourceTree = "<group>"; };
@@ -278,6 +280,7 @@
 				A1C0FFEE00000000000000F4 /* CrooWidgets.swift */,
 				A1C0FFEE00000000000000F6 /* Info.plist */,
 				A1C0FFEE00000000000000FA /* CrooWidgets.entitlements */,
+				A1C0FFEE0000000000000170 /* Assets.xcassets */,
 			);
 			path = iOS;
 			sourceTree = "<group>";
@@ -450,6 +453,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1C0FFEE0000000000000171 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
