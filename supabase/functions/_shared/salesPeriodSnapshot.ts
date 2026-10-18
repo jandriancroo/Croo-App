@@ -69,5 +69,13 @@ export async function readSalesPeriods(client: any, locationId: string, date?: s
   return { today, target, zone, bounds: b, rows, periods, todayPace };
 }
 export function salesPeriodLines(snapshot: Awaited<ReturnType<typeof readSalesPeriods>>) {
-  return Object.entries(snapshot.periods).map(([name, values]) => `${name === 'day' ? 'Today' : name === 'week' ? 'Week (WTD sales, full-week goal/pace)' : 'Month (MTD sales, full-month goal/pace)'} dashboard metrics: ${JSON.stringify(values)}`).join('\n');
+  const buckets = new Map<string, { start: string; end: string; sales: number; projected: number; days: number }>();
+  for (const day of snapshot.periods.month.days) {
+    const weekStart = DateTime.fromFormat(day.date, 'yyyy-MM-dd', { zone: snapshot.zone }).startOf('week').toFormat('yyyy-MM-dd');
+    const current = buckets.get(weekStart) || { start: day.date, end: day.date, sales: 0, projected: 0, days: 0 };
+    current.end = day.date; current.sales += day.sales; current.projected += day.projected || 0; current.days++;
+    buckets.set(weekStart, current);
+  }
+  return [...Object.entries(snapshot.periods).map(([name, values]) => `${name === 'day' ? 'Today' : name === 'week' ? 'Week (WTD sales, full-week goal/pace)' : 'Month (MTD sales, full-month goal/pace)'} dashboard metrics: ${JSON.stringify(values)}`),
+    `Month chart Monday–Sunday buckets (only days in this month): ${JSON.stringify([...buckets.values()])}`].join('\n');
 }

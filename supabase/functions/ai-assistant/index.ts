@@ -17,6 +17,7 @@ import { isWarmPing, warmResponse } from "../_shared/warm.ts";
 import { bridge, readStreamedRound, streamEligible, wantsStream, type Streamer } from "./sseBridge.ts";
 import { splitNames, fuzzyPeople } from "../_shared/nudgePlan.ts";
 import { clockedInUserIds } from "../_shared/onClock.ts";
+import { DateTime } from "npm:luxon@3";
 import { computePace, resolveGoal, storeNow } from "../_shared/cubeMetrics.ts";
 import { paceStatus as sharedPaceStatus, laborTotals, dashboardHourly } from "../_shared/periodMetrics.ts";
 import { readSalesPeriods, salesPeriodLines, periodBounds } from "../_shared/salesPeriodSnapshot.ts";
@@ -471,7 +472,7 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
     // Labor is NOT in this cached snapshot — it is fetched per request with the
     // asking user's permissions (see buildLaborLines) so one person's labor never
     // reaches someone who would have been refused.
-    const dayOfWeek = new Date(today + "T12:00:00Z").getUTCDay();
+    const dayOfWeek = DateTime.fromFormat(today, 'yyyy-MM-dd', { zone: 'UTC' }).weekday % 7;
     // All independent reads run together; sales include the full month and prior month.
     const [
       salesSnapshot,
@@ -621,6 +622,10 @@ async function buildLaborLines(userClient: any, locationId: string, yesterday: s
     const labor = laborTotals(periodRows, sold ?? 0);
     daily.push(`${label} labor (asking user's access only): ${labor ? JSON.stringify(labor) : 'unavailable — never substitute zero'}`);
   }
+  daily.push(`Daily chart labor (asking user's access only): ${JSON.stringify(rows.map((r: any) => {
+    const sold = sales.error ? null : (sales.data || []).find((s: any) => s.sale_date === r.date)?.net_sales;
+    return { date: r.date, ...laborTotals([r], sold == null ? 0 : Number(sold)) };
+  }))}`);
   return daily.join("\n");
 }
 
@@ -2976,9 +2981,9 @@ async function prewarmCaches(): Promise<void> {
       let today = new Date().toLocaleDateString("en-CA", { timeZone: timezone });
       const bd = bdRes?.data;
       if (typeof bd === "string" && /^\d{4}-\d{2}-\d{2}/.test(bd)) today = bd.slice(0, 10);
-      const dow = new Date(today + "T12:00:00Z").getUTCDay();
+      const weekStart = periodBounds(today, timezone).weekStart;
       await Promise.all([
-        buildAndStoreSnapshot(admin, locationId, today, addDays(today, -1), addDays(today, 1), addDays(today, -(dow === 0 ? 6 : dow - 1))),
+        buildAndStoreSnapshot(admin, locationId, today, addDays(today, -1), addDays(today, 1), weekStart),
         locationHasKnowledge(admin, locationId),
       ]);
     } catch (e) { console.error("[warm] prebuild failed for", locationId, e); }
@@ -3098,8 +3103,7 @@ async function handleRequest(req: Request, streamer: Streamer | null): Promise<R
     }
     const yesterday = addDays(today, -1);
     const tomorrow = addDays(today, 1);
-    const dayOfWeek = new Date(today + "T12:00:00Z").getUTCDay();
-    const weekStart = addDays(today, -(dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    const weekStart = periodBounds(today, timezone).weekStart;
 
     // === BUILD CONTEXT SNAPSHOT (cached per location for 60s; labor added per request) ===
     const [cachedSnapshot, laborLines, theoActionsEarly, , onClockLines] = await Promise.all([

@@ -1,7 +1,26 @@
 import { describe, it, expect } from 'vitest';
-import { dailyGoal, periodGoal, periodPace, periodMetrics, paceStatus, scaleLastYear, laborTotals, comparison } from '../../supabase/functions/_shared/periodMetrics';
+import { dailyGoal, periodGoal, periodPace, periodMetrics, paceStatus, scaleLastYear, laborTotals, comparison, dashboardHourly } from '../../supabase/functions/_shared/periodMetrics';
 
 describe('dashboard and Theo period parity', () => {
+  it('preserves dashboard override rounding and fills configured business hours', () => {
+    expect(dashboardHourly([{ hour: '11:00', sales: 50, projected: 100 }], 200, true, '11:00', '13:00')).toEqual([
+      { hour: '11:00', sales: 50, projected: 200 }, { hour: '12:00', sales: 0, projected: 0 },
+    ]);
+    expect(dashboardHourly([{ hour: '11:00', projected: 100 }], 100.5, true)[0].projected).toBe(100);
+  });
+  it('matches the old dashboard reducers for current and historical selections', () => {
+    const days = Array.from({ length: 31 }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, '0')}`, sales: i % 3 === 0 ? 0 : i * 13.25, projected: i * 20 }));
+    for (const enabled of [true, false]) for (const pace of [undefined, null, 0, 234.56]) {
+      let old = 0;
+      for (const d of days) {
+        if (d.date < '2026-10-18') old += d.sales > 0 ? d.sales : d.projected || 0;
+        else if (d.date === '2026-10-18' && enabled) old += pace ?? (d.sales > 0 ? d.sales : d.projected || 0);
+        else old += d.projected || 0;
+      }
+      expect(periodPace(days, '2026-10-18', pace, enabled)).toBe(old);
+    }
+    expect(periodGoal(days)).toBe(days.reduce((s, d) => s + (d.projected || 0), 0));
+  });
   it('resolves override, living, initial, legacy then actual fallback', () => {
     const r = { sale_date: '2026-10-18', net_sales: 123, override_projection: 400, living_projection: 300, initial_projection: 200, projected_sales: 100 };
     expect(dailyGoal(r)).toBe(400);
