@@ -49,7 +49,7 @@ struct TheoWindow: View {
                     }
                     .frame(width: 180, height: 8)
                 }
-                Text(voice.debugLine).font(.caption2).foregroundStyle(.tertiary).lineLimit(2)
+                Text(voice.debugLine).font(.caption2).foregroundStyle(.tertiary).lineLimit(3).multilineTextAlignment(.center)
 
                 if voice.isLive {
                     Button(role: .destructive) { voice.stop() } label: {

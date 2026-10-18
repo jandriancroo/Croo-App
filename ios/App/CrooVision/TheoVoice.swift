@@ -100,13 +100,19 @@ final class TheoVoice: ObservableObject {
             liveStart = Date()
             await startLog(store: store, locationId: locationId)
 
+            Task { [weak self] in
+                while let me = self, me.socket != nil {
+                    me.updateDebug()
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                }
+            }
             limitTask = Task { [weak self] in
                 try? await Task.sleep(nanoseconds: UInt64(Self.maxLive * 1_000_000_000))
                 self?.stop()
             }
             receiveLoop(ws)
         } catch {
-            fail((error as? TheoError)?.message ?? "Theo’s voice isn’t available right now.")
+            fail((error as? TheoError)?.message ?? error.localizedDescription)
         }
     }
 
@@ -202,7 +208,7 @@ final class TheoVoice: ObservableObject {
     }
 
     private func updateDebug() {
-        debugLine = "mic chunks sent \(chunks) · events \(events) · last: \(lastEvent)"
+        debugLine = "chunks sent \(chunks) · events \(events) · last: \(lastEvent)\n\(audio?.stats ?? "")"
     }
 
     private func playbackDrained() {
@@ -333,6 +339,14 @@ nonisolated final class TheoAudio: @unchecked Sendable {
     private let lock = NSLock()
     private var sending = false
     private var pending = 0
+    private var tapCalls = 0
+    private var convertFails = 0
+    private var formatInfo = ""
+    /// "mic buffers 120 · convert fails 0 · in 48000Hz 1ch" for the troubleshooting line.
+    var stats: String {
+        lock.lock(); defer { lock.unlock() }
+        return "mic buffers \(tapCalls) · convert fails \(convertFails) · \(formatInfo)"
+    }
 
     var onChunk: (@Sendable (String) -> Void)?
     var onDrained: (@Sendable () -> Void)?
@@ -363,11 +377,15 @@ nonisolated final class TheoAudio: @unchecked Sendable {
         engine.connect(player, to: engine.mainMixerNode, format: playFormat)
 
         let inFormat = input.outputFormat(forBus: 0)
+        formatInfo = "in \(Int(inFormat.sampleRate))Hz \(inFormat.channelCount)ch"
+        if inFormat.sampleRate == 0 || inFormat.channelCount == 0 {
+            throw NSError(domain: "TheoAudio", code: 3, userInfo: [NSLocalizedDescriptionKey: "The microphone isn't available (\(formatInfo))."])
+        }
         guard let converter = AVAudioConverter(from: inFormat, to: sendFormat) else { throw NSError(domain: "TheoAudio", code: 2) }
         let ratio = sendFormat.sampleRate / inFormat.sampleRate
         input.installTap(onBus: 0, bufferSize: 2048, format: inFormat) { [weak self] buffer, _ in
             guard let self else { return }
-            self.lock.lock(); let on = self.sending; self.lock.unlock()
+            self.lock.lock(); let on = self.sending; self.tapCalls += 1; self.lock.unlock()
             let cap = AVAudioFrameCount(Double(buffer.frameLength) * ratio + 32)
             guard let out = AVAudioPCMBuffer(pcmFormat: self.sendFormat, frameCapacity: cap) else { return }
             var fed = false
@@ -378,7 +396,10 @@ nonisolated final class TheoAudio: @unchecked Sendable {
                 status.pointee = .haveData
                 return buffer
             }
-            guard err == nil, out.frameLength > 0, let ch = out.int16ChannelData else { return }
+            guard err == nil, out.frameLength > 0, let ch = out.int16ChannelData else {
+                self.lock.lock(); self.convertFails += 1; self.lock.unlock()
+                return
+            }
             // Loudness for the on-screen meter, measured on what we actually send.
             let n = Int(out.frameLength)
             var sum: Double = 0
