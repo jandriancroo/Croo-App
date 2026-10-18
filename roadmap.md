@@ -1,9 +1,10 @@
 # Roadmap
 
 ## Theo monthly numbers — Oct 18
-- [ ] Inventory Sales Summary metrics and share identical period calculations without changing dashboard numbers.
-- [ ] Add day/week/month sales, comparisons and permission-scoped labor to Theo; add monthly voice opener facts.
-- [ ] Test shared rules, verify Hemet through signed-in Theo, and deploy ai-assistant + theo-voice only.
+- [x] Inventory Sales Summary metrics and extract byte-equivalent goal/pace/status/LY arithmetic without changing dashboard inputs or cube payloads.
+- [x] Add day/week/month sales, comparisons and permission-scoped labor to Theo; add monthly voice opener facts.
+- [x] 494 tests pass, automatic build OK; signed-in Hemet Theo returns monthly/weekly figures and LY MTD; ai-assistant + theo-voice deployed, voice warm check OK; no frontend publish.
+- [ ] Exact live-screen source parity blocked: QU live monthly breakdown supplies recomputed goals, current-week repair uses legacy projected_sales/actuals, and live daily pace differs from saved computePace input. Resolve upstream feeds only with Jordan's approval to change current dashboard numbers; shared arithmetic itself is identical.
 
 ## Hemet-only chat push fix — Oct 18
 - [x] Chat pushes carry the chat's store so each person's per-store chat setting applies; fallback is the sender's default store, else no store. Only src/lib/chatMessages.ts changed; 5 new tests, 486 total pass; typecheck clean.
