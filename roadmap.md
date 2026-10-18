@@ -1,5 +1,8 @@
 # Roadmap
 
+## Hemet-only chat push fix — Oct 18
+- [x] Chat pushes carry the chat's store so each person's per-store chat setting applies; fallback is the sender's default store, else no store. Only src/lib/chatMessages.ts changed; 5 new tests, 486 total pass; typecheck clean.
+
 ## Spookified deposit readability — Oct 17
 - [x] Fix cash-removal label contrast shown in Jordan's screenshot; Spookified-only dark tiles and readable text, phone-width display verified, build OK; no deposit logic changes or publication.
 
