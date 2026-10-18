@@ -3,7 +3,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
-  invoke: vi.fn(async () => ({ data: null, error: null })),
+  invoke: vi.fn(async (_fn: string, _opts: { body: Record<string, any> }) => ({ data: null, error: null })),
   tables: {} as Record<string, any>,
 }));
 
