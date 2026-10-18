@@ -36,13 +36,22 @@ private struct CornerSalesView: View {
 
 private struct CornerLaborView: View {
     let snap: WSnapshot
+    private var fill: Double {
+        guard let l = snap.labor else { return 0 }
+        if let g = snap.today?.laborGoalPct, g > 0 { return min(max(l / g, 0), 1) }
+        return min(max(l / 50, 0), 1)
+    }
     var body: some View {
         Text(snap.laborText)
             .font(.system(size: 14, weight: .bold, design: .rounded))
             .foregroundStyle(snap.laborColor)
             .widgetCurvesContent()
             .widgetLabel {
-                Text("\(snap.compactName.uppercased()) LABOR\(snap.laborGoalText.map { " · " + $0 } ?? "")")
+                // Curved labor gauge follows the corner's edge, outside the label text.
+                Gauge(value: fill) {
+                    Text("\(snap.compactName.uppercased()) LABOR\(snap.laborGoalText.map { " · " + $0 } ?? "")")
+                }
+                .tint(snap.laborColor)
             }
     }
 }
