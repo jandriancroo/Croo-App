@@ -18,6 +18,8 @@ struct TheoWindow: View {
             } else {
                 TheoOrb(phase: voice.phase)
                     .frame(width: 260, height: 260)
+                    .scaleEffect(1 + (voice.phase == .listening ? voice.micLevel * 0.15 : 0))
+                    .animation(.easeOut(duration: 0.12), value: voice.micLevel)
                     .padding(.top, 8)
 
                 Text(statusText)
@@ -35,6 +37,19 @@ struct TheoWindow: View {
                 .frame(maxHeight: 160)
 
                 Spacer(minLength: 0)
+
+                // Mic meter + troubleshooting line (temporary).
+                HStack(spacing: 10) {
+                    Image(systemName: "mic.fill").foregroundStyle(.secondary)
+                    GeometryReader { g in
+                        Capsule().fill(.white.opacity(0.15))
+                            .overlay(alignment: .leading) {
+                                Capsule().fill(VColor.green).frame(width: g.size.width * voice.micLevel)
+                            }
+                    }
+                    .frame(width: 180, height: 8)
+                }
+                Text(voice.debugLine).font(.caption2).foregroundStyle(.tertiary).lineLimit(2)
 
                 if voice.isLive {
                     Button(role: .destructive) { voice.stop() } label: {

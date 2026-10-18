@@ -13,6 +13,13 @@ final class TheoVoice: ObservableObject {
     @Published private(set) var phase: TheoPhase = .idle
     @Published private(set) var caption = ""
     @Published private(set) var errorText: String?
+    /// Live mic loudness 0...1 (drives the orb so you can see Theo hears you).
+    @Published private(set) var micLevel: Double = 0
+    /// Temporary troubleshooting line: chunks sent / events received / last event.
+    @Published private(set) var debugLine = ""
+    private var chunks = 0
+    private var events = 0
+    private var lastEvent = ""
 
     private static let rate: Double = 24000
     private static let maxLive: TimeInterval = 180
@@ -74,9 +81,15 @@ final class TheoVoice: ObservableObject {
                 ],
             ])
 
-            audio.onChunk = { [weak ws] b64 in
+            audio.onChunk = { [weak ws, weak self] b64 in
                 let msg = "{\"type\":\"input_audio_buffer.append\",\"audio\":\"\(b64)\"}"
-                ws?.send(.string(msg)) { _ in }
+                ws?.send(.string(msg)) { err in
+                    if let err { print("[theo-voice] send failed", err) }
+                }
+                Task { @MainActor in self?.countChunk() }
+            }
+            audio.onLevel = { [weak self] level in
+                Task { @MainActor in self?.micLevel = level }
             }
             audio.onDrained = { [weak self] in
                 Task { @MainActor in self?.playbackDrained() }
@@ -121,7 +134,9 @@ final class TheoVoice: ObservableObject {
                         await self.handle(ev)
                     }
                 } catch {
-                    if self.socket === ws { self.fail("Lost connection to Theo’s voice.") }
+                    let code = ws.closeCode.rawValue
+                    let reason = ws.closeReason.flatMap { String(data: $0, encoding: .utf8) } ?? error.localizedDescription
+                    if self.socket === ws { self.fail("Lost connection to Theo’s voice (\(code)): \(reason)") }
                     return
                 }
             }
@@ -130,6 +145,9 @@ final class TheoVoice: ObservableObject {
 
     private func handle(_ ev: [String: Any]) async {
         guard let type = ev["type"] as? String else { return }
+        events += 1
+        lastEvent = type
+        updateDebug()
         switch type {
         case "response.created":
             responseDone = false
@@ -167,10 +185,23 @@ final class TheoVoice: ObservableObject {
                              "item": ["type": "function_call_output", "call_id": callId, "output": output]])
             try? await send(["type": "response.create"])
         case "error":
-            if let e = ev["error"] as? [String: Any], let m = e["message"] as? String { print("[theo-voice]", m) }
+            let m = (ev["error"] as? [String: Any])?["message"] as? String ?? "Voice error"
+            print("[theo-voice]", m)
+            errorText = m
+            lastEvent = "error: " + m
+            updateDebug()
         default:
             break
         }
+    }
+
+    private func countChunk() {
+        chunks += 1
+        if chunks % 10 == 0 { updateDebug() }
+    }
+
+    private func updateDebug() {
+        debugLine = "mic chunks sent \(chunks) · events \(events) · last: \(lastEvent)"
     }
 
     private func playbackDrained() {
@@ -304,6 +335,7 @@ nonisolated final class TheoAudio: @unchecked Sendable {
 
     var onChunk: (@Sendable (String) -> Void)?
     var onDrained: (@Sendable () -> Void)?
+    var onLevel: (@Sendable (Double) -> Void)?
 
     init(rate: Double) throws {
         guard let play = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: rate, channels: 1, interleaved: false),
@@ -333,6 +365,14 @@ nonisolated final class TheoAudio: @unchecked Sendable {
         let ratio = sendFormat.sampleRate / inFormat.sampleRate
         input.installTap(onBus: 0, bufferSize: 2048, format: inFormat) { [weak self] buffer, _ in
             guard let self else { return }
+            // Loudness for the on-screen meter (always, even while Theo talks).
+            if let ch = buffer.floatChannelData, buffer.frameLength > 0 {
+                var sum: Float = 0
+                let n = Int(buffer.frameLength)
+                for i in 0..<n { sum += ch[0][i] * ch[0][i] }
+                let rms = Double((sum / Float(n)).squareRoot())
+                self.onLevel?(min(1, rms * 12))
+            }
             self.lock.lock(); let on = self.sending; self.lock.unlock()
             guard on else { return }
             let cap = AVAudioFrameCount(Double(buffer.frameLength) * ratio + 32)
