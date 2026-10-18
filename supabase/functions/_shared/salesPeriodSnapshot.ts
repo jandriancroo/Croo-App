@@ -26,12 +26,15 @@ export async function readSalesPeriods(client: any, locationId: string, date?: s
   if (tz.error || bd.error || typeof bd.data !== 'string') throw new Error('Store business date unavailable');
   const zone = tz.data?.timezone || 'America/Los_Angeles', today = bd.data.slice(0, 10), target = date || today;
   const b = periodBounds(target, zone);
+  // A period tool may be asked with its first day. Current-period comparisons
+  // must still use business today, not the first day's LY subtotal.
+  const comparisonDate = today >= b.monthStart && today <= b.monthEnd ? today : target;
   const start = [b.priorMonthStart, b.priorWeekStart, b.priorDay].sort()[0];
   const end = [b.monthEnd, b.weekEnd].sort().pop();
   const [sales, cmp, ly] = await Promise.all([
     client.from('sales_cache').select(SALES_PERIOD_COLUMNS).eq('location_id', locationId).gte('sale_date', start).lte('sale_date', end).order('sale_date'),
-    client.rpc('get_sales_comparisons', { _location_id: locationId, _date: target }),
-    client.rpc('get_sales_ly_totals', { _location_id: locationId, _date: target }),
+    client.rpc('get_sales_comparisons', { _location_id: locationId, _date: comparisonDate }),
+    client.rpc('get_sales_ly_totals', { _location_id: locationId, _date: comparisonDate }),
   ]);
   if (sales.error) throw sales.error;
   const rows = sales.data || [], td = rows.find((r: any) => r.sale_date === today);
