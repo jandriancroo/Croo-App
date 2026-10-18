@@ -266,6 +266,15 @@ export function AiAssistantBubble() {
     const handler = () => { setOpen(false); setVoiceIntent('talk'); setVoiceOpen(true); };
     window.addEventListener('open-theo-voice', handler);
     (window as any).__theoReady = true;
+    // Vision Pro (and any link) can open Theo's voice screen with ?theo=voice.
+    try {
+      const u = new URL(window.location.href);
+      if (u.searchParams.get('theo') === 'voice') {
+        u.searchParams.delete('theo');
+        window.history.replaceState({}, '', u.pathname + u.search + u.hash);
+        handler();
+      }
+    } catch { /* ignore */ }
     return () => {
       window.removeEventListener('open-theo-voice', handler);
       (window as any).__theoReady = false;
