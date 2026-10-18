@@ -47,9 +47,15 @@ struct CubesView: View {
                         }
                     }
                     .tabViewStyle(.verticalPage)
-
+                }
+                // The pill sits in the clock area above the safe area. Hits only register inside a
+                // view's own frame, so let this overlay extend into the top safe area (it was shifted
+                // out with a negative padding before, where taps were ignored).
+                .overlay(alignment: .top) {
                     locationPill
-                        .padding(.top, -35)
+                        .padding(.top, 2)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .ignoresSafeArea(edges: .top)
                 }
             }
         }
