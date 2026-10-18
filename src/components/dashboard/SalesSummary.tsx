@@ -19,6 +19,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { computePace, laborPct, storeNow } from '../../../supabase/functions/_shared/cubeMetrics';
+import { periodGoal, periodPace, paceStatus, scaleLastYear } from '../../../supabase/functions/_shared/periodMetrics';
 import { toast } from 'sonner';
 import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
 import { fetchStoreLabor } from '@/hooks/useStoreLabor';
@@ -763,22 +764,12 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         // local hour as now (same hour rule the real-time POS comparison uses).
         const lyHourlyRaw = (c as any)?.ly_hourly_data;
         if (isTodayCheck && Array.isArray(lyHourlyRaw) && lyHourlyRaw.length > 0) {
-          const cutoffHour = DateTime.now().setZone(locationZone).hour;
-          let lyThrough = 0;
-          for (const h of lyHourlyRaw as Array<{ hour?: unknown; sales?: unknown }>) {
-            const hs = String(h?.hour ?? '');
-            const hn = parseInt(hs.includes(':') ? hs.split(':')[0] : hs, 10);
-            if (!Number.isFinite(hn)) continue;
-            if (hn <= cutoffHour) lyThrough += Number(h?.sales) || 0;
-          }
-          const lyFullDay = c?.ly_net_sales != null ? Number(c.ly_net_sales) : undefined;
-          const lyWtd = c?.ly_wtd_net != null ? Number(c.ly_wtd_net) : undefined;
-          const lyMtd = c?.ly_mtd_net != null ? Number(c.ly_mtd_net) : undefined;
-          if (lyThrough > 0) {
+          const scaled = scaleLastYear(c, DateTime.now().setZone(locationZone).hour);
+          if (scaled.scaled) {
             salesData.comparisonLY = {
-              day: lyThrough,
-              week: lyWtd !== undefined && lyFullDay !== undefined ? Math.max(0, lyWtd - lyFullDay + lyThrough) : undefined,
-              month: lyMtd !== undefined && lyFullDay !== undefined ? Math.max(0, lyMtd - lyFullDay + lyThrough) : undefined,
+              day: scaled.day ?? undefined,
+              week: scaled.week ?? undefined,
+              month: scaled.month ?? undefined,
             };
           }
         }
@@ -1219,95 +1210,21 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     });
   };
 
-  // Calculate Target EOW (AI Goal): sum of all daily projections for the week
-  // This is a FIXED target - the goal you're aiming for, not influenced by actuals
-  const calculatedWeekProjected = useMemo(() => {
-    if (!salesData?.weeklyBreakdown || salesData.weeklyBreakdown.length === 0) {
-      return salesData?.projections?.weekProjected || 0;
-    }
-    
-    // Sum all daily projections to get the fixed weekly goal
-    let total = 0;
-    for (const day of salesData.weeklyBreakdown) {
-      total += day.projected || 0;
-    }
-    
-    // If we have projections, use our calculated total
-    // Otherwise fall back to the backend's weekProjected
-    return total > 0 ? total : (salesData?.projections?.weekProjected || 0);
-  }, [salesData?.weeklyBreakdown, salesData?.projections?.weekProjected]);
-
-  // Calculate Week Pace: actual past days + today's paced finish + projected future days
-  // This represents where we're TRENDING - using daily pace for today
-  const calculatedWeekPace = useMemo(() => {
-    if (!salesData?.weeklyBreakdown || salesData.weeklyBreakdown.length === 0) {
-      return salesData?.projections?.weekProjected || 0;
-    }
-    
-    const todayStr = todayTzStr;
-    
-    let total = 0;
-    for (const day of salesData.weeklyBreakdown) {
-      if (day.date < todayStr) {
-        // Past day: use actual if available, otherwise projected
-        total += day.sales > 0 ? day.sales : (day.projected || 0);
-      } else if (day.date === todayStr && isToday) {
-        // Today: use daily pace (todayPaceAdjusted) to show real-time trending
-        const todayValue = salesData?.projections?.todayPaceAdjusted 
-          ?? (day.sales > 0 ? day.sales : (day.projected || 0));
-        total += todayValue;
-      } else {
-        // Future days: use projected
-        total += day.projected || 0;
-      }
-    }
-    
-    return total > 0 ? total : (salesData?.projections?.weekProjected || 0);
-  }, [salesData?.weeklyBreakdown, salesData?.projections?.weekProjected, salesData?.projections?.todayPaceAdjusted, isToday]);
-
-  // Calculate accumulated week delta: Pace - Target (the difference between trending and goal)
-  // Calculate Month Projected (Goal): sum of all daily projections
-  const calculatedMonthProjected = useMemo(() => {
-    if (!salesData?.monthlyBreakdown || salesData.monthlyBreakdown.length === 0) {
-      return salesData?.projections?.monthProjected || 0;
-    }
-    
-    // Sum all daily projections to get the fixed monthly goal
-    let total = 0;
-    for (const day of salesData.monthlyBreakdown) {
-      total += day.projected || 0;
-    }
-    
-    return total > 0 ? total : (salesData?.projections?.monthProjected || 0);
-  }, [salesData?.monthlyBreakdown, salesData?.projections?.monthProjected]);
-
-  // Calculate Month Pace: actual past days + today's paced finish + projected future days
-  // This mirrors the weekly pace logic exactly
-  const calculatedMonthPace = useMemo(() => {
-    if (!salesData?.monthlyBreakdown || salesData.monthlyBreakdown.length === 0) {
-      return salesData?.projections?.monthProjected || 0;
-    }
-    
-    const todayStr = todayTzStr;
-    
-    let total = 0;
-    for (const day of salesData.monthlyBreakdown) {
-      if (day.date < todayStr) {
-        // Past day: use actual if available, otherwise projected
-        total += day.sales > 0 ? day.sales : (day.projected || 0);
-      } else if (day.date === todayStr && isToday) {
-        // Today: use daily pace (todayPaceAdjusted) to show real-time trending
-        const todayValue = salesData?.projections?.todayPaceAdjusted 
-          ?? (day.sales > 0 ? day.sales : (day.projected || 0));
-        total += todayValue;
-      } else {
-        // Future days: use projected
-        total += day.projected || 0;
-      }
-    }
-    
-    return total > 0 ? total : (salesData?.projections?.monthProjected || 0);
-  }, [salesData?.monthlyBreakdown, salesData?.projections?.monthProjected, salesData?.projections?.todayPaceAdjusted, isToday]);
+  // Pure shared dashboard/Theo arithmetic; inputs and enriched cube payload stay unchanged.
+  const calculatedWeekProjected = useMemo(() => periodGoal(
+    salesData?.weeklyBreakdown, salesData?.projections?.weekProjected || 0,
+  ), [salesData?.weeklyBreakdown, salesData?.projections?.weekProjected]);
+  const calculatedWeekPace = useMemo(() => periodPace(
+    salesData?.weeklyBreakdown, todayTzStr, salesData?.projections?.todayPaceAdjusted,
+    isToday, salesData?.projections?.weekProjected || 0,
+  ), [salesData?.weeklyBreakdown, salesData?.projections?.weekProjected, salesData?.projections?.todayPaceAdjusted, isToday, todayTzStr]);
+  const calculatedMonthProjected = useMemo(() => periodGoal(
+    salesData?.monthlyBreakdown, salesData?.projections?.monthProjected || 0,
+  ), [salesData?.monthlyBreakdown, salesData?.projections?.monthProjected]);
+  const calculatedMonthPace = useMemo(() => periodPace(
+    salesData?.monthlyBreakdown, todayTzStr, salesData?.projections?.todayPaceAdjusted,
+    isToday, salesData?.projections?.monthProjected || 0,
+  ), [salesData?.monthlyBreakdown, salesData?.projections?.monthProjected, salesData?.projections?.todayPaceAdjusted, isToday, todayTzStr]);
 
   // Calculate accumulated month delta: Pace - Target (the difference between trending and goal)
   // Notify parent component when sales data changes (for data cubes to use)
@@ -1414,13 +1331,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
   type PaceStatus = 'ahead' | 'onTrack' | 'behind';
 
-  const getPaceStatus = (actual: number, pace: number, goal: number, enabled: boolean): PaceStatus | null => {
-    if (!enabled || actual < 100 || pace <= 0 || goal <= 0) return null;
-    const paceVsGoal = (pace / goal) * 100;
-    if (paceVsGoal >= 102) return 'ahead';
-    if (paceVsGoal >= 95) return 'onTrack';
-    return 'behind';
-  };
+  const getPaceStatus = paceStatus;
 
   const todayPace = isToday && salesData?.projections?.todayPaceAdjusted
     ? Math.max(salesData.projections.todayPaceAdjusted, salesData.daily || 0)

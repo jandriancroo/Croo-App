@@ -5,6 +5,8 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { encodeBase64 } from "jsr:@std/encoding@1/base64";
 import { roleForUser, theoActionsAt, type TheoActions } from "../_shared/theoActions.ts";
 import { isWarmPing, warmResponse } from "../_shared/warm.ts";
+import { resolveGoal } from "../_shared/cubeMetrics.ts";
+import { readSalesPeriods } from "../_shared/salesPeriodSnapshot.ts";
 
 const cors = { ...corsHeaders, "Access-Control-Allow-Headers": corsHeaders["Access-Control-Allow-Headers"] + ", x-region" };
 
@@ -43,16 +45,18 @@ async function buildOpener(admin: any, loc: { id: string; name: string }, tz: st
     .eq("location_id", loc.id).eq("window_key", w.key).maybeSingle();
   if (existing) return existing;
 
-  const [briefing, sales] = await Promise.all([
+  const [briefing, sales, monthSnapshot] = await Promise.all([
     admin.from("croo_ai_briefings").select("content").eq("location_id", loc.id).eq("briefing_date", w.date).maybeSingle(),
-    admin.from("sales_cache").select("net_sales, guest_count, projected_sales, yoy_net_sales").eq("location_id", loc.id).eq("sale_date", w.date).maybeSingle(),
+    admin.from("sales_cache").select("net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection, yoy_net_sales").eq("location_id", loc.id).eq("sale_date", w.date).maybeSingle(),
+    readSalesPeriods(admin, loc.id).catch(() => null),
   ]);
-  const s = sales.data || {};
+  const s = monthSnapshot?.rows.find((r: any) => r.sale_date === monthSnapshot.today) || sales.data || {};
   const facts = [
     fmt$(s.net_sales) && `Sales so far today: ${fmt$(s.net_sales)}`,
-    fmt$(s.projected_sales) && `Today's goal: ${fmt$(s.projected_sales)}`,
+    fmt$(resolveGoal(s)) && `Today's goal: ${fmt$(resolveGoal(s))}`,
     fmt$(s.yoy_net_sales) && `Same day last year finished at: ${fmt$(s.yoy_net_sales)}`,
     s.guest_count > 0 && `Guests so far: ${s.guest_count}`,
+    monthSnapshot && `Month: MTD ${fmt$(monthSnapshot.periods.month.sales) ?? "not available yet"} | Month goal ${fmt$(monthSnapshot.periods.month.goal) ?? "not available yet"} | Month pace ${fmt$(monthSnapshot.periods.month.pace) ?? "not available yet"}`,
   ].filter(Boolean).join("\n");
 
   const key = Deno.env.get("LOVABLE_API_KEY");
