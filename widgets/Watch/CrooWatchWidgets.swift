@@ -27,7 +27,7 @@ private struct CornerSalesView: View {
             .widgetCurvesContent()
             .widgetLabel {
                 Gauge(value: snap.salesProgress) {
-                    Text("\(snap.compactName.uppercased()) \(snap.laborText)")
+                    Text("\(snap.compactName.uppercased()) · goal \(WFormat.short(snap.goal))")
                 }
                 .tint(WColor.orange)
             }
@@ -141,7 +141,7 @@ struct OnNowComplication: Widget {
 struct CornerSalesComplication: Widget {
     var body: some WidgetConfiguration {
         accessoryConfig(kind: "CrooWCorner", name: "Sales + store",
-                        summary: "Sales in the corner with the store name and labor % on the edge.",
+                        summary: "Sales in the corner, gauge to goal, store and goal on the edge.",
                         families: [.accessoryCorner]) { CornerSalesView(snap: $0) }
     }
 }
