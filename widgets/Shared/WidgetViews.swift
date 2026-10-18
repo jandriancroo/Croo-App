@@ -483,38 +483,50 @@ struct StoreLargeView: View {
                     Text("Updated \(snap.updatedLabel)").font(wFont(11, .regular)).foregroundStyle(WColor.muted)
                 }
             }
-            HStack(spacing: 16) {
-                ZStack {
-                    WRing(progress: snap.salesProgress, color: WColor.orange, track: WColor.trackOrange, lineWidth: 8)
-                    WRing(progress: snap.paceProgress, color: WColor.tealBright, track: Color(white: 0.2), lineWidth: 8)
-                        .padding(11)
-                    Text(snap.salesPercentText).font(wFont(17))
+            HStack(alignment: .top, spacing: 16) {
+                VStack(spacing: 4) {
+                    ZStack {
+                        WRing(progress: snap.salesProgress, color: WColor.orange, track: WColor.trackOrange, lineWidth: 9)
+                        Text(snap.salesPercentText).font(wFont(17))
+                    }
+                    .frame(width: 84, height: 84)
+                    Text(WFormat.full(snap.sales)).font(wFont(19)).foregroundStyle(WColor.orange)
+                        .lineLimit(1).minimumScaleFactor(0.7)
                 }
-                .frame(width: 96, height: 96)
                 VStack(spacing: 10) {
                     HStack(alignment: .top) {
-                        cell("SALES", WFormat.full(snap.sales), WColor.orange)
+                        cell("PACE", WFormat.full(snap.today?.paceValue ?? 0), WColor.tealBright)
                         cell("GOAL", WFormat.full(snap.goal), WColor.muted)
                     }
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("LABOR").font(wFont(10)).foregroundStyle(WColor.tealBright)
-                            Text(snap.laborText).font(wFont(19))
-                            WLaborLine(color: snap.laborColor, width: 28, height: 3)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("LABOR").font(wFont(10)).foregroundStyle(WColor.tealBright)
+                        Text(snap.laborText).font(wFont(19))
+                        WProgressLine(progress: 1, color: snap.laborColor, track: snap.laborColor.opacity(0.25), height: 5)
+                        if let g = snap.laborGoalText {
+                            Text(g).font(wFont(10, .regular)).foregroundStyle(WColor.muted)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        cell("ON NOW", "\(snap.onNowCount)", WColor.green)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
             Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
-            WTimeline(snap: snap, maxRows: 4)
-            Spacer(minLength: 0)
-            if let next = snap.nextShift {
-                Text("Next: \(next.firstName) · \(next.startLabel)")
-                    .font(wFont(12, .regular)).foregroundStyle(WColor.muted).lineLimit(1)
-                    .padding(.trailing, 30)
+            WTimeline(snap: snap, maxRows: 5)
+            if !snap.upcomingEvents.isEmpty {
+                Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(Array(snap.upcomingEvents.prefix(3).enumerated()), id: \.offset) { i, e in
+                        HStack(spacing: 8) {
+                            Capsule().fill(e.tint).frame(width: 3, height: 12)
+                            Text(e.timeLabel ?? "").font(wFont(11)).foregroundStyle(i == 0 ? WColor.orange : .white)
+                                .frame(width: 40, alignment: .leading)
+                            Text(e.displayTitle).font(wFont(12, .medium)).lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                    }
+                }
+                .padding(.trailing, 30)
             }
+            Spacer(minLength: 0)
         }
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
