@@ -1,7 +1,7 @@
 // Server reads only; pure arithmetic lives in periodMetrics.ts.
 import { DateTime } from 'npm:luxon@3';
 import { computePace, resolveGoal, storeNow } from './cubeMetrics.ts';
-import { periodMetrics, scaleLastYear, comparison } from './periodMetrics.ts';
+import { periodMetrics, scaleLastYear, comparison, paceStatus } from './periodMetrics.ts';
 
 export const SALES_PERIOD_COLUMNS = 'sale_date, net_sales, guest_count, pizza_count, avg_ticket, override_projection, initial_projection, projected_sales, living_projection, pace_adjusted_projection, pace_calculated_at, hourly_data, payments_data, product_mix';
 export function periodBounds(today: string, zone: string) {
@@ -38,7 +38,10 @@ export async function readSalesPeriods(client: any, locationId: string, date?: s
   const todayPace = td ? computePace({ ...td, nowInStoreTz: storeNow(zone) }) : null;
   const c = cmp.error ? null : first(cmp.data), totals = ly.error ? null : first(ly.data);
   const atPoint = scaleLastYear(c, storeNow(zone).hour);
-  const sum = (a: string, z: string) => rows.filter((r: any) => r.sale_date >= a && r.sale_date <= z).reduce((s: number, r: any) => s + (Number(r.net_sales) || 0), 0);
+  const sum = (a: string, z: string) => {
+    const selected = rows.filter((r: any) => r.sale_date >= a && r.sale_date <= z);
+    return selected.length ? selected.reduce((s: number, r: any) => s + (Number(r.net_sales) || 0), 0) : null;
+  };
   const prev = rows.find((r: any) => r.sale_date === b.priorDay);
   let priorDay = prev?.net_sales == null ? null : Number(prev.net_sales);
   if (target === today && Array.isArray(prev?.hourly_data) && prev.hourly_data.length) {
@@ -54,7 +57,7 @@ export async function readSalesPeriods(client: any, locationId: string, date?: s
       metrics.pace = target === today ? todayPace ?? 0 : 0;
       metrics.delta = metrics.pace - metrics.goal;
       metrics.goal_percent = metrics.goal > 0 ? metrics.pace / metrics.goal * 100 : null;
-      metrics.status = metrics.sales >= 100 && metrics.pace > 0 && metrics.goal > 0 ? (metrics.goal_percent >= 102 ? 'ahead' : metrics.goal_percent >= 95 ? 'onTrack' : 'behind') : null;
+      metrics.status = paceStatus(metrics.sales, metrics.pace, metrics.goal, target === today);
     }
     const full = totals?.[name === 'day' ? 'ly_day_total' : name === 'week' ? 'ly_week_total' : 'ly_month_total'] ?? null;
     const prior = name === 'day' ? priorDay : name === 'week' ? sum(b.priorWeekStart, b.priorWeekEnd) : sum(b.priorMonthStart, b.priorMonthEnd);

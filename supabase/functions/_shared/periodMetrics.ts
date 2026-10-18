@@ -41,6 +41,28 @@ export function paceStatus(actual: number, pace: number | null, goal: number, en
 export function comparison(current: number, previous: number | null | undefined) {
   return previous == null ? null : { dollars: current - previous, percent: previous === 0 ? null : (current - previous) / previous * 100 };
 }
+/** Dashboard hourly chart filtering, filling, and override scaling (before label formatting). */
+export function dashboardHourly(raw: any[], goal: number, override: boolean, open?: string | null, close?: string | null) {
+  const hourOf = (v: unknown) => {
+    const s = String(v ?? '');
+    return /AM|PM/.test(s) ? parseInt(s, 10) + (s.includes('PM') && !s.startsWith('12') ? 12 : 0) : parseInt(s.split(':')[0], 10);
+  };
+  let hourly = raw;
+  if (open && close) {
+    const end = parseInt(close.split(':')[0], 10) || 24;
+    hourly = [];
+    for (let hour = parseInt(open.split(':')[0], 10); hour < end; hour++) {
+      const row = raw.find(h => hourOf(h.hour) === hour);
+      hourly.push({ hour: `${String(hour).padStart(2, '0')}:00`, sales: row?.sales || 0, projected: row?.projected || 0 });
+    }
+  } else {
+    const filtered = raw.filter(h => h.sales > 0 || h.projected > 0);
+    if (filtered.length) hourly = filtered;
+  }
+  const total = hourly.reduce((s, h) => s + (h.projected || 0), 0);
+  if (!override || goal <= 0 || total <= 0 || Math.abs(goal / total - 1) < 0.01) return hourly;
+  return hourly.map(h => ({ ...h, projected: h.projected ? Math.round(h.projected * goal / total) : 0 }));
+}
 /** Include the current local hour in full, just like the Sales Summary LY chip. */
 export function scaleLastYear(c: any, hour: number) {
   const base = { day: c?.ly_net_sales == null ? null : num(c.ly_net_sales), week: c?.ly_wtd_net == null ? null : num(c.ly_wtd_net), month: c?.ly_mtd_net == null ? null : num(c.ly_mtd_net) };

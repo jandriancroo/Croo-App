@@ -17,10 +17,9 @@ import { isWarmPing, warmResponse } from "../_shared/warm.ts";
 import { bridge, readStreamedRound, streamEligible, wantsStream, type Streamer } from "./sseBridge.ts";
 import { splitNames, fuzzyPeople } from "../_shared/nudgePlan.ts";
 import { clockedInUserIds } from "../_shared/onClock.ts";
-import { DateTime } from "npm:luxon@3";
 import { computePace, resolveGoal, storeNow } from "../_shared/cubeMetrics.ts";
-import { paceStatus as sharedPaceStatus, laborTotals, periodMetrics } from "../_shared/periodMetrics.ts";
-import { readSalesPeriods, salesPeriodLines, periodBounds, periodDates } from "../_shared/salesPeriodSnapshot.ts";
+import { paceStatus as sharedPaceStatus, laborTotals, dashboardHourly } from "../_shared/periodMetrics.ts";
+import { readSalesPeriods, salesPeriodLines, periodBounds } from "../_shared/salesPeriodSnapshot.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -469,13 +468,11 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
     // Calculate end of week (Sunday) from weekStart (Monday)
     const weekEnd = addDays(weekStart, 6);
 
-    // Fetch full week sales (yesterday through Sunday) for projections
-    const fetchStart = yesterday < weekStart ? yesterday : weekStart;
     // Labor is NOT in this cached snapshot — it is fetched per request with the
     // asking user's permissions (see buildLaborLines) so one person's labor never
     // reaches someone who would have been refused.
     const dayOfWeek = new Date(today + "T12:00:00Z").getUTCDay();
-    // All independent reads run together (same queries as before; output unchanged).
+    // All independent reads run together; sales include the full month and prior month.
     const [
       salesSnapshot,
       { data: scheduleRows },
@@ -530,11 +527,12 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
     const lines: string[] = ["📊 LIVE CONTEXT SNAPSHOT (auto-injected, do NOT repeat raw numbers — use them to answer naturally):", salesPeriodLines(salesSnapshot)];
     const td = salesRows.find((r: any) => r.sale_date === today);
     if (td) {
-      lines.push(`Today's hourly actual / projected sales (raw saved data): ${JSON.stringify(td.hourly_data ?? null)}`);
       const rawMix = Array.isArray(td.product_mix) ? td.product_mix : [];
       const mix = rawMix.map((i: any) => ({ name: String(i.name ?? i.itemName ?? i.item_name ?? 'Item'), quantity: Number(i.quantity ?? i.qty ?? 0) || 0, sales: Number(i.sales ?? i.netSales ?? i.gross ?? 0) || 0, category: String(i.category ?? i.group ?? i.itemGroup ?? 'Uncategorized') })).filter((i: any) => i.quantity > 0 || i.sales > 0).sort((a: any, b: any) => b.sales - a.sales).slice(0, 20);
       lines.push(`Today's Top 20 Products by Sales: ${JSON.stringify(mix)}`);
-      const hourly = Array.isArray(td.hourly_data) ? td.hourly_data : [];
+      const hourly = dashboardHourly(Array.isArray(td.hourly_data) ? td.hourly_data : [], resolveGoal(td) ?? 0,
+        Number(td.override_projection) > 0, hoursRow?.open_time, hoursRow?.close_time);
+      lines.push(`Today's hourly actual / projected sales (dashboard chart): ${JSON.stringify(hourly)}`);
       const totalHourly = hourly.reduce((s: number, h: any) => s + (Number(h.sales) || 0), 0);
       lines.push(`Estimated pizzas per hour: ${JSON.stringify(hourly.map((h: any) => ({ hour: h.hour, pizzas: totalHourly > 0 && Number(td.pizza_count) > 0 ? Math.round((Number(h.sales) || 0) / totalHourly * Number(td.pizza_count) * 10) / 10 : 0 })))}`);
     }
@@ -542,7 +540,7 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
     // Yesterday
     const yd = (salesRows || []).find((r: any) => r.sale_date === yesterday);
     if (yd) {
-      const goal = (Number(yd.override_projection) || Number(yd.living_projection) || Number(yd.initial_projection) || Number(yd.projected_sales) || 0);
+      const goal = rowGoal(yd);
       const vs = goal > 0 ? ((yd.net_sales / goal - 1) * 100).toFixed(1) : "N/A";
       lines.push(`Yesterday (${wd(yesterday)}): Net Sales $${(yd.net_sales || 0).toLocaleString()} | Goal $${goal.toLocaleString()} (${Number(vs) >= 0 ? '+' : ''}${vs}%) | Guests: ${yd.guest_count || 0}`);
     }
@@ -550,7 +548,7 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
     // Tomorrow
     const tm = (salesRows || []).find((r: any) => r.sale_date === tomorrow);
     if (tm) {
-      const goal = (Number(tm.override_projection) || Number(tm.living_projection) || Number(tm.initial_projection) || Number(tm.projected_sales) || 0);
+      const goal = rowGoal(tm);
       // SANITY CHECK: flag if projection seems absurdly low
       const flagged = goal > 0 && goal < 500 ? " ⚠️ THIS PROJECTION LOOKS SUSPICIOUSLY LOW — it may be a stale override or data error. Tell the user the number seems off and suggest they check/update the projection." : "";
       lines.push(`Tomorrow (${wd(tomorrow)}): Projected $${goal.toLocaleString()}${flagged}`);
@@ -562,11 +560,11 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const futureLines = futureDays.map((r: any) => {
         const dayName = dayNames[new Date(r.sale_date + "T12:00:00Z").getUTCDay()];
-        const proj = (Number(r.override_projection) || Number(r.living_projection) || Number(r.initial_projection) || Number(r.projected_sales) || 0);
+        const proj = rowGoal(r);
         return `${dayName} ${r.sale_date}: $${proj.toLocaleString()}`;
       });
       lines.push(`Remaining Week Projections: ${futureLines.join(" | ")}`);
-      const totalRemaining = futureDays.reduce((s: number, r: any) => s + (Number(r.override_projection) || Number(r.living_projection) || Number(r.initial_projection) || Number(r.projected_sales) || 0), 0);
+      const totalRemaining = futureDays.reduce((s: number, r: any) => s + rowGoal(r), 0);
       const fullWeekProj = salesSnapshot.periods.week.goal;
       lines.push(`Full Week Projection: $${fullWeekProj.toLocaleString()} (Remaining: $${totalRemaining.toLocaleString()})`);
     }

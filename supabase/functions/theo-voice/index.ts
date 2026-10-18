@@ -50,7 +50,7 @@ async function buildOpener(admin: any, loc: { id: string; name: string }, tz: st
     admin.from("sales_cache").select("net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection, yoy_net_sales").eq("location_id", loc.id).eq("sale_date", w.date).maybeSingle(),
     readSalesPeriods(admin, loc.id).catch(() => null),
   ]);
-  const s = sales.data || {};
+  const s = monthSnapshot?.rows.find((r: any) => r.sale_date === monthSnapshot.today) || sales.data || {};
   const facts = [
     fmt$(s.net_sales) && `Sales so far today: ${fmt$(s.net_sales)}`,
     fmt$(resolveGoal(s)) && `Today's goal: ${fmt$(resolveGoal(s))}`,
