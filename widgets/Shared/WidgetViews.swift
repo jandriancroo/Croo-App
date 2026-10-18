@@ -543,42 +543,63 @@ struct StoreLargeView: View {
 
 // MARK: - Accessory (lock screen + watch face)
 
+/// Hands a circular complication its scale: 1 in a normal slot, ~1.8 in the big center slot
+/// of faces like Waypoint, so text and ring weight grow with the circle.
+struct WCircular<Content: View>: View {
+    @ViewBuilder let content: (CGFloat) -> Content
+    var body: some View {
+        GeometryReader { geo in
+            let k = max(1, min(geo.size.width, geo.size.height) / 50)
+            content(k)
+                .frame(width: geo.size.width, height: geo.size.height)
+        }
+    }
+}
+
 /// Circular · sales ring with the store name in the top gap.
 struct AccSalesCircular: View {
     let snap: WSnapshot
     var body: some View {
-        ZStack {
-            WGapRing(progress: snap.salesProgress, name: snap.compactName.uppercased(), lineWidth: 4, fontSize: 7)
-            Text(snap.salesPercentText)
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .minimumScaleFactor(0.6).lineLimit(1)
-                .padding(.top, 5)
+        WCircular { k in
+            ZStack {
+                WGapRing(progress: snap.salesProgress, name: snap.compactName.uppercased(), lineWidth: 4 * k, fontSize: 7 * k)
+                Text(snap.salesPercentText)
+                    .font(.system(size: 14 * k, weight: .bold, design: .rounded))
+                    .minimumScaleFactor(0.6).lineLimit(1)
+                    .padding(.top, 5 * k)
+            }
+            .padding(2)
         }
-        .padding(2)
     }
 }
 
 /// Circular · one ring: store name in the top gap, the rest fills with sales vs goal,
-/// sales $ and labor % stacked in the middle.
+/// sales $ and labor % stacked in the middle. In a big slot (k > 1.4) it also shows pace.
 struct AccStoreRing: View {
     let snap: WSnapshot
     var body: some View {
-        ZStack {
-            WGapRing(progress: snap.salesProgress, name: snap.compactName.uppercased(), lineWidth: 4, fontSize: 7)
-            VStack(spacing: 0) {
-                Text(WFormat.short(snap.sales))
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
-                Text(snap.laborText)
-                    .font(.system(size: 9, weight: .bold, design: .rounded))
-                    .foregroundStyle(snap.laborColor)
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
+        WCircular { k in
+            ZStack {
+                WGapRing(progress: snap.salesProgress, name: snap.compactName.uppercased(), lineWidth: 4 * k, fontSize: 7 * k)
+                VStack(spacing: 0) {
+                    Text(WFormat.short(snap.sales))
+                        .font(.system(size: 13 * k, weight: .bold, design: .rounded))
+                        .minimumScaleFactor(0.6).lineLimit(1)
+                    Text(snap.laborText)
+                        .font(.system(size: 9 * k, weight: .bold, design: .rounded))
+                        .foregroundStyle(snap.laborColor)
+                        .minimumScaleFactor(0.6).lineLimit(1)
+                    if k > 1.4 {
+                        Text("goal \(WFormat.short(snap.goal))")
+                            .font(.system(size: 7 * k, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .minimumScaleFactor(0.6).lineLimit(1)
+                    }
+                }
+                .padding(.top, 5 * k)
             }
-            .padding(.top, 5)
+            .padding(2)
         }
-        .padding(2)
     }
 }
 
@@ -591,15 +612,17 @@ struct AccLaborCircular: View {
         return min(max(l / 50, 0), 1)
     }
     var body: some View {
-        ZStack {
-            WGapRing(progress: fill, name: snap.compactName.uppercased(), lineWidth: 4, fontSize: 7,
-                     color: snap.laborColor, track: snap.laborColor.opacity(0.25))
-            Text(snap.laborText)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .minimumScaleFactor(0.6).lineLimit(1)
-                .padding(.top, 5)
+        WCircular { k in
+            ZStack {
+                WGapRing(progress: fill, name: snap.compactName.uppercased(), lineWidth: 4 * k, fontSize: 7 * k,
+                         color: snap.laborColor, track: snap.laborColor.opacity(0.25))
+                Text(snap.laborText)
+                    .font(.system(size: 13 * k, weight: .bold, design: .rounded))
+                    .minimumScaleFactor(0.6).lineLimit(1)
+                    .padding(.top, 5 * k)
+            }
+            .padding(2)
         }
-        .padding(2)
     }
 }
 
@@ -607,16 +630,18 @@ struct AccLaborCircular: View {
 struct AccOnNowCircular: View {
     let snap: WSnapshot
     var body: some View {
-        ZStack {
-            WGapRing(progress: 0, name: snap.compactName.uppercased(), lineWidth: 4, fontSize: 7,
-                     color: WColor.orange, track: Color.white.opacity(0.25))
-            VStack(spacing: 0) {
-                Text("\(snap.onNowCount)").font(.system(size: 16, weight: .bold, design: .rounded))
-                Text("ON").font(.system(size: 8, weight: .semibold, design: .rounded))
+        WCircular { k in
+            ZStack {
+                WGapRing(progress: 0, name: snap.compactName.uppercased(), lineWidth: 4 * k, fontSize: 7 * k,
+                         color: WColor.orange, track: Color.white.opacity(0.25))
+                VStack(spacing: 0) {
+                    Text("\(snap.onNowCount)").font(.system(size: 16 * k, weight: .bold, design: .rounded))
+                    Text("ON").font(.system(size: 8 * k, weight: .semibold, design: .rounded))
+                }
+                .padding(.top, 5 * k)
             }
-            .padding(.top, 5)
+            .padding(2)
         }
-        .padding(2)
     }
 }
 

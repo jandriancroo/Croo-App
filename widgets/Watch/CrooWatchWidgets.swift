@@ -63,15 +63,17 @@ private struct CornerEventView: View {
 private struct CircularEventView: View {
     let snap: WSnapshot
     var body: some View {
-        VStack(spacing: 1) {
-            Image(systemName: "calendar").font(.system(size: 11, weight: .bold))
-                .foregroundStyle(snap.nextEvent?.tint ?? WColor.muted)
-            Text(snap.nextEvent?.timeLabel ?? "—")
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .minimumScaleFactor(0.6).lineLimit(1)
-            Text(snap.compactName.uppercased())
-                .font(.system(size: 7, weight: .bold, design: .rounded))
-                .foregroundStyle(.secondary).minimumScaleFactor(0.6).lineLimit(1)
+        WCircular { k in
+            VStack(spacing: 1 * k) {
+                Image(systemName: "calendar").font(.system(size: 11 * k, weight: .bold))
+                    .foregroundStyle(snap.nextEvent?.tint ?? WColor.muted)
+                Text(snap.nextEvent?.timeLabel ?? "—")
+                    .font(.system(size: 15 * k, weight: .bold, design: .rounded))
+                    .minimumScaleFactor(0.6).lineLimit(1)
+                Text(snap.compactName.uppercased())
+                    .font(.system(size: 7 * k, weight: .bold, design: .rounded))
+                    .foregroundStyle(.secondary).minimumScaleFactor(0.6).lineLimit(1)
+            }
         }
     }
 }
