@@ -1,5 +1,10 @@
 # Roadmap
 
+## Theo monthly numbers — Oct 18
+- [ ] Inventory Sales Summary metrics and share identical period calculations without changing dashboard numbers.
+- [ ] Add day/week/month sales, comparisons and permission-scoped labor to Theo; add monthly voice opener facts.
+- [ ] Test shared rules, verify Hemet through signed-in Theo, and deploy ai-assistant + theo-voice only.
+
 ## Hemet-only chat push fix — Oct 18
 - [x] Chat pushes carry the chat's store so each person's per-store chat setting applies; fallback is the sender's default store, else no store. Only src/lib/chatMessages.ts changed; 5 new tests, 486 total pass; typecheck clean.
 
