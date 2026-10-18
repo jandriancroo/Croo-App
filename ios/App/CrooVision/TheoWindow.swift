@@ -1,43 +1,143 @@
 import SwiftUI
-import WebKit
 
-/// Theo, opened straight into voice mode. Uses the CrooHQ web app's Theo, so the first time
-/// you'll sign in inside this window; after that it remembers you.
+/// Theo, native: opens listening right away. No website, no second sign-in.
 struct TheoWindow: View {
+    @EnvironmentObject var store: VisionStore
+    @StateObject private var voice = TheoVoice()
+
     var body: some View {
-        CrooWebView(path: "/dashboard?theo=voice")
+        VStack(spacing: 18) {
+            HStack {
+                Text("Theo").font(.title.weight(.bold))
+                Spacer()
+                Text(store.selectedLocationName).font(.callout).foregroundStyle(.secondary)
+            }
+
+            if !store.hasUserSession {
+                TheoSignIn()
+            } else {
+                TheoOrb(phase: voice.phase)
+                    .frame(width: 260, height: 260)
+                    .padding(.top, 8)
+
+                Text(statusText)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(voice.phase == .error ? VColor.red : .primary)
+                    .multilineTextAlignment(.center)
+
+                ScrollView {
+                    Text(voice.caption)
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                }
+                .frame(maxHeight: 160)
+
+                Spacer(minLength: 0)
+
+                if voice.isLive {
+                    Button(role: .destructive) { voice.stop() } label: {
+                        Label("End", systemImage: "xmark").frame(width: 160)
+                    }
+                    .controlSize(.extraLarge)
+                } else {
+                    Button { Task { await voice.start(store: store) } } label: {
+                        Label("Talk to Theo", systemImage: "waveform").frame(width: 200)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(VColor.orange)
+                    .controlSize(.extraLarge)
+                }
+            }
+        }
+        .padding(32)
+        .task {
+            if store.hasUserSession { await voice.start(store: store) }
+        }
+        .onDisappear { voice.stop() }
+    }
+
+    private var statusText: String {
+        switch voice.phase {
+        case .idle: return "Tap to talk"
+        case .connecting: return "Connecting…"
+        case .listening: return "Listening…"
+        case .thinking: return "Checking…"
+        case .speaking: return "Theo"
+        case .error: return voice.errorText ?? "Theo’s voice isn’t available right now."
+        }
     }
 }
 
-struct CrooWebView: UIViewRepresentable {
-    let path: String
+/// Shown once if this Vision Pro was paired before Theo went native.
+private struct TheoSignIn: View {
+    @EnvironmentObject var store: VisionStore
+    @State private var email = ""
+    @State private var password = ""
 
-    func makeCoordinator() -> Coordinator { Coordinator() }
-
-    func makeUIView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.websiteDataStore = .default()
-        config.allowsInlineMediaPlayback = true
-        config.mediaTypesRequiringUserActionForPlayback = []
-        let web = WKWebView(frame: .zero, configuration: config)
-        web.uiDelegate = context.coordinator
-        web.isOpaque = false
-        web.backgroundColor = .clear
-        web.scrollView.backgroundColor = .clear
-        if let url = URL(string: CrooConfig.webBase + path) { web.load(URLRequest(url: url)) }
-        return web
+    var body: some View {
+        VStack(spacing: 14) {
+            Text("Sign in once more to talk to Theo.").font(.title3).multilineTextAlignment(.center)
+            TextField("Email", text: $email)
+                .textContentType(.username)
+                .keyboardType(.emailAddress)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            SecureField("Password", text: $password).textContentType(.password)
+            if let e = store.errorText { Text(e).font(.callout).foregroundStyle(VColor.red) }
+            Button {
+                Task { await store.signIn(email: email.trimmingCharacters(in: .whitespaces), password: password) }
+            } label: {
+                if store.loading { ProgressView() } else { Text("Sign in").frame(width: 160) }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(email.isEmpty || password.isEmpty || store.loading)
+        }
+        .textFieldStyle(.roundedBorder)
+        .frame(maxWidth: 380)
     }
+}
 
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
+/// Theo's dot-sphere orb: slowly turns, breathes while listening, pulses while he talks.
+struct TheoOrb: View {
+    let phase: TheoPhase
 
-    final class Coordinator: NSObject, WKUIDelegate {
-        // Theo's voice screen needs the microphone; visionOS still asks the wearer once.
-        func webView(_ webView: WKWebView,
-                     requestMediaCapturePermissionFor origin: WKSecurityOrigin,
-                     initiatedByFrame frame: WKFrameInfo,
-                     type: WKMediaCaptureType,
-                     decisionHandler: @escaping (WKPermissionDecision) -> Void) {
-            decisionHandler(origin.host.hasSuffix("croohq.com") ? .grant : .prompt)
+    var body: some View {
+        TimelineView(.animation) { tl in
+            let t = tl.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, size in
+                let n = 420
+                let golden = Double.pi * (3 - 5.0.squareRoot())
+                let c = CGPoint(x: size.width / 2, y: size.height / 2)
+                let speed: Double = phase == .speaking ? 0.9 : (phase == .thinking ? 1.6 : 0.35)
+                let pulse: Double
+                switch phase {
+                case .speaking: pulse = 1 + 0.05 * sin(t * 9)
+                case .listening: pulse = 1 + 0.025 * sin(t * 2.2)
+                default: pulse = 1
+                }
+                let R = min(size.width, size.height) * 0.44 * pulse
+                let rot = t * speed, tilt = 0.38
+                var pts: [(Double, Double, Double)] = []
+                pts.reserveCapacity(n)
+                for i in 0..<n {
+                    let y = 1 - (Double(i) / Double(n - 1)) * 2
+                    let r = (1 - y * y).squareRoot()
+                    let th = golden * Double(i)
+                    let x0 = cos(th) * r, z0 = sin(th) * r
+                    let x1 = x0 * cos(rot) + z0 * sin(rot), z1 = -x0 * sin(rot) + z0 * cos(rot)
+                    pts.append((x1, y * cos(tilt) - z1 * sin(tilt), y * sin(tilt) + z1 * cos(tilt)))
+                }
+                for p in pts.sorted(by: { $0.2 < $1.2 }) {
+                    let depth = (p.2 + 1) / 2
+                    let d = R * (0.018 + 0.026 * depth)
+                    let rect = CGRect(x: c.x + p.0 * R - d, y: c.y + p.1 * R - d, width: d * 2, height: d * 2)
+                    let warm = p.1 < -0.55 && p.0 > 0
+                    let color = phase == .error ? VColor.slate : (warm ? VColor.orange : VColor.teal)
+                    ctx.fill(Path(ellipseIn: rect), with: .color(color.opacity(0.3 + 0.7 * depth)))
+                }
+            }
         }
     }
 }

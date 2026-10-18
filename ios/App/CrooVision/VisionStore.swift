@@ -1,10 +1,12 @@
 import Foundation
 import SwiftUI
 import Combine
+import Security
 
 /// Pairs this Vision Pro the same way the watch does (a read-only device token from
 /// watch-device-service), then keeps the live snapshot fresh. Your password is used once
-/// to get the token and is never saved.
+/// to get the token and is never saved. The sign-in session (refresh token, Keychain) is kept
+/// so native Theo can talk with your own permissions, like the web app does.
 @MainActor
 final class VisionStore: ObservableObject {
     @Published private(set) var snapshot: VSnapshot?
@@ -13,6 +15,10 @@ final class VisionStore: ObservableObject {
     @Published private(set) var isPaired = false
     @Published private(set) var loading = false
     @Published var errorText: String?
+    @Published private(set) var hasUserSession = false
+    private(set) var userId: String?
+    private var accessToken: String?
+    private var accessExpiry = Date.distantPast
 
     private let defaults = UserDefaults.standard
     private let tokenKey = "croo.vision.token"
@@ -22,6 +28,8 @@ final class VisionStore: ObservableObject {
 
     init() {
         isPaired = token != nil
+        userId = defaults.string(forKey: "croo.vision.userId")
+        hasUserSession = Keychain.read("croo.vision.refresh") != nil
         selectedLocationId = defaults.string(forKey: locationKey)
         if let data = defaults.data(forKey: locationsKey),
            let list = try? JSONDecoder().decode([VLocation].self, from: data) {
@@ -47,6 +55,11 @@ final class VisionStore: ObservableObject {
         defer { loading = false }
         do {
             let access = try await passwordSignIn(email: email, password: password)
+            if isPaired {
+                // Already paired (signing in again for Theo): keep the device token as is.
+                errorText = nil
+                return
+            }
             let locs = try await fetchLocations(accessToken: access)
             guard let first = locs.first else { throw VError("No locations found for this account.") }
             let issued = try await issueToken(accessToken: access, locationId: first.id)
@@ -65,6 +78,10 @@ final class VisionStore: ObservableObject {
     func signOut() {
         pollTask?.cancel()
         defaults.removeObject(forKey: tokenKey)
+        Keychain.delete("croo.vision.refresh")
+        defaults.removeObject(forKey: "croo.vision.userId")
+        accessToken = nil
+        hasUserSession = false
         snapshot = nil
         isPaired = false
     }
@@ -122,6 +139,45 @@ final class VisionStore: ObservableObject {
         if let data = try? JSONEncoder().encode(list) { defaults.set(data, forKey: locationsKey) }
     }
 
+    // MARK: Sign-in session (for Theo)
+
+    /// A fresh access token for the signed-in person, refreshed when it's about to expire.
+    func userAccessToken() async throws -> String {
+        if let t = accessToken, accessExpiry > Date().addingTimeInterval(60) { return t }
+        guard let refresh = Keychain.read("croo.vision.refresh"),
+              let url = URL(string: CrooConfig.supabaseURL + "/auth/v1/token?grant_type=refresh_token") else {
+            hasUserSession = false
+            throw VError("Sign in again to talk to Theo.")
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(CrooConfig.anonKey, forHTTPHeaderField: "apikey")
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["refresh_token": refresh])
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        guard (resp as? HTTPURLResponse)?.statusCode == 200,
+              let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let access = obj["access_token"] as? String else {
+            Keychain.delete("croo.vision.refresh")
+            hasUserSession = false
+            throw VError("Sign in again to talk to Theo.")
+        }
+        saveSession(obj)
+        return access
+    }
+
+    private func saveSession(_ obj: [String: Any]) {
+        accessToken = obj["access_token"] as? String
+        let expiresIn = (obj["expires_in"] as? Double) ?? Double(obj["expires_in"] as? Int ?? 3600)
+        accessExpiry = Date().addingTimeInterval(expiresIn)
+        if let r = obj["refresh_token"] as? String { Keychain.save("croo.vision.refresh", r) }
+        if let user = obj["user"] as? [String: Any], let id = user["id"] as? String {
+            userId = id
+            defaults.set(id, forKey: "croo.vision.userId")
+        }
+        hasUserSession = true
+    }
+
     // MARK: Network helpers
 
     private struct VError: Error {
@@ -149,6 +205,7 @@ final class VisionStore: ObservableObject {
               let access = obj["access_token"] as? String else {
             throw VError("Couldn't sign in. Check your email and password.")
         }
+        saveSession(obj)
         return access
     }
 
@@ -173,5 +230,38 @@ final class VisionStore: ObservableObject {
         if let r = try? JSONDecoder().decode(IssueResponse.self, from: data), !r.token.isEmpty { return r }
         let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String
         throw VError(msg ?? "Couldn't pair this Vision Pro. You need to be an admin of the organization.")
+    }
+}
+
+/// Tiny Keychain wrapper for the sign-in refresh token.
+enum Keychain {
+    private static let service = "com.croohq.vision"
+
+    static func save(_ key: String, _ value: String) {
+        delete(key)
+        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+                                kSecAttrService as String: service,
+                                kSecAttrAccount as String: key,
+                                kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+                                kSecValueData as String: Data(value.utf8)]
+        SecItemAdd(q as CFDictionary, nil)
+    }
+
+    static func read(_ key: String) -> String? {
+        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+                                kSecAttrService as String: service,
+                                kSecAttrAccount as String: key,
+                                kSecReturnData as String: true,
+                                kSecMatchLimit as String: kSecMatchLimitOne]
+        var out: AnyObject?
+        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let d = out as? Data else { return nil }
+        return String(data: d, encoding: .utf8)
+    }
+
+    static func delete(_ key: String) {
+        let q: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+                                kSecAttrService as String: service,
+                                kSecAttrAccount as String: key]
+        SecItemDelete(q as CFDictionary)
     }
 }

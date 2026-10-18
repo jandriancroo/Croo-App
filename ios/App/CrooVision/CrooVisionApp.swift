@@ -2,7 +2,7 @@ import SwiftUI
 
 // CrooHQ for Apple Vision Pro.
 // Main window: a native live dashboard (sales, labor, who's on, schedule timeline, events),
-// fed by the same read-only data as the watch and widgets. Theo opens in his own window in voice mode.
+// fed by the same read-only data as the watch and widgets. Theo opens in his own window, natively, already listening.
 
 @main
 struct CrooVisionApp: App {
@@ -17,6 +17,7 @@ struct CrooVisionApp: App {
 
         WindowGroup("Theo", id: "theo") {
             TheoWindow()
+                .environmentObject(store)
         }
         .defaultSize(width: 520, height: 760)
     }
