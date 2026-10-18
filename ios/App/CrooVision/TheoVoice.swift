@@ -125,18 +125,19 @@ final class TheoVoice: ObservableObject {
 
     private func receiveLoop(_ ws: URLSessionWebSocketTask) {
         Task { [weak self] in
-            while let self, self.socket === ws {
+            while true {
+                guard let me = self, me.socket === ws else { return }
                 do {
                     let msg = try await ws.receive()
                     if case .string(let text) = msg,
                        let data = text.data(using: .utf8),
                        let ev = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                        await self.handle(ev)
+                        await self?.handle(ev)
                     }
                 } catch {
                     let code = ws.closeCode.rawValue
                     let reason = ws.closeReason.flatMap { String(data: $0, encoding: .utf8) } ?? error.localizedDescription
-                    if self.socket === ws { self.fail("Lost connection to Theo’s voice (\(code)): \(reason)") }
+                    if let me = self, me.socket === ws { me.fail("Lost connection to Theo’s voice (\(code)): \(reason)") }
                     return
                 }
             }
@@ -356,7 +357,8 @@ nonisolated final class TheoAudio: @unchecked Sendable {
         try session.setActive(true)
 
         let input = engine.inputNode
-        try? input.setVoiceProcessingEnabled(true) // echo cancellation
+        // No voice processing: on Vision Pro it can hand the app silent mic buffers.
+        // Theo never hears himself anyway, because the mic is muted while he talks.
         engine.attach(player)
         engine.connect(player, to: engine.mainMixerNode, format: playFormat)
 
@@ -365,16 +367,7 @@ nonisolated final class TheoAudio: @unchecked Sendable {
         let ratio = sendFormat.sampleRate / inFormat.sampleRate
         input.installTap(onBus: 0, bufferSize: 2048, format: inFormat) { [weak self] buffer, _ in
             guard let self else { return }
-            // Loudness for the on-screen meter (always, even while Theo talks).
-            if let ch = buffer.floatChannelData, buffer.frameLength > 0 {
-                var sum: Float = 0
-                let n = Int(buffer.frameLength)
-                for i in 0..<n { sum += ch[0][i] * ch[0][i] }
-                let rms = Double((sum / Float(n)).squareRoot())
-                self.onLevel?(min(1, rms * 12))
-            }
             self.lock.lock(); let on = self.sending; self.lock.unlock()
-            guard on else { return }
             let cap = AVAudioFrameCount(Double(buffer.frameLength) * ratio + 32)
             guard let out = AVAudioPCMBuffer(pcmFormat: self.sendFormat, frameCapacity: cap) else { return }
             var fed = false
@@ -386,7 +379,13 @@ nonisolated final class TheoAudio: @unchecked Sendable {
                 return buffer
             }
             guard err == nil, out.frameLength > 0, let ch = out.int16ChannelData else { return }
-            let data = Data(bytes: ch[0], count: Int(out.frameLength) * 2)
+            // Loudness for the on-screen meter, measured on what we actually send.
+            let n = Int(out.frameLength)
+            var sum: Double = 0
+            for i in 0..<n { let v = Double(ch[0][i]) / 32768; sum += v * v }
+            self.onLevel?(min(1, (sum / Double(n)).squareRoot() * 12))
+            guard on else { return }
+            let data = Data(bytes: ch[0], count: n * 2)
             self.onChunk?(data.base64EncodedString())
         }
         engine.prepare()
