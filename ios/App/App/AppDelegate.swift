@@ -49,6 +49,25 @@ final class CrooBridgeViewController: CAPBridgeViewController {
     }
 }
 
+/// croohq://theo (from the "Ask Theo" widget) opens Theo in voice mode. The web app sets
+/// window.__theoReady once Theo is mounted, so a cold launch keeps retrying until it is.
+enum TheoLauncher {
+    static func isTheoURL(_ url: URL) -> Bool { url.scheme == "croohq" && url.host == "theo" }
+
+    static func open(in root: UIViewController?, attempt: Int = 0) {
+        guard attempt < 60 else { return }
+        let js = "(function(){if(window.__theoReady){window.dispatchEvent(new Event('open-theo-voice'));return true;}return false;})()"
+        let web = (root as? CAPBridgeViewController)?.bridge?.webView
+        web?.evaluateJavaScript(js) { result, _ in
+            if (result as? Bool) == true { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { open(in: root, attempt: attempt + 1) }
+        }
+        if web == nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { open(in: root, attempt: attempt + 1) }
+        }
+    }
+}
+
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
 
@@ -61,10 +80,16 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window = appWindow
 
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
+        if connectionOptions.urlContexts.contains(where: { TheoLauncher.isTheoURL($0.url) }) {
+            TheoLauncher.open(in: appWindow.rootViewController)
+        }
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
         SceneDelegateProxy.shared.scene(scene, openURLContexts: URLContexts)
+        if URLContexts.contains(where: { TheoLauncher.isTheoURL($0.url) }) {
+            TheoLauncher.open(in: window?.rootViewController)
+        }
     }
 
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {

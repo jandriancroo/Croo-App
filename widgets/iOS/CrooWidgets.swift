@@ -145,9 +145,113 @@ struct LockSummaryWidget: Widget {
     }
 }
 
+// MARK: - Ask Theo (tap = Theo opens in voice mode)
+
+private struct TheoEntry: TimelineEntry { let date: Date }
+
+private struct TheoProvider: TimelineProvider {
+    func placeholder(in context: Context) -> TheoEntry { TheoEntry(date: Date()) }
+    func getSnapshot(in context: Context, completion: @escaping (TheoEntry) -> Void) { completion(TheoEntry(date: Date())) }
+    func getTimeline(in context: Context, completion: @escaping (Timeline<TheoEntry>) -> Void) {
+        completion(Timeline(entries: [TheoEntry(date: Date())], policy: .never))
+    }
+}
+
+/// Still frame of Theo's dot-sphere orb.
+private struct TheoOrbView: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let n = 260
+            let golden = Double.pi * (3 - 5.0.squareRoot())
+            let c = CGPoint(x: size.width / 2, y: size.height / 2)
+            let R = min(size.width, size.height) * 0.46
+            let rot = 0.6, tilt = 0.38
+            var pts: [(x: Double, y: Double, z: Double)] = []
+            for i in 0..<n {
+                let y = 1 - (Double(i) / Double(n - 1)) * 2
+                let r = (1 - y * y).squareRoot()
+                let th = golden * Double(i)
+                let x0 = cos(th) * r, z0 = sin(th) * r
+                let x1 = x0 * cos(rot) + z0 * sin(rot), z1 = -x0 * sin(rot) + z0 * cos(rot)
+                pts.append((x1, y * cos(tilt) - z1 * sin(tilt), y * sin(tilt) + z1 * cos(tilt)))
+            }
+            for pt in pts.sorted(by: { $0.z < $1.z }) {
+                let depth = (pt.z + 1) / 2
+                let d = R * (0.022 + 0.03 * depth)
+                let rect = CGRect(x: c.x + pt.x * R - d, y: c.y + pt.y * R - d, width: d * 2, height: d * 2)
+                let warm = pt.y < -0.55 && pt.x > 0
+                ctx.fill(Path(ellipseIn: rect),
+                         with: .color((warm ? WColor.orange : WColor.tealBright).opacity(0.35 + 0.65 * depth)))
+            }
+        }
+    }
+}
+
+private let theoURL = URL(string: "croohq://theo")!
+
+private struct AskTheoSmallView: View {
+    var body: some View {
+        VStack(spacing: 6) {
+            TheoOrbView().frame(width: 84, height: 84)
+            Text("Ask Theo").font(.system(size: 15, weight: .bold, design: .rounded)).foregroundStyle(.white)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct AskTheoMediumView: View {
+    private let hints = ["How are sales?", "Who's on now?", "What's my labor?"]
+    var body: some View {
+        HStack(spacing: 16) {
+            TheoOrbView().frame(width: 104, height: 104)
+            VStack(alignment: .leading, spacing: 7) {
+                Text("Ask Theo").font(.system(size: 20, weight: .bold, design: .rounded)).foregroundStyle(.white)
+                Text("Tap and just talk").font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundStyle(WColor.tealBright)
+                ForEach(hints, id: \.self) { h in
+                    Text("\u{201C}\(h)\u{201D}")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(WColor.muted)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.trailing, 24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+}
+
+struct AskTheoSmallWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "CrooAskTheoSmall", provider: TheoProvider()) { _ in
+            AskTheoSmallView()
+                .widgetURL(theoURL)
+                .containerBackground(for: .widget) { WHomeBackground() }
+        }
+        .configurationDisplayName("Ask Theo")
+        .description("Tap to talk to Theo right away.")
+        .supportedFamilies([.systemSmall])
+    }
+}
+
+struct AskTheoMediumWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "CrooAskTheoMedium", provider: TheoProvider()) { _ in
+            AskTheoMediumView()
+                .widgetURL(theoURL)
+                .containerBackground(for: .widget) { WHomeBackground() }
+        }
+        .configurationDisplayName("Ask Theo")
+        .description("Tap to talk to Theo right away, with a few things to ask.")
+        .supportedFamilies([.systemMedium])
+    }
+}
+
 @main
 struct CrooWidgetBundle: WidgetBundle {
     var body: some Widget {
+        AskTheoSmallWidget()
+        AskTheoMediumWidget()
         SalesSmallWidget()
         OnNowSmallWidget()
         SalesRingSmallWidget()

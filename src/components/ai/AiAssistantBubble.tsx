@@ -260,6 +260,18 @@ export function AiAssistantBubble() {
     return () => window.removeEventListener('open-theo', handler);
   }, []);
 
+  // The iPhone "Ask Theo" widget (croohq://theo) fires 'open-theo-voice': go straight to
+  // Theo's voice screen. __theoReady tells the native side this listener is mounted.
+  useEffect(() => {
+    const handler = () => { setOpen(false); setVoiceIntent('talk'); setVoiceOpen(true); };
+    window.addEventListener('open-theo-voice', handler);
+    (window as any).__theoReady = true;
+    return () => {
+      window.removeEventListener('open-theo-voice', handler);
+      (window as any).__theoReady = false;
+    };
+  }, []);
+
   // ── 4-hour opener, once per person per store: the manager dash slides up.
   // Theo's voice screen never auto-opens; it opens only when Theo is tapped. ──
   const [voiceOpen, setVoiceOpen] = useState(false);
