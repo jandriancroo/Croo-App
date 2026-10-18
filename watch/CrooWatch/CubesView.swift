@@ -70,17 +70,18 @@ struct CubesView: View {
         return Button {
             showLocationSwitcher = true
         } label: {
-            HStack(spacing: 3) {
+            HStack(spacing: 4) {
                 Text(name)
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 7, weight: .bold))
+                    .font(.system(size: 9, weight: .bold))
                     .opacity(0.8)
             }
             .foregroundStyle(.white)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 2)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
             .background(Capsule().fill(Color.black.opacity(0.16)))
         }
         .buttonStyle(.plain)
