@@ -2,14 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleDisplayName</key>
-	<string>CrooHQ</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>CrooHQ uses the microphone so Theo can hear your voice updates and questions.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
+		<key>UIApplicationPreferredDefaultSceneSessionRole</key>
+		<string>UIWindowSceneSessionRoleApplication</string>
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<true/>
+		<key>UISceneConfigurations</key>
+		<dict/>
 	</dict>
 </dict>
 </plist>

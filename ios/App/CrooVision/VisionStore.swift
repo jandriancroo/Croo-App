@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Combine
 
 /// Pairs this Vision Pro the same way the watch does (a read-only device token from
 /// watch-device-service), then keeps the live snapshot fresh. Your password is used once
