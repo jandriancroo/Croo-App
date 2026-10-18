@@ -123,17 +123,6 @@ private struct CubeScreen: View {
             isPaused: isPaused
         )
         .background(accent.ignoresSafeArea())
-        .overlay(alignment: .center) {
-            // Goal ring traced around the screen edge, only on cubes that show Sales.
-            if let f = goalFraction {
-                RoundedRectangle(cornerRadius: 44, style: .continuous)
-                    .trim(from: 0, to: min(f, 1))
-                    .stroke(Color.white.opacity(0.9), style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                    .padding(1.5)
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
-            }
-        }
         .contentShape(Rectangle())
         .onTapGesture {
             guard !isPaused, cube.faces.count > 1 else { return }
