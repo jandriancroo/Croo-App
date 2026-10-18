@@ -19,7 +19,7 @@ import { computePace, laborPct, resolveGoal, storeNow } from "../_shared/cubeMet
 import { clockedInUserIds } from "../_shared/onClock.ts";
 
 // Bump on every change so a deploy can be confirmed: POST {"action":"version"}.
-const WATCH_SERVICE_VERSION = "2026-10-17.1";
+const WATCH_SERVICE_VERSION = "2026-10-17.2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -538,6 +538,56 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
     totalHours: Math.round(schedule.reduce((t: number, s: any) => t + (s.hours || 0), 0) * 10) / 10,
   };
 
+  // ---------------- today's schedule events (read-only). Same selection as the app's
+  // src/lib/todaysScheduleEvents.ts: this week's published one-offs for today, plus recurring
+  // templates for today's weekday; a one-off hides the identical template.
+  let scheduleEvents: any[] = [];
+  try {
+    const dow = now.weekday - 1;
+    const evCols = 'id, event_name, event_time, event_end_time, event_date, schedule_id, location_id, is_recurring, day_of_week, days_of_week, event_categories(name, color)';
+    const [{ data: sched }, { data: recurring }] = await Promise.all([
+      sb.from('schedules').select('id, is_published').eq('location_id', locationId).eq('week_start_date', weekStart).maybeSingle(),
+      sb.from('schedule_events').select(evCols).eq('location_id', locationId).eq('is_recurring', true).is('schedule_id', null),
+    ]);
+    let oneOffs: any[] = [];
+    if (sched?.id && sched.is_published === true) {
+      const { data: rows } = await sb.from('schedule_events').select(evCols).eq('schedule_id', sched.id).eq('event_date', today);
+      oneOffs = rows || [];
+    }
+    const templates = (recurring || []).filter((e: any) =>
+      Array.isArray(e.days_of_week) && e.days_of_week.length ? e.days_of_week.includes(dow) : e.day_of_week === dow);
+    const merged = [
+      ...oneOffs,
+      ...templates.filter((t: any) => !oneOffs.some((o: any) =>
+        o.event_name === t.event_name && o.day_of_week === t.day_of_week && o.event_time === t.event_time)),
+    ].sort((a: any, b: any) => String(a.event_time).localeCompare(String(b.event_time)));
+    const toMin = (t: any) => {
+      const m = String(t ?? '').match(/^(\d{1,2}):(\d{2})/);
+      return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null;
+    };
+    const label = (min: number | null) => {
+      if (min === null) return '';
+      const h24 = Math.floor(min / 60) % 24, mm = min % 60;
+      const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+      return `${h12}${mm ? ':' + String(mm).padStart(2, '0') : ''}${h24 >= 12 ? 'p' : 'a'}`;
+    };
+    scheduleEvents = merged.slice(0, 12).map((e: any) => {
+      const start = toMin(e.event_time), end = toMin(e.event_end_time);
+      const cat = Array.isArray(e.event_categories) ? e.event_categories[0] : e.event_categories;
+      return {
+        id: e.id,
+        title: e.event_name || 'Event',
+        timeLabel: label(start),
+        startMin: start,
+        endMin: end,
+        category: cat?.name || null,
+        color: typeof cat?.color === 'string' && cat.color.startsWith('#') ? cat.color : null,
+      };
+    });
+  } catch (e) {
+    console.error('[watch-device-service] schedule events read failed', e);
+  }
+
   // ---------------- sales summary, shaped like the dashboard Sales Summary widget
   const [{ data: cmpData }, { data: totData }] = await Promise.all([
     sb.rpc('get_sales_comparisons', { _location_id: locationId, _date: today }),
@@ -640,6 +690,7 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
     cubes,
     schedule,
     scheduleSummary,
+    scheduleEvents,
     sales: toMetrics(SALES_SUMMARY_METRICS),
     salesSummary,
   };

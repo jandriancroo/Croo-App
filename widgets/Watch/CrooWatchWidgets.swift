@@ -95,6 +95,14 @@ struct NextShiftComplication: Widget {
     }
 }
 
+struct NextEventComplication: Widget {
+    var body: some WidgetConfiguration {
+        accessoryConfig(kind: "CrooWNextEvent", name: "Next event",
+                        summary: "The next event on today's schedule.",
+                        families: [.accessoryRectangular]) { AccNextEventRect(snap: $0) }
+    }
+}
+
 struct InlineComplication: Widget {
     var body: some WidgetConfiguration {
         accessoryConfig(kind: "CrooWInline", name: "Sales + labor line",
@@ -114,6 +122,7 @@ struct CrooWatchWidgetBundle: WidgetBundle {
         SalesGoalComplication()
         StoreComplication()
         NextShiftComplication()
+        NextEventComplication()
         InlineComplication()
     }
 }

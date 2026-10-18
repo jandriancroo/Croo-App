@@ -418,6 +418,57 @@ struct TimelineMediumView: View {
     }
 }
 
+/// M3 · Events: today's schedule events in time order, the next one highlighted.
+struct EventsMediumView: View {
+    let snap: WSnapshot
+    private let maxRows = 5
+
+    var body: some View {
+        let list = snap.events
+        let now = snap.scheduleSummary?.nowMin ?? 0
+        let nextId = snap.nextEvent?.id
+        let shown = Array(list.prefix(maxRows))
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                Text("EVENTS · TODAY").font(wFont(11)).foregroundStyle(WColor.tealBright)
+                Spacer()
+                Text(snap.compactName.uppercased()).font(wFont(11, .regular)).foregroundStyle(WColor.muted).lineLimit(1)
+            }
+            if shown.isEmpty {
+                Spacer(minLength: 0)
+                Text("No events today").font(wFont(15, .medium)).foregroundStyle(WColor.muted)
+            } else {
+                ForEach(0..<shown.count, id: \.self) { i in
+                    let e = shown[i]
+                    let isNext = e.id == nextId
+                    let isPast = (e.startMin ?? 0) < now
+                    HStack(spacing: 8) {
+                        Capsule().fill(e.tint).frame(width: 4, height: 15)
+                        Text(e.timeLabel ?? "")
+                            .font(wFont(12))
+                            .foregroundStyle(isNext ? WColor.orange : .white)
+                            .frame(width: 44, alignment: .leading)
+                            .lineLimit(1)
+                        Text(e.displayTitle)
+                            .font(wFont(13, isNext ? .bold : .medium))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        Spacer(minLength: 0)
+                    }
+                    .opacity(isPast ? 0.45 : 1)
+                    .padding(.trailing, 26)
+                }
+                Spacer(minLength: 0)
+                if list.count > shown.count {
+                    Text("+\(list.count - shown.count) more").font(wFont(10, .regular)).foregroundStyle(WColor.muted)
+                }
+            }
+        }
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
 // MARK: - iPhone home screen · large
 
 /// L1 · Everything: header, rings and numbers, timeline, next up.
@@ -645,6 +696,42 @@ struct AccNextShiftRect: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Rectangular · next event on today's schedule, with the store name.
+struct AccNextEventRect: View {
+    let snap: WSnapshot
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text("\(snap.compactName.uppercased()) · NEXT EVENT")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .lineLimit(1)
+                Spacer(minLength: 2)
+                if let next = snap.nextEvent {
+                    Capsule().fill(next.tint).frame(width: 24, height: 6)
+                }
+            }
+            if let next = snap.nextEvent {
+                Text(next.displayTitle)
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .lineLimit(1).minimumScaleFactor(0.7)
+                Text(afterLine(next))
+                    .font(.system(size: 11, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            } else {
+                Text("No more events today").font(.system(size: 13, weight: .semibold, design: .rounded))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func afterLine(_ next: WEvent) -> String {
+        let rest = snap.upcomingEvents.dropFirst().first
+        if let rest { return "\(next.timeLabel ?? "") · then \(rest.displayTitle) \(rest.timeLabel ?? "")" }
+        return next.timeLabel ?? ""
     }
 }
 

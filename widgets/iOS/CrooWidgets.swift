@@ -56,6 +56,14 @@ struct TimelineMediumWidget: Widget {
     }
 }
 
+struct EventsMediumWidget: Widget {
+    var body: some WidgetConfiguration {
+        homeConfig(kind: "CrooEventsMedium", name: "Events",
+                   summary: "Today's schedule events in order, with the next one highlighted.",
+                   family: .systemMedium) { EventsMediumView(snap: $0) }
+    }
+}
+
 struct StoreLargeWidget: Widget {
     var body: some WidgetConfiguration {
         homeConfig(kind: "CrooStoreLarge", name: "Store overview",
@@ -121,6 +129,14 @@ private struct LockSummaryContent: View {
     }
 }
 
+struct LockNextEventWidget: Widget {
+    var body: some WidgetConfiguration {
+        lockConfig(kind: "CrooLockNextEvent", name: "Next event",
+                   summary: "The next event on today's schedule.",
+                   families: [.accessoryRectangular]) { AccNextEventRect(snap: $0) }
+    }
+}
+
 struct LockSummaryWidget: Widget {
     var body: some WidgetConfiguration {
         lockConfig(kind: "CrooLockSummary", name: "Sales and labor",
@@ -137,11 +153,13 @@ struct CrooWidgetBundle: WidgetBundle {
         SalesRingSmallWidget()
         ScoreboardMediumWidget()
         TimelineMediumWidget()
+        EventsMediumWidget()
         StoreLargeWidget()
         LockSalesWidget()
         LockStoreRingWidget()
         LockLaborWidget()
         LockOnNowWidget()
         LockSummaryWidget()
+        LockNextEventWidget()
     }
 }

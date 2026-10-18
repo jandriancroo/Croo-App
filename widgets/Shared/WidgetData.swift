@@ -61,6 +61,17 @@ struct WShift: Codable, Hashable {
     var color: String?
 }
 
+/// One event from today's schedule (meetings, deliveries, anything on the schedule page).
+struct WEvent: Codable, Hashable {
+    var id: String?
+    var title: String?
+    var timeLabel: String?
+    var startMin: Double?
+    var endMin: Double?
+    var category: String?
+    var color: String?
+}
+
 struct WSnapshot: Codable {
     var updatedAt: String?
     var locationId: String?
@@ -69,6 +80,7 @@ struct WSnapshot: Codable {
     var scheduleSummary: WSchedSummary?
     var schedule: [WShift]?
     var locations: [SharedLocation]?
+    var scheduleEvents: [WEvent]?
 }
 
 private struct WEnvelope: Codable {
@@ -166,6 +178,21 @@ extension WSnapshot {
         out.pmSymbol = "p"
         return out.string(from: d)
     }
+}
+
+extension WEvent {
+    var displayTitle: String { (title ?? "").isEmpty ? "Event" : (title ?? "") }
+    var tint: Color { WColor.from(hex: color, fallback: WColor.tealBright) }
+}
+
+extension WSnapshot {
+    var events: [WEvent] { scheduleEvents ?? [] }
+    /// Events that haven't started yet (or have no time), in order; the first is "next up".
+    var upcomingEvents: [WEvent] {
+        let now = scheduleSummary?.nowMin ?? 0
+        return events.filter { ($0.startMin ?? 0) >= now }
+    }
+    var nextEvent: WEvent? { upcomingEvents.first }
 }
 
 extension WShift {
@@ -320,7 +347,13 @@ extension CrooEntry {
         let snap = WSnapshot(updatedAt: nil, locationId: "sample", locationName: "Blaze Pizza - Hemet",
                              salesSummary: WSalesSummary(today: period),
                              scheduleSummary: WSchedSummary(onNow: 6, later: 2, nowMin: 640),
-                             schedule: shifts, locations: nil)
+                             schedule: shifts, locations: nil,
+                             scheduleEvents: [
+                                WEvent(id: "e1", title: "Food delivery", timeLabel: "9a", startMin: 540, endMin: nil, category: "Delivery", color: "#4FB3C8"),
+                                WEvent(id: "e2", title: "Team huddle", timeLabel: "11a", startMin: 660, endMin: nil, category: "Meeting", color: "#EB7D3C"),
+                                WEvent(id: "e3", title: "Health inspection", timeLabel: "2p", startMin: 840, endMin: nil, category: "Visit", color: "#FF453A"),
+                                WEvent(id: "e4", title: "Truck count", timeLabel: "4:30p", startMin: 990, endMin: nil, category: "Inventory", color: "#34C759")
+                             ])
         return CrooEntry(date: Date(), snapshot: snap, paired: true)
     }
 }
