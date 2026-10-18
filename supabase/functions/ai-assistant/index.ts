@@ -17,6 +17,10 @@ import { isWarmPing, warmResponse } from "../_shared/warm.ts";
 import { bridge, readStreamedRound, streamEligible, wantsStream, type Streamer } from "./sseBridge.ts";
 import { splitNames, fuzzyPeople } from "../_shared/nudgePlan.ts";
 import { clockedInUserIds } from "../_shared/onClock.ts";
+import { DateTime } from "npm:luxon@3";
+import { computePace, resolveGoal, storeNow } from "../_shared/cubeMetrics.ts";
+import { paceStatus as sharedPaceStatus, laborTotals, periodMetrics } from "../_shared/periodMetrics.ts";
+import { readSalesPeriods, salesPeriodLines, periodBounds, periodDates } from "../_shared/salesPeriodSnapshot.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -373,18 +377,13 @@ async function getCachedSnapshot(supabase: any, locationId: string, today: strin
 // === CONTEXT INJECTION: Build a daily snapshot to prepend to system prompt ===
 // Goal/pace — mirrors SalesSummary.tsx exactly (resolveProjection goal; pace = max(pace_adjusted_projection, sales so far);
 // status thresholds from getPaceStatus). Pace never falls back to the goal.
-function rowGoal(r: any): number {
-  return (Number(r.override_projection) || Number(r.living_projection) || Number(r.initial_projection) || Number(r.projected_sales) || 0);
+function rowGoal(r: any): number { return resolveGoal(r) ?? 0; }
+function todayPaceOf(r: any, zone: string): number | null {
+  return computePace({ ...r, nowInStoreTz: storeNow(zone) });
 }
-function todayPaceOf(r: any): number | null {
-  const p = Number(r?.pace_adjusted_projection) || 0;
-  if (p <= 0) return null;
-  return Math.max(p, Number(r?.net_sales) || 0);
-}
-function paceStatus(actual: number, pace: number | null, goal: number): { status: string; pct: number } | null {
-  if (actual < 100 || !pace || pace <= 0 || goal <= 0) return null;
-  const pct = (pace / goal) * 100;
-  return { status: pct >= 102 ? "ahead" : pct >= 95 ? "on track" : "behind", pct: Math.round(pct * 10) / 10 };
+function paceStatus(actual: number, pace: number | null, goal: number) {
+  const status = sharedPaceStatus(actual, pace, goal);
+  return status ? { status: status === "onTrack" ? "on track" : status, pct: Math.round(pace / goal * 1000) / 10 } : null;
 }
 function money(n: number): string { return `$${Math.round(n).toLocaleString()}`; }
 
@@ -478,7 +477,7 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
     const dayOfWeek = new Date(today + "T12:00:00Z").getUTCDay();
     // All independent reads run together (same queries as before; output unchanged).
     const [
-      { data: salesRows },
+      salesSnapshot,
       { data: scheduleRows },
       { data: tomorrowSchedule },
       { data: tipsRow },
@@ -486,14 +485,7 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
       { data: pendingPto },
       todayDetail,
     ] = await Promise.all([
-      // Full week sales (yesterday through Sunday) for projections
-      supabase
-        .from("sales_cache")
-        .select("sale_date, net_sales, guest_count, override_projection, initial_projection, projected_sales, living_projection, pace_adjusted_projection")
-        .eq("location_id", locationId)
-        .gte("sale_date", fetchStart)
-        .lte("sale_date", weekEnd)
-        .order("sale_date"),
+      readSalesPeriods(supabase, locationId, today),
       // Today's schedule count
       supabase
         .from("scheduled_shifts")
@@ -534,11 +526,18 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
       todayDetailLines(supabase, locationId, today).catch((e) => { console.error("today detail error:", e); return [] as string[]; }),
     ]);
 
-    // Week-to-date rows derived from the full-week sales fetch above
-    const weekRows = (salesRows || []).filter((r: any) => r.sale_date >= weekStart && r.sale_date <= today);
-
-    // Build snapshot
-    const lines: string[] = ["📊 LIVE CONTEXT SNAPSHOT (auto-injected, do NOT repeat raw numbers — use them to answer naturally):"];
+    const salesRows = salesSnapshot.rows;
+    const lines: string[] = ["📊 LIVE CONTEXT SNAPSHOT (auto-injected, do NOT repeat raw numbers — use them to answer naturally):", salesPeriodLines(salesSnapshot)];
+    const td = salesRows.find((r: any) => r.sale_date === today);
+    if (td) {
+      lines.push(`Today's hourly actual / projected sales (raw saved data): ${JSON.stringify(td.hourly_data ?? null)}`);
+      const rawMix = Array.isArray(td.product_mix) ? td.product_mix : [];
+      const mix = rawMix.map((i: any) => ({ name: String(i.name ?? i.itemName ?? i.item_name ?? 'Item'), quantity: Number(i.quantity ?? i.qty ?? 0) || 0, sales: Number(i.sales ?? i.netSales ?? i.gross ?? 0) || 0, category: String(i.category ?? i.group ?? i.itemGroup ?? 'Uncategorized') })).filter((i: any) => i.quantity > 0 || i.sales > 0).sort((a: any, b: any) => b.sales - a.sales).slice(0, 20);
+      lines.push(`Today's Top 20 Products by Sales: ${JSON.stringify(mix)}`);
+      const hourly = Array.isArray(td.hourly_data) ? td.hourly_data : [];
+      const totalHourly = hourly.reduce((s: number, h: any) => s + (Number(h.sales) || 0), 0);
+      lines.push(`Estimated pizzas per hour: ${JSON.stringify(hourly.map((h: any) => ({ hour: h.hour, pizzas: totalHourly > 0 && Number(td.pizza_count) > 0 ? Math.round((Number(h.sales) || 0) / totalHourly * Number(td.pizza_count) * 10) / 10 : 0 })))}`);
+    }
 
     // Yesterday
     const yd = (salesRows || []).find((r: any) => r.sale_date === yesterday);
@@ -548,19 +547,6 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
       lines.push(`Yesterday (${wd(yesterday)}): Net Sales $${(yd.net_sales || 0).toLocaleString()} | Goal $${goal.toLocaleString()} (${Number(vs) >= 0 ? '+' : ''}${vs}%) | Guests: ${yd.guest_count || 0}`);
     }
 
-    // Today
-    const td = (salesRows || []).find((r: any) => r.sale_date === today);
-    if (td) {
-      const goal = (Number(td.override_projection) || Number(td.living_projection) || Number(td.initial_projection) || Number(td.projected_sales) || 0);
-      const sold = Number(td.net_sales) || 0;
-      const pace = sold >= 100 ? todayPaceOf(td) : null;
-      const st = paceStatus(sold, pace, goal);
-      const paceTxt = pace && st
-        ? `Pace ${money(pace)} (where today is trending to finish) | Status: ${st.status.toUpperCase()} (${st.pct}% of goal, ${pace - goal >= 0 ? '+' : '-'}${money(Math.abs(pace - goal))} vs goal)`
-        : `Pace: not available yet`;
-      lines.push(`Today (${wd(today)}): Net Sales So Far ${money(sold)} | Goal ${money(goal)} | ${paceTxt} | Guests: ${td.guest_count || 0}`);
-    }
-
     // Tomorrow
     const tm = (salesRows || []).find((r: any) => r.sale_date === tomorrow);
     if (tm) {
@@ -568,13 +554,6 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
       // SANITY CHECK: flag if projection seems absurdly low
       const flagged = goal > 0 && goal < 500 ? " ⚠️ THIS PROJECTION LOOKS SUSPICIOUSLY LOW — it may be a stale override or data error. Tell the user the number seems off and suggest they check/update the projection." : "";
       lines.push(`Tomorrow (${wd(tomorrow)}): Projected $${goal.toLocaleString()}${flagged}`);
-    }
-
-    // Week-to-date
-    if (weekRows && weekRows.length > 0) {
-      const wtdSales = weekRows.reduce((s: number, r: any) => s + (r.net_sales || 0), 0);
-      const wtdGoal = weekRows.reduce((s: number, r: any) => s + (Number(r.override_projection) || Number(r.living_projection) || Number(r.initial_projection) || Number(r.projected_sales) || 0), 0);
-      lines.push(`Week-to-date (${wd(weekStart)} → ${wd(today)}): Sales $${wtdSales.toLocaleString()} | Goal $${wtdGoal.toLocaleString()} (${wtdGoal > 0 ? ((wtdSales / wtdGoal - 1) * 100).toFixed(1) : 'N/A'}%)`);
     }
 
     // Remaining week projections (days after today through Sunday)
@@ -588,29 +567,8 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
       });
       lines.push(`Remaining Week Projections: ${futureLines.join(" | ")}`);
       const totalRemaining = futureDays.reduce((s: number, r: any) => s + (Number(r.override_projection) || Number(r.living_projection) || Number(r.initial_projection) || Number(r.projected_sales) || 0), 0);
-      const wtdSales = weekRows ? weekRows.reduce((s: number, r: any) => s + (r.net_sales || 0), 0) : 0;
-      const fullWeekProj = (weekRows ? weekRows.reduce((s: number, r: any) => s + (Number(r.override_projection) || Number(r.living_projection) || Number(r.initial_projection) || Number(r.projected_sales) || 0), 0) : 0) + totalRemaining;
+      const fullWeekProj = salesSnapshot.periods.week.goal;
       lines.push(`Full Week Projection: $${fullWeekProj.toLocaleString()} (Remaining: $${totalRemaining.toLocaleString()})`);
-    }
-
-    // Week pace vs week goal — same as the dashboard: past days actual (goal if no sales), today's pace, remaining days' goals.
-    {
-      const wk = (salesRows || []).filter((r: any) => r.sale_date >= weekStart && r.sale_date <= weekEnd);
-      if (wk.length > 0) {
-        const weekGoal = wk.reduce((a: number, r: any) => a + rowGoal(r), 0);
-        const weekSold = wk.filter((r: any) => r.sale_date <= today).reduce((a: number, r: any) => a + (Number(r.net_sales) || 0), 0);
-        let weekPace = 0;
-        for (const r of wk) {
-          const sold = Number(r.net_sales) || 0;
-          if (r.sale_date < today) weekPace += sold > 0 ? sold : rowGoal(r);
-          else if (r.sale_date === today) weekPace += Number(r.pace_adjusted_projection) || (sold > 0 ? sold : rowGoal(r));
-          else weekPace += rowGoal(r);
-        }
-        const st = paceStatus(weekSold, weekPace, weekGoal);
-        lines.push(st
-          ? `Week pace (${wd(weekStart)} → ${wd(weekEnd)}): Pace ${money(weekPace)} vs Week Goal ${money(weekGoal)} | Status: ${st.status.toUpperCase()} (${st.pct}%, ${weekPace - weekGoal >= 0 ? '+' : '-'}${money(Math.abs(weekPace - weekGoal))})`
-          : `Week pace (${wd(weekStart)} → ${wd(weekEnd)}): not available yet | Week Goal ${money(weekGoal)}`);
-      }
     }
 
     // Tips
@@ -643,14 +601,29 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
 // Per-request labor lines for the snapshot (NOT cached; uses the asking user's permissions).
 async function buildLaborLines(userClient: any, locationId: string, yesterday: string, today: string): Promise<string> {
   if (!locationId) return "";
-  const { rows, error } = await fetchStoreLaborRows(userClient, locationId, yesterday, today);
+  const { data: tz } = await userClient.from("location_settings").select("timezone").eq("location_id", locationId).maybeSingle();
+  const zone = tz?.timezone || "America/Los_Angeles";
+  const bounds = periodBounds(today, zone);
+  const start = [bounds.monthStart, bounds.weekStart, yesterday].sort()[0];
+  const end = [bounds.monthEnd, bounds.weekEnd].sort().pop();
+  const [{ rows, error }, sales, goals] = await Promise.all([
+    fetchStoreLaborRows(userClient, locationId, start, end),
+    userClient.from("sales_cache").select("sale_date, net_sales").eq("location_id", locationId).gte("sale_date", start).lte("sale_date", end),
+    fetchLaborGoals(userClient, locationId, yesterday, today),
+  ]);
   if (error || !rows) return "Labor: Theo can't see labor for this store right now.";
-  const goals = await fetchLaborGoals(userClient, locationId, yesterday, today);
-  return laborByDay(rows, yesterday, today, goals).map((d: any) => {
+  const daily = laborByDay(rows, yesterday, today, goals).map((d: any) => {
     const label = d.date === today ? `Labor today so far (${d.date})` : `Labor yesterday (${d.date})`;
     if (d.no_labor_data) return `${label}: no labor data yet — skip labor, never say 0% or a grade.`;
     return `${label}: $${Math.round(d.labor_cost).toLocaleString()} | ${d.labor_hours.toFixed(1)} hrs | ${d.labor_pct == null ? "labor % n/a (no sales)" : `${d.labor_pct.toFixed(1)}%${d.labor_goal_pct != null ? ` vs goal ${d.labor_goal_pct}%` : ""}`}${d.is_live ? " (live)" : ""}`;
-  }).join("\n");
+  });
+  for (const [label, a, z] of [["Week", bounds.weekStart, bounds.weekEnd], ["Month", bounds.monthStart, bounds.monthEnd]]) {
+    const periodRows = rows.filter((r: any) => r.date >= a && r.date <= z);
+    const sold = sales.error ? null : (sales.data || []).filter((r: any) => r.sale_date >= a && r.sale_date <= z).reduce((s: number, r: any) => s + (Number(r.net_sales) || 0), 0);
+    const labor = laborTotals(periodRows, sold ?? 0);
+    daily.push(`${label} labor (asking user's access only): ${labor ? JSON.stringify(labor) : 'unavailable — never substitute zero'}`);
+  }
+  return daily.join("\n");
 }
 
 // Tool definitions for the AI model
@@ -668,6 +641,7 @@ const tools = [
           end_date: { type: "string", description: "End date YYYY-MM-DD (defaults to start_date if omitted)" },
           include_product_mix: { type: "boolean", description: "Include item-level sales breakdown (product mix)" },
           include_hourly: { type: "boolean", description: "Include hourly sales breakdown" },
+          period: { type: "string", enum: ["day", "week", "month"], description: "Dashboard period totals for the period containing start_date, including full goal/pace, LY, prior period, payments and authorized labor." },
         },
         required: ["location_id", "start_date"],
       },
@@ -1269,10 +1243,17 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
     }
     switch (toolName) {
       case "query_sales": {
+        if (args.period != null) {
+          if (!["day", "week", "month"].includes(args.period) || typeof args.start_date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(args.start_date)) return JSON.stringify({ error: "Invalid sales period or date" });
+          const snapshot = await readSalesPeriods(ctx.userClient || supabase, args.location_id, args.start_date);
+          const totals = snapshot.periods[args.period];
+          const labor = ctx.userClient ? await fetchStoreLaborRows(ctx.userClient, args.location_id, totals.start, totals.end) : { rows: null };
+          return JSON.stringify({ period: args.period, business_date: snapshot.today, timezone: snapshot.zone, totals: { ...totals, labor: laborTotals(labor.rows, totals.sales) } });
+        }
         const endDate = args.end_date || args.start_date;
         const { data, error } = await supabase
           .from("sales_cache")
-          .select("sale_date, net_sales, guest_count, pizza_count, avg_ticket, projected_sales, living_projection, override_projection, initial_projection, pace_adjusted_projection, hourly_data, product_mix")
+          .select("sale_date, net_sales, guest_count, pizza_count, avg_ticket, projected_sales, living_projection, override_projection, initial_projection, pace_adjusted_projection, pace_calculated_at, hourly_data, payments_data, product_mix")
           .eq("location_id", args.location_id)
           .gte("sale_date", args.start_date)
           .lte("sale_date", endDate)
@@ -1283,7 +1264,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         }
 
         const results = (data || []).map((row: any) => {
-          const projection = row.override_projection || row.living_projection || row.initial_projection || row.projected_sales;
+          const projection = resolveGoal(row);
           const r: any = {
             date: row.sale_date,
             net_sales: row.net_sales,
@@ -1291,6 +1272,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
             pizza_count: row.pizza_count,
             avg_ticket: row.avg_ticket,
             projection,
+            payments: row.payments_data ?? null,
           };
           // Sanity flag for suspiciously low projections on future dates
           if (projection > 0 && projection < 500 && row.net_sales === 0) {
@@ -1299,13 +1281,13 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           if (row.sale_date === storeToday) {
             const sold = Number(row.net_sales) || 0;
             const goal = rowGoal(row);
-            const pace = sold >= 100 ? todayPaceOf(row) : null;
+            const pace = sold >= 100 ? todayPaceOf(row, timezone) : null;
             const st = paceStatus(sold, pace, goal);
             r.goal = goal;
-            r.pace = st ? Math.round(pace!) : null;
+            r.pace = st && pace != null ? Math.round(pace) : null;
             r.pace_vs_goal_pct = st ? st.pct : null;
             r.pace_status = st ? st.status : "pace not available yet";
-            if (st) r.pace_gap = Math.round(pace! - goal);
+            if (st && pace != null) r.pace_gap = Math.round(pace - goal);
           } else if (row.sale_date < storeToday) {
             r.goal = rowGoal(row);
           }
@@ -3410,7 +3392,9 @@ TOOL USAGE:
 - GOAL vs PACE: Goal is the target for the day. Pace is where the day is trending to finish. They are different numbers. When asked whether the store is on pace, compare pace to goal and say ahead, on track or behind with the dollar gap. If pace is not available, say so; never treat the goal as the pace.
 - The snapshot includes projections for EVERY remaining day this week (Thu-Sun, etc.). Use them directly.
 - For deeper dives, specific employees, checklists, or other details, invoke your tools to fetch real-time data.
-- For multi-week or month-level projection lookups, use query_sales with a date range.
+- For day/week/month scoreboard questions use the snapshot, or query_sales with period: "day", "week", or "month".
+- Monthly goal = sum of the daily goals for every day of the month (same as the dashboard). Never say the monthly goal is unavailable. If the sales read itself fails, say the numbers could not be loaded; never invent a goal.
+- LY at this point compares actuals through the current local hour; Pace vs Last Year compares the expected finish to the full LY period. Missing LY stays unavailable, not zero.
 - You get up to 5 tool calls per question — USE THEM for retries and cross-referencing.
 
 EMPLOYEE NAME MATCHING:
