@@ -7,13 +7,27 @@ import { getDisplayName } from '@/utils/displayName';
 
 /**
  * The push the chat window has always sent after a message: to every other member, titled with the sender's name.
- * The 3-minute-per-chat limit and each person's alert settings live in the push function, not here.
+ * The push carries the chat's store, so each recipient's per-store chat push setting
+ * (user_notification_settings, type chat_messages) applies. When the chat has no store — rare: super-admin DMs
+ * created without one — the push falls back to the sender's default store; with neither, it goes with no store
+ * and only the legacy flag applies (exactly the old behavior). The 3-minute-per-chat limit and each person's
+ * alert settings live in the push function, not here.
  */
 export async function pushChatMessage(chatId: string, senderId: string, body: string, type = 'message', messageId?: string | null) {
   try {
     const { data: members } = await supabase.from('chat_members').select('user_id').eq('chat_id', chatId).neq('user_id', senderId);
     if (members && members.length > 0) {
-      const { data: senderProfile } = await supabase.from('profiles').select('full_name, nickname').eq('id', senderId).single();
+      // The store the push belongs to: the chat's own location, else the sender's default store.
+      // A lookup failure must never block the push, so it just falls through to "no store".
+      let locationId: string | null = null;
+      try {
+        const { data: chat } = await supabase.from('chats').select('location_id').eq('id', chatId).maybeSingle();
+        locationId = chat?.location_id ?? null;
+      } catch {
+        locationId = null;
+      }
+      const { data: senderProfile } = await supabase.from('profiles').select('full_name, nickname, default_location_id').eq('id', senderId).single();
+      if (!locationId) locationId = senderProfile?.default_location_id ?? null;
       await supabase.functions.invoke('send-push-notification', {
         body: {
           user_ids: members.map(m => m.user_id),
@@ -22,6 +36,7 @@ export async function pushChatMessage(chatId: string, senderId: string, body: st
           body,
           notification_type: 'chat_messages',
           data: messageId ? { chat_id: chatId, type, message_id: messageId } : { chat_id: chatId, type },
+          ...(locationId ? { location_id: locationId } : {}),
         },
       });
     }
