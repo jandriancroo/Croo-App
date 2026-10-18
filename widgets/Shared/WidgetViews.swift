@@ -221,39 +221,44 @@ struct SalesSmallView: View {
     }
 }
 
-/// S2 · Who's on: names and start times.
+/// S2 · Who's on: full first names with their start times, up to 5 people.
 struct OnNowSmallView: View {
     let snap: WSnapshot
+    private let maxRows = 5
+
     var body: some View {
         let active = snap.activeShifts
-        VStack(alignment: .leading, spacing: 7) {
+        let shown = min(active.count, maxRows)
+        let more = max(snap.onNowCount - shown, 0)
+        VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
                 Text("ON NOW").font(wFont(11)).foregroundStyle(WColor.green)
                 Spacer()
-                Text("\(snap.onNowCount)").font(wFont(20))
+                Text("\(snap.onNowCount)").font(wFont(18))
             }
-            ForEach(0..<min(active.count, 3), id: \.self) { i in
-                HStack(spacing: 7) {
-                    Circle().fill(active[i].tint).frame(width: 8, height: 8)
-                    Text(active[i].firstName).font(wFont(13, .medium)).lineLimit(1)
-                    Spacer(minLength: 0)
-                    Text("since \(active[i].startLabel)").font(wFont(10, .regular)).foregroundStyle(WColor.muted).lineLimit(1)
+            .padding(.bottom, 2)
+            ForEach(0..<shown, id: \.self) { i in
+                HStack(spacing: 6) {
+                    Circle().fill(active[i].tint).frame(width: 7, height: 7)
+                    Text(active[i].firstName)
+                        .font(wFont(12, .medium))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                    Spacer(minLength: 2)
+                    Text("@\(active[i].startLabel)")
+                        .font(wFont(11, .regular))
+                        .foregroundStyle(WColor.muted)
+                        .lineLimit(1)
+                        .fixedSize()
                 }
             }
             Spacer(minLength: 0)
-            Text(footer(active.count)).font(wFont(10, .regular)).foregroundStyle(WColor.muted).lineLimit(1)
-                .padding(.trailing, 24)
+            if more > 0 {
+                Text("+\(more) more").font(wFont(10, .regular)).foregroundStyle(WColor.muted).lineLimit(1)
+            }
         }
         .foregroundStyle(.white)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    private func footer(_ shown: Int) -> String {
-        var parts: [String] = []
-        let more = snap.onNowCount - min(shown, 3)
-        if more > 0 { parts.append("+\(more) more") }
-        if let next = snap.nextShift { parts.append("\(next.firstName) \(next.startLabel)") }
-        return parts.joined(separator: " · ")
     }
 }
 
