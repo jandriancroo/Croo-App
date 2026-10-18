@@ -34,6 +34,70 @@ private struct CornerSalesView: View {
     }
 }
 
+private struct CornerLaborView: View {
+    let snap: WSnapshot
+    var body: some View {
+        Text(snap.laborText)
+            .font(.system(size: 14, weight: .bold, design: .rounded))
+            .foregroundStyle(snap.laborColor)
+            .widgetCurvesContent()
+            .widgetLabel {
+                Text("\(snap.compactName.uppercased()) LABOR\(snap.laborGoalText.map { " · " + $0 } ?? "")")
+            }
+    }
+}
+
+private struct CornerEventView: View {
+    let snap: WSnapshot
+    var body: some View {
+        Text(snap.nextEvent?.timeLabel ?? "—")
+            .font(.system(size: 14, weight: .bold, design: .rounded))
+            .foregroundStyle(WColor.orange)
+            .widgetCurvesContent()
+            .widgetLabel {
+                Text(snap.nextEvent?.displayTitle ?? "No events")
+            }
+    }
+}
+
+private struct CircularEventView: View {
+    let snap: WSnapshot
+    var body: some View {
+        VStack(spacing: 1) {
+            Image(systemName: "calendar").font(.system(size: 11, weight: .bold))
+                .foregroundStyle(snap.nextEvent?.tint ?? WColor.muted)
+            Text(snap.nextEvent?.timeLabel ?? "—")
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .minimumScaleFactor(0.6).lineLimit(1)
+            Text(snap.compactName.uppercased())
+                .font(.system(size: 7, weight: .bold, design: .rounded))
+                .foregroundStyle(.secondary).minimumScaleFactor(0.6).lineLimit(1)
+        }
+    }
+}
+
+private struct InlineEventView: View {
+    let snap: WSnapshot
+    var body: some View {
+        if let e = snap.nextEvent {
+            Text("\(snap.compactName) \(e.timeLabel ?? "") \(e.displayTitle)")
+        } else {
+            Text("\(snap.compactName) · no events")
+        }
+    }
+}
+
+private struct InlineShiftView: View {
+    let snap: WSnapshot
+    var body: some View {
+        if let n = snap.nextShift {
+            Text("\(snap.compactName) next: \(n.firstName) \(n.startLabel)")
+        } else {
+            Text("\(snap.compactName) · \(snap.onNowCount) on")
+        }
+    }
+}
+
 struct SalesRingComplication: Widget {
     var body: some WidgetConfiguration {
         accessoryConfig(kind: "CrooWSalesRing", name: "Sales ring", summary: "Sales vs goal.",
@@ -111,6 +175,46 @@ struct InlineComplication: Widget {
     }
 }
 
+struct CornerLaborComplication: Widget {
+    var body: some WidgetConfiguration {
+        accessoryConfig(kind: "CrooWCornerLabor", name: "Labor corner",
+                        summary: "Labor % in the corner, green or red against goal, store on the edge.",
+                        families: [.accessoryCorner]) { CornerLaborView(snap: $0) }
+    }
+}
+
+struct CornerEventComplication: Widget {
+    var body: some WidgetConfiguration {
+        accessoryConfig(kind: "CrooWCornerEvent", name: "Next event corner",
+                        summary: "Time of the next schedule event, title on the edge.",
+                        families: [.accessoryCorner]) { CornerEventView(snap: $0) }
+    }
+}
+
+struct CircularEventComplication: Widget {
+    var body: some WidgetConfiguration {
+        accessoryConfig(kind: "CrooWCircularEvent", name: "Next event circle",
+                        summary: "Time of the next event with the store name.",
+                        families: [.accessoryCircular]) { CircularEventView(snap: $0) }
+    }
+}
+
+struct InlineEventComplication: Widget {
+    var body: some WidgetConfiguration {
+        accessoryConfig(kind: "CrooWInlineEvent", name: "Next event line",
+                        summary: "Store, time and title of the next event in one line.",
+                        families: [.accessoryInline]) { InlineEventView(snap: $0) }
+    }
+}
+
+struct InlineShiftComplication: Widget {
+    var body: some WidgetConfiguration {
+        accessoryConfig(kind: "CrooWInlineShift", name: "Next shift line",
+                        summary: "Store and who starts next, in one line.",
+                        families: [.accessoryInline]) { InlineShiftView(snap: $0) }
+    }
+}
+
 @main
 struct CrooWatchWidgetBundle: WidgetBundle {
     var body: some Widget {
@@ -124,5 +228,10 @@ struct CrooWatchWidgetBundle: WidgetBundle {
         NextShiftComplication()
         NextEventComplication()
         InlineComplication()
+        CornerLaborComplication()
+        CornerEventComplication()
+        CircularEventComplication()
+        InlineEventComplication()
+        InlineShiftComplication()
     }
 }
