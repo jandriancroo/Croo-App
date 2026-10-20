@@ -128,21 +128,23 @@ const Home = () => {
   return (
     <div className="hme" ref={rootRef}>
       <Helmet>
-        <title>CrooHQ — Restaurant operation system, built by an operator</title>
+        <title>CrooHQ — Restaurant Operations Software for Multi-Unit Teams</title>
         <meta
           name="description"
-          content="Replace the $600 tool stack. Scheduling, punch clock, checklists, hiring, labor, and inventory. Built by an operator."
+          content="Restaurant operations software for multi-unit QSR and fast-casual teams. Scheduling, time clock, checklists, inventory and hiring, with POS sync."
         />
         <link rel="canonical" href="https://croohq.com/" />
-        <meta property="og:title" content="CrooHQ — Restaurant operation system, built by an operator" />
+        <meta property="og:title" content="CrooHQ — Restaurant Operations Software for Multi-Unit Teams" />
         <meta
           property="og:description"
-          content="Replace the $600 tool stack. Scheduling, punch clock, checklists, hiring, labor, and inventory. Built by an operator."
+          content="Restaurant operations software for multi-unit QSR and fast-casual teams. Scheduling, time clock, checklists, inventory and hiring, with POS sync."
         />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://croohq.com/" />
         <meta property="og:image" content="https://croohq.com/croohq-ipad-punch.png" />
         <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="CrooHQ — Restaurant Operations Software for Multi-Unit Teams" />
+        <meta name="twitter:description" content="Restaurant operations software for multi-unit QSR and fast-casual teams. Scheduling, time clock, checklists, inventory and hiring, with POS sync." />
         <meta name="twitter:image" content="https://croohq.com/croohq-ipad-punch.png" />
         <link
           href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Manrope:wght@500;600;700;800&display=swap"
