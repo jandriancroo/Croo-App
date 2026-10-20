@@ -66,6 +66,11 @@ export default function Messages() {
         {/* Page header — Chats title + DM button */}
         <PageTitle
           color="orange"
+          status={(() => {
+            const c = unreadCounts.chats ?? 0, a = unreadCounts.announcements ?? 0;
+            if (!c && !a) return { text: 'ALL CAUGHT UP' };
+            return { text: [c ? `${c} UNREAD` : '', a ? `${a} ANNOUNCEMENT${a === 1 ? '' : 'S'}` : ''].filter(Boolean).join(' · ') };
+          })()}
           action={
             <Button
               variant="default"

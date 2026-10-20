@@ -38,6 +38,7 @@ import { BulkApplicantActionsBar } from '@/components/hiring/BulkApplicantAction
 import { ApplicantFlagDot } from '@/components/hiring/ApplicantFlagSelector';
 import { QRCodeSVG } from 'qrcode.react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useTodayCount, countStatus } from '@/hooks/usePageStatus';
 
 const formatTime12 = (t: string) => {
   const [h, m] = t.split(':').map(Number);
@@ -60,6 +61,8 @@ export default function Hiring() {
   const { hasPermission } = useRolePermissions();
   const navigate = useNavigate();
   const canAccessHiring = isOrgAdmin || isBrandAdmin || isSuperAdmin || hasPermission('manage_hiring');
+  const applicantsToday = useTodayCount('applicants', currentLocation?.id, canAccessHiring);
+  const applicantsText = countStatus(applicantsToday, 'NEW APPLICANT TODAY', 'NEW APPLICANTS TODAY', 'NO NEW APPLICANTS TODAY');
   const isOrgLevelAccess = isOrgAdmin || isBrandAdmin || isSuperAdmin; // sees all locations
   const [activeTab, setActiveTab] = useState('applicants');
   const [searchQuery, setSearchQuery] = useState('');
@@ -497,7 +500,7 @@ export default function Hiring() {
     <Layout>
       <div>
         {/* Header */}
-        <PageTitle color="purple" subtitle={(organization as any).brand_name ? (
+        <PageTitle color="purple" status={applicantsText ? { text: applicantsText } : undefined} subtitle={(organization as any).brand_name ? (
                   <><span className="font-medium text-foreground">{(organization as any).brand_name}</span> — {organization.name}</>
                 ) : (
                   organization.name

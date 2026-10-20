@@ -20,10 +20,17 @@ import { AvailabilityRequestCard } from "@/components/availability/AvailabilityR
 import { AvailabilityDialogs } from "@/components/availability/AvailabilityDialogs";
 import { AvailabilityCalendarView, expandDates } from "@/components/availability/AvailabilityCalendarView";
 import { useAvailabilityData } from "@/hooks/useAvailabilityData";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import { storeToday, countStatus } from "@/hooks/usePageStatus";
 
 export default function Availability() {
   const data = useAvailabilityData();
   const activeRequests = data.requests.filter((r) => r.status !== "withdrawn");
+  const { timezone } = useLocationTimezone();
+  const today = storeToday(timezone);
+  const newToday = data.loading ? null : data.requests.filter((r) => Date.parse(r.created_at) >= Date.parse(today.startIso) && Date.parse(r.created_at) < Date.parse(today.endIso)).length;
+  const availabilityText = countStatus(newToday, 'NEW REQUEST TODAY', 'NEW REQUESTS TODAY', 'NO NEW REQUESTS TODAY');
+  const availabilityStatus = availabilityText ? { text: availabilityText } : undefined;
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
@@ -63,7 +70,7 @@ export default function Availability() {
   return (
     <Layout>
       <div>
-        <PageTitle color="indigo" action={
+        <PageTitle color="indigo" status={availabilityStatus} action={
           <Button onClick={() => data.setRequestDialogOpen(true)}>
             <Plus className="h-5 w-5 mr-2" />
             Request Time Off

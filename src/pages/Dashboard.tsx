@@ -23,6 +23,7 @@ import { useAuth } from '@/lib/auth';
 import { getDayOfWeekInTimezone, getBusinessDateInTimezone } from '@/utils/timezoneUtils';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
+import { useLaborPace } from '@/hooks/useLaborPace';
 import { SalesDataForWidgets } from '@/components/dashboard/DashboardWidget';
 import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 import { PullToRefresh } from '@/components/PullToRefresh';
@@ -113,6 +114,21 @@ export default function Dashboard() {
     refetchOnWindowFocus: false,
   });
   const isLoadingSales = salesOverviewData === null;
+
+  // Title status line: sales pace vs goal + labor pace. Shown only when get_labor_pace
+  // lets this person in (same gate as labor); otherwise the title shows the date.
+  const { data: laborPace } = useLaborPace(currentLocation?.id);
+  const dashStatus = useMemo(() => {
+    if (!laborPace) return undefined;
+    const money = (v: number) => `$${Math.round(v).toLocaleString('en-US')}`;
+    const pace = laborPace.sales_pace ?? salesOverviewData?.projections?.todayPaceAdjusted ?? null;
+    const goal = salesOverviewData?.projections?.todayProjected || null;
+    const parts: string[] = [];
+    if (pace != null && pace > 0) parts.push(goal ? `PACE ${money(pace)} / ${money(goal)}` : `PACE ${money(pace)}`);
+    if (laborPace.mode !== 'unavailable' && laborPace.pace_labor_pct != null) parts.push(`LABOR ${Number(laborPace.pace_labor_pct).toFixed(1)}%`);
+    if (!parts.length) return undefined;
+    return { text: parts.join(' · '), tone: laborPace.status === 'behind' ? 'warning' as const : 'muted' as const };
+  }, [laborPace, salesOverviewData]);
 
   
   // Light DB reads — always refetch on pull
@@ -619,6 +635,7 @@ export default function Dashboard() {
           <div className="space-y-1 spookified-dashboard-content">
             <PageTitle
               color="teal"
+              status={dashStatus}
             >
               Dash
             </PageTitle>

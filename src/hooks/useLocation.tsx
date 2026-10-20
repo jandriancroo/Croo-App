@@ -320,6 +320,8 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+export const useOptionalLocation = () => useContext(LocationContext);
+
 export const useLocation = () => {
   const context = useContext(LocationContext);
   if (context === undefined) {

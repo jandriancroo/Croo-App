@@ -1043,7 +1043,10 @@ export function MobileScheduleView({
           <div className="flex flex-col h-full">
             <div className="flex-1 overflow-auto px-[max(1rem,env(safe-area-inset-left))] pt-0 pb-3">
               {/* Date header */}
-              <PageTitle color="teal" action={
+              <PageTitle color="teal" status={isSelectedDateToday ? (() => {
+                  const n = allDayPunches.filter(p => p.isActive).length;
+                  return { text: n ? `${n} ON THE CLOCK` : 'NO ONE ON THE CLOCK' };
+                })() : undefined} action={
                   <ScheduleActionSplitButton
                     isToastLaborStore={isToastLaborStore}
                     isToday={isSelectedDateToday}

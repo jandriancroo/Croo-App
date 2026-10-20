@@ -26,7 +26,7 @@ export default function UserManagement() {
   return (
     <Layout>
       <div>
-        <PageTitle color="cyan">User Management</PageTitle>
+        <PageTitle color="cyan" status={{ text: (() => { const n = (data.users || []).filter((u: any) => u.is_active).length; return n ? `${n} ACTIVE` : 'NO ACTIVE USERS'; })() }}>User Management</PageTitle>
 
         <Card>
           <CardHeader>

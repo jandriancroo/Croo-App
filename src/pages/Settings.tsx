@@ -516,7 +516,7 @@ export default function Settings() {
   return (
     <Layout>
       <div className="w-full">
-        <PageTitle color="slate" subtitle="Manage your preferences">Settings</PageTitle>
+        <PageTitle color="slate" status={null}>Settings</PageTitle>
 
         {/* Pill selector — only for org_admin and above */}
         {showPillSelector && (
