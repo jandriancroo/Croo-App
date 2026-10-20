@@ -119,7 +119,7 @@ export default function BrandUnpricedIngredients({ embedded = false }: { embedde
             subtitle={brand?.name ?? "Brand"}
             action={<Button onClick={handleSync} disabled={syncing} className="gap-2">
             <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-            {syncing ? "Syncing..." : "Sync All Vendor Prices"}
+            {syncing ? "Syncing..." : (<><span className="sm:hidden">Sync prices</span><span className="hidden sm:inline">Sync All Vendor Prices</span></>)}
           </Button>}
           >Unpriced Ingredients</PageTitle>
         )}
