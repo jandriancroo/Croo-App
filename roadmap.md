@@ -7,7 +7,7 @@
 - [x] Align homepage search/social metadata to restaurant operations software; deploy existing dynamic sitemap with homepage and authoritative listing lastmod only; submit sitemap to verified Domain property.
 - [x] Verify homepage and Jobs navigation in browser, deployed sitemap XML and automatic build OK; locked restaurant features untouched.
 - [x] Homepage metadata publish requested Oct 20 (Jordan approved).
-- [ ] Hiring routing repair blocked on identifying an accessible user-owned routing configuration; Wix NS means September Cloudflare ownership assumption is unverified. No DNS changes, no new Cloudflare infrastructure. External child sitemap finding remains unresolved until a same-domain endpoint exists; existing mechanism preserved.
+- [x] Job syndication without Cloudflare: removed homepage-only canonical/og:url from index.html (job pages set their own), robots.txt lists the live job sitemap. Verified rendered job page has JobPosting + own canonical. Awaits Jordan-approved publish.
 
 ## Theo monthly numbers — Oct 18
 - [x] Inventory Sales Summary metrics and extract byte-equivalent goal/pace/status/LY arithmetic without changing dashboard inputs or cube payloads.
