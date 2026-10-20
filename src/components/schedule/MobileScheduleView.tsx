@@ -1043,7 +1043,7 @@ export function MobileScheduleView({
           <div className="flex flex-col h-full">
             <div className="flex-1 overflow-auto px-[max(1rem,env(safe-area-inset-left))] pt-3.5 pb-3 space-y-3">
               {/* Date header */}
-              <PageTitle color="teal" className="mt-0" action={
+              <PageTitle color="teal" className="mt-0 [&_h1]:my-0" action={
                   <ScheduleActionSplitButton
                     isToastLaborStore={isToastLaborStore}
                     isToday={isSelectedDateToday}
