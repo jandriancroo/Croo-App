@@ -828,14 +828,15 @@ const tools = [
     type: "function",
     function: {
       name: "query_certifications",
-      description: "Query employee certifications (food handler, ServSafe, etc.) including expiration dates and approval status. Use for 'whose cert is expiring', 'who has food handler', compliance questions.",
+      description: "Query employee certifications (food handler, ServSafe, etc.) including expiration dates and approval status. Use status 'expired' or check is_expired for 'is anyone's food handler card expired'; results include missing cards. Use for 'whose cert is expiring', 'who has food handler', compliance questions.",
       parameters: {
         type: "object",
         properties: {
           location_id: { type: "string", description: "UUID of the location (used to filter employees at this location)" },
           cert_type: { type: "string", description: "Filter by certification type (partial match)" },
-          status: { type: "string", description: "Filter by status: 'pending', 'approved', 'expired'" },
+          status: { type: "string", description: "Filter: 'pending', 'approved', or 'expired' (date-based: expiration_date before the store-local today, not the status column)" },
           expiring_within_days: { type: "number", description: "Find certs expiring within this many days" },
+          include_missing: { type: "boolean", description: "Also return employees at this location with no certification matching cert_type. Defaults to true when cert_type is given." },
         },
         required: ["location_id"],
       },
@@ -2193,28 +2194,61 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         const userIds = (locUsers || []).map((u: any) => u.user_id);
         if (userIds.length === 0) return JSON.stringify({ message: "No employees at this location." });
 
+        // Only active employees
+        const { data: activeProfiles } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", userIds)
+          .eq("is_active", true);
+        const activeIds = (activeProfiles || []).map((p: any) => p.id);
+        if (activeIds.length === 0) return JSON.stringify({ message: "No employees at this location." });
+
         let query = supabase
           .from("certifications")
           .select("certification_type, expiration_date, status, approved_at, created_at, profiles!certifications_user_id_fkey(full_name)")
-          .in("user_id", userIds)
+          .in("user_id", activeIds)
           .order("expiration_date");
 
         if (args.cert_type) query = query.ilike("certification_type", `%${args.cert_type}%`);
-        if (args.status) query = query.eq("status", args.status);
+        // 'expired' is date-based (expiration_date before the store-local today), not a status column value
+        if (args.status === "expired") query = query.lt("expiration_date", storeToday);
+        else if (args.status) query = query.eq("status", args.status);
 
         const { data, error } = await query;
         if (error) return JSON.stringify({ error: error.message });
 
-        let results = (data || []).map((c: any) => ({
-          employee: c.profiles?.full_name,
-          type: c.certification_type,
-          expires: c.expiration_date,
-          status: c.status,
-        }));
+        const todayDt = DateTime.fromFormat(storeToday, "yyyy-MM-dd", { zone: "utc" });
+        let results = (data || []).map((c: any) => {
+          const expires = c.expiration_date;
+          const expDt = expires ? DateTime.fromFormat(expires, "yyyy-MM-dd", { zone: "utc" }) : null;
+          return {
+            employee: c.profiles?.full_name,
+            type: c.certification_type,
+            expires,
+            status: c.status,
+            is_expired: !!expDt && expDt.isValid && expDt < todayDt,
+            days_until_expiry: expDt && expDt.isValid ? Math.round(expDt.diff(todayDt, "days").days) : null,
+          };
+        });
 
         if (args.expiring_within_days) {
           const cutoffStr = addDays(storeToday, Number(args.expiring_within_days) || 0);
           results = results.filter((c: any) => c.expires && c.expires <= cutoffStr);
+        }
+
+        // Optional missing list: active employees here with no cert matching cert_type (or no certs at all)
+        const includeMissing = args.include_missing != null ? !!args.include_missing : !!args.cert_type;
+        if (includeMissing) {
+          let missQuery = supabase.from("certifications").select("user_id").in("user_id", activeIds);
+          if (args.cert_type) missQuery = missQuery.ilike("certification_type", `%${args.cert_type}%`);
+          const { data: missData, error: missErr } = await missQuery;
+          if (!missErr) {
+            const has = new Set((missData || []).map((m: any) => m.user_id));
+            const missing = activeProfiles
+              .filter((p: any) => !has.has(p.id))
+              .map((p: any) => ({ full_name: p.full_name }));
+            return JSON.stringify({ certifications: results, missing });
+          }
         }
 
         return JSON.stringify(results.length ? results : { message: "No certifications found." });
