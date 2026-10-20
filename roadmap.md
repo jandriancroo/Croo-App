@@ -1,5 +1,10 @@
 # Roadmap
 
+## CrooHQ public SEO — Oct 20
+- [ ] Refresh SEO checks and research US restaurant-owner searches.
+- [ ] Improve verified public-page SEO issues without touching locked restaurant tools.
+- [ ] Verify public pages and record any live-publication or Google reporting setup blockers.
+
 ## Theo monthly numbers — Oct 18
 - [x] Inventory Sales Summary metrics and extract byte-equivalent goal/pace/status/LY arithmetic without changing dashboard inputs or cube payloads.
 - [x] Add day/week/month sales, comparisons and permission-scoped labor to Theo; add monthly voice opener facts.
