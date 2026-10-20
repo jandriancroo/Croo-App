@@ -402,7 +402,7 @@ export default function LocationProfile() {
 
   return (
     <Layout>
-      <div className="space-y-6 w-full overflow-x-hidden">
+      <div className="[&>*:not(:first-child):not(:nth-child(2))]:mt-6 w-full overflow-x-hidden">
         {/* Header */}
         <PageTitle
           color="blue"

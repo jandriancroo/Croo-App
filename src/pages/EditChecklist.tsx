@@ -902,7 +902,7 @@ export default function EditChecklist() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-4 max-w-4xl space-y-4">
+      <div className="container mx-auto p-4 max-w-4xl [&>*:not(:first-child):not(:nth-child(2))]:mt-4">
         <PageTitle color="teal" leading={
           <Button variant="ghost" size="icon" onClick={leaveEditor}>
             <ArrowLeft className="h-5 w-5" />

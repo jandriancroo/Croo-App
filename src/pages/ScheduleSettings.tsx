@@ -317,10 +317,11 @@ export default function ScheduleSettings() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="[&>*:not(:first-child):not(:nth-child(2))]:mt-6">
         <PageTitle color="blue" leading={
           <Button variant="ghost" size="icon" onClick={() => navigate("/schedule")}>
-            ← Back to Schedule
+            <span aria-hidden>←</span>
+            <span className="sr-only">← Back to Schedule</span>
           </Button>
         }>Schedule Settings</PageTitle>
 

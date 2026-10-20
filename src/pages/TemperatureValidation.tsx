@@ -255,7 +255,7 @@ export default function TemperatureValidation() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-4 md:p-6 space-y-6 max-w-full md:max-w-4xl">
+      <div className="container mx-auto p-4 md:p-6 [&>*:not(:first-child):not(:nth-child(2))]:mt-6 max-w-full md:max-w-4xl">
         <PageTitle color="red" subtitle="Review and correct AI-extracted temperature readings" action={
           <Button
             onClick={handleRescanAll}

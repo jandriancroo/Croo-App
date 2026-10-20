@@ -997,12 +997,12 @@ export default function WeekTemplateBuilder() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="[&>*:not(:first-child):not(:nth-child(2))]:mt-6">
         {/* Header */}
         <PageTitle color="blue" leading={
           <Button variant="ghost" size="icon" onClick={() => navigate('/schedule-settings?tab=weeks')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+            <ArrowLeft className="h-5 w-5" />
+            <span className="sr-only">Back</span>
           </Button>
         } action={
           <Button onClick={handleSave} disabled={saving}>

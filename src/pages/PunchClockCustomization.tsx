@@ -616,7 +616,7 @@ export default function PunchClockCustomization() {
 
   return (
     <Layout>
-      <div className="space-y-6 max-w-3xl mx-auto">
+      <div className="[&>*:not(:first-child):not(:nth-child(2))]:mt-6 max-w-3xl mx-auto">
         {/* Header */}
         <PageTitle
           color="purple"

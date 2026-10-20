@@ -573,7 +573,7 @@ export default function DynamicChecklistCalendar() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-4 sm:p-6 max-w-7xl space-y-4">
+      <div className="container mx-auto p-4 sm:p-6 max-w-7xl [&>*:not(:first-child):not(:nth-child(2))]:mt-4">
         {/* Header */}
         <PageTitle
           color="teal"

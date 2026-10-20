@@ -78,7 +78,7 @@ export default function UsageModelsPage() {
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-4">
+      <div className="max-w-6xl mx-auto p-4 md:p-6 [&>*:not(:first-child):not(:nth-child(2))]:mt-4">
         <PageTitle color="cyan" subtitle="Current forecasting state for each item — locked overrides are respected." action={
           <Button
             onClick={() => refit.mutate()}
