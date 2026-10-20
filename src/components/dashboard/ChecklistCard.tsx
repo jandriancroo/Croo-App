@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Check, Lock, ChevronRight, GripVertical, AlarmClock } from "lucide-react";
+import { Check, Lock, ChevronRight, GripVertical, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { memo } from "react";
 import { cn } from "@/lib/utils";
@@ -98,15 +98,12 @@ export const ChecklistCard = memo(function ChecklistCard({
               <Lock className="h-4 w-4 text-muted-foreground" />
             ) : isComplete ? (
               <Check className="h-5 w-5 text-success" strokeWidth={3} />
+            ) : showOverdue ? (
+              <Clock className="h-5 w-5 text-destructive" strokeWidth={2.5} />
             ) : (
-              <span className={cn("text-[11px] font-black", showOverdue ? "text-destructive" : "text-primary")}>{completionRate}%</span>
+              <span className="text-[11px] font-black text-primary">{completionRate}%</span>
             )}
           </div>
-          {showOverdue && (
-            <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-background border border-destructive flex items-center justify-center shadow-sm">
-              <AlarmClock className="h-2.5 w-2.5 text-destructive" strokeWidth={2.5} />
-            </div>
-          )}
         </div>
 
         {/* Content */}
