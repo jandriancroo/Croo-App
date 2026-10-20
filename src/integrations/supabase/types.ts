@@ -15454,6 +15454,42 @@ export type Database = {
         Args: { _location_id: string }
         Returns: string
       }
+      _lp_pairs: {
+        Args: { _date: string; _location_id: string; _src: string }
+        Returns: {
+          clock_in: string
+          clock_out: string
+          est_end: string
+          is_open: boolean
+          on_break: boolean
+          shift_id: string
+          user_id: string
+          worked_sec: number
+        }[]
+      }
+      _lp_shift_eval: {
+        Args: {
+          _first_in: string
+          _last_out: string
+          _now: string
+          _npairs: number
+          _open: boolean
+          _s_end: string
+          _s_start: string
+          _schedule_only: boolean
+          _src: string
+        }
+        Returns: Record<string, unknown>
+      }
+      _lp_template_end: {
+        Args: {
+          _clock_in: string
+          _date: string
+          _location_id: string
+          _tz: string
+        }
+        Returns: string
+      }
       _org_role_notification_settings: {
         Args: { _location_id: string }
         Returns: {
@@ -15467,6 +15503,8 @@ export type Database = {
         Returns: boolean
       }
       _osc_caller_ok: { Args: { _location_id: string }; Returns: boolean }
+      _pace_hour: { Args: { _e: Json }; Returns: number }
+      _pace_num: { Args: { _v: Json }; Returns: number }
       _pay_period_open_issues: {
         Args: { _end: string; _start: string; _user: string }
         Returns: {
@@ -16047,6 +16085,10 @@ export type Database = {
           source: string
         }[]
       }
+      get_labor_projection: {
+        Args: { _date?: string; _location_id: string }
+        Returns: Json
+      }
       get_labor_totals_for_dates: {
         Args: { _dates: string[]; _location_id: string }
         Returns: {
@@ -16573,6 +16615,18 @@ export type Database = {
       }
       run_auto_clock_out: { Args: never; Returns: Json }
       run_due_checklist_swaps: { Args: never; Returns: number }
+      sales_pace_today: {
+        Args: {
+          _cur_h: number
+          _cur_m: number
+          _hourly: Json
+          _net_sales: number
+          _now?: string
+          _stored: number
+          _stored_at: string
+        }
+        Returns: number
+      }
       save_count_item_with_legs: {
         Args: {
           p_count_item_id: string

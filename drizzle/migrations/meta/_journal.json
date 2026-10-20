@@ -302,6 +302,13 @@
       "when": 1792532897348,
       "tag": "0042_labor_projection",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1792532975780,
+      "tag": "0043_labor_projection_functions",
+      "breakpoints": true
     }
   ]
 }
