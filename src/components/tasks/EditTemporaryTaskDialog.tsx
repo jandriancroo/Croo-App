@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { ASSIGNABLE_ROLE_OPTIONS } from '@/hooks/useUserRole';
+import { DayToggleRow } from "@/components/ui/day-toggle-row";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -459,20 +460,7 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
           {taskStyle === "team" && (
             <div className="space-y-2">
               <Label>Active Days *</Label>
-              <div className="flex gap-1">
-                {DAYS_OF_WEEK.map(day => (
-                  <Button
-                    key={day.value}
-                    type="button"
-                    size="sm"
-                    variant={daysOfWeek.includes(day.value) ? "default" : "outline"}
-                    className="flex-1 px-1 text-xs"
-                    onClick={() => toggleDayOfWeek(day.value)}
-                  >
-                    {day.label}
-                  </Button>
-                ))}
-              </div>
+              <DayToggleRow value={daysOfWeek} onToggle={toggleDayOfWeek} days={DAYS_OF_WEEK} />
             </div>
           )}
 
@@ -482,20 +470,7 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
               {/* Days of Week */}
               <div className="space-y-2">
                 <Label>Active Days *</Label>
-                <div className="flex gap-1">
-                  {DAYS_OF_WEEK.map(day => (
-                    <Button
-                      key={day.value}
-                      type="button"
-                      size="sm"
-                      variant={daysOfWeek.includes(day.value) ? "default" : "outline"}
-                      className="flex-1 px-1 text-xs"
-                      onClick={() => toggleDayOfWeek(day.value)}
-                    >
-                      {day.label}
-                    </Button>
-                  ))}
-                </div>
+                <DayToggleRow value={daysOfWeek} onToggle={toggleDayOfWeek} days={DAYS_OF_WEEK} />
               </div>
 
               {/* Frequency */}

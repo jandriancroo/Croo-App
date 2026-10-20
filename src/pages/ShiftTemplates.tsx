@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DayToggleRow } from "@/components/ui/day-toggle-row";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
@@ -454,22 +455,7 @@ export default function ShiftTemplates() {
 
                 <div>
                   <Label>Days of Week</Label>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    {dayNames.map((day, index) => (
-                      <div key={index} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id={`day-${index}`}
-                          checked={formData.days_of_week.includes(index)}
-                          onChange={() => toggleDay(index)}
-                          className="w-4 h-4 rounded border-input"
-                        />
-                        <label htmlFor={`day-${index}`} className="text-sm cursor-pointer">
-                          {day}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
+                  <DayToggleRow className="mt-2" value={formData.days_of_week} onToggle={toggleDay} days={dayNames.map((d, i) => ({ value: i, label: d.slice(0, 3) }))} />
                   <p className="text-xs text-muted-foreground mt-2">
                     Select which days this template should be available for
                   </p>

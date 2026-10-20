@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { formatLocationName } from '@/utils/locationUtils';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 interface Organization {
   id: string;
@@ -566,21 +567,15 @@ export function LocationPickerDialog({
 
           {/* Org tabs (only when there are no brand tabs but multiple orgs) */}
           {!useBrandHeader && hasTabs && (
-            <div className="flex bg-muted/50 rounded-lg p-1 gap-0.5 overflow-x-auto">
-              {tabs.map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => { setActiveTab(tab.id); setSearch(''); }}
-                  className={`flex-1 min-w-0 text-xs font-medium text-center py-1.5 rounded-md transition-all flex items-center justify-center gap-1 whitespace-nowrap px-2 ${
-                    activeTab === tab.id
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <span className="truncate">{tab.label}</span>
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              variant="primary"
+              fullWidth
+              className="overflow-x-auto no-scrollbar"
+              itemClassName="px-2"
+              value={activeTab}
+              onValueChange={(v) => { setActiveTab(v); setSearch(''); }}
+              options={tabs.map(tab => ({ value: tab.id, label: tab.label }))}
+            />
           )}
 
           {/* Search */}

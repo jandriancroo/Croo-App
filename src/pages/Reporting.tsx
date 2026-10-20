@@ -1017,9 +1017,9 @@ export default function Reporting() {
         </div>
         <div className="md:hidden border-b bg-muted/30 px-3 py-2">
           <Tabs value={mobileTab} onValueChange={v => setMobileTab(v as 'build' | 'preview')}>
-            <TabsList className="h-8 grid grid-cols-2 w-full">
-              <TabsTrigger value="build" className="text-xs h-7"><LayoutGrid className="h-3 w-3 mr-1" />Build</TabsTrigger>
-              <TabsTrigger value="preview" className="text-xs h-7"><Eye className="h-3 w-3 mr-1" />Preview</TabsTrigger>
+            <TabsList className="grid grid-cols-2 w-full">
+              <TabsTrigger value="build"><LayoutGrid className="h-3 w-3 mr-1" />Build</TabsTrigger>
+              <TabsTrigger value="preview"><Eye className="h-3 w-3 mr-1" />Preview</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -1153,9 +1153,9 @@ export default function Reporting() {
               <Label className="text-xs">Scope</Label>
               <div className="flex items-center gap-2">
                 <Tabs value={config.scope} onValueChange={v => setConfig(c => ({ ...c, scope: v as 'org' | 'locations' }))}>
-                  <TabsList className="h-8">
-                    <TabsTrigger value="org" className="text-xs h-7"><Building2 className="h-3 w-3 mr-1" />Org Total</TabsTrigger>
-                    <TabsTrigger value="locations" className="text-xs h-7"><MapPin className="h-3 w-3 mr-1" />Pick</TabsTrigger>
+                  <TabsList>
+                    <TabsTrigger value="org"><Building2 className="h-3 w-3 mr-1" />Org Total</TabsTrigger>
+                    <TabsTrigger value="locations"><MapPin className="h-3 w-3 mr-1" />Pick</TabsTrigger>
                   </TabsList>
                 </Tabs>
                 {config.scope === 'locations' && (
@@ -1194,14 +1194,14 @@ export default function Reporting() {
         {/* ROW 2 — TIME PERIOD TOOLBAR */}
         <div className="hidden md:flex items-center gap-2 px-4 py-2 border-b bg-muted/30 flex-wrap">
           <Tabs value={preset} onValueChange={v => setPreset(v as DatePreset)}>
-            <TabsList className="h-8">
-              <TabsTrigger value="today" className="text-xs h-7">Today</TabsTrigger>
-              <TabsTrigger value="yesterday" className="text-xs h-7">Yest</TabsTrigger>
-              <TabsTrigger value="last7" className="text-xs h-7">7d</TabsTrigger>
-              <TabsTrigger value="mtd" className="text-xs h-7">MTD</TabsTrigger>
-              <TabsTrigger value="lastMonth" className="text-xs h-7">Last Mo</TabsTrigger>
-              <TabsTrigger value="ytd" className="text-xs h-7">YTD</TabsTrigger>
-              <TabsTrigger value="custom" className="text-xs h-7">Custom</TabsTrigger>
+            <TabsList>
+              <TabsTrigger value="today">Today</TabsTrigger>
+              <TabsTrigger value="yesterday">Yest</TabsTrigger>
+              <TabsTrigger value="last7">7d</TabsTrigger>
+              <TabsTrigger value="mtd">MTD</TabsTrigger>
+              <TabsTrigger value="lastMonth">Last Mo</TabsTrigger>
+              <TabsTrigger value="ytd">YTD</TabsTrigger>
+              <TabsTrigger value="custom">Custom</TabsTrigger>
             </TabsList>
           </Tabs>
           {preset === 'custom' && (
@@ -1225,9 +1225,9 @@ export default function Reporting() {
           </Badge>
           <div className="ml-auto flex items-center gap-2">
             <Tabs value={config.orientation} onValueChange={v => setConfig(c => ({ ...c, orientation: v as Orientation }))}>
-              <TabsList className="h-8">
-                <TabsTrigger value="portrait" className="text-xs h-7">Portrait</TabsTrigger>
-                <TabsTrigger value="landscape" className="text-xs h-7">Landscape</TabsTrigger>
+              <TabsList>
+                <TabsTrigger value="portrait">Portrait</TabsTrigger>
+                <TabsTrigger value="landscape">Landscape</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>

@@ -9,6 +9,7 @@ import { TasksHistoryTimeline } from '@/components/history/TasksHistoryTimeline'
 import { useTasksData } from '@/hooks/useTasksData';
 import { Layers, Grid3x3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { lazyWithRetry } from '@/utils/lazyWithRetry';
 import { PageTitle } from '@/components/PageTitle';
 
@@ -97,53 +98,26 @@ export default function Tasks() {
               <>
                 {/* View toggle ABOVE date navigator */}
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center bg-muted rounded-lg p-0.5">
-                    <button
-                      onClick={() => setViewMode('grouped')}
-                      className={cn(
-                        'px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 text-xs font-medium',
-                        viewMode === 'grouped' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-                      )}
-                      aria-label="Grouped view"
-                    >
-                      <Layers className="h-3.5 w-3.5" />
-                      <span>By Category</span>
-                    </button>
-                    <button
-                      onClick={() => setViewMode('heatmap')}
-                      className={cn(
-                        'px-2.5 py-1 rounded-md transition-colors flex items-center gap-1.5 text-xs font-medium',
-                        viewMode === 'heatmap' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-                      )}
-                      aria-label="Heatmap view"
-                    >
-                      <Grid3x3 className="h-3.5 w-3.5" />
-                      <span>Heatmap</span>
-                    </button>
-                  </div>
+                  <SegmentedControl
+                    variant="neutral"
+                    fullWidth
+                    value={viewMode}
+                    onValueChange={(v) => setViewMode(v)}
+                    options={[
+                      { value: 'grouped', label: 'By Category', icon: <Layers />, ariaLabel: 'Grouped view' },
+                      { value: 'heatmap', label: 'Heatmap', icon: <Grid3x3 />, ariaLabel: 'Heatmap view' },
+                    ]}
+                  />
 
                   {/* When in heatmap mode, show week/month sub-toggle */}
                   {viewMode === 'heatmap' && (
-                    <div className="flex items-center bg-muted rounded-lg p-0.5">
-                      <button
-                        onClick={() => setHeatmapRange('week')}
-                        className={cn(
-                          'px-2.5 py-1 rounded-md transition-colors text-xs font-medium',
-                          heatmapRange === 'week' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-                        )}
-                      >
-                        Week
-                      </button>
-                      <button
-                        onClick={() => setHeatmapRange('month')}
-                        className={cn(
-                          'px-2.5 py-1 rounded-md transition-colors text-xs font-medium',
-                          heatmapRange === 'month' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-                        )}
-                      >
-                        Month
-                      </button>
-                    </div>
+                    <SegmentedControl
+                      variant="neutral"
+                      className="shrink-0"
+                      value={heatmapRange}
+                      onValueChange={(v) => setHeatmapRange(v)}
+                      options={[{ value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }]}
+                    />
                   )}
                 </div>
 
