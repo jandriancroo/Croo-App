@@ -1,4 +1,5 @@
 import { format, addDays } from "date-fns";
+import { toast } from "sonner";
 import { buildSchedulePrintHtml, type SchedulePrintData } from "./exportSchedulePrint";
 
 /**
@@ -41,21 +42,30 @@ export async function shareSchedulePdf(data: SchedulePrintData): Promise<void> {
     const name = `Schedule ${data.locationName} ${format(data.weekStart, "MMM d")}-${format(addDays(data.weekStart, 6), "MMM d")}.pdf`.replace(/[\\/:*?"<>|]/g, "");
     const blob = pdf.output("blob");
     const file = new File([blob], name, { type: "application/pdf" });
+    const download = () => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    };
     const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
-    if (nav.share && nav.canShare?.({ files: [file] })) {
-      try {
-        await nav.share({ files: [file], title: name });
-      } catch {
-        /* user cancelled */
-      }
-      return;
-    }
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    // iOS only allows share right after a tap, so ask for a fresh tap once the PDF is built.
+    toast("Schedule PDF ready", {
+      duration: 15000,
+      action: {
+        label: "Share",
+        onClick: async () => {
+          if (!nav.share || !nav.canShare?.({ files: [file] })) return download();
+          try {
+            await nav.share({ files: [file], title: name });
+          } catch (e) {
+            if ((e as { name?: string })?.name !== "AbortError") download();
+          }
+        },
+      },
+    });
   } finally {
     iframe.remove();
   }

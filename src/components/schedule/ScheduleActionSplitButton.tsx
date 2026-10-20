@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarPlus, CheckCircle, ChevronDown, FileDown, LayoutGrid, Loader2, UserPlus, type LucideIcon } from 'lucide-react';
+import { CalendarDays, CalendarPlus, ChevronDown, Clock, FileDown, LayoutGrid, Loader2, type LucideIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,10 +47,10 @@ export function ScheduleActionSplitButton(p: Props) {
   };
 
   const all: Action[] = [];
-  if (!p.isToastLaborStore) all.push({ key: 'quickPunch', label: 'Quick Punch', icon: UserPlus, run: p.onQuickPunch, disabled: !p.isToday });
+  if (!p.isToastLaborStore) all.push({ key: 'quickPunch', label: 'Quick Punch', icon: Clock, run: p.onQuickPunch, disabled: !p.isToday });
   if (p.hasSchedule) all.push({ key: 'newShift', label: 'New Shift', icon: CalendarPlus, run: p.onNewShift });
   all.push({ key: 'buildWeek', label: 'Build Week', icon: LayoutGrid, run: p.onBuildWeek });
-  if (p.hasSchedule) all.push({ key: 'newEvent', label: 'New Event', icon: CheckCircle, run: p.onNewEvent });
+  if (p.hasSchedule) all.push({ key: 'newEvent', label: 'New Event', icon: CalendarDays, run: p.onNewEvent });
   if (p.onSharePdf) all.push({ key: 'sharePdf', label: 'Share PDF', icon: FileDown, run: sharePdf, disabled: !p.isPublished });
 
   const defKey = pickDefaultAction(p);
@@ -63,9 +63,9 @@ export function ScheduleActionSplitButton(p: Props) {
       <button
         type="button"
         onClick={() => primary.run()}
-        className="flex h-10 items-center gap-1.5 pl-3.5 pr-3 text-[13px] font-semibold active:bg-accent-foreground/10 transition"
+        className="flex h-11 items-center gap-1.5 pl-3.5 pr-3 text-[15px] font-semibold active:bg-accent-foreground/10 transition"
       >
-        <PrimaryIcon className="h-4 w-4" />
+        <PrimaryIcon className="!size-[18px]" />
         {primary.label}
       </button>
       <div className="my-2 w-px bg-accent-foreground/25" />
@@ -74,9 +74,9 @@ export function ScheduleActionSplitButton(p: Props) {
           <button
             type="button"
             aria-label="More schedule actions"
-            className="flex h-10 w-10 items-center justify-center active:bg-accent-foreground/10 transition"
+            className="flex h-11 w-11 items-center justify-center active:bg-accent-foreground/10 transition"
           >
-            {sharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronDown className="h-4 w-4" />}
+            {sharing ? <Loader2 className="!size-4 animate-spin" /> : <ChevronDown className="!size-4" />}
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[180px]">
@@ -84,7 +84,7 @@ export function ScheduleActionSplitButton(p: Props) {
             const Icon = a.icon;
             return (
               <DropdownMenuItem key={a.key} disabled={a.disabled} onSelect={() => { void a.run(); }} className="gap-2">
-                <Icon className="h-4 w-4" />
+                <Icon className="!size-[18px]" />
                 {a.label}
               </DropdownMenuItem>
             );
