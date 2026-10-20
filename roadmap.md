@@ -205,3 +205,7 @@
 
 ## Elements upgrade Phase 1 — Oct 20
 - [x] Shared control shapes (18 shared files + index.css), acceptance check at 390 run; clipping items reported, not fixed.
+
+## Notification targeting fix — Oct 20
+- [x] alert-push-sender passes location_id; send-push-notification drops recipients not assigned to that store (fail open); chat_members cleanup trigger on user_locations delete.
+- [ ] Quick task circles: Jordan to choose remove / keep only when late.

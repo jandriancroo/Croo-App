@@ -90,7 +90,8 @@ async function drainAlertQueue() {
               body: payload.body,
               notification_type: payload.notification_type,
               type: payload.notification_type,
-              data: payload.data || {}
+              data: payload.data || {},
+              location_id: item.location_id
             }
           })
 
@@ -222,7 +223,8 @@ async function handleAlarmAlert(supabase: any, item: any, payload: any) {
       title: '⏰ ' + task.title,
       body: task.description || 'Recurring task reminder',
       type: 'alarm_task',
-      data: { task_id: task.id, interval_key: intervalKey }
+      data: { task_id: task.id, interval_key: intervalKey },
+      location_id: item.location_id
     }
   })
 
