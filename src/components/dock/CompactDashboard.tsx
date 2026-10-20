@@ -37,6 +37,9 @@ import { useAuth } from '@/lib/auth';
 import { useCutSavingsTotal } from '@/hooks/useCutSavingsTotal';
 import { summarizeCuts } from '@/utils/cutSavingsSummary';
 import { useLaborGoalDisplay } from '@/hooks/useLaborGoalDisplay';
+import { useUserRole } from '@/hooks/useUserRole';
+import { NUDGE_ROLES_CLIENT } from '@/lib/quickNudges';
+import { NudgeSection, DashSectionHeader, Chip } from '@/components/dashboard/NudgeSection';
 import { computePace, laborPct, storeNow } from '../../../supabase/functions/_shared/cubeMetrics';
 
 // Swipe-up panel palette. "Ink" = theme primary darkened for text on the light
@@ -84,6 +87,11 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
   const locationId = currentLocation?.id;
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { role: myRole } = useUserRole() as { role: string | null };
+  const canNudgeHere = !!myRole && NUDGE_ROLES_CLIENT.includes(myRole);
+  const clockKey = `cd-on-clock-open-${user?.id ?? 'anon'}`;
+  const [clockOpen, setClockOpen] = useState(() => { try { return localStorage.getItem(clockKey) !== '0'; } catch { return true; } });
+  const toggleClock = () => setClockOpen((o) => { const n = !o; try { localStorage.setItem(clockKey, n ? '1' : '0'); } catch { /* ignore */ } return n; });
   
   
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -508,6 +516,24 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
     }).format(date);
   };
 
+  // Latest scheduled end among active shifts, using the cut-adjusted time when a cut exists.
+  const latestOut = (() => {
+    let best: number | null = null;
+    const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
+    for (const s of activeShifts) {
+      const cut = getCutForEmployee(s.userId);
+      let end: number | null = null;
+      if (cut?.customEndTime) end = toMin(cut.customEndTime);
+      else if (s.scheduledEndTime) end = toMin(s.scheduledEndTime) - (cut?.minutesCut ?? 0);
+      if (end == null) continue;
+      if (end < 5 * 60) end += 1440; // after-midnight close
+      if (best == null || end > best) best = end;
+    }
+    if (best == null) return null;
+    const m = ((best % 1440) + 1440) % 1440;
+    return `${Math.floor(m / 60) % 12 || 12}:${String(m % 60).padStart(2, '0')} ${Math.floor(m / 60) >= 12 ? 'PM' : 'AM'}`;
+  })();
+
   const handleRemoveCut = (userId: string) => {
     setLaborCuts(prev => prev.filter(c => c.userId !== userId));
   };
@@ -764,20 +790,31 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
 
             <div className="my-[14px] h-px" style={{ background: 'var(--cd-line)' }} />
 
+            {canNudgeHere && (
+              <>
+                <NudgeSection locationId={locationId} />
+                <div className="my-[14px] h-px" style={{ background: 'var(--cd-line)' }} />
+              </>
+            )}
+
             {/* B3. On the clock */}
             <div>
-              <div className="flex items-center justify-between min-h-[44px]">
-                <div className="flex items-center gap-2">
-                  <Users className="h-[18px] w-[18px]" />
-                  <span className="text-[15px] font-extrabold">On the clock</span>
-                  <span
-                    className="inline-flex items-center justify-center h-[22px] min-w-[22px] px-2 rounded-full text-[12px] font-extrabold text-white"
-                    style={{ background: 'var(--cd-solid)' }}
-                  >
-                    {activeShifts.length}
+              <DashSectionHeader
+                open={clockOpen}
+                onToggle={toggleClock}
+                title="On the clock"
+                tile={
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] text-white" style={{ background: 'var(--cd-solid)' }}>
+                    <Users className="h-5 w-5" />
                   </span>
-                </div>
-                {hasAnyCuts && (
+                }
+                chips={
+                  <>
+                    <Chip>{activeShifts.length} working</Chip>
+                    {latestOut && <Chip>Latest out {latestOut}</Chip>}
+                  </>
+                }
+                right={hasAnyCuts ? (
                   <button
                     type="button"
                     className="h-11 px-2 inline-flex items-center gap-1.5 text-[13px] font-extrabold"
@@ -786,10 +823,10 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                     <Calculator className="h-4 w-4" />
                     Preview
                   </button>
-                )}
-              </div>
+                ) : undefined}
+              />
 
-              {activeShifts.length === 0 ? (
+              {clockOpen && (activeShifts.length === 0 ? (
                 <p className="text-[14px] font-semibold text-center py-6">No one clocked in</p>
               ) : (
                 <div className="space-y-1 mt-1">
@@ -923,7 +960,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                     );
                   })}
                 </div>
-              )}
+              ))}
 
               {/* Summary when cuts exist */}
               {hasAnyCuts && (
