@@ -1,6 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Check, Lock, ChevronRight, GripVertical, AlertCircle } from "lucide-react";
+import { Check, Lock, ChevronRight, GripVertical, AlarmClock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { memo } from "react";
 import { cn } from "@/lib/utils";
@@ -38,6 +37,12 @@ export const ChecklistCard = memo(function ChecklistCard({
   const navigate = useNavigate();
   const completionRate = expected > 0 ? Math.min(100, Math.round((completed / expected) * 100)) : 0;
   const isComplete = completionRate === 100;
+  const showOverdue = isOverdue && !isComplete && !isLocked;
+  const ringColor = showOverdue
+    ? 'hsl(var(--destructive))'
+    : isComplete
+      ? 'hsl(var(--success))'
+      : 'hsl(var(--primary))';
 
   const handleClick = () => {
     if (onClick) {
