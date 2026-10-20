@@ -6,7 +6,7 @@
 - [x] Refresh foundations and research US restaurant-owner searches with Semrush; connect Jordan's Google Search Console. Homepage indexed; Sep 19–Oct 16 baseline: 22 clicks, 102 impressions.
 - [x] Align homepage search/social metadata to restaurant operations software; deploy existing dynamic sitemap with homepage and authoritative listing lastmod only; submit sitemap to verified Domain property.
 - [x] Verify homepage and Jobs navigation in browser, deployed sitemap XML and automatic build OK; locked restaurant features untouched.
-- [ ] Homepage metadata reaches production on next Jordan-approved publish; not published in this task.
+- [x] Homepage metadata publish requested Oct 20 (Jordan approved).
 - [ ] Hiring routing repair blocked on identifying an accessible user-owned routing configuration; Wix NS means September Cloudflare ownership assumption is unverified. No DNS changes, no new Cloudflare infrastructure. External child sitemap finding remains unresolved until a same-domain endpoint exists; existing mechanism preserved.
 
 ## Theo monthly numbers — Oct 18
