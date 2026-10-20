@@ -113,25 +113,19 @@ export const ChecklistCard = memo(function ChecklistCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-sm truncate">{title}</span>
-            {isOverdue && (
-              <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4.5 shrink-0 gap-1">
-                <AlertCircle className="h-3 w-3" />
-                Overdue
-              </Badge>
-            )}
           </div>
           {isLocked ? (
             <span className="text-xs text-muted-foreground">
               {lockUntilTime ? `Locked until ${lockUntilTime}` : 'Locked'}
             </span>
           ) : isComplete ? (
-            <span className="text-xs text-primary font-medium">All tasks complete ✓</span>
+            <span className="text-xs text-success font-medium">All tasks complete ✓</span>
           ) : (
             <div className={cn("flex items-center gap-2", variant === 'row' ? 'mt-1' : 'mt-1.5')}>
               <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                <div 
-                  className="h-full rounded-full bg-primary transition-all duration-500" 
-                  style={{ width: `${completionRate}%` }} 
+                <div
+                  className={cn("h-full rounded-full transition-all duration-500", showOverdue ? "bg-destructive" : "bg-primary")}
+                  style={{ width: `${completionRate}%` }}
                 />
               </div>
               <span className="text-[11px] font-medium text-muted-foreground">{completed}/{expected}</span>
