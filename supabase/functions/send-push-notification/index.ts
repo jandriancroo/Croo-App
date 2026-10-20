@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { gateRecipient, settingsKey, isLocked, PULSE_KEYS } from "../_shared/notificationGate.ts";
+import { clockedInUserIds } from "../_shared/onClock.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -573,113 +575,93 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const orgIds = Array.from(new Set([requestOrgId, ...recipientOrg.values()].filter(Boolean))) as string[];
-    let orgSettings: any[] = [];
-    if (notification_type && orgIds.length > 0) {
-      const { data, error: roleSettingsError } = await supabaseClient
-        .from('role_notification_settings')
-        .select('organization_id, role, notification_type, enabled')
-        .eq('notification_type', notification_type)
-        .in('organization_id', orgIds);
-      if (roleSettingsError) console.error('Error fetching role notification settings:', roleSettingsError);
-      orgSettings = data || [];
-    }
-    let templateSettings: any[] = [];
+    // One gate for every recipient: enabled + "From home" (_shared/notificationGate.ts).
+    let finalUserIds = user_ids;
     if (notification_type) {
-      const { data, error: tplErr } = await supabaseClient
+      const key = settingsKey(notification_type);
+      const typeKeys = Array.from(new Set([key, notification_type]));
+      const pick = (rows: any[], match: (r: any) => boolean) =>
+        rows.find(r => match(r) && r.notification_type === key) ?? rows.find(r => match(r));
+
+      let orgSettings: any[] = [];
+      if (orgIds.length > 0) {
+        const { data, error: roleSettingsError } = await supabaseClient
+          .from('role_notification_settings')
+          .select('organization_id, role, notification_type, enabled, from_home')
+          .in('notification_type', typeKeys)
+          .in('organization_id', orgIds);
+        if (roleSettingsError) console.error('Error fetching role notification settings:', roleSettingsError);
+        orgSettings = data || [];
+      }
+      const { data: tplData, error: tplErr } = await supabaseClient
         .from('role_notification_settings_template')
-        .select('role, notification_type, enabled')
-        .eq('notification_type', notification_type);
+        .select('role, notification_type, enabled, from_home')
+        .in('notification_type', typeKeys);
       if (tplErr) console.error('Error fetching role notification defaults:', tplErr);
-      templateSettings = data || [];
-    }
+      const templateSettings = tplData || [];
 
-    // Filter users based on their role's notification permissions
-    const enabledUserIds = user_ids.filter(userId => {
-      const userRole = userRoles?.find(r => r.user_id === userId);
-      if (!userRole) return true; // Default to enabled if no role found
-      
-      if (notification_type) {
-        const org = requestOrgId ?? recipientOrg.get(userId) ?? null;
-        const roleSetting =
-          (org ? orgSettings.find(rs => rs.organization_id === org && rs.role === userRole.role) : undefined)
-          ?? templateSettings.find(rs => rs.role === userRole.role);
-        if (roleSetting && !roleSetting.enabled) {
-          console.log(`Filtering out user ${userId} - ${notification_type} disabled for ${userRole.role}`);
-          return false;
-        }
-      }
-      return true;
-    });
-
-    console.log(`Filtered to ${enabledUserIds.length} users based on role permissions`);
-
-    // Map edge function notification types to user_notification_settings keys
-    const notificationTypeToSettingsKey: Record<string, string> = {
-      'safe_count': 'cash_safe_count',
-      'drawer_count': 'cash_drawer_count',
-      'cash_safe_count': 'cash_safe_count',
-      'cash_drawer_count': 'cash_drawer_count',
-      'cash_bank_deposit': 'cash_bank_deposit',
-      // Hiring: respects user_notification_settings.push_enabled at the applied-to location
-      'new_job_application': 'new_job_application',
-    };
-
-    // Also filter by user notification preferences
-    let finalUserIds = enabledUserIds;
-    if (notification_type) {
-      // First check the new location-based user_notification_settings table
-      const settingsKey = notificationTypeToSettingsKey[notification_type] || notification_type;
-      
+      let userPrefs: any[] = [];
       if (location_id) {
-        // For location-specific notifications, check user_notification_settings
-        const { data: locationPrefs, error: locationPrefsError } = await supabaseClient
+        const { data, error } = await supabaseClient
           .from('user_notification_settings')
-          .select('user_id, push_enabled')
-          .eq('notification_type', settingsKey)
+          .select('user_id, push_enabled, from_home')
+          .eq('notification_type', key)
           .eq('location_id', location_id)
-          .in('user_id', enabledUserIds);
-        
-        if (!locationPrefsError && locationPrefs && locationPrefs.length > 0) {
-          console.log(`Found ${locationPrefs.length} location-based preferences for ${settingsKey} at location ${location_id}`);
-          
-          finalUserIds = enabledUserIds.filter(userId => {
-            const userPref = locationPrefs.find((p: any) => p.user_id === userId);
-            // If no preference record for this location/type, default to enabled
-            if (!userPref) return true;
-            // Check if push_enabled is explicitly false
-            if (userPref.push_enabled === false) {
-              console.log(`Filtering out user ${userId} - ${settingsKey} push disabled for location ${location_id}`);
-              return false;
-            }
-            return true;
-          });
-          console.log(`Filtered to ${finalUserIds.length} users based on location notification settings`);
-        }
+          .in('user_id', user_ids);
+        if (error) console.error('Error fetching user notification settings:', error);
+        userPrefs = data || [];
       }
-      
-      // Also check the legacy notification_preferences table for non-cash notifications
-      if (!notificationTypeToSettingsKey[notification_type]) {
-        const { data: userPrefs, error: prefsError } = await supabaseClient
-          .from('notification_preferences')
-          .select('*')
-          .in('user_id', finalUserIds);
-        
-        if (!prefsError && userPrefs) {
-          finalUserIds = finalUserIds.filter(userId => {
-            const userPref = userPrefs.find((p: any) => p.user_id === userId);
-            // If no preference record, default to enabled
-            if (!userPref) return true;
-            // Check if this specific notification type is enabled
-            const prefValue = (userPref as any)[notification_type];
-            if (prefValue === false) {
-              console.log(`Filtering out user ${userId} - ${notification_type} disabled in legacy preferences`);
-              return false;
-            }
-            return true;
-          });
-          console.log(`Filtered to ${finalUserIds.length} users based on legacy preferences`);
-        }
+
+      // Legacy notification_preferences columns still apply to non-cash, non-hiring types.
+      const legacyChecked = !['cash_safe_count', 'cash_drawer_count', 'cash_bank_deposit', 'new_job_application'].includes(key);
+      let legacyRows: any[] = [];
+      if (legacyChecked) {
+        const { data } = await supabaseClient.from('notification_preferences').select('*').in('user_id', user_ids);
+        legacyRows = data || [];
       }
+
+      let teamMemberViewSales = false;
+      if (PULSE_KEYS.has(key) && location_id) {
+        const { data } = await supabaseClient.rpc('_org_role_permission_enabled', { _location_id: location_id, _role: 'team_member', _key: 'view_sales' });
+        teamMemberViewSales = data === true;
+      }
+
+      let clockedIn: Set<string> | null = null;
+      if (location_id && !isLocked(notification_type)) {
+        try {
+          clockedIn = new Set(await clockedInUserIds(supabaseClient, location_id));
+        } catch (e) {
+          console.error('[from-home] clock lookup failed, skipping clock check:', e);
+        }
+      } else if (!location_id) {
+        console.log(`[from-home] no location_id on ${notification_type} push; clock check skipped`);
+      }
+
+      const skipped: Record<string, number> = {};
+      finalUserIds = user_ids.filter((userId: string) => {
+        const role = userRoles?.find(r => r.user_id === userId)?.role ?? null;
+        const org = requestOrgId ?? recipientOrg.get(userId) ?? null;
+        const roleRow = role
+          ? (org ? pick(orgSettings, rs => rs.organization_id === org && rs.role === role) : undefined)
+            ?? pick(templateSettings, rs => rs.role === role)
+          : undefined;
+        const userRow = userPrefs.find((p: any) => p.user_id === userId);
+        const legacyVal = legacyRows.find((p: any) => p.user_id === userId)?.[notification_type];
+        const res = gateRecipient({
+          type: notification_type,
+          role,
+          roleEnabled: roleRow?.enabled,
+          roleFromHome: roleRow?.from_home,
+          userPush: userRow?.push_enabled,
+          userFromHome: userRow?.from_home,
+          legacyEnabled: legacyVal === false ? false : null,
+          teamMemberViewSales,
+          clockedIn: clockedIn ? clockedIn.has(userId) : null,
+        });
+        if (!res.send) skipped[res.reason] = (skipped[res.reason] || 0) + 1;
+        return res.send;
+      });
+      console.log(`[gate] ${notification_type}: ${finalUserIds.length}/${user_ids.length} pass`, skipped);
     }
 
     // Filter out sender_id AFTER all other filtering (ensures sender doesn't get notified on any device)
