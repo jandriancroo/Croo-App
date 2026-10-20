@@ -14,3 +14,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://croohq.com/sitemap.xml
+Sitemap: https://lmodeiyrpwvgyqcvjkjr.supabase.co/functions/v1/sitemap
