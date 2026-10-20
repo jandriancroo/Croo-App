@@ -15,7 +15,7 @@ import { AssignTrainingDialog } from "./AssignTrainingDialog";
 import { TrainingAssignmentSummary } from "./TrainingAssignmentSummary";
 import { getDayOfWeekInTimezone } from '@/utils/dateUtils';
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
-import { UnderlineGroup } from "@/components/ui/folder-tabs";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { isPendingDraft } from "@/utils/checklistVersions";
 import { DuplicateChecklistDialog } from "./DuplicateChecklistDialog";
 
@@ -178,9 +178,12 @@ export default function EditTabContent({
   return (
     <div className="space-y-4">
       {/* Sub-navigation: Underline tabs */}
-      <div className="pl-4">
-        <UnderlineGroup items={subTabs} active={activeTab} onSelect={setActiveTab} size="sm" />
-      </div>
+      <SegmentedControl
+        variant="neutral"
+        value={activeTab}
+        onValueChange={setActiveTab}
+        options={subTabs.map(t => ({ value: t.id, label: t.label, icon: t.icon }))}
+      />
 
       {/* Quick Tasks Tab Content */}
       {activeTab === "quick-tasks" && (

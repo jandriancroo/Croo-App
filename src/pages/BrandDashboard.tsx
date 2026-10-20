@@ -392,10 +392,10 @@ export default function FBCDashboard() {
                       <p className="text-sm text-muted-foreground mt-1">{getPeriodDateRange()}</p>
                     </div>
                     <Tabs value={salesPeriod} onValueChange={(v) => setSalesPeriod(v as any)} className="w-auto">
-                      <TabsList className="h-8">
-                        <TabsTrigger value="daily" className="text-xs px-3 h-7">Daily</TabsTrigger>
-                        <TabsTrigger value="weekly" className="text-xs px-3 h-7">Weekly</TabsTrigger>
-                        <TabsTrigger value="monthly" className="text-xs px-3 h-7">Monthly</TabsTrigger>
+                      <TabsList>
+                        <TabsTrigger value="daily">Daily</TabsTrigger>
+                        <TabsTrigger value="weekly">Weekly</TabsTrigger>
+                        <TabsTrigger value="monthly">Monthly</TabsTrigger>
                       </TabsList>
                     </Tabs>
                   </div>

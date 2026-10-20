@@ -119,11 +119,11 @@ export function SeenByDialog({ post, canRemind, onOpenChange }: Props) {
         ) : (
           <Tabs defaultValue="seen" className="w-full">
             <TabsList className="grid grid-cols-2 w-full rounded-none border-b h-10">
-              <TabsTrigger value="seen" className="text-xs">
+              <TabsTrigger value="seen">
                 <CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-emerald-500" />
                 Seen ({seenMembers.length})
               </TabsTrigger>
-              <TabsTrigger value="unseen" className="text-xs">
+              <TabsTrigger value="unseen">
                 <Circle className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
                 Not seen ({unseenMembers.length})
               </TabsTrigger>

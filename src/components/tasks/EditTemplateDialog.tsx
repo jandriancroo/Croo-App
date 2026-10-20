@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { ROLE_OPTIONS as ROLE_OPTIONS_ALL } from '@/hooks/useUserRole';
+import { DayToggleRow } from "@/components/ui/day-toggle-row";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -340,20 +341,7 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
             <>
               <div className="space-y-2">
                 <Label>Active Days</Label>
-                <div className="flex gap-1 flex-wrap">
-                  {DAYS_OF_WEEK.map(day => (
-                    <Button
-                      key={day.value}
-                      type="button"
-                      variant={daysOfWeek.includes(day.value) ? "default" : "outline"}
-                      size="sm"
-                      className="w-10 h-8"
-                      onClick={() => toggleDayOfWeek(day.value)}
-                    >
-                      {day.label}
-                    </Button>
-                  ))}
-                </div>
+                <DayToggleRow value={daysOfWeek} onToggle={toggleDayOfWeek} days={DAYS_OF_WEEK} />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
