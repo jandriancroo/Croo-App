@@ -316,6 +316,13 @@
       "when": 1792533055508,
       "tag": "0044_labor_projection_toast_live_hours",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1792534037852,
+      "tag": "0045_labor_pace_rename_and_breaks",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,6 @@
 // Shared inputs for the pace parity test (app computePace vs server sales_pace_today)
-// and the per-shift rules of get_labor_projection. Used by
-// src/lib/laborProjection.test.ts (app side) and scripts/check-labor-projection-sql.ts (server side).
+// and the per-shift rules of get_labor_pace. Used by
+// src/lib/laborPace.test.ts (app side) and scripts/check-labor-pace-sql.ts (server side).
 const hourly = [
   { hour: '11:00', sales: 120, projected: 100 },
   { hour: '12:00', sales: 240, projected: 200 },
@@ -42,8 +42,8 @@ export const paceFixtures: PaceFixture[] = [
   { name: 'no hourly data', hourly: [], net_sales: 100, stored: null, stored_at: null, h: 12, m: 0, now: NOW },
 ];
 
-/** Per-shift rules (server _lp_shift_eval). Times are UTC. */
-export const shiftFixtures = [
+/** Per-shift rules (server _labor_pace_shift_eval). Times are UTC. owed/taken = required vs taken unpaid break seconds. */
+export const shiftFixtures: Array<Record<string, any>> = [
   { name: 'no-show still counted in full (late_not_in)', s: '2026-10-20T17:00:00Z', e: '2026-10-20T23:00:00Z', npairs: 0, open: null, first_in: null, last_out: null, now: '2026-10-20T19:00:00Z', src: 'punch_clock', so: false, rem_h: 6, state: 'late_not_in' },
   { name: 'not started yet: full shift', s: '2026-10-20T22:00:00Z', e: '2026-10-21T02:00:00Z', npairs: 0, open: null, first_in: null, last_out: null, now: '2026-10-20T19:00:00Z', src: 'punch_clock', so: false, rem_h: 4, state: 'not_started' },
   { name: 'late in: now → scheduled end', s: '2026-10-20T17:00:00Z', e: '2026-10-20T23:00:00Z', npairs: 1, open: true, first_in: '2026-10-20T17:20:00Z', last_out: null, now: '2026-10-20T19:00:00Z', src: 'punch_clock', so: false, rem_h: 4, state: 'working', late: 20 },
@@ -52,4 +52,22 @@ export const shiftFixtures = [
   { name: 'split shift: second part still scheduled', s: '2026-10-21T00:00:00Z', e: '2026-10-21T03:00:00Z', npairs: 0, open: null, first_in: null, last_out: null, now: '2026-10-20T21:00:00Z', src: 'punch_clock', so: false, rem_h: 3, state: 'not_started' },
   { name: 'Qu store: only rest of shift from now', s: '2026-10-20T17:00:00Z', e: '2026-10-20T23:00:00Z', npairs: 0, open: null, first_in: null, last_out: null, now: '2026-10-20T19:00:00Z', src: 'qubeyond', so: false, rem_h: 4, state: 'working' },
   { name: 'stale sync: schedule_only full shift', s: '2026-10-20T17:00:00Z', e: '2026-10-20T23:00:00Z', npairs: 1, open: true, first_in: '2026-10-20T17:00:00Z', last_out: null, now: '2026-10-20T19:00:00Z', src: 'toast', so: true, rem_h: 6, state: 'scheduled' },
+  // Required breaks (8h shift 17:00-01:00 owes a 30-min unpaid meal).
+  { name: 'break: long shift, not taken yet → subtracted', s: '2026-10-20T17:00:00Z', e: '2026-10-21T01:00:00Z', npairs: 1, open: true, first_in: '2026-10-20T17:00:00Z', last_out: null, now: '2026-10-20T19:00:00Z', src: 'punch_clock', so: false, owed: 1800, taken: 0, on_break: false, rem_h: 5.5, state: 'working', brk: 1800 },
+  { name: 'break: already taken → actual, not double-subtracted', s: '2026-10-20T17:00:00Z', e: '2026-10-21T01:00:00Z', npairs: 2, open: true, first_in: '2026-10-20T17:00:00Z', last_out: '2026-10-20T20:00:00Z', now: '2026-10-20T21:00:00Z', src: 'punch_clock', so: false, owed: 1800, taken: 2700, on_break: false, rem_h: 4, state: 'working', brk: 0 },
+  { name: 'break: on it now → nothing more subtracted', s: '2026-10-20T17:00:00Z', e: '2026-10-21T01:00:00Z', npairs: 1, open: true, first_in: '2026-10-20T17:00:00Z', last_out: null, now: '2026-10-20T21:00:00Z', src: 'punch_clock', so: false, owed: 1800, taken: 0, on_break: true, rem_h: 4, state: 'working', brk: 0 },
+  { name: 'break: not started long shift → subtracted', s: '2026-10-20T22:00:00Z', e: '2026-10-21T06:00:00Z', npairs: 0, open: null, first_in: null, last_out: null, now: '2026-10-20T19:00:00Z', src: 'punch_clock', so: false, owed: 1800, taken: 0, on_break: false, rem_h: 7.5, state: 'not_started', brk: 1800 },
+  { name: 'break: short shift owes none', s: '2026-10-20T17:00:00Z', e: '2026-10-20T21:30:00Z', npairs: 0, open: null, first_in: null, last_out: null, now: '2026-10-20T16:00:00Z', src: 'punch_clock', so: false, owed: 0, taken: 0, on_break: false, rem_h: 4.5, state: 'not_started', brk: 0 },
 ];
+
+/** Break sizing (server _labor_pace_meal_sec) with Hemet's rules: meal after 5h, 30 min, 2nd after 10h. */
+export const mealFixtures = [
+  { name: 'short shift (4.5h): no break', gross: 4.5, sec: 0 },
+  { name: 'exactly 5h: no break', gross: 5, sec: 0 },
+  { name: 'long shift (8h): one 30-min break', gross: 8, sec: 1800 },
+  { name: 'very long (11h): two breaks', gross: 11, sec: 3600 },
+];
+export const hemetMealRules = { _basis: 'law', _paid: false, _first_h: 5, _duration: 30, _min_unpaid: 30, _waiver1: null, _second_h: 10, _waiver2: null };
+
+/** The on-track band in points (server _labor_pace_on_track_band). */
+export const ON_TRACK_BAND = 1.0;

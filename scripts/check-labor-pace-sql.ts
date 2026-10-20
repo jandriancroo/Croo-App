@@ -1,10 +1,10 @@
-// Server-side checks for get_labor_projection (run: bun scripts/check-labor-projection-sql.ts).
+// Server-side checks for get_labor_pace (run: bun scripts/check-labor-pace-sql.ts).
 // Needs a signed-in session token in ACCESS_TOKEN (manager or super admin).
 // 1) Pace parity: server sales_pace_today === app computePace for the same fixtures.
-// 2) Per-shift owner rules via _lp_shift_eval.
+// 2) Per-shift owner rules via _labor_pace_shift_eval (incl. required breaks), break sizing, band.
 // 3) Live: worked_hours / worked_labor_dollars === get_store_labor for each store given.
 import { computePace } from '../supabase/functions/_shared/cubeMetrics';
-import { paceFixtures, shiftFixtures } from '../src/lib/laborProjection.fixtures';
+import { paceFixtures, shiftFixtures, mealFixtures, hemetMealRules, ON_TRACK_BAND } from '../src/lib/laborPace.fixtures';
 
 const URL = 'https://lmodeiyrpwvgyqcvjkjr.supabase.co/rest/v1/rpc';
 const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxtb2RlaXlycHd2Z3lxY3Zqa2pyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5MTIyODYsImV4cCI6MjA3OTQ4ODI4Nn0.h2MYYJ3CQh6mEF5sWsRY_tttuZCv_8WOKjnTvnHaChg';
@@ -29,7 +29,7 @@ for (const f of paceFixtures) {
 }
 
 for (const f of shiftFixtures) {
-  const r = await rpc('_lp_shift_eval', { _s_start: f.s, _s_end: f.e, _npairs: f.npairs, _open: f.open, _first_in: f.first_in, _last_out: f.last_out, _now: f.now, _src: f.src, _schedule_only: f.so });
+  const r = await rpc('_labor_pace_shift_eval', { _s_start: f.s, _s_end: f.e, _npairs: f.npairs, _open: f.open, _first_in: f.first_in, _last_out: f.last_out, _now: f.now, _src: f.src, _schedule_only: f.so, _owed_sec: f.owed ?? 0, _taken_sec: f.taken ?? 0, _on_break: f.on_break ?? false });
   const row = Array.isArray(r) ? r[0] : r;
   const remH = Number(row.remaining_sec) / 3600;
   let ok = Math.abs(remH - f.rem_h) < 1e-9 && row.state === f.state;
@@ -38,8 +38,14 @@ for (const f of shiftFixtures) {
   check(`shift rule: ${f.name}`, ok, JSON.stringify(row));
 }
 
+for (const m of mealFixtures) {
+  const sec = await rpc('_labor_pace_meal_sec', { _gross: m.gross, ...hemetMealRules });
+  check(`break size: ${m.name}`, Number(sec) === m.sec, `got=${sec}`);
+}
+check('on-track band is 1.0 point', Number(await rpc('_labor_pace_on_track_band', {})) === ON_TRACK_BAND);
+
 for (const id of STORES) {
-  const [p, l] = await Promise.all([rpc('get_labor_projection', { _location_id: id }), rpc('get_store_labor', { _location_ids: [id], _start: '2026-01-01', _end: '2026-01-01' }).catch(() => null)]);
+  const [p, l] = await Promise.all([rpc('get_labor_pace', { _location_id: id }), rpc('get_store_labor', { _location_ids: [id], _start: '2026-01-01', _end: '2026-01-01' }).catch(() => null)]);
   const today = p.business_date;
   const sl = (await rpc('get_store_labor', { _location_ids: [id], _start: today, _end: today }))[0];
   const dh = Math.abs(Number(p.worked_hours) - Number(sl.hours));
@@ -47,9 +53,10 @@ for (const id of STORES) {
   // Punch-clock stores are live: the two reads are a moment apart, so allow < 1 minute of one person's time.
   const tol = sl.source === 'punch_clock' ? { h: 0.02, c: 0.5 } : { h: 0, c: 0 };
   check(`worked = get_store_labor (${id.slice(0, 8)} ${sl.source})`, dh <= tol.h && dc <= tol.c, `proj=${p.worked_hours}h/$${p.worked_labor_dollars} store_labor=${sl.hours}h/$${sl.cost}`);
-  check(`labor % null-safe (${id.slice(0, 8)})`, p.projected_sales > 0 ? p.projected_labor_pct !== 0 : p.projected_labor_pct === null);
+  check(`labor % null-safe (${id.slice(0, 8)})`, p.sales_pace > 0 ? p.pace_labor_pct !== 0 : p.pace_labor_pct === null);
   const uns = (p.people || []).flatMap((x: any) => x.shifts).filter((s: any) => s.state === 'unscheduled');
   for (const u of uns) check(`unscheduled end from template (${id.slice(0, 8)})`, u.end_from_template === true, `in=${u.actual_in} end=${u.scheduled_end}`);
+  if (p.status) check(`status matches band (${id.slice(0, 8)})`, p.status === (Math.abs(p.variance_pct) <= ON_TRACK_BAND ? 'on_track' : p.variance_pct < 0 ? 'ahead' : 'behind'));
   void l;
 }
 
