@@ -813,14 +813,16 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                     <Chip>{activeShifts.length} working</Chip>
                     {latestOut && <Chip>Latest out {latestOut}</Chip>}
                     {hasAnyCuts && (
-                      <button
-                        type="button"
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setShowPreviewModal(true); } }}
                         className="relative inline-flex h-[20px] items-center gap-1 rounded-full px-2 text-[11px] font-bold bg-foreground/[0.06] after:absolute after:-inset-3 after:content-['']"
                         onClick={(e) => { e.stopPropagation(); setShowPreviewModal(true); }}
                       >
                         <Calculator className="h-3 w-3" />
                         Preview
-                      </button>
+                      </span>
                     )}
                   </>
                 }
