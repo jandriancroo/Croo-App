@@ -205,3 +205,6 @@
 
 ## Elements upgrade Phase 1 — Oct 20
 - [x] Shared control shapes (18 shared files + index.css), acceptance check at 390 run; clipping items reported, not fixed.
+
+## Oct 20 — Checklist completion circles
+- One green / one red shade; overdue = red ring + alarm-clock badge on circle corner (Option B, "in the forefront"); locked stays gray lock circle; drop Overdue text badge.
