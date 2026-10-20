@@ -22,7 +22,7 @@ function parseCity(address: string | null): string {
 /**
  * Public sitemap for croohq.com.
  *
- * Emits ONLY canonical job detail URLs (https://croohq.com/jobs/<slug>).
+ * Emits the public sales homepage, jobs index, and canonical job detail URLs.
  * The Cloudflare Worker rewrites those paths to the SSR edge function so
  * Googlebot gets fully-rendered HTML with JobPosting JSON-LD.
  *
@@ -49,16 +49,17 @@ Deno.serve(async (req) => {
 
     const now = new Date().toISOString();
     const active = (data || []).filter((l: any) => !l.expires_at || l.expires_at > now);
-    const today = now.split("T")[0];
 
     const urls: string[] = [];
-    urls.push(`  <url><loc>${APP_URL}/jobs</loc><lastmod>${today}</lastmod><changefreq>daily</changefreq><priority>0.9</priority></url>`);
+    urls.push(`  <url><loc>${APP_URL}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>`);
+    urls.push(`  <url><loc>${APP_URL}/jobs</loc><changefreq>daily</changefreq><priority>0.9</priority></url>`);
 
     for (const l of active) {
       const city = parseCity((l as any).location?.address) || (l as any).location?.name || "";
       const slug = [slugify(city), slugify((l as any).title), ((l as any).id || "").slice(0, 8)].filter(Boolean).join("-");
-      const lastmod = ((l as any).updated_at || (l as any).posted_at || now).split("T")[0];
-      urls.push(`  <url><loc>${APP_URL}/jobs/${slug}</loc><lastmod>${lastmod}</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>`);
+      const modifiedAt = (l as any).updated_at || (l as any).posted_at;
+      const lastmod = modifiedAt ? `<lastmod>${modifiedAt.split("T")[0]}</lastmod>` : "";
+      urls.push(`  <url><loc>${APP_URL}/jobs/${slug}</loc>${lastmod}<changefreq>daily</changefreq><priority>0.8</priority></url>`);
     }
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
