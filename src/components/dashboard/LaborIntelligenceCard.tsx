@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -152,12 +153,12 @@ export function LaborIntelligenceCard() {
           </div>
 
           <div className="flex items-center gap-1">
-            <button
+            <Button variant="ghost" size="icon-sm"
               onClick={(e) => { e.stopPropagation(); setDismissed(true); }}
-              className="p-1 rounded-md hover:bg-muted/50 text-muted-foreground"
+              className="[&_svg]:size-auto hover:bg-muted/50 text-muted-foreground"
             >
               <X className="h-3.5 w-3.5" />
-            </button>
+            </Button>
             {expanded ? (
               <ChevronUp className="h-4 w-4 text-muted-foreground" />
             ) : (

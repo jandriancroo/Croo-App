@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { requestDashSlideUp } from '@/lib/startupSequence';
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Pin } from 'lucide-react';
@@ -539,13 +540,13 @@ export function AiAssistantBubble() {
                       <RotateCcw className="h-[18px] w-[18px]" />
                     </button>
                   )}
-                  <button
+                  <Button variant="ghost" size="icon"
                     onClick={() => setOpen(false)}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.16] text-white transition-colors hover:bg-white/25"
+                    className="[&_svg]:size-auto flex items-center justify-center bg-white/[0.16] text-white hover:bg-white/25"
                     aria-label="Close Theo"
                   >
                     <X className="h-[18px] w-[18px]" strokeWidth={2.25} />
-                  </button>
+                  </Button>
                 </div>
               </div>
 

@@ -164,7 +164,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated, 
       <div className="flex-1 min-h-0 relative overflow-hidden">
         {/* Scroll to bottom + mark as read button */}
         {isScrolledUp && displayMessages.length > 0 && (
-          <button
+          <Button variant="ghost" size="icon"
             onClick={() => {
               scrollToBottom();
               // Mark chat as read optimistically
@@ -177,14 +177,14 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated, 
                   .then();
               }
             }}
-            className="absolute bottom-4 right-4 z-20 bg-primary text-primary-foreground h-10 w-10 rounded-full shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors"
+            className="[&_svg]:size-auto absolute bottom-4 right-4 z-20 bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90"
           >
             {showNewMessageBubble && newMessageCount > 0 ? (
               <span className="text-xs font-bold">{newMessageCount > 99 ? '99+' : newMessageCount}</span>
             ) : (
               <ChevronDown className="h-5 w-5" />
             )}
-          </button>
+          </Button>
         )}
         
         {messagesLoading && messages.length === 0 && (

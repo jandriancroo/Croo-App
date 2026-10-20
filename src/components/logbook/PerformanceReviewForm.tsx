@@ -345,13 +345,13 @@ export function PerformanceReviewForm({ onSave, isSaving }: PerformanceReviewFor
                           alt={`Rating photo ${idx + 1}`}
                           className="h-16 w-16 object-cover rounded-md border"
                         />
-                        <button
-                          type="button"
+                        <Button variant="ghost" size="icon-sm"
+                         
                           onClick={() => removePhoto(item.id, url)}
-                          className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="[&_svg]:size-auto absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100"
                         >
                           <X className="h-3 w-3" />
-                        </button>
+                        </Button>
                       </div>
                     ))}
                   </div>

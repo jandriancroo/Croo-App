@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -438,9 +439,9 @@ export function LocationPickerDialog({
           : 'hover:bg-muted/50'
       }`}
     >
-      <button
+      <Button variant="ghost" size="icon-sm"
         onClick={(e) => handleSetDefault(e, loc.id)}
-        className="p-0.5 hover:scale-110 transition-transform"
+        className="[&_svg]:size-auto hover:scale-110"
         title={effectiveDefaultId === loc.id ? 'Remove as default' : 'Set as default'}
       >
         <Star 
@@ -450,7 +451,7 @@ export function LocationPickerDialog({
               : 'text-muted-foreground hover:text-yellow-400'
           }`} 
         />
-      </button>
+      </Button>
       <div className="flex-1 min-w-0">
         <div className={`text-sm flex items-center gap-1.5 ${loc.id === currentLocationId ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
           <span className="truncate">{formatLocationName(loc.name, loc.store_number)}</span>
@@ -505,18 +506,18 @@ export function LocationPickerDialog({
                   <span className="flex-1 text-sm font-medium text-foreground truncate">{tab.label}</span>
                 </button>
                 {brand && (
-                  <button
+                  <Button variant="ghost" size="icon-sm"
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(`/org-dash?brand=${brand.id}`);
                       onOpenChange(false);
                     }}
-                    className="h-9 w-9 mr-1 flex items-center justify-center rounded-lg text-primary hover:bg-primary/15 transition-colors flex-shrink-0"
+                    className="[&_svg]:size-auto mr-1 flex items-center justify-center text-primary hover:bg-primary/15 flex-shrink-0"
                     aria-label={`${brand.name} Dashboard`}
                     title="Brand Dashboard"
                   >
                     <BarChart3 className="h-4 w-4" />
-                  </button>
+                  </Button>
                 )}
                 <ChevronRight className="h-4 w-4 text-muted-foreground mr-3 flex-shrink-0" />
               </div>
@@ -535,13 +536,13 @@ export function LocationPickerDialog({
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
               >
-                <button
+                <Button variant="ghost" size="icon-sm"
                   onClick={() => cycleBrand(-1)}
-                  className="h-10 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
+                  className="[&_svg]:size-auto flex items-center justify-center text-muted-foreground hover:bg-muted/50"
                   aria-label="Previous brand"
                 >
                   <ChevronLeft className="h-4 w-4" />
-                </button>
+                </Button>
                 <button
                   onClick={() => setView('brands')}
                   className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg bg-primary/10 hover:bg-primary/15 transition-colors px-3"
@@ -554,13 +555,13 @@ export function LocationPickerDialog({
                   </span>
                   <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                 </button>
-                <button
+                <Button variant="ghost" size="icon-sm"
                   onClick={() => cycleBrand(1)}
-                  className="h-10 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors"
+                  className="[&_svg]:size-auto flex items-center justify-center text-muted-foreground hover:bg-muted/50"
                   aria-label="Next brand"
                 >
                   <ChevronRight className="h-4 w-4" />
-                </button>
+                </Button>
               </div>
             );
           })()}

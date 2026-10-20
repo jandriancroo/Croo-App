@@ -601,16 +601,16 @@ export default function ShiftTemplates() {
               <div key={pos} className="flex items-center gap-1 bg-muted px-2.5 py-1 rounded-md text-sm">
                 <span>{pos}</span>
                 {positionsOpen && (
-                  <button
+                  <Button variant="ghost" size="icon-sm"
                     onClick={async () => {
                       // Remove from local state (positions only exist within shift_templates)
                       setPositions(prev => prev.filter(p => p !== pos));
                       toast.success(`Removed "${pos}" from list`);
                     }}
-                    className="ml-1 hover:text-destructive transition-colors"
+                    className="[&_svg]:size-auto ml-1 hover:text-destructive"
                   >
                     <X className="h-3 w-3" />
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}

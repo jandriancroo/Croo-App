@@ -232,18 +232,18 @@ export function PositionManagementInline({ organizationId }: PositionManagementI
                 ) : (
                   <Badge variant="secondary" className="pr-1 gap-1">
                     <span>{position.name}</span>
-                    <button
-                      className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity hover:text-foreground"
+                    <Button variant="ghost" size="icon-sm"
+                      className="[&_svg]:size-auto ml-1 opacity-0 group-hover:opacity-100 hover:text-foreground"
                       onClick={() => { setEditingId(position.id); setEditValue(position.name); }}
                     >
                       <Pencil className="h-3 w-3" />
-                    </button>
-                    <button
-                      className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive"
+                    </Button>
+                    <Button variant="ghost" size="icon-sm"
+                      className="[&_svg]:size-auto opacity-0 group-hover:opacity-100 hover:text-destructive"
                       onClick={() => setDeleteTarget(position)}
                     >
                       <Trash2 className="h-3 w-3" />
-                    </button>
+                    </Button>
                   </Badge>
                 )}
               </div>

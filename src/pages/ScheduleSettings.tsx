@@ -550,27 +550,27 @@ export default function ScheduleSettings() {
                         <button onClick={() => handleRenamePosition(pos, editPositionValue)} className="hover:text-foreground transition-colors">
                           <Check className="h-3 w-3" />
                         </button>
-                        <button onClick={() => setEditingPositionName(null)} className="hover:text-foreground transition-colors">
+                        <Button variant="ghost" size="icon-sm" onClick={() => setEditingPositionName(null)} className="[&_svg]:size-auto hover:text-foreground">
                           <X className="h-3 w-3" />
-                        </button>
+                        </Button>
                       </>
                     ) : (
                       <>
                         <span>{pos}</span>
                         {positionsOpen && (
                           <>
-                            <button
+                            <Button variant="ghost" size="icon-sm"
                               onClick={() => { setEditingPositionName(pos); setEditPositionValue(pos); }}
-                              className="ml-1 hover:text-foreground transition-colors"
+                              className="[&_svg]:size-auto ml-1 hover:text-foreground"
                             >
                               <Pencil className="h-3 w-3" />
-                            </button>
-                            <button
+                            </Button>
+                            <Button variant="ghost" size="icon-sm"
                               onClick={() => handleDeletePosition(pos)}
-                              className="hover:text-destructive transition-colors"
+                              className="[&_svg]:size-auto hover:text-destructive"
                             >
                               <X className="h-3 w-3" />
-                            </button>
+                            </Button>
                           </>
                         )}
                       </>

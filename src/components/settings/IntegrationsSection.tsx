@@ -1560,13 +1560,13 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                     placeholder={(ovationMapping || ovationIntegration) ? 'Saved. Re-enter to change' : '••••••••'} 
                     className="h-9 text-xs pr-10" 
                   />
-                  <button
-                    type="button"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  <Button variant="ghost" size="icon-sm"
+                   
+                    className="[&_svg]:size-auto absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     onClick={() => setOvationShowPassword(!ovationShowPassword)}
                   >
                     {ovationShowPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                  </button>
+                  </Button>
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -1781,13 +1781,13 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                   placeholder="Paste sessionid cookie value"
                   className="h-9 pr-9 font-mono text-xs"
                 />
-                <button
-                  type="button"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                <Button variant="ghost" size="icon-sm"
+                 
+                  className="[&_svg]:size-auto absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   onClick={() => setOpusShowSession(!opusShowSession)}
                 >
                   {opusShowSession ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+                </Button>
               </div>
               <p className="text-[10px] text-muted-foreground leading-tight">
                 Log into <a href="https://dashboard.opus.so" target="_blank" rel="noopener" className="underline">dashboard.opus.so</a>, 
@@ -1980,13 +1980,13 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                   <div className="space-y-2 max-h-[200px] overflow-y-auto">
                     {opusMappings.map((mapping, idx) => (
                       <div key={mapping.opus_id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
-                        <button
-                          type="button"
-                          className="text-muted-foreground hover:text-destructive shrink-0"
+                        <Button variant="ghost" size="icon-sm"
+                         
+                          className="[&_svg]:size-auto text-muted-foreground hover:text-destructive shrink-0"
                           onClick={() => setOpusMappings(prev => prev.filter(m => m.opus_id !== mapping.opus_id))}
                         >
                           <X className="h-3 w-3" />
-                        </button>
+                        </Button>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium truncate">{mapping.name}</p>
                           <p className="text-[10px] text-muted-foreground">#{mapping.opus_id}</p>
