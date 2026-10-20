@@ -152,8 +152,6 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
         {overdueBadge}
       </div>
     );
-      </svg>
-    );
   };
 
 
