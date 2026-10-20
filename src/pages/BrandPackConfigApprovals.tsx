@@ -1390,7 +1390,7 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
               <Button variant="ghost" size="icon-sm"
                
                 onClick={() => setCollapsedItems((m) => ({ ...m, [itemKey]: !m[itemKey] }))}
-                className="[&_svg]:size-auto h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
+                className="[&_svg]:size-auto inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
                 aria-label={itemCollapsed ? "Expand item" : "Collapse item"}
                 title={itemCollapsed ? "Expand item" : "Collapse item"}
               >
@@ -1432,7 +1432,7 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
                     <Button variant="ghost" size="icon-sm"
                      
                       onClick={() => setCollapsed((m) => ({ ...m, [r.id]: !m[r.id] }))}
-                      className="[&_svg]:size-auto h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
+                      className="[&_svg]:size-auto inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
                       aria-label={collapsed[r.id] ? "Expand" : "Collapse"}
                       title={collapsed[r.id] ? "Expand" : "Collapse"}
                     >
