@@ -2,16 +2,16 @@ import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NudgeBadge } from '@/components/dashboard/NudgeBadge';
 
-export function ProgressRing({ done, total, size = 18 }: { done: number; total: number; size?: number }) {
+export function ProgressRing({ done, total, size = 18, overdue = false }: { done: number; total: number; size?: number; overdue?: boolean }) {
   const r = size / 2 - 2;
   const c = 2 * Math.PI * r;
   const pct = total > 0 ? Math.min(1, done / total) : 0;
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0 -rotate-90" aria-hidden>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={2.5} className="stroke-muted" />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={2.5} className={overdue ? 'stroke-[hsl(var(--status-overdue))]' : 'stroke-muted'} />
       {pct > 0 && (
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={2.5} strokeLinecap="round"
-          className="stroke-accent" strokeDasharray={`${c * pct} ${c}`} />
+          className={overdue ? 'stroke-[hsl(var(--status-overdue))]' : 'stroke-[hsl(var(--status-on-track))]'} strokeDasharray={`${c * pct} ${c}`} />
       )}
     </svg>
   );
@@ -49,7 +49,7 @@ export function QuickTaskRow({ title, icon: Icon, dueLabel, overdue, done, progr
         {progress && progress.total > 1 && (
           <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">{progress.done}/{progress.total}</span>
         )}
-        <ProgressRing done={done ? 1 : progress?.done ?? 0} total={done ? 1 : progress?.total ?? 1} />
+        <ProgressRing done={done ? 1 : progress?.done ?? 0} total={done ? 1 : progress?.total ?? 1} overdue={!!overdue && !done} />
       </button>
       {nudge && !done && <NudgeBadge onClick={nudge.onClick} minutesAgo={nudge.minutesAgo} style={{ top: -4, right: 0 }} />}
     </div>

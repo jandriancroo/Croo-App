@@ -92,17 +92,11 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
   // Pie glyph color ramp — text-color classes drive both the ring and the
   // wedge (SVG strokes use currentColor). Lime steps one shade darker than the
   // old segment ramp so the thin ring stays visible on white cards.
-  const pieColorClass = (percent: number) => {
-    if (percent >= 90) return 'text-emerald-500';
-    if (percent >= 80) return 'text-emerald-400';
-    if (percent >= 70) return 'text-green-400';
-    if (percent >= 60) return 'text-lime-500';
-    if (percent >= 50) return 'text-lime-400';
-    if (percent >= 30) return 'text-slate-400';
-    return 'text-slate-300';
-  };
+  // Two-color rule: red = overdue, green = anything started and not overdue.
+  const pieColorClass = (overdue: boolean) =>
+    overdue ? 'text-[hsl(var(--status-overdue))]' : 'text-[hsl(var(--status-on-track))]';
 
-  const renderPieGlyph = (isLocked: boolean, completed: number, expected: number) => {
+  const renderPieGlyph = (isLocked: boolean, completed: number, expected: number, overdue = false) => {
     // a. Locked — muted circle with a lock
     if (isLocked) {
       return (
@@ -115,7 +109,7 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
     // b. Complete — solid emerald circle with a check
     if (expected > 0 && completed >= expected) {
       return (
-        <div aria-hidden className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600">
+        <div aria-hidden className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--status-on-track))]">
           <Check className="h-4 w-4 text-white" strokeWidth={3} />
         </div>
       );
@@ -135,7 +129,7 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
         width="28"
         height="28"
         viewBox="0 0 28 28"
-        className={cn('shrink-0', pieColorClass(Math.round(pct)))}
+        className={cn('shrink-0', pieColorClass(overdue))}
       >
         <circle cx="14" cy="14" r="13" fill="none" stroke="currentColor" strokeWidth="2" />
         <circle
@@ -206,7 +200,7 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
                 />
               )}
 
-              {renderPieGlyph(isLocked, completed, expected)}
+              {renderPieGlyph(isLocked, completed, expected, isOverdue)}
 
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 <div className="flex min-w-0 flex-col">

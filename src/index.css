@@ -52,6 +52,8 @@ All colors MUST be HSL.
   html[data-text-size="extra-large"] { font-size: 20px; }
 
   :root {
+    --status-overdue: 358 75% 59%;
+    --status-on-track: 151 55% 41%;
     --background: 38 38% 93%;
     --foreground: 220 25% 5%;
 
