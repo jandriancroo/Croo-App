@@ -1350,7 +1350,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                         navigate(item.path);
                         setMenuOpen(false);
                       }}
-                      className="justify-start gap-2 h-9"
+                      className="justify-start gap-2 h-9 px-3"
                       data-tour="nav-settings"
                     >
                       <Icon className="h-4 w-4" />
@@ -1444,7 +1444,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                       setMenuOpen(false);
                       replayTour();
                     }}
-                    className="justify-start gap-2 h-9"
+                    className="justify-start gap-2 h-9 px-3"
                   >
                     <GraduationCap className="h-4 w-4" />
                     <span className="text-sm">Tour CrooHQ</span>
