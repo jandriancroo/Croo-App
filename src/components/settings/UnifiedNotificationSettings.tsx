@@ -8,7 +8,9 @@ import { useAuth } from '@/lib/auth';
 import { useLocation } from '@/hooks/useLocation';
 import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from '@/hooks/use-toast';
-import { Bell, BellOff, Smartphone, MapPin, AlertCircle, BellRing, Mail } from 'lucide-react';
+import { Bell, BellOff, Smartphone, MapPin, AlertCircle, BellRing, Mail, House, Lock } from 'lucide-react';
+import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
+import { defaultFromHome, isLocked } from '../../../supabase/functions/_shared/notificationGate';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { getVapidPublicKey, ensureSubscriptionForKey } from '@/utils/pushVapid';
@@ -19,6 +21,8 @@ interface NotificationSetting {
   alert_enabled: boolean;
   push_enabled: boolean;
   email_enabled: boolean;
+  /** Saved personal choice; null = role default. */
+  from_home: boolean | null;
 }
 
 // All notification types - now all location-based
@@ -45,7 +49,8 @@ const NOTIFICATION_TYPES = [
 export const UnifiedNotificationSettings = () => {
   const { user } = useAuth();
   const { currentLocation } = useLocation();
-  const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
+  const { role, isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
+  const { canSeeSales } = useTeamSalesVisibility();
   const [settings, setSettings] = useState<NotificationSetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
@@ -110,6 +115,7 @@ export const UnifiedNotificationSettings = () => {
           alert_enabled: existing?.alert_enabled ?? true,
           push_enabled: existing?.push_enabled ?? true,
           email_enabled: existing?.email_enabled ?? defaultEmailEnabled,
+          from_home: (existing as any)?.from_home ?? null,
         };
       });
 
@@ -206,7 +212,7 @@ export const UnifiedNotificationSettings = () => {
   const updateSetting = async (
     notificationType: string, 
     locationId: string, 
-    channel: 'alert_enabled' | 'push_enabled' | 'email_enabled', 
+    channel: 'alert_enabled' | 'push_enabled' | 'email_enabled' | 'from_home', 
     value: boolean
   ) => {
     if (!user) return;
@@ -232,6 +238,7 @@ export const UnifiedNotificationSettings = () => {
           alert_enabled: channel === 'alert_enabled' ? value : (currentSetting?.alert_enabled ?? true),
           push_enabled: channel === 'push_enabled' ? value : (currentSetting?.push_enabled ?? true),
           email_enabled: channel === 'email_enabled' ? value : (currentSetting?.email_enabled ?? false),
+          from_home: channel === 'from_home' ? value : (currentSetting?.from_home ?? null),
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'user_id,notification_type,location_id'
@@ -243,7 +250,7 @@ export const UnifiedNotificationSettings = () => {
       // Revert on error
       setSettings(prev => prev.map(s => 
         s.notification_type === notificationType && s.location_id === locationId
-          ? { ...s, [channel]: !value }
+          ? { ...s, [channel]: channel === 'from_home' ? currentSettingFromHome(s) : !value }
           : s
       ));
       toast({
@@ -252,6 +259,26 @@ export const UnifiedNotificationSettings = () => {
         variant: 'destructive',
       });
     }
+  };
+
+  const currentSettingFromHome = (s: NotificationSetting) => s.from_home;
+  const fromHomeValue = (key: string, setting?: NotificationSetting) =>
+    setting?.from_home ?? defaultFromHome(role, key);
+
+  /** "From home" = still get this push when you're not clocked in at this store. About-you types are locked on. */
+  const fromHomeCell = (key: string) => {
+    const setting = getSetting(key, selectedLocationId!);
+    const locked = isLocked(key);
+    return (
+      <div className="w-10 flex justify-center">
+        <Checkbox
+          aria-label="From home"
+          checked={locked || fromHomeValue(key, setting)}
+          disabled={locked || needsPermission}
+          onCheckedChange={(checked) => updateSetting(key, selectedLocationId!, 'from_home', !!checked)}
+        />
+      </div>
+    );
   };
 
   const getSetting = (notificationType: string, locationId: string) => {
@@ -373,13 +400,16 @@ export const UnifiedNotificationSettings = () => {
             </div>
 
             {/* Channel headers */}
-            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center text-xs text-muted-foreground px-1 pt-2">
+            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center text-xs text-muted-foreground px-1 pt-2">
               <span></span>
               <div className="w-10 text-center" title="In-app alerts">
                 <AlertCircle className="h-3.5 w-3.5 mx-auto" />
               </div>
               <div className="w-10 text-center" title="Push notifications">
                 <BellRing className="h-3.5 w-3.5 mx-auto" />
+              </div>
+              <div className="w-10 text-center" title="From home: also when you're not clocked in here">
+                <House className="h-3.5 w-3.5 mx-auto" />
               </div>
               <div className="w-10 text-center" title="Email">
                 <Mail className="h-3.5 w-3.5 mx-auto" />
@@ -393,14 +423,15 @@ export const UnifiedNotificationSettings = () => {
                 return (
                   <div
                     key={nt.key}
-                    className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50"
+                    className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50"
                   >
                     <div>
-                      <span className="text-sm">{nt.label}</span>
+                      <span className="text-sm inline-flex items-center gap-1">{nt.label}{isLocked(nt.key) && <Lock className="h-3 w-3 text-muted-foreground" aria-label="Always on" />}</span>
                     </div>
                     <div className="w-10 flex justify-center">
                       <Checkbox
-                        checked={setting?.alert_enabled ?? true}
+                        checked={isLocked(nt.key) || (setting?.alert_enabled ?? true)}
+                        disabled={isLocked(nt.key)}
                         onCheckedChange={(checked) =>
                           updateSetting(nt.key, selectedLocationId, 'alert_enabled', !!checked)
                         }
@@ -408,13 +439,14 @@ export const UnifiedNotificationSettings = () => {
                     </div>
                     <div className="w-10 flex justify-center">
                       <Checkbox
-                        checked={setting?.push_enabled ?? true}
+                        checked={isLocked(nt.key) || (setting?.push_enabled ?? true)}
                         onCheckedChange={(checked) =>
                           updateSetting(nt.key, selectedLocationId, 'push_enabled', !!checked)
                         }
-                        disabled={needsPermission}
+                        disabled={needsPermission || isLocked(nt.key)}
                       />
                     </div>
+                    {fromHomeCell(nt.key)}
                     <div className="w-10 flex justify-center">
                       <Checkbox
                         checked={setting?.email_enabled ?? false}
@@ -428,8 +460,8 @@ export const UnifiedNotificationSettings = () => {
               })}
             </div>
 
-            {/* Sales Pulse section - only for managers and above */}
-            {isManagerOrAbove && (
+            {/* Sales Pulse section - only for people who can see sales */}
+            {canSeeSales && (
               <>
                 <Separator className="my-4" />
                 <div className="text-sm font-medium text-muted-foreground mb-2">Sales Pulse</div>
@@ -439,14 +471,15 @@ export const UnifiedNotificationSettings = () => {
                     return (
                       <div key={nt.key}>
                         <div
-                          className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50"
+                          className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50"
                         >
                           <div>
-                            <span className="text-sm">{nt.label}</span>
+                            <span className="text-sm inline-flex items-center gap-1">{nt.label}{isLocked(nt.key) && <Lock className="h-3 w-3 text-muted-foreground" aria-label="Always on" />}</span>
                           </div>
                           <div className="w-10 flex justify-center">
                             <Checkbox
-                              checked={setting?.alert_enabled ?? true}
+                              checked={isLocked(nt.key) || (setting?.alert_enabled ?? true)}
+                        disabled={isLocked(nt.key)}
                               onCheckedChange={(checked) =>
                                 updateSetting(nt.key, selectedLocationId, 'alert_enabled', !!checked)
                               }
@@ -454,13 +487,14 @@ export const UnifiedNotificationSettings = () => {
                           </div>
                           <div className="w-10 flex justify-center">
                             <Checkbox
-                              checked={setting?.push_enabled ?? true}
+                              checked={isLocked(nt.key) || (setting?.push_enabled ?? true)}
                               onCheckedChange={(checked) =>
                                 updateSetting(nt.key, selectedLocationId, 'push_enabled', !!checked)
                               }
-                              disabled={needsPermission}
+                              disabled={needsPermission || isLocked(nt.key)}
                             />
                           </div>
+                          {fromHomeCell(nt.key)}
                           <div className="w-10 flex justify-center">
                             <Checkbox
                               checked={setting?.email_enabled ?? false}
@@ -504,14 +538,15 @@ export const UnifiedNotificationSettings = () => {
                     return (
                       <div
                         key={nt.key}
-                        className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50"
+                        className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50"
                       >
                         <div>
-                          <span className="text-sm">{nt.label}</span>
+                          <span className="text-sm inline-flex items-center gap-1">{nt.label}{isLocked(nt.key) && <Lock className="h-3 w-3 text-muted-foreground" aria-label="Always on" />}</span>
                         </div>
                         <div className="w-10 flex justify-center">
                           <Checkbox
-                            checked={setting?.alert_enabled ?? true}
+                            checked={isLocked(nt.key) || (setting?.alert_enabled ?? true)}
+                        disabled={isLocked(nt.key)}
                             onCheckedChange={(checked) =>
                               updateSetting(nt.key, selectedLocationId, 'alert_enabled', !!checked)
                             }
@@ -519,13 +554,14 @@ export const UnifiedNotificationSettings = () => {
                         </div>
                         <div className="w-10 flex justify-center">
                           <Checkbox
-                            checked={setting?.push_enabled ?? true}
+                            checked={isLocked(nt.key) || (setting?.push_enabled ?? true)}
                             onCheckedChange={(checked) =>
                               updateSetting(nt.key, selectedLocationId, 'push_enabled', !!checked)
                             }
-                            disabled={needsPermission}
+                            disabled={needsPermission || isLocked(nt.key)}
                           />
                         </div>
+                        {fromHomeCell(nt.key)}
                         <div className="w-10 flex justify-center">
                           <Checkbox
                             checked={setting?.email_enabled ?? true}
@@ -551,13 +587,14 @@ export const UnifiedNotificationSettings = () => {
                     const setting = getSetting(nt.key, selectedLocationId);
                     return (
                       <div key={nt.key}>
-                        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50">
+                        <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50">
                           <div>
-                            <span className="text-sm">{nt.label}</span>
+                            <span className="text-sm inline-flex items-center gap-1">{nt.label}{isLocked(nt.key) && <Lock className="h-3 w-3 text-muted-foreground" aria-label="Always on" />}</span>
                           </div>
                           <div className="w-10 flex justify-center">
                             <Checkbox
-                              checked={setting?.alert_enabled ?? true}
+                              checked={isLocked(nt.key) || (setting?.alert_enabled ?? true)}
+                        disabled={isLocked(nt.key)}
                               onCheckedChange={(checked) =>
                                 updateSetting(nt.key, selectedLocationId, 'alert_enabled', !!checked)
                               }
@@ -565,13 +602,14 @@ export const UnifiedNotificationSettings = () => {
                           </div>
                           <div className="w-10 flex justify-center">
                             <Checkbox
-                              checked={setting?.push_enabled ?? true}
+                              checked={isLocked(nt.key) || (setting?.push_enabled ?? true)}
                               onCheckedChange={(checked) =>
                                 updateSetting(nt.key, selectedLocationId, 'push_enabled', !!checked)
                               }
-                              disabled={needsPermission}
+                              disabled={needsPermission || isLocked(nt.key)}
                             />
                           </div>
+                          {fromHomeCell(nt.key)}
                           <div className="w-10 flex justify-center">
                             <Checkbox
                               checked={setting?.email_enabled ?? true}
@@ -601,13 +639,14 @@ export const UnifiedNotificationSettings = () => {
                     const setting = getSetting(nt.key, selectedLocationId);
                     return (
                       <div key={nt.key}>
-                        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50">
+                        <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50">
                           <div>
-                            <span className="text-sm">{nt.label}</span>
+                            <span className="text-sm inline-flex items-center gap-1">{nt.label}{isLocked(nt.key) && <Lock className="h-3 w-3 text-muted-foreground" aria-label="Always on" />}</span>
                           </div>
                           <div className="w-10 flex justify-center">
                             <Checkbox
-                              checked={setting?.alert_enabled ?? true}
+                              checked={isLocked(nt.key) || (setting?.alert_enabled ?? true)}
+                        disabled={isLocked(nt.key)}
                               onCheckedChange={(checked) =>
                                 updateSetting(nt.key, selectedLocationId, 'alert_enabled', !!checked)
                               }
@@ -615,13 +654,14 @@ export const UnifiedNotificationSettings = () => {
                           </div>
                           <div className="w-10 flex justify-center">
                             <Checkbox
-                              checked={setting?.push_enabled ?? true}
+                              checked={isLocked(nt.key) || (setting?.push_enabled ?? true)}
                               onCheckedChange={(checked) =>
                                 updateSetting(nt.key, selectedLocationId, 'push_enabled', !!checked)
                               }
-                              disabled={needsPermission}
+                              disabled={needsPermission || isLocked(nt.key)}
                             />
                           </div>
+                          {fromHomeCell(nt.key)}
                           <div className="w-10 flex justify-center">
                             <Checkbox
                               checked={setting?.email_enabled ?? true}
