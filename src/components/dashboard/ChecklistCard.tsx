@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
-import { Check, Lock, ChevronRight, GripVertical, Clock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Check, Lock, ChevronRight, GripVertical, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { memo } from "react";
 import { cn } from "@/lib/utils";
@@ -37,12 +38,6 @@ export const ChecklistCard = memo(function ChecklistCard({
   const navigate = useNavigate();
   const completionRate = expected > 0 ? Math.min(100, Math.round((completed / expected) * 100)) : 0;
   const isComplete = completionRate === 100;
-  const showOverdue = isOverdue && !isComplete && !isLocked;
-  const ringColor = showOverdue
-    ? 'hsl(var(--destructive))'
-    : isComplete
-      ? 'hsl(var(--success))'
-      : 'hsl(var(--primary))';
 
   const handleClick = () => {
     if (onClick) {
@@ -58,15 +53,13 @@ export const ChecklistCard = memo(function ChecklistCard({
       {variant === 'card' && (
         <div 
           className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
-          style={{
-            background: isComplete
-              ? 'hsl(var(--success))'
-              : showOverdue
-                ? 'hsl(var(--destructive))'
-                : isLocked
-                  ? 'hsl(var(--muted))'
-                  : 'hsl(var(--primary) / 0.5)'
-          }}
+          style={{ 
+            background: isComplete 
+              ? 'hsl(var(--primary))' 
+              : isLocked 
+                ? 'hsl(var(--muted))' 
+                : 'hsl(var(--primary) / 0.5)' 
+          }} 
         />
       )}
 
@@ -81,12 +74,12 @@ export const ChecklistCard = memo(function ChecklistCard({
         {/* Dynamic ring icon */}
         <div className={cn("relative shrink-0", variant === 'row' ? 'w-10 h-10' : 'w-12 h-12')}>
           <svg className="w-full h-full -rotate-90" viewBox="0 0 48 48">
-            <circle cx="24" cy="24" r="20" fill="none" stroke="hsl(var(--muted))" strokeWidth="4" />
+            <circle cx="24" cy="24" r="20" fill="none" stroke="hsl(var(--muted))" strokeWidth="3" />
             {!isLocked && (
               <circle
                 cx="24" cy="24" r="20" fill="none"
-                stroke={ringColor}
-                strokeWidth="4" strokeLinecap="round"
+                stroke="hsl(var(--primary))"
+                strokeWidth="3" strokeLinecap="round"
                 strokeDasharray={2 * Math.PI * 20}
                 strokeDashoffset={isComplete ? 0 : (2 * Math.PI * 20) - (completionRate / 100) * (2 * Math.PI * 20)}
                 className="transition-all duration-700"
@@ -97,9 +90,7 @@ export const ChecklistCard = memo(function ChecklistCard({
             {isLocked ? (
               <Lock className="h-4 w-4 text-muted-foreground" />
             ) : isComplete ? (
-              <Check className="h-5 w-5 text-success" strokeWidth={3} />
-            ) : showOverdue ? (
-              <Clock className="h-5 w-5 text-destructive" strokeWidth={2.5} />
+              <Check className="h-5 w-5 text-primary" strokeWidth={3} />
             ) : (
               <span className="text-[11px] font-black text-primary">{completionRate}%</span>
             )}
@@ -110,19 +101,25 @@ export const ChecklistCard = memo(function ChecklistCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-sm truncate">{title}</span>
+            {isOverdue && (
+              <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4.5 shrink-0 gap-1">
+                <AlertCircle className="h-3 w-3" />
+                Overdue
+              </Badge>
+            )}
           </div>
           {isLocked ? (
             <span className="text-xs text-muted-foreground">
               {lockUntilTime ? `Locked until ${lockUntilTime}` : 'Locked'}
             </span>
           ) : isComplete ? (
-            <span className="text-xs text-success font-medium">All tasks complete ✓</span>
+            <span className="text-xs text-primary font-medium">All tasks complete ✓</span>
           ) : (
             <div className={cn("flex items-center gap-2", variant === 'row' ? 'mt-1' : 'mt-1.5')}>
               <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                <div
-                  className={cn("h-full rounded-full transition-all duration-500", showOverdue ? "bg-destructive" : "bg-primary")}
-                  style={{ width: `${completionRate}%` }}
+                <div 
+                  className="h-full rounded-full bg-primary transition-all duration-500" 
+                  style={{ width: `${completionRate}%` }} 
                 />
               </div>
               <span className="text-[11px] font-medium text-muted-foreground">{completed}/{expected}</span>
