@@ -1,8 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, AlertCircle, Lock, Check } from 'lucide-react';
+import { ChevronRight, Lock, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 import { DashSectionTitle } from '@/components/dashboard/DashSectionTitle';
 import { ChecklistStat } from '@/components/dashboard/ChecklistStat';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
