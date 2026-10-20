@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { computePace } from '../../supabase/functions/_shared/cubeMetrics';
-import { paceFixtures } from './laborProjection.fixtures';
-import { fmtProjection } from '@/hooks/useLaborProjection';
+import { paceFixtures } from './laborPace.fixtures';
+import { fmtPace } from '@/hooks/useLaborPace';
 
 // App side of the pace parity check. scripts/check-labor-projection-sql.ts runs the
 // same fixtures through the server's sales_pace_today and requires equal results.
@@ -14,7 +14,7 @@ const appPace = (name: string) => {
   });
 };
 
-describe('labor projection — sales pace fixtures (app side)', () => {
+describe('labor pace — sales pace fixtures (app side)', () => {
   it('lunch ahead gets the capped boost', () => expect(appPace('lunch ahead, boost')).toBeCloseTo(540 + 420 * 1.212, 6));
   it('fresh stored pace wins', () => expect(appPace('fresh stored pace wins')).toBe(1500));
   it('stale stored pace is ignored', () => expect(appPace('stale stored pace ignored')).toBeCloseTo(540 + 420 * 1.212, 6));
@@ -22,9 +22,9 @@ describe('labor projection — sales pace fixtures (app side)', () => {
   it('no hourly data → null', () => expect(appPace('no hourly data')).toBeNull());
 });
 
-describe('labor projection display', () => {
+describe('labor pace display', () => {
   it('shows — for missing values, never 0', () => {
-    expect(fmtProjection(null)).toBe('—');
-    expect(fmtProjection(undefined, '%')).toBe('—');
+    expect(fmtPace(null)).toBe('—');
+    expect(fmtPace(undefined, '%')).toBe('—');
   });
 });
