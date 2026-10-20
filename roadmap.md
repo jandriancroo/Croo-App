@@ -212,3 +212,7 @@
 
 ## Elements Phase 2A — Oct 20
 - [x] Shared SegmentedControl + DayToggleRow; Tasks, Edit tab, location picker, 4 task dialogs + ShiftTemplates day rows, tab size overrides removed. Checked at 390/768.
+
+## Quick Nudge in manager dash — Oct 20
+- [x] quick-nudge 'list' action + Nudge section (swipe-up dash on phones, top of Dash on iPad/desktop); fingers removed from Dash; On the clock header restyled + collapsible; one-time tutorial.
+- [ ] Phone swipe-up dash not visually checked yet (needs a real swipe on device).
