@@ -376,7 +376,7 @@ export function TeamTasksView({ locationId, timezone, onBack, isDayMode = true }
                                   >
                                     <Button
                                       variant="ghost"
-                                      size="sm"
+                                      size="default"
                                       className="w-full mt-1 text-destructive hover:text-destructive hover:bg-destructive/10 gap-2"
                                       onClick={(e) => {
                                         e.stopPropagation();
