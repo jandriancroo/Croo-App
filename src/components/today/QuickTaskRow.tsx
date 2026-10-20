@@ -41,9 +41,7 @@ export function QuickTaskRow({ title, icon: Icon, dueLabel, overdue, done, progr
           <Icon className="h-3 w-3" />
         </span>
         <span className={cn('flex-1 truncate text-[13px] font-medium text-foreground', done && 'line-through')}>{title}</span>
-        {overdue && !done ? (
-          <span className="shrink-0 rounded-full bg-destructive px-2 py-px text-[10px] font-bold text-destructive-foreground">Overdue</span>
-        ) : dueLabel ? (
+        {dueLabel ? (
           <span className="shrink-0 text-[11px] text-muted-foreground">{dueLabel}</span>
         ) : null}
         {progress && progress.total > 1 && (

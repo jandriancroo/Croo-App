@@ -1,8 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, AlertCircle, Lock, Check } from 'lucide-react';
+import { ChevronRight, Lock, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 import { DashSectionTitle } from '@/components/dashboard/DashSectionTitle';
 import { ChecklistStat } from '@/components/dashboard/ChecklistStat';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
@@ -211,12 +210,6 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
                     <span className="text-[11px] text-muted-foreground">Nudged {nudgedAgo}m ago</span>
                   )}
                 </div>
-                {isOverdue && (
-                  <Badge variant="destructive" className="text-[9px] px-1 py-0 h-3.5 shrink-0 gap-0.5">
-                    <AlertCircle className="h-2.5 w-2.5" />
-                    Overdue
-                  </Badge>
-                )}
               </div>
 
               <ChecklistStat
