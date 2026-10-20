@@ -324,19 +324,17 @@ export function MessageBubble({
           <>
             <div className="hidden sm:flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <ReactionPicker onSelect={(reaction) => onReaction(message.id, reaction)} />
-              <Button
+              <Button size="icon-sm"
                 variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0"
+                className=""
                 onClick={() => onReply(message)}
               >
                 <MessageSquare className="h-3.5 w-3.5" />
               </Button>
               {canUnsend && onUnsend && (
-                <Button
+                <Button size="icon-sm"
                   variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                  className="text-destructive hover:text-destructive"
                   onClick={() => onUnsend(message.id)}
                   title="Delete for everyone"
                 >

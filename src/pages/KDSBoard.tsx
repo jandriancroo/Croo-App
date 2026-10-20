@@ -148,11 +148,10 @@ export default function KDSBoard() {
           {/* Header */}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-3">
-              <Button
+              <Button size="icon-sm"
                 variant="ghost"
-                size="icon"
                 onClick={() => navigate('/settings')}
-                className="rounded-xl h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted"
+                className="rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted"
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
@@ -177,10 +176,9 @@ export default function KDSBoard() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button
+              <Button size="icon-sm"
                 variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted"
+                className="rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted"
                 onClick={() => syncOrders().then(() => loadOrders())}
                 disabled={loading}
               >

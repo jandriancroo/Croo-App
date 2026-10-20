@@ -211,7 +211,7 @@ export default function BrandUnpricedIngredients({ embedded = false }: { embedde
                         ) : (
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+                              <Button size="xs" variant="outline" className="gap-1.5 text-xs">
                                 <ChefHat className="h-3 w-3" />
                                 {item.recipes.length}
                               </Button>
@@ -230,10 +230,9 @@ export default function BrandUnpricedIngredients({ embedded = false }: { embedde
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
+                        <Button size="xs"
                           variant="ghost"
-                          size="sm"
-                          className="h-7 gap-1 text-xs text-destructive hover:text-destructive"
+                          className="gap-1 text-xs text-destructive hover:text-destructive"
                           onClick={() => setArchiveTarget({ id: item.templateId, name: item.name })}
                         >
                           <Archive className="h-3 w-3" />

@@ -905,10 +905,10 @@ function LibraryPanel({
                 {it.forked_from_item_id ? " · copy" : ""}
               </p>
             </button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => onEdit(it)}>
+            <Button size="icon-sm" variant="ghost" className="shrink-0" onClick={() => onEdit(it)}>
               <Pencil className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => onArchive(it)}>
+            <Button size="icon-sm" variant="ghost" className="shrink-0" onClick={() => onArchive(it)}>
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -1134,18 +1134,16 @@ function ItemSheet({
                     className="rounded-lg w-full max-h-48 object-cover border"
                   />
                   <div className="absolute top-2 right-2 flex gap-1">
-                    <Button
+                    <Button size="icon-sm"
                       variant="secondary"
-                      size="icon"
-                      className="h-7 w-7 bg-background/80"
+                      className="bg-background/80"
                       onClick={() => setPreviewOpen(true)}
                     >
                       <Eye className="h-3.5 w-3.5" />
                     </Button>
-                    <Button
+                    <Button size="icon-sm"
                       variant="destructive"
-                      size="icon"
-                      className="h-7 w-7"
+                      className=""
                       onClick={() => onPatch({ reference_image_url: null })}
                     >
                       <Trash2 className="h-3.5 w-3.5" />

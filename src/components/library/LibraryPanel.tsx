@@ -156,7 +156,7 @@ export function LibraryPanel() {
                     {d.description && <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{d.description}</p>}
                   </div>
                   {canEdit && (
-                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={(e) => { e.stopPropagation(); remove(d.id); }}>
+                    <Button size="icon-sm" variant="ghost" className="shrink-0" onClick={(e) => { e.stopPropagation(); remove(d.id); }}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   )}

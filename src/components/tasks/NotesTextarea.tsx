@@ -61,21 +61,19 @@ export function NotesTextarea({ value, onChange, placeholder, rows = 2, classNam
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-1">
-        <Button
+        <Button size="icon-sm"
           type="button"
           variant="ghost"
-          size="icon"
-          className="h-6 w-6"
+          className=""
           onClick={() => applyListPrefix('bullet')}
           title="Bulleted list"
         >
           <List className="h-3.5 w-3.5" />
         </Button>
-        <Button
+        <Button size="icon-sm"
           type="button"
           variant="ghost"
-          size="icon"
-          className="h-6 w-6"
+          className=""
           onClick={() => applyListPrefix('number')}
           title="Numbered list"
         >

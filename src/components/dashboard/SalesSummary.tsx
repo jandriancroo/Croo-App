@@ -1609,16 +1609,15 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
             {/* Unified nav bar: chevrons navigate date, tapping label cycles view */}
             <div className="mb-2">
               <div className="flex items-center justify-between bg-primary rounded-lg px-3 py-1.5 w-full">
-                <Button 
+                <Button size="icon-sm" 
                   variant="ghost" 
-                  size="sm" 
                   onClick={() => {
                     if (activeTab === 'today') navigateDay('prev');
                     else if (activeTab === 'week') navigateWeek('prev');
                     else navigateMonth('prev');
                   }}
                   disabled={false}
-                  className="h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
+                  className="text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </Button>
@@ -1637,9 +1636,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                     }
                   </span>
                 </button>
-                <Button 
+                <Button size="icon-sm" 
                   variant="ghost" 
-                  size="sm" 
                   onClick={() => {
                     if (activeTab === 'today') navigateDay('next');
                     else if (activeTab === 'week') navigateWeek('next');
@@ -1650,7 +1648,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                     : activeTab === 'week' ? isCurrentWeek
                     : isCurrentMonth
                   }
-                  className="h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
+                  className="text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
                 >
                   <ChevronRight className="h-5 w-5" />
                 </Button>

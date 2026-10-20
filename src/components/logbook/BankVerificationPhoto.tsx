@@ -119,11 +119,10 @@ export function BankVerificationPhoto({
           </button>
         </div>
       ) : variant === "icon" ? (
-        <Button
+        <Button size="sm"
           type="button"
           variant="secondary"
-          size="icon"
-          className="h-9 w-9"
+          className=""
           disabled={disabled || uploading}
           aria-label={`Upload ${label}`}
           title={label}

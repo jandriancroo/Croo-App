@@ -63,16 +63,16 @@ export function MediaLightbox({ items, index, onOpenChange, onIndexChange }: Pro
           <div className="text-sm truncate max-w-[60%]">{name}</div>
           <div className="flex items-center gap-1">
             <a href={current.url} download target="_blank" rel="noopener noreferrer">
-              <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 h-9 w-9">
+              <Button size="icon-sm" variant="ghost" className="text-white hover:bg-white/10">
                 <Download className="h-4 w-4" />
               </Button>
             </a>
             <a href={current.url} target="_blank" rel="noopener noreferrer">
-              <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 h-9 w-9">
+              <Button size="icon-sm" variant="ghost" className="text-white hover:bg-white/10">
                 <ExternalLink className="h-4 w-4" />
               </Button>
             </a>
-            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/20 h-9 w-9" onClick={() => onOpenChange(false)}>
+            <Button size="icon-sm" variant="ghost" className="text-destructive hover:bg-destructive/20" onClick={() => onOpenChange(false)}>
               <X className="h-5 w-5" />
             </Button>
           </div>

@@ -78,7 +78,7 @@ export function LogBookEntryList({ data }: LogBookEntryListProps) {
                           return isAdmin ? (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6"><MoreVertical className="h-4 w-4" /></Button>
+                                <Button size="icon-sm" variant="ghost" className=""><MoreVertical className="h-4 w-4" /></Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={async () => {
@@ -100,7 +100,7 @@ export function LogBookEntryList({ data }: LogBookEntryListProps) {
                           return isAdmin ? (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6"><MoreVertical className="h-4 w-4" /></Button>
+                                <Button size="icon-sm" variant="ghost" className=""><MoreVertical className="h-4 w-4" /></Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={async () => {
@@ -126,7 +126,7 @@ export function LogBookEntryList({ data }: LogBookEntryListProps) {
                           return isAdmin ? (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6"><MoreVertical className="h-4 w-4" /></Button>
+                                <Button size="icon-sm" variant="ghost" className=""><MoreVertical className="h-4 w-4" /></Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={async () => {
@@ -150,7 +150,7 @@ export function LogBookEntryList({ data }: LogBookEntryListProps) {
                         return (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-6 w-6"><MoreVertical className="h-4 w-4" /></Button>
+                              <Button size="icon-sm" variant="ghost" className=""><MoreVertical className="h-4 w-4" /></Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               {!isSpecialEntry && (

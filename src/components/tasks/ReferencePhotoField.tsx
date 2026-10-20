@@ -57,11 +57,11 @@ export function ReferencePhotoField({ url, onUpload, onRemove, compact }: Props)
         <div className="flex items-center gap-2">
           <img src={url} alt="Reference" className={`rounded object-cover ${compact ? 'h-14 w-14' : 'h-16 w-16'}`} />
           <div className="flex flex-col gap-1">
-            <Button type="button" size="sm" variant="outline" className="h-7 text-xs" disabled={busy}
+            <Button size="xs" type="button" variant="outline" className="text-xs" disabled={busy}
               onClick={() => inputRef.current?.click()}>
               <RefreshCw className="h-3 w-3 mr-1" /> Replace
             </Button>
-            <Button type="button" size="sm" variant="outline" className="h-7 text-xs text-destructive" disabled={busy}
+            <Button size="xs" type="button" variant="outline" className="text-xs text-destructive" disabled={busy}
               onClick={() => { setError(null); onRemove(); }}>
               <Trash2 className="h-3 w-3 mr-1" /> Remove
             </Button>

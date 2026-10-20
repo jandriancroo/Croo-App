@@ -319,12 +319,11 @@ export function EditReadAndSignDialog({
                       Item {index + 1}
                     </span>
                     {items.length > 1 && (
-                      <Button
+                      <Button size="icon-sm"
                         type="button"
                         variant="ghost"
-                        size="sm"
                         onClick={() => removeItem(item.id)}
-                        className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                        className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -351,12 +350,11 @@ export function EditReadAndSignDialog({
                             <span className="text-xs text-muted-foreground">
                               {String.fromCharCode(97 + childIndex)}.
                             </span>
-                            <Button
+                            <Button size="icon-sm"
                               type="button"
                               variant="ghost"
-                              size="sm"
                               onClick={() => removeItem(child.id, item.id)}
-                              className="text-destructive hover:text-destructive h-6 w-6 p-0"
+                              className="text-destructive hover:text-destructive"
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>

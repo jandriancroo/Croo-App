@@ -59,7 +59,7 @@ export function EmployeeWriteUpEntry({ writeUp }: EmployeeWriteUpEntryProps) {
               Pending
             </span>
           )}
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setShowDetails(true)}>
+          <Button size="icon-sm" variant="ghost" className="" onClick={() => setShowDetails(true)}>
             <Eye className="h-3.5 w-3.5" />
           </Button>
         </div>

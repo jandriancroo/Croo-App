@@ -54,11 +54,10 @@ export default function MyTimecard() {
               )}
             </p>
             <div className="flex items-center gap-1">
-              <Button 
+              <Button size="icon-sm" 
                 variant="ghost" 
-                size="icon" 
                 onClick={() => setPeriodOffset(prev => prev - 1)}
-                className="h-8 w-8"
+                className=""
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -71,12 +70,11 @@ export default function MyTimecard() {
               >
                 {isCurrentPeriod ? "Current" : "Today"}
               </Button>
-              <Button 
+              <Button size="icon-sm" 
                 variant="ghost" 
-                size="icon" 
                 onClick={() => setPeriodOffset(prev => prev + 1)}
                 disabled={isCurrentPeriod}
-                className="h-8 w-8"
+                className=""
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>

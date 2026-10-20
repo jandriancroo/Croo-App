@@ -153,11 +153,10 @@ export default function LiteInventoryCountPage() {
               {submitted ? "Submitted" : "Draft"}
             </Badge>
             {!submitted && (
-              <Button
+              <Button size="icon-sm"
                 variant="outline"
-                size="icon"
                 onClick={() => setShowDelete(true)}
-                className="text-muted-foreground hover:text-destructive h-8 w-8"
+                className="text-muted-foreground hover:text-destructive"
                 aria-label="Delete count"
               >
                 <Trash2 className="h-4 w-4" />

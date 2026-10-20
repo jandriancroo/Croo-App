@@ -180,10 +180,9 @@ export function IMessageInput({
             </p>
             <p className="truncate text-foreground/80">{replyTo.content || 'Attachment'}</p>
           </div>
-          <Button
+          <Button size="xs"
             variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 rounded-full"
+            className="p-0 rounded-full"
             onClick={onCancelReply}
           >
             ×
@@ -236,11 +235,10 @@ export function IMessageInput({
           'px-1.5 py-1',
           'shadow-sm'
         )}>
-          <Button
+          <Button size="icon-sm"
             type="button"
             variant="ghost"
-            size="icon"
-            className="h-8 w-8 rounded-full flex-shrink-0 hover:bg-muted"
+            className="rounded-full flex-shrink-0 hover:bg-muted"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
           >
@@ -266,11 +264,10 @@ export function IMessageInput({
           </div>
 
           {(value.trim() || uploading) && (
-            <Button
+            <Button size="icon-sm"
               onClick={onSend}
               disabled={disabled || uploading}
-              size="icon"
-              className="h-8 w-8 rounded-full flex-shrink-0 bg-primary hover:bg-primary/90"
+              className="rounded-full flex-shrink-0 bg-primary hover:bg-primary/90"
             >
               <Send className="h-4 w-4" />
             </Button>

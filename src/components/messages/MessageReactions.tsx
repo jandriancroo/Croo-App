@@ -119,11 +119,10 @@ export function MessageReactions({ messageId, currentUserId }: MessageReactionsP
         const names = reactionList.map(r => r.profiles.full_name).join(', ');
         
         return (
-          <Button
+          <Button size="xs"
             key={type}
             variant={hasReacted ? 'secondary' : 'outline'}
-            size="sm"
-            className="h-6 px-2 text-xs gap-1"
+            className="px-2 text-xs gap-1"
             onClick={() => handleToggleReaction(type)}
             title={names}
           >

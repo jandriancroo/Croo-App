@@ -906,7 +906,7 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
         ) : (
           <>
             <SheetHeader className="flex flex-row items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={() => setWizardStep('category')} className="h-8 w-8 -ml-2">
+              <Button size="icon-sm" variant="ghost" onClick={() => setWizardStep('category')} className="-ml-2">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <SheetTitle className="!mt-0">

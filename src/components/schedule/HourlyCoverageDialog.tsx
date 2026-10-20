@@ -285,21 +285,19 @@ export function HourlyCoverageDialog({
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-muted-foreground">Set all staff to:</span>
               {[1, 2, 3, 4, 5].map((val) => (
-                <Button
+                <Button size="xs"
                   key={val}
                   variant="outline"
-                  size="sm"
                   onClick={() => handleApplyStaffToAll(val)}
-                  className="h-7 w-7 p-0"
+                  className="p-0"
                 >
                   {val}
                 </Button>
               ))}
-              <Button
+              <Button size="xs"
                 variant="ghost"
-                size="sm"
                 onClick={() => handleApplyStaffToAll(0)}
-                className="h-7 px-2 text-xs"
+                className="px-2 text-xs"
               >
                 Clear
               </Button>

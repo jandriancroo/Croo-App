@@ -528,7 +528,7 @@ export function MobileBuildScheduleWizard({
         {/* STEP 2b: Review per-person */}
         {step === 'review' && draftSummary && (
           <div className="space-y-3 pt-1">
-            <Button variant="ghost" size="sm" onClick={() => setStep('drafts')} className="-ml-2 h-8">
+            <Button size="xs" variant="ghost" onClick={() => setStep('drafts')} className="-ml-2">
               <ArrowLeft className="h-3.5 w-3.5" /> Back
             </Button>
             <div className="space-y-1.5 max-h-[45vh] overflow-y-auto pr-1">
@@ -611,7 +611,7 @@ export function MobileBuildScheduleWizard({
               </div>
             </Button>
 
-            <Button variant="ghost" size="sm" onClick={() => setStep('pick-week')} className="-ml-2 h-8">
+            <Button size="xs" variant="ghost" onClick={() => setStep('pick-week')} className="-ml-2">
               <ArrowLeft className="h-3.5 w-3.5" /> Pick a different week
             </Button>
           </div>

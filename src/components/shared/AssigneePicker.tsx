@@ -182,7 +182,7 @@ export function AssigneePicker({
       {/* Collapsible individual picker */}
       <Collapsible open={showIndividuals} onOpenChange={setShowIndividuals}>
         <CollapsibleTrigger asChild>
-          <Button type="button" variant="ghost" size="sm" className="w-full justify-between h-8">
+          <Button size="xs" type="button" variant="ghost" className="w-full justify-between">
             <span className="text-xs">Add specific people</span>
             {showIndividuals ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </Button>

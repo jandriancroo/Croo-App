@@ -357,7 +357,7 @@ export default function Schedule() {
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="icon" className="h-7 w-7"><Wrench className="h-4 w-4" /></Button>
+                      <Button size="icon-sm" variant="outline" className=""><Wrench className="h-4 w-4" /></Button>
                     </DropdownMenuTrigger>
 
                     <DropdownMenuContent align="end" className="bg-background z-[60]">
@@ -404,11 +404,11 @@ export default function Schedule() {
                     </DropdownMenuContent>
                   </DropdownMenu>
 
-                  <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)} className="h-7 gap-1.5 px-2.5" disabled={!scheduleId}>
+                  <Button size="xs" variant="outline" onClick={() => setHistoryOpen(true)} className="gap-1.5 px-2.5" disabled={!scheduleId}>
                     <History className="h-4 w-4" /><span className="hidden lg:inline">History</span>
                   </Button>
 
-                  <Button variant="outline" size="sm" onClick={() => setAutoScheduleOpen(true)} className="h-7 gap-1.5 px-2.5">
+                  <Button size="xs" variant="outline" onClick={() => setAutoScheduleOpen(true)} className="gap-1.5 px-2.5">
                     <Sparkles className="h-4 w-4" /><span className="hidden lg:inline">Croo AI</span>
                   </Button>
 
@@ -708,7 +708,7 @@ export default function Schedule() {
               <span>Time Off</span>
             </div>
             <div className="ml-auto">
-              <Button variant="outline" size="sm" onClick={handlePrintSchedule} className="h-7 gap-1.5 text-xs">
+              <Button size="xs" variant="outline" onClick={handlePrintSchedule} className="gap-1.5 text-xs">
                 <Printer className="h-3.5 w-3.5" />Print
               </Button>
             </div>
@@ -737,7 +737,7 @@ export default function Schedule() {
                     ) : (
                       <div className="flex items-center gap-2">
                         <p className="text-muted-foreground text-xs">No templates</p>
-                        <Button size="sm" onClick={() => navigate("/shift-templates")} className="h-6 text-xs px-2">
+                        <Button size="xs" onClick={() => navigate("/shift-templates")} className="text-xs px-2">
                           <Plus className="h-3 w-3 mr-1" />Create
                         </Button>
                       </div>

@@ -108,7 +108,7 @@ export function Option6TodayContent({
             <span className="text-muted-foreground mx-0.5">·</span>
             <span className="text-muted-foreground">{totalScheduled} Total</span>
             <div className="ml-auto">
-              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={onQuickPunchOpen}>
+              <Button size="icon-sm" variant="ghost" className="" onClick={onQuickPunchOpen}>
                 <UserPlus className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -144,7 +144,7 @@ export function Option6TodayContent({
           {completedPunches.length > 0 ? `Completed (${completedPunches.length})` : 'Later'}
           <div className="flex items-center gap-1 ml-auto">
             {(activePunches.length === 0 && onBreakPunches.length === 0) && (
-              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={onQuickPunchOpen}>
+              <Button size="icon-sm" variant="ghost" className="" onClick={onQuickPunchOpen}>
                 <UserPlus className="h-3.5 w-3.5" />
               </Button>
             )}

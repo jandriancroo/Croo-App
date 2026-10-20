@@ -302,10 +302,9 @@ export function PerformanceReviewForm({ onSave, isSaving }: PerformanceReviewFor
         <div className="flex items-center justify-between">
           <Label className="text-base font-semibold">Performance Ratings</Label>
           {(isAdmin || isManager) && (
-            <Button
+            <Button size="xs"
               variant="ghost"
-              size="sm"
-              className="h-8 gap-1.5"
+              className="gap-1.5"
               onClick={() => setManageItemsOpen(true)}
             >
               <Settings className="h-4 w-4" />

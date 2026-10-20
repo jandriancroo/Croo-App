@@ -144,7 +144,7 @@ export function TrackerPosItemPicker({ value, onChange, label = "Promo Item(s)" 
         </ScrollArea>
 
         {canAddTyped && (
-          <Button type="button" variant="outline" size="sm" className="mt-2 h-8 w-full text-xs" onClick={() => addItem(search)}>
+          <Button size="xs" type="button" variant="outline" className="mt-2 w-full text-xs" onClick={() => addItem(search)}>
             Add “{search.trim()}”
           </Button>
         )}

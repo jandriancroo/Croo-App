@@ -914,8 +914,8 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
               </div>
               {selectedIds.size > 0 && (
                 <div className="flex gap-1.5 shrink-0">
-                  <Button size="sm" variant="ghost" onClick={handleIgnore}
-                    disabled={ignoreMutation.isPending} className="h-7 text-xs">
+                  <Button size="xs" variant="ghost" onClick={handleIgnore}
+                    disabled={ignoreMutation.isPending} className="text-xs">
                     <EyeOff className="h-3 w-3 mr-1" />
                     Ignore
                   </Button>
@@ -1111,9 +1111,9 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                       )}
                     </div>
                     <div className="flex flex-col items-end gap-1.5 shrink-0">
-                      <Button size="sm"
+                      <Button size="xs"
                         onClick={(e) => { e.stopPropagation(); setLinkDialogItem(item); }}
-                        className="h-6 text-[10px] px-2">
+                        className="text-[10px] px-2">
                         <Link2 className="h-3 w-3 mr-1" />
                         Link to item
                       </Button>
@@ -1202,10 +1202,10 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                           {renderEvidence(item.id)}
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <Button size="sm" variant="outline"
+                          <Button size="xs" variant="outline"
                             onClick={() => item.id && restoreMutation.mutate(item.id)}
                             disabled={restoreMutation.isPending}
-                            className="h-6 text-[10px] px-2">
+                            className="text-[10px] px-2">
                             <RotateCcw className="h-3 w-3 mr-1" />
                             Restore
                           </Button>

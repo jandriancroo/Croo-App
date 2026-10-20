@@ -405,10 +405,9 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
                           </p>
                         )}
                       </div>
-                      <Button
-                        size="icon"
+                      <Button size="icon-sm"
                         variant="ghost"
-                        className="h-8 w-8"
+                        className=""
                         onClick={() => removeFile(slot.type)}
                       >
                         <X className="h-4 w-4" />
@@ -429,10 +428,9 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
                         </p>
                         <p className="text-xs text-muted-foreground truncate">{slot.file.name}</p>
                       </div>
-                      <Button
-                        size="icon"
+                      <Button size="icon-sm"
                         variant="ghost"
-                        className="h-8 w-8"
+                        className=""
                         onClick={() => removeFile(slot.type)}
                       >
                         <X className="h-4 w-4" />

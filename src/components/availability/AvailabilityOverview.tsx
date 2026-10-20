@@ -265,22 +265,20 @@ export function AvailabilityOverview() {
 
                   {isAdmin && request.status === "pending" && (
                     <div className="flex gap-2 mt-3 pt-2 border-t">
-                      <Button
-                        size="sm"
+                      <Button size="xs"
                         variant="default"
                         onClick={() => handleApprove(request.id)}
                         disabled={processing}
-                        className="h-7 text-xs"
+                        className="text-xs"
                       >
                         <Check className="h-4 w-4 mr-1" />
                         Approve
                       </Button>
-                      <Button
-                        size="sm"
+                      <Button size="xs"
                         variant="destructive"
                         onClick={() => openDenyDialog(request.id)}
                         disabled={processing}
-                        className="h-7 text-xs"
+                        className="text-xs"
                       >
                         <X className="h-4 w-4 mr-1" />
                         Deny

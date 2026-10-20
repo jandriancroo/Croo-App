@@ -778,9 +778,8 @@ export default function Hiring() {
                             )}
                             {app.status === 'interviewing' && (!app.interview_date || app.interview_status === 'reschedule_requested') && (
                               <div className="mt-1.5">
-                                <Button
-                                  size="sm"
-                                  className="h-9 min-h-[36px] text-xs"
+                                <Button size="sm"
+                                  className="min-h-[36px] text-xs"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     openScheduleForApp(app, !!app.interview_date);

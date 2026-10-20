@@ -373,10 +373,9 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
               <span className="text-[10px] font-normal text-muted-foreground">suggested from the recording</span>
             )}
           </Label>
-          <Button
+          <Button size="xs"
             variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-xs"
+            className="px-2 text-xs"
             onClick={() => setShowReasonDialog(true)}
           >
             <Plus className="h-3 w-3 mr-1" />

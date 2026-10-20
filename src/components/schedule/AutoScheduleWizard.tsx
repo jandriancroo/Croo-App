@@ -573,18 +573,16 @@ export function AutoScheduleWizard({
                                   </div>
                                 </div>
                                 <div className="flex gap-1 flex-shrink-0">
-                                  <Button
-                                    size="icon"
+                                  <Button size="icon-sm"
                                     variant="ghost"
-                                    className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-100"
+                                    className="text-green-600 hover:text-green-700 hover:bg-green-100"
                                     onClick={() => handleApproveRequest(request.id)}
                                   >
                                     <Check className="h-4 w-4" />
                                   </Button>
-                                  <Button
-                                    size="icon"
+                                  <Button size="icon-sm"
                                     variant="ghost"
-                                    className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                     onClick={() => handleDenyRequest(request.id)}
                                   >
                                     <X className="h-4 w-4" />

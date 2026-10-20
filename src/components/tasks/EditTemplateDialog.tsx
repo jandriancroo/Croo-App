@@ -544,11 +544,10 @@ export function EditTemplateDialog({ open, onOpenChange, template }: EditTemplat
                         )}
                         <span className="text-sm truncate">{subtask.title}</span>
                       </div>
-                      <Button
+                      <Button size="icon-sm"
                         type="button"
                         variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive"
+                        className="text-destructive"
                         onClick={() => handleRemoveSubtask(index)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />

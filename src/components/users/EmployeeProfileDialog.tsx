@@ -497,10 +497,9 @@ export function EmployeeProfileDialog({
                       onChange={handlePhotoUpload}
                       className="hidden"
                     />
-                    <Button
-                      size="sm"
+                    <Button size="icon-sm"
                       variant="secondary"
-                      className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full p-0"
+                      className="absolute -bottom-1 -right-1 rounded-full"
                       onClick={() => photoInputRef.current?.click()}
                       disabled={uploadingPhoto}
                     >

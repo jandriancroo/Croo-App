@@ -1026,10 +1026,9 @@ export function MobileScheduleView({
                       }
                     }}
                     actionButton={!isAdmin && !isManager && shift.user_id === user?.id ? (
-                      <Button
+                      <Button size="xs"
                         variant="outline"
-                        size="sm"
-                        className="text-xs px-2 h-7"
+                        className="text-xs px-2"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedShiftForOffer(shift);

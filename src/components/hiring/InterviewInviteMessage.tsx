@@ -219,10 +219,9 @@ export function InterviewInviteMessage({
         {!isApplicantView && canModify && (onCancel || onReschedule) && (
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/50 mt-2">
             {onReschedule && (
-              <Button
-                size="sm"
+              <Button size="xs"
                 variant="outline"
-                className="text-xs h-8 px-2"
+                className="text-xs px-2"
                 onClick={onReschedule}
                 disabled={responding}
               >
@@ -231,10 +230,9 @@ export function InterviewInviteMessage({
               </Button>
             )}
             {onCancel && (
-              <Button
-                size="sm"
+              <Button size="xs"
                 variant="outline"
-                className="text-xs h-8 px-2 border-red-500/30 text-red-600 hover:bg-red-500/10"
+                className="text-xs px-2 border-red-500/30 text-red-600 hover:bg-red-500/10"
                 onClick={onCancel}
                 disabled={responding}
               >

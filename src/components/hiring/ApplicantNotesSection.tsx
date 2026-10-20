@@ -155,10 +155,9 @@ export function ApplicantNotesSection({ applicationId }: ApplicantNotesSectionPr
                   {note.creator?.full_name || 'Unknown'} • {format(new Date(note.created_at), 'MMM d, yyyy h:mm a')}
                 </p>
                 {note.created_by === user?.id && (
-                  <Button
+                  <Button size="icon-sm"
                     variant="ghost"
-                    size="sm"
-                    className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={() => deleteNoteMutation.mutate(note.id)}
                     disabled={deleteNoteMutation.isPending}
                   >

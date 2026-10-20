@@ -155,19 +155,17 @@ export function QuickTaskTemplateLibrary({
                       <span className="text-[10px] text-muted-foreground shrink-0">{(template.subtasks as any[]).length}✓</span>
                     )}
                     <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        size="icon"
+                      <Button size="icon-sm"
                         variant="ghost"
-                        className="h-6 w-6 rounded-full"
+                        className="rounded-full"
                         onClick={() => setEditTemplate(template)}
                         title="Edit template"
                       >
                         <Pencil className="h-3 w-3" />
                       </Button>
-                      <Button
-                        size="icon"
+                      <Button size="icon-sm"
                         variant="ghost"
-                        className="h-6 w-6 rounded-full text-destructive hover:text-destructive"
+                        className="rounded-full text-destructive hover:text-destructive"
                         onClick={() => setDeleteTemplateId(template.id)}
                         title="Delete template"
                       >

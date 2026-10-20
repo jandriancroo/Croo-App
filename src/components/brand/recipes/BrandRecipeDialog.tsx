@@ -305,7 +305,7 @@ const BrandRecipeDialog = ({ open, onOpenChange, brandId, blueprintId }: Props) 
                               {wide && <span className="block text-[10px] text-muted-foreground">{money(p.min_cost)}–{money(p.max_cost)}</span>}
                             </>}
                       </div>
-                      <Button variant="ghost" size="icon" className="h-8 w-8"
+                      <Button size="icon-sm" variant="ghost" className=""
                         onClick={() => setIngs(prev => prev.filter((_, i) => i !== idx))} aria-label="Remove ingredient">
                         <Trash2 className="h-4 w-4" />
                       </Button>

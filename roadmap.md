@@ -216,3 +216,7 @@
 ## Quick Nudge in manager dash — Oct 20
 - [x] quick-nudge 'list' action + Nudge section (swipe-up dash on phones, top of Dash on iPad/desktop); fingers removed from Dash; On the clock header restyled + collapsible; one-time tutorial.
 - [ ] Phone swipe-up dash not visually checked yet (needs a real swipe on device).
+
+## Elements Phase 2B buttons — Oct 20
+- [x] xs / icon-sm sizes; shrunk Buttons moved onto shared sizes.
+- [ ] Hand-made (c) list held for Jordan review; crew kiosk files get own pass.

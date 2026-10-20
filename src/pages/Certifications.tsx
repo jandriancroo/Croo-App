@@ -338,18 +338,16 @@ export default function Certifications() {
             </div>
           </div>
           <div className="flex items-center gap-1 border rounded-lg p-0.5">
-            <Button
+            <Button size="icon-sm"
               variant={viewMode === 'cards' ? 'default' : 'ghost'}
-              size="icon"
-              className="h-7 w-7"
+              className=""
               onClick={() => setViewMode('cards')}
             >
               <LayoutGrid className="h-4 w-4" />
             </Button>
-            <Button
+            <Button size="icon-sm"
               variant={viewMode === 'list' ? 'default' : 'ghost'}
-              size="icon"
-              className="h-7 w-7"
+              className=""
               onClick={() => setViewMode('list')}
             >
               <List className="h-4 w-4" />
@@ -435,10 +433,9 @@ export default function Certifications() {
                         <CardTitle className="text-sm truncate">{profile.full_name}</CardTitle>
                       </div>
                       {(isAdmin || profile.id === user?.id) && (
-                        <Button
-                          size="icon"
+                        <Button size="icon-sm"
                           variant="ghost"
-                          className="h-7 w-7 flex-shrink-0"
+                          className="flex-shrink-0"
                           onClick={() => {
                             setSelectedEmployeeId(profile.id);
                             setUploadDialogOpen(true);
@@ -494,10 +491,9 @@ export default function Certifications() {
                                 </p>
                               </div>
                               <div className="flex gap-1 flex-shrink-0">
-                                <Button
-                                  size="icon"
+                                <Button size="icon-sm"
                                   variant="ghost"
-                                  className="h-6 w-6"
+                                  className=""
                                   onClick={() => {
                                     setPreviewUrl(cert.certificate_url);
                                     setPreviewOpen(true);
@@ -507,10 +503,9 @@ export default function Certifications() {
                                 </Button>
                                 {isAdmin && (
                                   <>
-                                    <Button
-                                      size="icon"
+                                    <Button size="icon-sm"
                                       variant="ghost"
-                                      className="h-6 w-6"
+                                      className=""
                                       onClick={() => {
                                         setSelectedCertification(cert);
                                         setEditDialogOpen(true);
@@ -518,10 +513,9 @@ export default function Certifications() {
                                     >
                                       <Edit className="w-3 h-3" />
                                     </Button>
-                                    <Button
-                                      size="icon"
+                                    <Button size="icon-sm"
                                       variant="ghost"
-                                      className="h-6 w-6 text-destructive"
+                                      className="text-destructive"
                                       onClick={() => handleDelete(cert.id)}
                                     >
                                       <Trash2 className="w-3 h-3" />
@@ -536,10 +530,10 @@ export default function Certifications() {
                           <div className="flex gap-1 pt-1">
                             {employeeCerts.filter(c => c.status === "pending").map(cert => (
                               <div key={cert.id} className="flex gap-1">
-                                <Button size="sm" className="h-6 text-xs" onClick={() => handleApprove(cert.id)}>
+                                <Button size="xs" className="text-xs" onClick={() => handleApprove(cert.id)}>
                                   Approve
                                 </Button>
-                                <Button size="sm" variant="destructive" className="h-6 text-xs" onClick={() => handleReject(cert.id)}>
+                                <Button size="xs" variant="destructive" className="text-xs" onClick={() => handleReject(cert.id)}>
                                   Reject
                                 </Button>
                               </div>
@@ -585,7 +579,7 @@ export default function Certifications() {
                       </TableCell>
                       <TableCell className="text-right">
                         {(isAdmin || profile.id === user?.id) && (
-                          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setSelectedEmployeeId(profile.id); setUploadDialogOpen(true); }}>
+                          <Button size="icon-sm" variant="ghost" className="" onClick={() => { setSelectedEmployeeId(profile.id); setUploadDialogOpen(true); }}>
                             <Plus className="h-3 w-3" />
                           </Button>
                         )}
@@ -623,21 +617,21 @@ export default function Certifications() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1 justify-end">
-                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setPreviewUrl(cert.certificate_url); setPreviewOpen(true); }}>
+                        <Button size="icon-sm" variant="ghost" className="" onClick={() => { setPreviewUrl(cert.certificate_url); setPreviewOpen(true); }}>
                           <ExternalLink className="w-3 h-3" />
                         </Button>
                         {isAdmin && (
                           <>
-                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setSelectedCertification(cert); setEditDialogOpen(true); }}>
+                            <Button size="icon-sm" variant="ghost" className="" onClick={() => { setSelectedCertification(cert); setEditDialogOpen(true); }}>
                               <Edit className="w-3 h-3" />
                             </Button>
-                            <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => handleDelete(cert.id)}>
+                            <Button size="icon-sm" variant="ghost" className="text-destructive" onClick={() => handleDelete(cert.id)}>
                               <Trash2 className="w-3 h-3" />
                             </Button>
                           </>
                         )}
                         {idx === 0 && (isAdmin || profile.id === user?.id) && (
-                          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setSelectedEmployeeId(profile.id); setUploadDialogOpen(true); }}>
+                          <Button size="icon-sm" variant="ghost" className="" onClick={() => { setSelectedEmployeeId(profile.id); setUploadDialogOpen(true); }}>
                             <Plus className="h-3 w-3" />
                           </Button>
                         )}

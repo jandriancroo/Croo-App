@@ -430,7 +430,7 @@ export default function ScheduleSettings() {
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 -mr-1 -mt-1"><MoreVertical className="h-3.5 w-3.5" /></Button>
+                          <Button size="icon-sm" variant="ghost" className="-mr-1 -mt-1"><MoreVertical className="h-3.5 w-3.5" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => openEditDialog(template)}>

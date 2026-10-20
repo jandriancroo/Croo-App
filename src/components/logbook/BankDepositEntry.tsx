@@ -21,7 +21,7 @@ function VerificationPhotoLink({ path, label }: { path: string; label: string })
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-6 w-6" aria-label={label}>
+        <Button size="icon-sm" variant="ghost" className="" aria-label={label}>
           <ImageIcon className="h-3.5 w-3.5 text-teal-600" />
         </Button>
       </DialogTrigger>

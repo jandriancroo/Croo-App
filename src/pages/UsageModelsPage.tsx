@@ -171,10 +171,9 @@ export default function UsageModelsPage() {
                           : "never"}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
+                        <Button size="xs"
                           variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs"
+                          className="text-xs"
                           onClick={() => setSelectedItem(it.id === selectedItem ? null : it.id)}
                         >
                           {it.id === selectedItem ? "Hide" : "Periods"}

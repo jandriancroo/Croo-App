@@ -157,19 +157,17 @@ function SortableItem({
                 <span className="text-xs text-muted-foreground">Active</span>
               </div>
               
-              <Button
+              <Button size="icon-sm"
                 variant="ghost"
-                size="icon"
-                className="h-8 w-8"
+                className=""
                 onClick={onStartEdit}
               >
                 <Edit2 className="h-3.5 w-3.5" />
               </Button>
               
-              <Button
+              <Button size="icon-sm"
                 variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-destructive hover:text-destructive"
+                className="text-destructive hover:text-destructive"
                 onClick={onDelete}
               >
                 <Trash2 className="h-3.5 w-3.5" />

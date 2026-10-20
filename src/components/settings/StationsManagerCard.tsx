@@ -28,8 +28,8 @@ function SortableStationRow({ station, disabled, children }: { station: Location
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}
       className={`flex items-center gap-2 rounded-md border bg-card px-2 py-1.5 ${isDragging ? "relative z-10 opacity-70" : ""}`}>
-      <Button ref={setActivatorNodeRef} type="button" variant="ghost" size="icon"
-        className="h-9 w-9 shrink-0 touch-none cursor-grab active:cursor-grabbing text-muted-foreground"
+      <Button size="icon-sm" ref={setActivatorNodeRef} type="button" variant="ghost"
+        className="shrink-0 touch-none cursor-grab active:cursor-grabbing text-muted-foreground"
         disabled={disabled} {...attributes} {...listeners} aria-label={`Reorder ${station.name}`}>
         <GripVertical className="h-4 w-4" />
       </Button>
@@ -185,11 +185,10 @@ export function StationsManagerCard({ locationId }: StationsManagerCardProps) {
                         Press Enter
                       </span>
                     )}
-                    <Button
+                    <Button size="icon-sm"
                       type="button"
                       variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
                       onClick={() => handleRemove(s)}
                     >
                       <Trash2 className="h-4 w-4" />

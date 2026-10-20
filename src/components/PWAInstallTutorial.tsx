@@ -62,13 +62,12 @@ export function PWAInstallTutorial() {
             </p>
           </div>
           {deferredPrompt && (
-            <Button
-              size="sm"
+            <Button size="xs"
               onClick={(e) => {
                 e.stopPropagation();
                 handleInstall();
               }}
-              className="h-7 text-xs gap-1 mr-1"
+              className="text-xs gap-1 mr-1"
             >
               <Download className="h-3.5 w-3.5" />
               Install

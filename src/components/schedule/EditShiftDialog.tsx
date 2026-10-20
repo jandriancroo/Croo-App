@@ -438,11 +438,10 @@ export function EditShiftDialog({
             <div className="space-y-2">
               <Label>Date</Label>
               <div className="flex items-center gap-2">
-                <Button
+                <Button size="icon-sm"
                   type="button"
                   variant="outline"
-                  size="icon"
-                  className="h-9 w-9 shrink-0"
+                  className="shrink-0"
                   onClick={() => {
                     const current = new Date(editDate + 'T12:00:00');
                     setEditDate(format(subDays(current, 1), 'yyyy-MM-dd'));
@@ -456,11 +455,10 @@ export function EditShiftDialog({
                   onChange={(e) => setEditDate(e.target.value)}
                   className="flex-1 text-center"
                 />
-                <Button
+                <Button size="icon-sm"
                   type="button"
                   variant="outline"
-                  size="icon"
-                  className="h-9 w-9 shrink-0"
+                  className="shrink-0"
                   onClick={() => {
                     const current = new Date(editDate + 'T12:00:00');
                     setEditDate(format(addDays(current, 1), 'yyyy-MM-dd'));

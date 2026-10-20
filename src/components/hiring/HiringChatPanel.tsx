@@ -359,11 +359,10 @@ export function HiringChatPanel({ applicationId, applicantName, onConversationDe
             >
               <ExternalLink className="h-3 w-3" />
             </Button>
-            <Button
+            <Button size="icon-sm"
               variant="ghost"
-              size="icon"
               onClick={() => setShowDeleteDialog(true)}
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              className="text-muted-foreground hover:text-destructive"
               aria-label="Delete conversation"
               title="Delete conversation"
             >
