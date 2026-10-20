@@ -118,16 +118,24 @@ export default function Dashboard() {
   // Title status line: sales pace vs goal + labor pace. Shown only when get_labor_pace
   // lets this person in (same gate as labor); otherwise the title shows the date.
   const { data: laborPace } = useLaborPace(currentLocation?.id);
-  const dashStatus = useMemo(() => {
-    if (!laborPace) return undefined;
+  // Theo-style one-sentence read of the day, under the title. Pace = live number;
+  // projection = the goal set ahead of time. Labor % only from get_labor_pace.
+  const dashSentence = useMemo(() => {
+    if (!laborPace) return null;
     const money = (v: number) => `$${Math.round(v).toLocaleString('en-US')}`;
     const pace = laborPace.sales_pace ?? salesOverviewData?.projections?.todayPaceAdjusted ?? null;
     const goal = salesOverviewData?.projections?.todayProjected || null;
-    const parts: string[] = [];
-    if (pace != null && pace > 0) parts.push(goal ? `PACE ${money(pace)} / ${money(goal)}` : `PACE ${money(pace)}`);
-    if (laborPace.mode !== 'unavailable' && laborPace.pace_labor_pct != null) parts.push(`LABOR ${Number(laborPace.pace_labor_pct).toFixed(1)}%`);
-    if (!parts.length) return undefined;
-    return { text: parts.join(' · '), tone: laborPace.status === 'behind' ? 'warning' as const : 'muted' as const };
+    const laborPct = laborPace.mode !== 'unavailable' && laborPace.pace_labor_pct != null ? Number(laborPace.pace_labor_pct) : null;
+    const salesPart = pace != null && pace > 0
+      ? (goal ? `You're pacing at ${money(pace)} on a ${money(goal)} projection` : `You're pacing at ${money(pace)} today`)
+      : null;
+    if (!salesPart && laborPct == null) return null;
+    const laborText = laborPct != null ? `around ${laborPct.toFixed(1)}% labor tonight` : null;
+    const behind = laborPace.status === 'behind';
+    const labor = laborText ? <span className={behind ? 'text-warning font-semibold' : undefined}>{laborText}</span> : null;
+    if (salesPart && labor) return <>{salesPart}, and it looks like you'll end with {labor}.</>;
+    if (salesPart) return <>{salesPart}.</>;
+    return <>It looks like you'll end with {labor}.</>;
   }, [laborPace, salesOverviewData]);
 
   
@@ -635,7 +643,7 @@ export default function Dashboard() {
           <div className="space-y-1 spookified-dashboard-content">
             <PageTitle
               color="teal"
-              status={dashStatus}
+              subtitle={dashSentence}
             >
               Dash
             </PageTitle>
