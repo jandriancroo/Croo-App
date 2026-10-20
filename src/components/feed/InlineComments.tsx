@@ -145,13 +145,13 @@ export function InlineComments({ postId, allowComments, currentUserId, canModera
                 </button>
               )}
               {(isMine || canModerate) && (
-                <button
+                <Button variant="ghost" size="icon-sm"
                   onClick={() => { if (confirm('Delete comment?')) deleteComment(c.id); }}
-                  className="text-destructive opacity-0 group-hover:opacity-100 focus:opacity-100 transition inline-flex items-center gap-0.5"
+                  className="[&_svg]:size-auto text-destructive opacity-0 group-hover:opacity-100 focus:opacity-100 transition inline-flex items-center gap-0.5"
                   aria-label="Delete comment"
                 >
                   <Trash2 className="h-3 w-3" />
-                </button>
+                </Button>
               )}
             </div>
 

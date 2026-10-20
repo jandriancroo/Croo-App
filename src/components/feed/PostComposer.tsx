@@ -170,14 +170,14 @@ export function PostComposer({
                     {media.map((m, i) => m.type === 'image' && (
                       <div key={i} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
                         <img src={m.url} alt="" className="w-full h-full object-cover" />
-                        <button
-                          type="button"
+                        <Button variant="ghost" size="icon-sm"
+                         
                           onClick={() => setMedia(list => list.filter((_, idx) => idx !== i))}
-                          className="absolute top-1 right-1 h-7 w-7 rounded-full bg-black/60 text-white flex items-center justify-center"
+                          className="[&_svg]:size-auto absolute top-1 right-1 bg-black/60 text-white flex items-center justify-center"
                           aria-label="Remove image"
                         >
                           <X className="h-4 w-4" />
-                        </button>
+                        </Button>
                       </div>
                     ))}
                   </div>
@@ -188,14 +188,14 @@ export function PostComposer({
                       <div key={i} className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm">
                         <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                         <span className="truncate flex-1 min-w-0">{m.name || 'Attachment'}</span>
-                        <button
-                          type="button"
+                        <Button variant="ghost" size="icon-sm"
+                         
                           onClick={() => setMedia(list => list.filter((_, idx) => idx !== i))}
-                          className="text-muted-foreground hover:text-destructive shrink-0"
+                          className="[&_svg]:size-auto text-muted-foreground hover:text-destructive shrink-0"
                           aria-label="Remove file"
                         >
                           <X className="h-4 w-4" />
-                        </button>
+                        </Button>
                       </div>
                     ))}
                   </div>

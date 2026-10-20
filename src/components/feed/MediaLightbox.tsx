@@ -81,14 +81,14 @@ export function MediaLightbox({ items, index, onOpenChange, onIndexChange }: Pro
         {/* Content */}
         <div className="flex-1 min-h-0 relative flex items-center justify-center">
           {items.length > 1 && (
-            <button
-              type="button"
+            <Button variant="ghost" size="icon"
+             
               onClick={() => go(-1)}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+              className="[&_svg]:size-auto absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
               aria-label="Previous"
             >
               <ChevronLeft className="h-6 w-6" />
-            </button>
+            </Button>
           )}
 
           {isImage ? (
@@ -112,14 +112,14 @@ export function MediaLightbox({ items, index, onOpenChange, onIndexChange }: Pro
           )}
 
           {items.length > 1 && (
-            <button
-              type="button"
+            <Button variant="ghost" size="icon"
+             
               onClick={() => go(1)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
+              className="[&_svg]:size-auto absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white/10 hover:bg-white/20 text-white flex items-center justify-center"
               aria-label="Next"
             >
               <ChevronRight className="h-6 w-6" />
-            </button>
+            </Button>
           )}
         </div>
 

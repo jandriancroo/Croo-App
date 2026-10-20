@@ -290,8 +290,8 @@ export function OrganizationMembersSection({ organizationId }: OrganizationMembe
                   <span className="text-xs text-muted-foreground px-2">Org Admin</span>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-destructive hover:text-destructive flex-shrink-0"
+                    size="icon-sm"
+                    className="text-destructive hover:text-destructive flex-shrink-0"
                     onClick={() => handleRemoveMember(member.id)}
                     disabled={removingId === member.id}
                   >

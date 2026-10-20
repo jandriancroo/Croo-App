@@ -226,8 +226,8 @@ export default function PendingVendorsCard() {
                 <div className="flex flex-wrap gap-2">
                   {suggestion && (
                     <Button
-                      size="sm"
-                      className="h-8"
+                      size="xs"
+                      className=""
                       disabled={linkVendor.isPending}
                       onClick={() => linkVendor.mutate({ candidate: c, vendorId: suggestion.id })}
                     >

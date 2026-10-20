@@ -40,7 +40,7 @@ export function ScheduleUndoButton({ scheduleId, isPublished, version, onChanged
       <Tooltip>
         <TooltipTrigger asChild>
           <span className="inline-flex">
-            <Button variant="outline" size="icon" className={cn('h-7 w-7', className)} onClick={onTap} disabled={!enabled}
+            <Button variant="outline" size="icon-sm" className={cn('', className)} onClick={onTap} disabled={!enabled}
               aria-label={undoPreview ? `Undo: ${undoPreview.description}` : 'Undo'}>
               <Undo2 className="h-4 w-4" />
             </Button>

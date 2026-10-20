@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { X, BookOpen, ClipboardList, User, Shield } from 'lucide-react';
 import type { ChecklistLinkRef, ChecklistLinkType } from '@/lib/checklistLinks';
@@ -60,17 +61,17 @@ export function ChecklistLinkChips({ refs, onRemove, onOpen, className }: Props)
             <Icon className="h-3 w-3 shrink-0" />
             <span className="truncate">{ref.label}</span>
             {onRemove && (
-              <button
-                type="button"
+              <Button variant="ghost" size="icon-sm"
+               
                 aria-label={`Remove ${ref.label}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onRemove(ref);
                 }}
-                className="ml-0.5 opacity-60 hover:opacity-100 shrink-0"
+                className="[&_svg]:size-auto ml-0.5 opacity-60 hover:opacity-100 shrink-0"
               >
                 <X className="h-3 w-3" />
-              </button>
+              </Button>
             )}
           </Badge>
         );

@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
@@ -347,25 +348,25 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-1 text-xs font-bold text-foreground">
                 {itemSwitchOptions.length > 1 && (
-                  <button
-                    type="button"
+                  <Button variant="ghost" size="icon-sm"
+                   
                     onClick={() => cycleItem('prev')}
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-muted"
+                    className="[&_svg]:size-auto flex shrink-0 items-center justify-center hover:bg-muted"
                     aria-label="Previous item"
                   >
                     <ChevronLeft className="h-4 w-4" />
-                  </button>
+                  </Button>
                 )}
                 <span className="min-w-0 truncate">{activeItemLabel}</span>
                 {itemSwitchOptions.length > 1 && (
-                  <button
-                    type="button"
+                  <Button variant="ghost" size="icon-sm"
+                   
                     onClick={() => cycleItem('next')}
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-muted"
+                    className="[&_svg]:size-auto flex shrink-0 items-center justify-center hover:bg-muted"
                     aria-label="Next item"
                   >
                     <ChevronRight className="h-4 w-4" />
-                  </button>
+                  </Button>
                 )}
               </div>
               <span className="shrink-0 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Ranking</span>

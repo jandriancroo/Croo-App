@@ -731,9 +731,9 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                         <div className="flex gap-1 flex-shrink-0 items-center justify-end">
                           {!hasData && (
                             <Button
-                              size="sm"
+                              size="xs"
                               variant="outline"
-                              className="h-7 text-xs gap-1"
+                              className="gap-1"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleManualRescan(audit);
@@ -750,9 +750,9 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                           )}
                           {hasData && (
                             <Button
-                              size="sm"
+                              size="xs"
                               variant="ghost"
-                              className="h-7 text-xs gap-1 px-2"
+                              className="gap-1 px-2"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleManualRescan(audit);
@@ -769,9 +769,9 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                           {hasData && (
                             <CollapsibleTrigger asChild>
                               <Button
-                                size="icon"
+                                size="icon-sm"
                                 variant="default"
-                                className="h-7 w-7 sm:h-8 sm:w-8 bg-primary hover:bg-primary/80"
+                                className="bg-primary hover:bg-primary/80"
                               >
                                 {isExpanded ? (
                                   <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
@@ -847,9 +847,9 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                           )}
                           
                           <Button
-                            size="sm"
+                            size="xs"
                             variant="outline"
-                            className="h-7 text-xs gap-1 mt-2"
+                            className="gap-1 mt-2"
                             onClick={() => extractAuditSummary(audit)}
                             disabled={isExtracting}
                           >

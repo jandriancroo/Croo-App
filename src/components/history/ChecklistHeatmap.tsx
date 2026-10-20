@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -434,13 +435,13 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
                     <div className="text-[11px] text-muted-foreground">No checklists scheduled</div>
                   )}
                 </div>
-                <button
+                <Button variant="ghost" size="icon-sm"
                   onClick={() => setSelectedDate(null)}
-                  className="text-muted-foreground hover:text-foreground p-1 -m-1"
+                  className="[&_svg]:size-auto text-muted-foreground hover:text-foreground"
                   aria-label="Close"
                 >
                   <X className="w-4 h-4" />
-                </button>
+                </Button>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {/* Sales vs Goal */}

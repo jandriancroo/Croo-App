@@ -75,9 +75,9 @@ export function TrackerPosItemPicker({ value, onChange, label = "Promo Item(s)" 
             <Badge key={item} variant="secondary" className="h-6 max-w-full gap-1 pr-1 text-[10px]">
               <span className="text-muted-foreground/70">{idx + 1}.</span>
               <span className="max-w-[140px] truncate">{item}</span>
-              <button type="button" onClick={() => removeItem(item)} className="rounded-sm hover:bg-background/70">
+              <Button variant="ghost" size="icon-sm" onClick={() => removeItem(item)} className="[&_svg]:size-auto hover:bg-background/70">
                 <X className="h-3 w-3" />
-              </button>
+              </Button>
             </Badge>
           ))}
         </div>

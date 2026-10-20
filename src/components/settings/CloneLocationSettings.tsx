@@ -176,9 +176,9 @@ export function CloneLocationSettings() {
                   return (
                     <Badge key={id} variant="secondary" className="gap-1 pr-1">
                       {loc?.name}
-                      <button onClick={() => toggleTarget(id)} className="hover:text-destructive">
+                      <Button variant="ghost" size="icon-sm" onClick={() => toggleTarget(id)} className="[&_svg]:size-auto hover:text-destructive">
                         <X className="h-3 w-3" />
-                      </button>
+                      </Button>
                     </Badge>
                   );
                 })}

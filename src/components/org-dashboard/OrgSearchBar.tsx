@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Search, X } from 'lucide-react';
 
@@ -136,12 +137,12 @@ export function OrgSearchBar({ locations, tags, onTagsChange }: OrgSearchBarProp
             className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${typeColors[tag.type]}`}
           >
             {tag.label}
-            <button
+            <Button variant="ghost" size="icon-sm"
               onClick={(e) => { e.stopPropagation(); removeTag(i); }}
-              className="hover:opacity-60 transition-opacity"
+              className="[&_svg]:size-auto hover:opacity-60"
             >
               <X className="h-3 w-3" />
-            </button>
+            </Button>
           </span>
         ))}
 

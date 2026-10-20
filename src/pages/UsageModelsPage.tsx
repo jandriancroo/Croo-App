@@ -282,9 +282,9 @@ function PeriodsCard({ itemId }: { itemId: string }) {
                 </TableCell>
                 <TableCell className="text-right">
                   <Button
-                    size="sm"
+                    size="xs"
                     variant="ghost"
-                    className="h-7 gap-1 text-[11px]"
+                    className="gap-1 "
                     onClick={() => toggle.mutate({ id: p.id, exclude: !p.is_excluded })}
                   >
                     {p.is_excluded ? (

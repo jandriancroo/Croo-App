@@ -269,13 +269,13 @@ export function InterviewCalendarDialog({
                               {interview.interview_modality === 'virtual' && interview.interview_meeting_url && (
                                 <>
                                   <InterviewJoinLink url={interview.interview_meeting_url} compact />
-                                  <button
-                                    type="button"
-                                    className="text-muted-foreground hover:text-foreground"
+                                  <Button variant="ghost" size="icon-sm"
+                                   
+                                    className="[&_svg]:size-auto text-muted-foreground hover:text-foreground"
                                     onClick={() => { navigator.clipboard.writeText(interview.interview_meeting_url); toast.success('Meeting link copied'); }}
                                   >
                                     Copy
-                                  </button>
+                                  </Button>
                                 </>
                               )}
                             </div>

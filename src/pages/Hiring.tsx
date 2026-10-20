@@ -749,9 +749,9 @@ export default function Hiring() {
                                     {[15, 30].map((mins) => (
                                       <Button
                                         key={mins}
-                                        size="sm"
+                                        size="xs"
                                         variant="outline"
-                                        className="h-7 px-2 text-[11px]"
+                                        className="px-2 "
                                         disabled={bumpingId === app.id}
                                         onClick={async (e) => {
                                           e.stopPropagation();

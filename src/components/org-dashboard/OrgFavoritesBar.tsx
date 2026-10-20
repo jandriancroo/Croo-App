@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Search, Star, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -81,12 +82,12 @@ export function OrgFavoritesBar({
           >
             <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
             <span className="truncate max-w-[120px]">{getLocationLabel(id)}</span>
-            <button 
+            <Button variant="ghost" size="icon-sm" 
               onClick={() => removeFavorite(id)} 
-              className="ml-0.5 hover:bg-muted rounded p-0.5"
+              className="[&_svg]:size-auto ml-0.5 hover:bg-muted rounded"
             >
               <X className="h-3 w-3" />
-            </button>
+            </Button>
           </Badge>
         ))}
 

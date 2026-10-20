@@ -1432,8 +1432,8 @@ export function MobileScheduleView({
                           ) : hasPendingChanges ? (
                             <Button
                               variant="outline"
-                              size="sm"
-                              className="h-7 px-2 text-xs border-amber-500 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
+                              size="xs"
+                              className="px-2 border-amber-500 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
                               onClick={onSendUpdate}
                               disabled={isPublishing}
                             >

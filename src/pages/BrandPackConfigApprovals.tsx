@@ -1387,15 +1387,15 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
         <Card key={itemKey}>
           <CardHeader className="pb-2 space-y-2">
             <CardTitle className="text-base flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
+              <Button variant="ghost" size="icon-sm"
+               
                 onClick={() => setCollapsedItems((m) => ({ ...m, [itemKey]: !m[itemKey] }))}
-                className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
+                className="[&_svg]:size-auto inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
                 aria-label={itemCollapsed ? "Expand item" : "Collapse item"}
                 title={itemCollapsed ? "Expand item" : "Collapse item"}
               >
                 {itemCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </button>
+              </Button>
               <span>{template?.product_name ?? "(unknown template)"}</span>
               {template?.category && (
                 <Badge variant="outline" className="text-xs">{template.category}</Badge>
@@ -1429,15 +1429,15 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
               return (
                 <div key={r.id} className={`rounded-lg border p-3 space-y-3 ${isApproved ? "bg-emerald-500/5 border-emerald-500/30" : "bg-muted/30"}`}>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      type="button"
+                    <Button variant="ghost" size="icon-sm"
+                     
                       onClick={() => setCollapsed((m) => ({ ...m, [r.id]: !m[r.id] }))}
-                      className="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
+                      className="[&_svg]:size-auto inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground"
                       aria-label={collapsed[r.id] ? "Expand" : "Collapse"}
                       title={collapsed[r.id] ? "Expand" : "Collapse"}
                     >
                       {collapsed[r.id] ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </button>
+                    </Button>
                     <span className="font-medium text-sm truncate max-w-[18rem]" title={r.template?.product_name ?? ""}>
                       {r.template?.product_name ?? "—"}
                     </span>

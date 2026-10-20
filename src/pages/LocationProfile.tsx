@@ -589,12 +589,12 @@ export default function LocationProfile() {
                               className="flex items-center gap-1 bg-destructive/10 text-destructive px-3 py-1 rounded-md"
                             >
                               <span className="text-sm">{format(date, "MMM d, yyyy")}</span>
-                              <button
+                              <Button variant="ghost" size="icon-sm"
                                 onClick={() => removeBlackoutDate(date)}
-                                className="hover:bg-destructive/20 rounded-sm p-0.5"
+                                className="[&_svg]:size-auto hover:bg-destructive/20"
                               >
                                 <X className="h-3 w-3" />
-                              </button>
+                              </Button>
                             </div>
                           ))}
                       </div>

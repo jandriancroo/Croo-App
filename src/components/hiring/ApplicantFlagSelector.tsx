@@ -242,12 +242,12 @@ export function ApplicantFlagSelector({ applicationId, compact = false }: Applic
         ) : (
           <div className="p-4 space-y-4">
             <div className="flex items-center gap-2">
-              <button
+              <Button variant="ghost" size="icon-sm"
                 onClick={() => setSelectedColor(null)}
-                className="text-muted-foreground hover:text-foreground"
+                className="[&_svg]:size-auto text-muted-foreground hover:text-foreground"
               >
                 ←
-              </button>
+              </Button>
               <div className={cn("w-4 h-4 rounded-full", FLAG_OPTIONS.find(f => f.color === selectedColor)?.dotClass)} />
               <span className="font-medium">
                 {FLAG_OPTIONS.find(f => f.color === selectedColor)?.label}

@@ -1786,13 +1786,13 @@ export default function CompleteChecklist() {
                                   decoding="async"
                                   className="w-full aspect-square object-cover" 
                                 />
-                                <button
-                                  type="button"
+                                <Button variant="ghost" size="icon-sm"
+                                 
                                   onClick={() => setPreviewImage(item.reference_image_url!)}
-                                  className="absolute top-1.5 right-1.5 p-1.5 bg-background/80 rounded-full hover:bg-background transition-colors shadow-sm"
+                                  className="[&_svg]:size-auto absolute top-1.5 right-1.5 bg-background/80 hover:bg-background shadow-sm"
                                 >
                                   <Eye className="h-4 w-4" />
-                                </button>
+                                </Button>
                               </div>
                               {item.reference_notes && (
                                 <p className="text-[10px] text-muted-foreground italic leading-tight line-clamp-2">📋 {item.reference_notes}</p>
@@ -1814,13 +1814,13 @@ export default function CompleteChecklist() {
                                     loading="lazy"
                                     decoding="async"
                                   />
-                                  <button
-                                    type="button"
+                                  <Button variant="ghost" size="icon-sm"
+                                   
                                     onClick={() => setPreviewImage(currentPhotos[0])}
-                                    className="absolute top-1.5 right-1.5 p-1.5 bg-background/80 rounded-full hover:bg-background transition-colors shadow-sm"
+                                    className="[&_svg]:size-auto absolute top-1.5 right-1.5 bg-background/80 hover:bg-background shadow-sm"
                                   >
                                     <Eye className="h-4 w-4" />
-                                  </button>
+                                  </Button>
                                 </div>
                               ) : isUploading ? (
                                 <div className="flex flex-col items-center justify-center aspect-square rounded-lg border-2 border-dashed border-primary/40 bg-primary/5">
@@ -1860,17 +1860,17 @@ export default function CompleteChecklist() {
                                     {idx + 1}
                                   </div>
                                 )}
-                                <button
-                                  type="button"
+                                <Button variant="ghost" size="icon-sm"
+                                 
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     setPreviewImage(photoUrl);
                                   }}
-                                  className="absolute top-2 right-2 p-1.5 bg-background/80 rounded-full hover:bg-background transition-colors shadow-sm"
+                                  className="[&_svg]:size-auto absolute top-2 right-2 bg-background/80 hover:bg-background shadow-sm"
                                 >
                                   <Eye className="h-5 w-5" />
-                                </button>
+                                </Button>
                               </div>
                             ))}
                           </div>
