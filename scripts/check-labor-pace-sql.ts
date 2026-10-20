@@ -1,7 +1,7 @@
 // Server-side checks for get_labor_pace (run: bun scripts/check-labor-pace-sql.ts).
 // Needs a signed-in session token in ACCESS_TOKEN (manager or super admin).
 // 1) Pace parity: server sales_pace_today === app computePace for the same fixtures.
-// 2) Per-shift owner rules via _lp_shift_eval.
+// 2) Per-shift owner rules via _labor_pace_shift_eval (incl. required breaks), break sizing, band.
 // 3) Live: worked_hours / worked_labor_dollars === get_store_labor for each store given.
 import { computePace } from '../supabase/functions/_shared/cubeMetrics';
 import { paceFixtures, shiftFixtures, mealFixtures, hemetMealRules, ON_TRACK_BAND } from '../src/lib/laborPace.fixtures';
