@@ -2560,3 +2560,11 @@ html[data-theme="spookified"] .spookified-orb-lightning { display: block; positi
 .spooky-invite .spooky-invite-cta { box-shadow: 0 0 18px hsl(26 95% 55% / 0.45); }
 .spooky-invite .spooky-invite-skip { background: transparent; color: hsl(var(--muted-foreground)); }
 .spooky-invite .spooky-invite-skip:hover { background: hsl(var(--accent)); color: hsl(var(--foreground)); }
+
+/* Phase 6: page title actions are 40px on phones, 44px from md. Tap areas stay 44px. */
+@media (max-width: 767px) {
+  .page-title-action .h-11 { height: 2.5rem; }
+  .page-title-action .w-11 { width: 2.5rem; }
+  .page-title-action .size-11 { width: 2.5rem; height: 2.5rem; }
+  .page-title-action .min-h-11 { min-height: 2.5rem; }
+}
