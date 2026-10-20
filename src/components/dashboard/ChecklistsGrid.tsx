@@ -109,11 +109,23 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
       );
     }
 
-    // c. Overdue — red ring with a clock inside
+    // c. Overdue — thick red arc filled to the % over a gray track, clock inside
     if (isOverdue) {
+      const pct = Math.min(100, (completed / expected) * 100);
+      const r = 11;
+      const c = 2 * Math.PI * r;
       return (
-        <div aria-hidden className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-destructive">
-          <Clock className="h-3.5 w-3.5 text-destructive" strokeWidth={2.5} />
+        <div aria-hidden className="relative h-7 w-7 shrink-0">
+          <svg width="28" height="28" viewBox="0 0 28 28" className="-rotate-90">
+            <circle cx="14" cy="14" r={r} fill="none" stroke="hsl(var(--muted))" strokeWidth="4" />
+            <circle
+              cx="14" cy="14" r={r} fill="none"
+              stroke="hsl(var(--destructive))" strokeWidth="4" strokeLinecap="round"
+              strokeDasharray={c}
+              strokeDashoffset={c - (pct / 100) * c}
+            />
+          </svg>
+          <Clock className="absolute inset-0 m-auto h-3 w-3 text-destructive" strokeWidth={2.5} />
         </div>
       );
     }

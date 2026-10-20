@@ -208,3 +208,4 @@
 
 ## Oct 20 — Checklist completion circles
 - One green / one red shade; overdue = red ring + clock INSIDE the circle (Option A — Jordan picked A over B); locked stays gray lock circle; drop Overdue text badge.
+- Jordan rejected the thick-arc look (Oct 20): mock up 4 alternative overdue-circle designs, present as visual choice, then apply the pick.
