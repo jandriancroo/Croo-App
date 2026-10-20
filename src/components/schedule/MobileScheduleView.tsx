@@ -1063,7 +1063,7 @@ export function MobileScheduleView({
               }>
                 Schedule
               </PageTitle>
-              <div className="flex items-center justify-center">
+              <div className="flex items-center justify-center mb-3">
                 <DateNavigator
                   variant="card"
                   className="w-full"
