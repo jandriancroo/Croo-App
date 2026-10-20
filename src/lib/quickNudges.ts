@@ -66,3 +66,15 @@ export function worksFor(body: string): TargetType[] {
   if (!uses('done') && !uses('total')) out.push('event');
   return out;
 }
+
+export type NudgeListItem = {
+  type: TargetType; id: string; title: string; group: 'overdue' | 'coming_up';
+  status: string; minutes_since_last_nudge: number | null;
+};
+
+/** Today's nudgeable items at one store (server builds it with the same rules as send). */
+export async function listNudgeables(locationId: string): Promise<NudgeListItem[]> {
+  const { data, error } = await supabase.functions.invoke('quick-nudge', { body: { action: 'list', location_id: locationId } });
+  if (error) throw new Error(await readError(error));
+  return (data?.items || []) as NudgeListItem[];
+}
