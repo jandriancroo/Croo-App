@@ -1041,9 +1041,9 @@ export function MobileScheduleView({
         (
           /* V2: Combined single-scroll view — no tabs */
           <div className="flex flex-col h-full">
-            <div className="flex-1 overflow-auto px-[max(1rem,env(safe-area-inset-left))] pt-3 pb-3 space-y-1.5">
+            <div className="flex-1 overflow-auto px-[max(1rem,env(safe-area-inset-left))] pt-3.5 pb-3 space-y-3">
               {/* Date header */}
-              <PageTitle color="teal" action={
+              <PageTitle color="teal" className="mt-0" action={
                   <ScheduleActionSplitButton
                     isToastLaborStore={isToastLaborStore}
                     isToday={isSelectedDateToday}
@@ -1065,6 +1065,8 @@ export function MobileScheduleView({
               </PageTitle>
               <div className="flex items-center justify-center">
                 <DateNavigator
+                  variant="card"
+                  className="w-full"
                   onPrev={handlePreviousWeek}
                   onNext={handleNextWeek}
                   label={`${format(selectedDate, 'EEEE, MMMM d')}`}

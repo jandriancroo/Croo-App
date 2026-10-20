@@ -15,7 +15,7 @@ interface DateNavigatorProps {
   /** When true, left-aligns on md+ screens (for schedule page) */
   leftAlignOnDesktop?: boolean;
   /** Visual style: 'solid' (teal fill, default) or 'subtle' (neutral outlined) */
-  variant?: 'solid' | 'subtle';
+  variant?: 'solid' | 'subtle' | 'card';
 }
 
 export function DateNavigator({ 
@@ -31,7 +31,10 @@ export function DateNavigator({
   variant = 'solid'
 }: DateNavigatorProps) {
   const isSubtle = variant === 'subtle';
-  const arrowClasses = isSubtle
+  const isCard = variant === 'card';
+  const arrowClasses = isCard
+    ? "h-10 w-10 p-0 text-primary hover:bg-foreground/[0.06] hover:text-primary rounded-[10px]"
+    : isSubtle
     ? "h-10 w-10 p-0 text-muted-foreground hover:bg-muted hover:text-foreground disabled:text-muted-foreground/40 rounded-md"
     : "h-11 w-11 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-[10px]";
   return (
@@ -42,7 +45,9 @@ export function DateNavigator({
       className
     )}>
       <div className={cn(
-        isSubtle
+        isCard
+          ? "w-full flex items-center justify-between h-11 rounded-xl bg-card px-1 shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
+          : isSubtle
           ? "inline-flex items-center justify-between rounded-lg border border-border bg-background px-1.5 py-0.5 gap-0.5"
           : "inline-flex items-center justify-between bg-primary rounded-xl px-1 py-0.5 min-h-12 gap-1",
         className?.includes("w-full") && "w-full"
@@ -59,7 +64,7 @@ export function DateNavigator({
         <div className="text-center px-1">
           <span className={cn(
             "whitespace-nowrap font-semibold",
-            isSubtle ? "text-sm md:text-base text-foreground tracking-tight" : "text-base md:text-lg text-primary-foreground"
+            isCard ? "text-base text-foreground" : isSubtle ? "text-sm md:text-base text-foreground tracking-tight" : "text-base md:text-lg text-primary-foreground"
           )} style={isSubtle ? { fontVariantNumeric: 'tabular-nums' } : undefined}>{label}</span>
           {sublabel && (
             <span className={cn("text-sm ml-1", isSubtle ? "text-muted-foreground" : "text-primary-foreground/80")}>{sublabel}</span>
