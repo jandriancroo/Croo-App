@@ -366,16 +366,16 @@ export default function FBCDashboard() {
           </div>
         ) : (
           <Tabs defaultValue="sales" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="sales" className="gap-2">
+            <TabsList className="w-full justify-start overflow-x-auto no-scrollbar">
+              <TabsTrigger value="sales" className="gap-2 shrink-0">
                 <Building2 className="h-4 w-4" />
                 Sales by Location
               </TabsTrigger>
-              <TabsTrigger value="audits" className="gap-2">
+              <TabsTrigger value="audits" className="gap-2 shrink-0">
                 <ClipboardCheck className="h-4 w-4" />
                 Audit Leaderboard
               </TabsTrigger>
-              <TabsTrigger value="ovation" className="gap-2">
+              <TabsTrigger value="ovation" className="gap-2 shrink-0">
                 <Star className="h-4 w-4" />
                 Guest Feedback
               </TabsTrigger>
