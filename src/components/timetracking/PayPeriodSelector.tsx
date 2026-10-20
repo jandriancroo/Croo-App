@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { ChevronRight, Clock, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PageTitle } from '@/components/PageTitle';
 import { formatDateTimeInTimezone, parseDateStringInTimezone, getDateInTimezone } from '@/utils/timezoneUtils';
 
 /**
@@ -222,14 +223,14 @@ export function PayPeriodSelector({ payPeriods, periodSummaries, getPeriodStatus
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="font-extrabold tracking-tight" style={{ fontWeight: 800 }}>
-          <span className="text-[22px] sm:text-[24px]">Time Tracking</span>
-        </h1>
-        <p className="text-muted-foreground" style={{ fontSize: '13.5px', fontWeight: 600 }}>
-          Select a pay period to review time cards
-        </p>
-      </div>
+      <PageTitle
+        color="blue"
+        className="!mb-0"
+        status={current ? { text: `PERIOD ${shortRange(current.period.startDate, current.period.endDate, timezone, false).range}`.toUpperCase() } : undefined}
+        subtitle="Select a pay period to review time cards"
+      >
+        Time Tracking
+      </PageTitle>
 
       {/* ── Hero: current period ─────────────────────────────── */}
       {current && (() => {
