@@ -1074,7 +1074,7 @@ export function MobileScheduleView({
               </div>
 
               {/* Week Calendar Strip */}
-              <div className="bg-muted rounded-xl p-1 flex items-center justify-around border border-border/40 overflow-hidden">
+              <div className="bg-muted rounded-xl p-[3px] flex items-center justify-around border border-border/40 overflow-hidden">
                 {weekDays.map((day, index) => {
                   const isSelected = isSameDay(day, selectedDate);
                   const isDayToday = isSameDay(day, new Date());
@@ -1082,7 +1082,7 @@ export function MobileScheduleView({
                     <button
                       key={index}
                       onClick={() => setSelectedDate(day)}
-                      className={`flex flex-col items-center flex-1 py-0.5 rounded-lg transition-all ${
+                      className={`flex flex-col items-center flex-1 py-0 gap-0 rounded-lg transition-all ${
                         isSelected
                           ? 'bg-primary text-primary-foreground shadow-md'
                           : isDayToday
@@ -1090,10 +1090,10 @@ export function MobileScheduleView({
                             : 'text-muted-foreground hover:bg-background/80 hover:text-foreground'
                       }`}
                     >
-                      <span className="text-[10px] font-semibold uppercase tracking-wide">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide leading-[14px]">
                         {format(day, 'EEE').slice(0, 3)}
                       </span>
-                      <span className="text-sm font-bold leading-tight">
+                      <span className="text-sm font-bold leading-[18px]">
                         {format(day, 'd')}
                       </span>
                     </button>
