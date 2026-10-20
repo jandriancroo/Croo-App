@@ -7,7 +7,7 @@ import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, sta
 import { CompletedTaskDetailsDialog } from '@/components/tasks/CompletedTaskDetailsDialog';
 import { TasksHistoryTimeline } from '@/components/history/TasksHistoryTimeline';
 import { useTasksData } from '@/hooks/useTasksData';
-import { Layers, Grid3x3 } from 'lucide-react';
+import { Layers, Grid3x3, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { lazyWithRetry } from '@/utils/lazyWithRetry';
@@ -51,31 +51,31 @@ export default function Tasks() {
   const isInitialLoading = checklistsLoading && checklists.length === 0 && !historyStats;
 
 
-  // SVG circle params
-  const circleSize = 44;
-  const strokeWidth = 4.5;
-  const radius = (circleSize - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (completionPercent / 100) * circumference;
+  const isHistoryToday = format(historyDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+  const tasksStatusText = isHistoryToday
+    ? (completionPercent > 0 ? `${completionPercent}% DONE TODAY` : 'NO TASKS DONE YET')
+    : `${completionPercent}% DONE · ${format(historyDate, 'MMM d').toUpperCase()}`;
 
   return (
     <Layout>
       <div className="space-y-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <PageTitle color="blue" action={
-              <div className="relative size-11">
-                <svg width={circleSize} height={circleSize} className="size-11 -rotate-90">
-                  <circle cx={circleSize / 2} cy={circleSize / 2} r={radius} fill="none" stroke="hsl(var(--muted))" strokeWidth={strokeWidth} />
-                  <circle
-                    cx={circleSize / 2} cy={circleSize / 2} r={radius} fill="none"
-                    stroke={completionPercent === 100 ? 'hsl(142, 71%, 45%)' : 'hsl(var(--primary))'}
-                    strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={strokeDashoffset}
-                    strokeLinecap="round" className="transition-all duration-500"
-                  />
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-foreground">
-                  {completionPercent}%
-                </span>
+          <PageTitle color="blue" status={{ text: tasksStatusText }} action={
+              <div className="size-11 flex items-center justify-center" aria-label={`${completionPercent}% done`}>
+                {completionPercent >= 100 ? (
+                  <div aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-[hsl(var(--status-on-track))]">
+                    <Check className="h-4 w-4 text-white" strokeWidth={3} />
+                  </div>
+                ) : completionPercent <= 0 ? (
+                  <div aria-hidden className="h-7 w-7 rounded-full border-2 border-border" />
+                ) : (
+                  <svg aria-hidden width="28" height="28" viewBox="0 0 28 28" className="text-[hsl(var(--status-on-track))]">
+                    <circle cx="14" cy="14" r="13" fill="none" stroke="currentColor" strokeWidth="2" />
+                    <circle cx="14" cy="14" r="4.5" fill="none" stroke="currentColor" strokeWidth="9"
+                      strokeDasharray={`${(completionPercent / 100) * 2 * Math.PI * 4.5} ${2 * Math.PI * 4.5}`}
+                      transform="rotate(-90 14 14)" />
+                  </svg>
+                )}
               </div>
           }>Tasks</PageTitle>
           <div>

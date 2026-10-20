@@ -14,9 +14,14 @@ import { LogBookEntryList } from "@/components/logbook/LogBookEntryList";
 import { useLogBookData } from "@/hooks/useLogBookData";
 import { LibraryPanel } from "@/components/library/LibraryPanel";
 import { PageTitle } from "@/components/PageTitle";
+import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { useTodayCount, countStatus } from "@/hooks/usePageStatus";
 
 export default function LogBook() {
   const data = useLogBookData();
+  const { currentLocation } = useAppLocation();
+  const logsToday = useTodayCount('logbook', currentLocation?.id);
+  const logsText = countStatus(logsToday, 'NEW TODAY', 'NEW TODAY', 'NO NEW LOGS TODAY');
 
   const {
     activeTab, setActiveTab,
@@ -105,6 +110,7 @@ export default function LogBook() {
         <div>
           <PageTitle
             color="purple"
+            status={logsText ? { text: logsText } : undefined}
             action={
               activeTab === "search" && isAdmin && (
                 <Button
