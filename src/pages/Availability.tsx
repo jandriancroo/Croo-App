@@ -28,7 +28,7 @@ export default function Availability() {
   const activeRequests = data.requests.filter((r) => r.status !== "withdrawn");
   const { timezone } = useLocationTimezone();
   const today = storeToday(timezone);
-  const newToday = data.loading ? null : data.requests.filter((r) => r.created_at >= today.startIso && r.created_at < today.endIso).length;
+  const newToday = data.loading ? null : data.requests.filter((r) => Date.parse(r.created_at) >= Date.parse(today.startIso) && Date.parse(r.created_at) < Date.parse(today.endIso)).length;
   const availabilityText = countStatus(newToday, 'NEW REQUEST TODAY', 'NEW REQUESTS TODAY', 'NO NEW REQUESTS TODAY');
   const availabilityStatus = availabilityText ? { text: availabilityText } : undefined;
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
