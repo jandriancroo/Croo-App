@@ -309,6 +309,13 @@
       "when": 1792532975780,
       "tag": "0043_labor_projection_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792533055508,
+      "tag": "0044_labor_projection_toast_live_hours",
+      "breakpoints": true
     }
   ]
 }
