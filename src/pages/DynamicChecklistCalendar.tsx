@@ -1,3 +1,4 @@
+import { PageTitle } from '@/components/PageTitle';
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
@@ -574,14 +575,38 @@ export default function DynamicChecklistCalendar() {
     <Layout>
       <div className="container mx-auto p-4 sm:p-6 max-w-7xl space-y-4">
         {/* Header */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 flex-wrap">
+        <PageTitle
+          color="teal"
+          leading={
             <Button variant="ghost" size="icon" className="shrink-0" onClick={() => navigate("/tasks")}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-
+          }
+          subtitle="Tap a day to place items from your library"
+          action={<>
+              {/* Library sheet — mobile */}
+              <Sheet open={libraryOpen} onOpenChange={setLibraryOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" className="lg:hidden">
+                    <Library className="h-4 w-4 mr-1.5" />
+                    Library
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+                  <SheetHeader className="mb-3">
+                    <SheetTitle>Library</SheetTitle>
+                  </SheetHeader>
+                  {libraryPanel}
+                </SheetContent>
+              </Sheet>
+              <Button onClick={handleSave} disabled={saving}>
+                <Save className="mr-2 h-4 w-4" />
+                {saving ? "Saving..." : "Save"}
+              </Button>
+          </>}
+        >
             {editingTitle ? (
-              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <span className="inline-flex items-center gap-1.5 min-w-0">
                 <Input
                   autoFocus
                   value={titleDraft}
@@ -602,23 +627,23 @@ export default function DynamicChecklistCalendar() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="shrink-0 h-10 w-10"
+                  className="shrink-0"
                   aria-label="Save name"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={commitTitle}
                 >
                   <Check className="h-5 w-5" />
                 </Button>
-              </div>
+              </span>
             ) : (
-              <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                <h1 className="text-xl sm:text-2xl font-bold leading-tight break-words min-w-0">
+              <span className="inline-flex items-center gap-1.5 min-w-0">
+                <span className="truncate">
                   {title || "Untitled template"}
-                </h1>
+                </span>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="shrink-0 h-10 w-10"
+                  className="shrink-0"
                   aria-label="Rename template"
                   onClick={() => {
                     setTitleDraft(title);
@@ -627,36 +652,9 @@ export default function DynamicChecklistCalendar() {
                 >
                   <Pencil className="h-4 w-4" />
                 </Button>
-              </div>
+              </span>
             )}
-
-            <div className="flex items-center gap-2 shrink-0">
-              {/* Library sheet — mobile */}
-              <Sheet open={libraryOpen} onOpenChange={setLibraryOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="outline" size="sm" className="lg:hidden">
-                    <Library className="h-4 w-4 mr-1.5" />
-                    Library
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
-                  <SheetHeader className="mb-3">
-                    <SheetTitle>Library</SheetTitle>
-                  </SheetHeader>
-                  {libraryPanel}
-                </SheetContent>
-              </Sheet>
-              <Button onClick={handleSave} disabled={saving} size="sm">
-                <Save className="mr-2 h-4 w-4" />
-                {saving ? "Saving..." : "Save"}
-              </Button>
-            </div>
-          </div>
-
-          <p className="text-muted-foreground text-sm w-full">
-            Tap a day to place items from your library
-          </p>
-        </div>
+        </PageTitle>
 
         <Card className="p-4">
           <AssigneePicker
