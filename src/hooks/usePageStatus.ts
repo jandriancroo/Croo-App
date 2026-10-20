@@ -29,7 +29,7 @@ export function useTodayCount(
         ? supabase.from('logbook_entries').select('id', { count: 'exact', head: true })
             .eq('location_id', locationId!).eq('entry_date', day.date)
         : supabase.from('job_applications').select('id', { count: 'exact', head: true })
-            .eq('location_id', locationId!).gte('created_at', day.startIso).lt('created_at', day.endIso);
+            .eq('location_id', locationId!).gte('submitted_at', day.startIso).lt('submitted_at', day.endIso);
       const { count, error } = await q;
       if (error) { console.warn('[page-status]', kind, error.message); return null; }
       return count ?? 0;
