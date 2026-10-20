@@ -11773,6 +11773,7 @@ export type Database = {
         Row: {
           created_at: string
           enabled: boolean
+          from_home: boolean
           id: string
           notification_label: string
           notification_type: string
@@ -11783,6 +11784,7 @@ export type Database = {
         Insert: {
           created_at?: string
           enabled?: boolean
+          from_home?: boolean
           id?: string
           notification_label: string
           notification_type: string
@@ -11793,6 +11795,7 @@ export type Database = {
         Update: {
           created_at?: string
           enabled?: boolean
+          from_home?: boolean
           id?: string
           notification_label?: string
           notification_type?: string
@@ -11814,6 +11817,7 @@ export type Database = {
         Row: {
           created_at: string
           enabled: boolean
+          from_home: boolean
           id: string
           notification_label: string
           notification_type: string
@@ -11823,6 +11827,7 @@ export type Database = {
         Insert: {
           created_at?: string
           enabled?: boolean
+          from_home?: boolean
           id?: string
           notification_label: string
           notification_type: string
@@ -11832,6 +11837,7 @@ export type Database = {
         Update: {
           created_at?: string
           enabled?: boolean
+          from_home?: boolean
           id?: string
           notification_label?: string
           notification_type?: string
@@ -14204,6 +14210,7 @@ export type Database = {
           alert_enabled: boolean
           created_at: string
           email_enabled: boolean
+          from_home: boolean | null
           id: string
           location_id: string | null
           notification_type: string
@@ -14215,6 +14222,7 @@ export type Database = {
           alert_enabled?: boolean
           created_at?: string
           email_enabled?: boolean
+          from_home?: boolean | null
           id?: string
           location_id?: string | null
           notification_type: string
@@ -14226,6 +14234,7 @@ export type Database = {
           alert_enabled?: boolean
           created_at?: string
           email_enabled?: boolean
+          from_home?: boolean | null
           id?: string
           location_id?: string | null
           notification_type?: string
