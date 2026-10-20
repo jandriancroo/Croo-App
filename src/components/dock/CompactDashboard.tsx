@@ -812,18 +812,20 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                   <>
                     <Chip>{activeShifts.length} working</Chip>
                     {latestOut && <Chip>Latest out {latestOut}</Chip>}
+                    {hasAnyCuts && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setShowPreviewModal(true); } }}
+                        className="relative inline-flex h-[20px] items-center gap-1 rounded-full px-2 text-[11px] font-bold bg-foreground/[0.06] after:absolute after:-inset-3 after:content-['']"
+                        onClick={(e) => { e.stopPropagation(); setShowPreviewModal(true); }}
+                      >
+                        <Calculator className="h-3 w-3" />
+                        Preview
+                      </span>
+                    )}
                   </>
                 }
-                right={hasAnyCuts ? (
-                  <button
-                    type="button"
-                    className="h-11 px-2 inline-flex items-center gap-1.5 text-[13px] font-extrabold"
-                    onClick={() => setShowPreviewModal(true)}
-                  >
-                    <Calculator className="h-4 w-4" />
-                    Preview
-                  </button>
-                ) : undefined}
               />
 
               {clockOpen && (activeShifts.length === 0 ? (
