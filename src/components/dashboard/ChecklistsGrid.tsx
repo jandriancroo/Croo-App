@@ -1,8 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, AlertCircle, Lock, Check } from 'lucide-react';
+import { ChevronRight, AlarmClock, Lock, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 import { DashSectionTitle } from '@/components/dashboard/DashSectionTitle';
 import { ChecklistStat } from '@/components/dashboard/ChecklistStat';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
@@ -89,20 +88,15 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
     return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
-  // Pie glyph color ramp — text-color classes drive both the ring and the
-  // wedge (SVG strokes use currentColor). Lime steps one shade darker than the
-  // old segment ramp so the thin ring stays visible on white cards.
-  const pieColorClass = (percent: number) => {
-    if (percent >= 90) return 'text-emerald-500';
-    if (percent >= 80) return 'text-emerald-400';
-    if (percent >= 70) return 'text-green-400';
-    if (percent >= 60) return 'text-lime-500';
-    if (percent >= 50) return 'text-lime-400';
-    if (percent >= 30) return 'text-slate-400';
-    return 'text-slate-300';
-  };
+  // One green (complete), one red (overdue), teal while in progress.
+  // Text-color classes drive both the ring and the wedge (currentColor).
+  const renderPieGlyph = (isLocked: boolean, completed: number, expected: number, isOverdue: boolean) => {
+    const overdueBadge = isOverdue && (
+      <div className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-destructive bg-background shadow-sm">
+        <AlarmClock className="h-2 w-2 text-destructive" strokeWidth={2.5} />
+      </div>
+    );
 
-  const renderPieGlyph = (isLocked: boolean, completed: number, expected: number) => {
     // a. Locked — muted circle with a lock
     if (isLocked) {
       return (
@@ -112,42 +106,52 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
       );
     }
 
-    // b. Complete — solid emerald circle with a check
+    // b. Complete — solid green circle with a check
     if (expected > 0 && completed >= expected) {
       return (
-        <div aria-hidden className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600">
+        <div aria-hidden className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-success">
           <Check className="h-4 w-4 text-white" strokeWidth={3} />
         </div>
       );
     }
 
-    // c. Not started / no items — empty ring
+    // c. Not started / no items — empty ring (red when overdue)
     if (completed === 0 || expected === 0) {
-      return <div aria-hidden className="h-7 w-7 shrink-0 rounded-full border-2 border-border" />;
+      return (
+        <div className="relative shrink-0">
+          <div aria-hidden className={cn("h-7 w-7 rounded-full border-2", isOverdue ? "border-destructive" : "border-border")} />
+          {overdueBadge}
+        </div>
+      );
     }
 
     // d. In progress — pie wedge inside a ring (2px ring, 3px gap, r=9 wedge)
     const pct = Math.min(100, (completed / expected) * 100);
     const wedge = (pct / 100) * 2 * Math.PI * 4.5;
     return (
-      <svg
-        aria-hidden
-        width="28"
-        height="28"
-        viewBox="0 0 28 28"
-        className={cn('shrink-0', pieColorClass(Math.round(pct)))}
-      >
-        <circle cx="14" cy="14" r="13" fill="none" stroke="currentColor" strokeWidth="2" />
-        <circle
-          cx="14"
-          cy="14"
-          r="4.5"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="9"
-          strokeDasharray={`${wedge} ${2 * Math.PI * 4.5}`}
-          transform="rotate(-90 14 14)"
-        />
+      <div className="relative shrink-0">
+        <svg
+          aria-hidden
+          width="28"
+          height="28"
+          viewBox="0 0 28 28"
+          className={cn('shrink-0', isOverdue ? 'text-destructive' : 'text-primary')}
+        >
+          <circle cx="14" cy="14" r="13" fill="none" stroke="currentColor" strokeWidth="2" />
+          <circle
+            cx="14"
+            cy="14"
+            r="4.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="9"
+            strokeDasharray={`${wedge} ${2 * Math.PI * 4.5}`}
+            transform="rotate(-90 14 14)"
+          />
+        </svg>
+        {overdueBadge}
+      </div>
+    );
       </svg>
     );
   };
