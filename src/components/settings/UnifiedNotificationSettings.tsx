@@ -416,6 +416,11 @@ export const UnifiedNotificationSettings = () => {
               </div>
             </div>
 
+            <p className="px-1 text-[11px] text-muted-foreground leading-tight inline-flex items-center gap-1 flex-wrap">
+              <House className="h-3 w-3" /> From home: also send when you're not clocked in here.
+              <Lock className="h-3 w-3 ml-1" /> Always on.
+            </p>
+
             {/* General notification type rows */}
             <div className="space-y-1">
               {NOTIFICATION_TYPES.filter(nt => nt.category === 'general').map(nt => {
