@@ -47,7 +47,7 @@ export function ScheduleActionSplitButton(p: Props) {
   };
 
   const all: Action[] = [];
-  if (!p.isToastLaborStore) all.push({ key: 'quickPunch', label: 'Quick Punch', icon: Clock, run: p.onQuickPunch, disabled: !p.isToday });
+  if (!p.isToastLaborStore) all.push({ key: 'quickPunch', label: 'Punch', icon: Clock, run: p.onQuickPunch, disabled: !p.isToday });
   if (p.hasSchedule) all.push({ key: 'newShift', label: 'New Shift', icon: CalendarPlus, run: p.onNewShift });
   all.push({ key: 'buildWeek', label: 'Build Week', icon: LayoutGrid, run: p.onBuildWeek });
   if (p.hasSchedule) all.push({ key: 'newEvent', label: 'New Event', icon: CalendarDays, run: p.onNewEvent });
