@@ -1,94 +1,122 @@
-# Phase 4 — One page title, same height everywhere: STEP 0 report
+# Phase 5 — Punch pass: STEP 0 report (nothing built)
 
-Report only. No project files were edited and nothing was built. I worked out the heights below from each page's own sizing settings and didn't open the app, because measuring would mean running a script that saves screenshots and you asked for no file-writing scripts. Once you say "go" I'll take real 390-wide measurements before changing anything.
+No files changed. Key sizes are from the code. I did not measure the keypad in a browser at 1024x768, 820x1180 or 390 because the kiosk needs a device session. Measuring it is the first build step, before anything else changes.
 
-## Today's shared title
+## Headline findings
+- The keypad is already big: 64px tall keys with 8px gaps. The plan keeps them at 64px or larger.
+- The phone Schedule icon row (MobileScheduleView ~880-960) **never shows**. It only renders on the staff screen, and it only shows for managers and up, so nobody sees it. Every button in it is now covered by the split button in the title or by the manager screen's own controls.
+- The controls under 44px are all on the kiosk side: the light/dark toggle (36px), the pager dots (8px), the small X buttons, the "Team tasks" pill and the manager dashboard's cut buttons (24-36px).
+- `ThemeModePill` isn't used anywhere. Nothing imports it.
 
-- The outer box is `mt-4 md:mt-3`: 16px above on phone, 12px on iPad/desktop. Nothing is set below it, so the gap under the title comes from each page.
-- The title row is `flex items-center justify-between` with no minimum height. The text is 29px, `leading-none`, so a title on its own makes a 29px row.
-- The action slot has `[&_svg]:size-[23px]`, which forces every icon to 23px.
-- Shared button sizes: `icon` = 44px round, `default` = 44px, `sm` = 40px, `lg` = 48px.
+## 1. Every control, mapped
 
-## 1. Pages using the shared title (16 places in 14 files, plus Inventory)
+Shared sizes: default 44, sm 40, lg 48, icon 44 round, xs 32 (+44 tap), icon-sm 32 (+44 tap). Kiosk rule: never under 44, so xs and icon-sm are not used on kiosk files.
 
-| Place | Action beside it | Spacing changes | Row height at 390 (worked out) |
+### pages/PunchClock.tsx
+| Line | Control | Now | Map to |
 |---|---|---|---|
-| Dashboard.tsx:620 | none | parent `space-y-1` (4px below) | 29px |
-| Messages.tsx:67 | icon Button forced to `h-12 w-12 rounded-2xl` (48px) | parent `pb-8` only | 48px |
-| LogBook.tsx:95 (Library view) | none | parent `space-y-4` | 29px |
-| LogBook.tsx:106 | icon Button outline, 44px (admin, search tab only) | wrapper `mb-4` | 29px or 44px depending on tab and role |
-| Tasks.tsx:68 | none in the slot; the TabsList (History/Edit) sits under it in a `space-y-3` stack; a % circle sits beside the stack with `mt-4` | wrapper `mb-4`, `items-start` | about 29 + 12 + 40px stack |
-| Settings.tsx:520 | none; subtitle `<p>` under it | parent `space-y-4` | 29px |
-| MyTeam.tsx:108 | none; subtitle under it | `space-y-4` | 29px |
-| MyTimecard.tsx:49 | none; a subtitle + `icon-sm` arrows row sits under it | `space-y-4` | 29px |
-| UserManagement.tsx:30 | none | `space-y-4` | 29px |
-| Billing.tsx:131 | none; subtitle under it | `space-y-6` | 29px |
-| Availability.tsx:69 | not in the slot: a "Request Time Off" Button (default, 44px) is a sibling in a `flex-wrap gap-4` row | `space-y-4` | 44px (row) |
-| Alerts.tsx:514 | not in the slot: a 32px Radio icon on the left, subtitle under it; "Report Bug" outline `sm` (40px) as a sibling, super admin only | custom row | about 29 + subtitle |
-| Certifications.tsx:334 | not in the slot: a back arrow on the left, subtitle under it; a cards/table toggle (2x `icon-sm`, bordered) as a sibling | custom row | about 29 + subtitle |
-| Changelog.tsx:117 | not in the slot: a back arrow on the left, subtitle under it; "Add Entry" Button (default, 44px) as a sibling | custom row | about 29 + subtitle |
-| MobileScheduleView.tsx:821 (staff) | none | parent `space-y-0.5` | 29px |
-| MobileScheduleView.tsx:1046 (manager) | ScheduleActionSplitButton, 44px pill | `className="mt-0 [&_h1]:my-0"`, scroll area `pt-3.5` | 44px |
-| **Inventory.tsx:681 (LOCKED, waiting on your unlock call)** | not in the slot: store name subtitle under it; outline/icon Buttons as siblings | wrapper `pt-4`, `items-start` | about 29 + subtitle |
+| 1783 | Keypad 1-9 | lg + h-16 (64px), rounded-xl | keep 64px; drop the dark-mode hardcoded colors for theme tokens |
+| 1793 | Clear key | lg + h-16 | keep 64px |
+| 1801 | 0 key | lg + h-16 | keep 64px |
+| 1809 | Backspace key | lg + h-16 | keep 64px |
+| 1838, 1934 | SwipePagerHint (dots) | see below | see below |
+| 1846 | ThemeToggleIcons | see below | see below |
 
-## 2. In-app pages with their own title (no shared title)
+### punchclock/ThemeToggleIcons.tsx
+| 36, 51 | Sun / Moon round buttons | 36px | 44px round (icon size), keep custom (see 3) |
 
-| Page | Current title | Next to it |
-|---|---|---|
-| BrandDashboard.tsx:359 | h1 `text-3xl bold` "Brand Dash" | brand/store controls |
-| BrandAutoDeployLog.tsx:84 | h1 `text-2xl semibold` | none |
-| BrandPackConfigApprovals.tsx:1227 | h1 `text-2xl` (`text-base` when embedded) | filters |
-| BrandUnpricedIngredients.tsx:115 | h1 `text-xl` (embedded `text-base`) | back button |
-| COGSReport.tsx:604 | h1 `text-lg semibold` | date/period pickers, export |
-| CreateChecklist.tsx:428 / EditChecklist.tsx:909 | h1 `text-xl bold` | back + save buttons |
-| CompleteChecklist.tsx:1228 / SubmissionDetails.tsx:112 | h2 `text-3xl` (the checklist name) | back button, status |
-| DynamicChecklistCalendar.tsx:615 | h1 `text-xl sm:text-2xl` | back button, month arrows |
-| Hiring.tsx:502 | h1 `text-2xl bold` | tabs / filters / search |
-| HiringChat.tsx:427 | h1 plain (org name) | chat header (leave as is) |
-| InventoryCount.tsx:337, LiteInventoryCount.tsx:169 | h1 `text-xl` | count controls (inventory, LOCKED) |
-| LocationProfile.tsx:416 | h1 `text-2xl sm:text-3xl` + icon | edit buttons |
-| MultiLocationDashboard.tsx:243 | h1 `text-xl md:text-2xl` | store/date filters |
-| PayrollReview.tsx:166 | h1 `text-3xl` "Payroll Period" | period picker, approve/export |
-| PunchClockCustomization.tsx:630 | h1 `text-2xl sm:text-3xl` | save (manager settings, not the crew kiosk) |
-| QRCodeGenerator.tsx:37 | h1 `text-2xl` | none |
-| ScheduleSettings.tsx:324 | h1 `text-2xl sm:text-3xl` | back button |
-| ShiftTemplates.tsx:328 | h1 `text-3xl` | add button |
-| TemperatureValidation.tsx:260 | h1 `text-3xl` | filters |
-| TestingChecklist.tsx:172 | h1 `text-2xl` | none |
-| UsageModelsPage.tsx:83 | h1 `text-xl` | none |
-| WeekTemplateBuilder.tsx:1007 | h1 `text-2xl` | save, week controls |
-| InstallGuide.tsx:13 | h1 `text-3xl` | none (help page) |
-| Schedule.tsx (desktop), MyProfile.tsx, ApplicantPortal.tsx | no page-level h1 found | desktop Schedule uses its own toolbar |
+### punchclock/ThemeModePill.tsx
+| 17, 28 | Day / Night text pills | ~22px | unused; leave alone (or delete later with sign-off) |
 
-Left out on purpose: access-denied/not-found screens (BrandInventory:372, BrandManagement:199, OrganizationProfile:150, SuperAdminPlans:359, JobDetail:77, QRQuickTaskReport:156), the PunchClock kiosk, Home/marketing, the auth pages, and section headings inside Reporting.tsx:555. I only skimmed what sits beside each title (I didn't open every file in full). I'll check each page as I convert it.
+### punchclock/SwipePagerHint.tsx
+| 50, 55 | Pager dots (punch / dashboard) | 8px tall | keep dot look, add invisible 44px tap area |
 
-## 3. Pages that can't fit the pattern as-is
+### punchclock/AlarmTaskOverlay.tsx
+| 564 | Overlay action | h-12 (48) | lg |
+| 635 | Back arrow | icon + h-12 w-12 (48) | keep 48 (larger than icon 44) |
+| 737 | Big confirm | h-20 (80), text-2xl | keep as is |
 
-- **Tasks**: the tabs and % circle share the title area. Proposal: title row gets the % circle as the 44px action (it's display only) and the tabs move to the row under it.
-- **Alerts, Certifications, Changelog, Inventory**: back arrow on the left and a subtitle under the title. Proposal: the back arrow stays on the left, outside the title. The subtitle moves to the row under the title. The right-side buttons go into the action slot at 44px. Certifications keeps its 2-button toggle as one 44px row.
-- **Availability**: the button is a sibling. It moves into the action slot (default 44px).
-- **Hiring, COGSReport, MultiLocationDashboard, PayrollReview, TemperatureValidation, BrandPackConfigApprovals, WeekTemplateBuilder**: filters, tabs, date pickers or search sit in the title area. Proposal: title plus at most 2 buttons on the title row; everything else moves to the row under it, unchanged.
-- **Embedded pages** (BrandPackConfigApprovals, BrandUnpricedIngredients when embedded): keep the small heading when shown inside another page; use the shared title only on the full page.
+### punchclock/QRTaskReportOverlay.tsx
+| 226 | Close X | p-2 + 20px icon (~36) | 44px round (icon) |
+| 297, 306 | Cancel / Submit | lg + h-14 (56) | keep 56 |
 
-## 4. iPad (1024) and desktop
+### punchclock/ShiftSummaryCard.tsx
+| 231 | Header action | h-12 (48) | lg |
+| 308 | Clock In | h-18 / py-6 (~72) | keep |
+| 317 | Start/End break | ~72 | keep |
+| 332, 340 | Break options | h-16 (64) | keep; swap amber/blue literals for tokens only if a token exists, else leave |
+| 349 | End Shift | h-16 (64) | keep |
+| 363 | Exit Punch Clock | h-12 (48) | lg |
 
-- One fixed 44px row, 29px text and 44px actions work at every width. The only width difference left would be the gap above (`md:mt-3`, now 12px vs 16px). I'll take that out so every width gets the same gap, unless you'd rather keep it.
-- Pages that use `text-3xl` on desktop today (BrandDashboard, PayrollReview, ShiftTemplates, TemperatureValidation) will get slightly smaller titles (30px to 29px). No `md:` variant is needed.
-- Long titles (for example "Plans & Billing", "User Management", "Pack Config Approvals") with 2 actions at 390: the title needs `min-w-0 truncate`, or it will crowd the buttons.
+### punchclock/PostClockInTasks.tsx
+| 329 | Dismiss | default (44) | default, no change |
 
-## 5. Risks
+### punchclock/TeamTasksView.tsx
+| 250 | Back arrow | icon (44) | no change |
+| 284 | Task row | p-3 row (~56) | row, leave |
+| 377 | Remove (in row) | sm (40) | default (44) |
+| 444 | Back on overlay | icon + 48 | keep 48 |
 
-- **Messages**: its action is 48px today. Bringing it down to 44px makes the chat bubble smaller (that's the look change, nothing else).
-- **Phone Schedule (manager)**: it sits inside a scroll area with `pt-3.5`. The shared top gap must not add to that, or the earlier tightening comes undone. The title-row height stays the same (44px).
-- **Pages that are 29px today** (Dash, Settings, MyTeam, etc.) grow by about 15px. This pushes content down a little. None of them has a sticky header under the title. The only sticky header found is Inventory.tsx:815 (a sub-view, locked).
-- **Taking away the forced 23px icon size**: Messages (`h-6 w-6` = 24px) and LogBook (default icon size) will change slightly. The Schedule split button already sets its own 18px icons.
-- **Locked list**: Inventory.tsx:681, InventoryCount, LiteInventoryCount and BrandInventory are in it. No changes are planned to them until you decide. DockContent, components/dock, the cubes, EditDashboardDialog, the toasts, WeeklySummaryEntry, support tickets, punchclock/timeclock and the Nudge files aren't touched by any page above.
+### punchclock/PunchDeviceEntry.tsx
+| 82 | Device entry card button | py-2 + 32px icon (~48) | row, leave |
+| 122, 125 | Cancel / Save in dialog | default (44) | no change |
 
-## Questions for you before "go"
+### punchclock/ManagerDashboardOverlay.tsx
+| 1210 | Close hour detail X | 14px icon, no padding (~14) | 44px round (icon) |
+| 1305 | Hour/person rows | px-3 py-2 (~40) | row; raise to min-h-11 |
+| 1370 | Remove cut | sm + h-6 (24) | default height (44), text kept |
+| 1377 | Cut minute chips | sm + h-9 (36) | sm (40) or default (44) — see risk |
+| 1392 | Custom cut | sm + h-9 (36) | same as 1377 |
+| 1407 | Save cuts | sm + h-9 full-width (36) | default (44) |
+| 1466 | "Team tasks" pill | py-2 text-[11px] (~32) | default (44), keep pill shape |
+| 1596, 1603 | Clear all / Apply | default (44) | no change |
 
-1. Inventory: unlock just its title row, or leave it out?
-2. Same gap above the title at every width (drop `md:mt-3`)?
-3. Tasks: OK to move the History/Edit tabs below the title and put the % circle in the action slot?
-4. This phase: only the 16 shared-title places, or also convert the pages in section 2?
+### timeclock/QuickPunchDialog.tsx (crew-side dialog)
+| 482 | Small text link | sm + h-6 (24) | default height (44) ghost; never xs here |
+| 503 | Full-width action | default (44) | no change |
+| 522 | Tiny icon | sm + h-6 w-6 (24) | icon (44) |
+| 563 | Full-width sm | sm (40) | default (44) |
+| 585, 588 | Cancel / Confirm | default (44) | no change |
 
-Waiting for "go".
+### schedule/QuickPunchDialog.tsx (manager dialog)
+| 297 | Icon | icon-sm (32 + 44 tap) | no change |
+| 315 | Icon held in 2C | icon + h-9 w-9 (36) | icon-sm (32 + 44 tap), matching 297 next to it |
+| 405 | Text link | xs | no change |
+| 424 | Full-width action | default | no change |
+| 498, 501 | Cancel / Confirm | default | no change |
+
+## 2. Keypad
+- Code today: 3 columns, gap-2 (8px), each key 64px tall, width = a third of the card. The card sits inside a two-part layout (photo + `p-8` keypad panel), so the width changes with the screen.
+- PIN boxes: 44px squares, already fine.
+- Plan: keys stay exactly 64px tall with 8px gaps. No size change. Only the dark-mode colors (`bg-neutral-700`, `text-white`) move to theme tokens, if they look the same in both modes. Otherwise they stay.
+- First build step: measure real key width and height at 1024x768, 820x1180 and 390 before any edit, then again after.
+
+## 3. Hand-made toggles
+- **ThemeToggleIcons (sun/moon):** stays custom. It stops touch events from reaching the kiosk swipe pager, and SegmentedControl doesn't do that. Change: 36px → 44px buttons only.
+- **ThemeModePill:** unused. Leave it.
+- **SwipePagerHint dots:** stays custom. The dots show page position, so they aren't a tab switcher. Add a 44px invisible tap area only.
+- **Team / tasks switch:** there's no tabbed switcher. "Team tasks" is a single button that opens an overlay, so it stays a button (44px).
+- Nothing in scope becomes a SegmentedControl.
+
+## 4. MobileScheduleView ~880-960 row
+- It lives in `renderScheduleContent`, which only the staff (non-manager) branch renders (line 1471). The row is wrapped in "manager or higher". **Result: no one ever sees it**, at any width or day. The manager phone view has its own layout (line 1040 on).
+- Duplicate check:
+  - Build Schedule (LayoutGrid): duplicate. It's "Build Week" in the split button.
+  - CalendarPlus (New Event): duplicate. It's "New Event" in the split button.
+  - UserPlus (add shift sheet): duplicate. It's "New Shift" in the split button.
+  - Print Day Timeline: not in the split button (that has Share PDF). It's unreachable anyway.
+  - History: also on the manager view? Needs checking during build; unreachable here either way.
+  - Undo, Publish/Update, LIVE: the manager view has its own Publish/LIVE in the NOW header (~1149-1169). Unreachable here.
+- Recommendation for later (not this phase unless you say so): delete the row, since it's never shown. For this phase, leave it untouched. Resizing buttons nobody can see is wasted risk.
+
+## 5. Risk
+- **768-tall iPad landscape:** the kiosk card is `min-h-[600px]`, with clock, PIN boxes, 4 rows of 64px keys plus gaps (~280px) and the "Powered by" logo. The plan doesn't make anything taller there, so the keypad can't be pushed off screen. The ManagerDashboardOverlay cut chips going from 36 to 44 add about 8px per row. With many shifts that list scrolls already, but the Save button (1407) could move lower. Plan: use sm (40) for the chips if 44 pushes Save below the fold at 1024x768.
+- **Punch logic:** none of these edits touch handlers, PIN entry, auto-submit at 4 digits, break rules or the Toast/Qu labor checks. ThemeToggleIcons' touch-stopping code stays exactly as is.
+- **Theme tokens:** many kiosk colors are hard-coded (`neutral-*`, `white`, `slate-*`, amber/blue break buttons). Swapping them could shift the look in one mode. Plan: swap only where a token matches in both modes, and check both modes on screen. Otherwise leave them and list them.
+- **Locked:** nothing here is in the dock, cubes, Edit Dashboard, inventory, toasts, support or Nudge files.
+
+## Build order after "go"
+1. Measure the keypad and overlays at 1024x768, 820x1180 and 390 in light and dark (before).
+2. Apply the size changes from the tables above.
+3. Measure again, and screenshot the kiosk keypad, ShiftSummaryCard and manager overlay in both modes.
+4. Report files changed and before/after sizes.
