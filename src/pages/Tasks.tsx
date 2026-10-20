@@ -52,7 +52,7 @@ export default function Tasks() {
 
 
   // SVG circle params
-  const circleSize = 62;
+  const circleSize = 44;
   const strokeWidth = 4.5;
   const radius = (circleSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -62,20 +62,9 @@ export default function Tasks() {
     <Layout>
       <div className="space-y-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="mb-4">
-            <div className="flex justify-between items-start gap-4">
-              <div className="space-y-3">
-                <PageTitle color="blue">Tasks</PageTitle>
-                <TabsList>
-                  <TabsTrigger value="history">History</TabsTrigger>
-                  {(isAdmin || isManager) && (
-                    <TabsTrigger value="edit">Edit</TabsTrigger>
-                  )}
-                </TabsList>
-              </div>
-              {/* Completion circle - right aligned */}
-              <div className="relative mt-4">
-                <svg width={circleSize} height={circleSize} className="-rotate-90">
+          <PageTitle color="blue" action={
+              <div className="relative size-11">
+                <svg width={circleSize} height={circleSize} className="size-11 -rotate-90">
                   <circle cx={circleSize / 2} cy={circleSize / 2} r={radius} fill="none" stroke="hsl(var(--muted))" strokeWidth={strokeWidth} />
                   <circle
                     cx={circleSize / 2} cy={circleSize / 2} r={radius} fill="none"
@@ -88,7 +77,14 @@ export default function Tasks() {
                   {completionPercent}%
                 </span>
               </div>
-            </div>
+          }>Tasks</PageTitle>
+          <div>
+                <TabsList>
+                  <TabsTrigger value="history">History</TabsTrigger>
+                  {(isAdmin || isManager) && (
+                    <TabsTrigger value="edit">Edit</TabsTrigger>
+                  )}
+                </TabsList>
           </div>
 
           <TabsContent value="history" className="space-y-4">

@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/PageTitle";
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useQuery } from '@tanstack/react-query';
@@ -354,11 +355,8 @@ export default function FBCDashboard() {
 
   return (
     <Layout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Brand Dash</h1>
-          <p className="text-muted-foreground">Brand-Level Overview Across Organizations</p>
-        </div>
+      <div className="[&>*:not(:first-child):not(:nth-child(2))]:mt-6">
+        <PageTitle color="blue" subtitle="Brand-Level Overview Across Organizations">Brand Dash</PageTitle>
 
         {isLoading ? (
           <div className="space-y-4">

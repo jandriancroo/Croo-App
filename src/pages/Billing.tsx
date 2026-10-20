@@ -126,11 +126,8 @@ export default function Billing() {
 
   return (
     <Layout>
-      <div className="space-y-6 w-full max-w-4xl mx-auto">
-        <div>
-          <PageTitle color="emerald">Plans & Billing</PageTitle>
-          <p className="text-muted-foreground">Subscribe each location individually</p>
-        </div>
+      <div className="w-full max-w-4xl mx-auto">
+        <PageTitle color="emerald" subtitle="Subscribe each location individually">Plans & Billing</PageTitle>
 
 
         {/* Manage billing if subscribed */}

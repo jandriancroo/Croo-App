@@ -1,3 +1,4 @@
+import { PageTitle } from '@/components/PageTitle';
 import { TaskAssigneePicker } from '@/components/tasks/TaskAssigneePicker';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ReferencePhotoField } from '@/components/tasks/ReferencePhotoField';
@@ -901,13 +902,12 @@ export default function EditChecklist() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-4 max-w-4xl space-y-4">
-        <div className="flex items-center gap-4">
+      <div className="container mx-auto p-4 max-w-4xl [&>*:not(:first-child):not(:nth-child(2))]:mt-4">
+        <PageTitle color="teal" leading={
           <Button variant="ghost" size="icon" onClick={leaveEditor}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-xl font-bold">Edit Checklist</h1>
-        </div>
+        }>Edit Checklist</PageTitle>
 
         {/* Condensed Basic Info */}
         <Card>

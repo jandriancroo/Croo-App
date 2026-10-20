@@ -1,3 +1,4 @@
+import { PageTitle } from '@/components/PageTitle';
 import { Button } from '@/components/ui/button';
 import { Printer, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -165,16 +166,16 @@ export default function TestingChecklist() {
     <div className="min-h-screen bg-background p-4 print:p-2 print:bg-white">
       <div className="max-w-4xl mx-auto">
         {/* Header - hidden when printing */}
-        <div className="flex items-center justify-between mb-6 print:hidden">
+        <PageTitle color="teal" className="print:hidden" leading={
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold">Testing Checklist</h1>
+        } action={
           <Button onClick={() => window.print()} className="gap-2">
             <Printer className="h-4 w-4" />
             Print
           </Button>
-        </div>
+        }>Testing Checklist</PageTitle>
 
         {/* Print header */}
         <div className="hidden print:block text-center mb-4">

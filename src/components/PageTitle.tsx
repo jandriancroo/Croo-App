@@ -45,13 +45,17 @@ interface PageTitleProps {
   color: PageTitleColor | string;
   className?: string;
   as?: 'h1' | 'h2';
+  /** Right side, everything 44px tall (size="icon" / default Button / 44px pill). */
   action?: React.ReactNode;
+  /** Optional line under the title row. */
+  subtitle?: React.ReactNode;
+  /** Optional left item (e.g. back arrow, 44px size="icon" ghost Button). */
+  leading?: React.ReactNode;
 }
 
 /**
- * Standardized page title: bold text with a short vertical accent bar
- * matching the title's cap height, plus an optional right-aligned action
- * icon that is vertically centered and sized to match the title.
+ * Standardized page title. One shape app-wide: 44px row, fixed gap above
+ * (mt-3.5) and below (mb-3). Pages must not add/remove margin around it.
  */
 export const PageTitle = React.memo(function PageTitle({
   children,
@@ -59,29 +63,37 @@ export const PageTitle = React.memo(function PageTitle({
   className,
   as: Tag = 'h1',
   action,
+  subtitle,
+  leading,
 }: PageTitleProps) {
   const barColor = (COLOR_MAP as Record<string, string>)[color] ?? color;
   return (
-    <div className={cn('mt-4 md:mt-3', className)}>
-      <div className="flex items-center justify-between gap-3">
-        <Tag className="font-apple-system text-[29px] font-bold leading-none tracking-tight flex items-center gap-3">
-          <span
-            aria-hidden
-            className="inline-block shrink-0 rounded-[2px]"
-            style={{
-              width: '4px',
-              height: '0.72em',
-              backgroundColor: barColor,
-            }}
-          />
-          <span>{children}</span>
-        </Tag>
+    <div className={cn('mt-3.5 mb-3', className)}>
+      <div className="min-h-11 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1 min-w-0">
+          {leading && <div className="flex items-center shrink-0 -ml-2">{leading}</div>}
+          <Tag className="font-apple-system text-[29px] font-bold leading-none tracking-tight flex items-center gap-3 min-w-0 my-0">
+            <span
+              aria-hidden
+              className="inline-block shrink-0 rounded-[2px]"
+              style={{
+                width: '4px',
+                height: '0.72em',
+                backgroundColor: barColor,
+              }}
+            />
+            <span className="truncate">{children}</span>
+          </Tag>
+        </div>
         {action && (
-          <div className="flex items-center shrink-0 [&_svg]:size-[23px]">
+          <div className="flex items-center gap-2 shrink-0 [&_svg:not([class*='size-']):not([class*='h-'])]:size-5">
             {action}
           </div>
         )}
       </div>
+      {subtitle && (
+        <div className="text-sm text-muted-foreground -mt-1.5">{subtitle}</div>
+      )}
     </div>
   );
 });

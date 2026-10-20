@@ -25,10 +25,8 @@ export default function UserManagement() {
 
   return (
     <Layout>
-      <div className="space-y-4">
-        <div>
-          <PageTitle color="cyan">User Management</PageTitle>
-        </div>
+      <div>
+        <PageTitle color="cyan">User Management</PageTitle>
 
         <Card>
           <CardHeader>

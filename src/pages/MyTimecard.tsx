@@ -44,9 +44,9 @@ export default function MyTimecard() {
 
   return (
     <Layout>
-      <div className="space-y-4">
+      <div className="space-y-4 [&>div:nth-child(2)]:!mt-0">
+        <PageTitle color="amber">My Timecard</PageTitle>
         <div>
-          <PageTitle color="amber">My Timecard</PageTitle>
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground">
               {payData && (

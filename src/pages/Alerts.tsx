@@ -503,25 +503,23 @@ export default function Alerts() {
 
   return (
     <Layout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <div>
+        <PageTitle
+          color="red"
+          leading={
             <div className="relative">
-              <Radio className="h-8 w-8 text-destructive" />
+              <Radio className="h-6 w-6 text-destructive" />
               <div className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-pulse" />
             </div>
-            <div>
-              <PageTitle color="red">Alert Feed</PageTitle>
-              <p className="text-muted-foreground">Live monitoring of all system alerts</p>
-            </div>
-          </div>
-          {isSuperAdmin && (
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowCreateTicket(true)}>
-              <Bug className="h-4 w-4" />
+          }
+          subtitle="Live monitoring of all system alerts"
+          action={isSuperAdmin && (
+            <Button variant="outline" className="gap-2" onClick={() => setShowCreateTicket(true)}>
+              <Bug className="h-5 w-5" />
               Report Bug
             </Button>
           )}
-        </div>
+        >Alert Feed</PageTitle>
 
         {isSuperAdmin && (
           <CreateTicketDialog open={showCreateTicket} onOpenChange={setShowCreateTicket} />

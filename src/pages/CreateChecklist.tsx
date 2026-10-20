@@ -1,3 +1,4 @@
+import { PageTitle } from '@/components/PageTitle';
 import { TaskAssigneePicker } from '@/components/tasks/TaskAssigneePicker';
 import { ReferencePhotoField } from '@/components/tasks/ReferencePhotoField';
 import { useState, useEffect } from 'react';
@@ -420,13 +421,12 @@ export default function CreateChecklist() {
 
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto space-y-4 p-4">
-        <div className="flex items-center gap-4">
+      <div className="max-w-3xl mx-auto [&>*:not(:first-child):not(:nth-child(2))]:mt-4 p-4">
+        <PageTitle color="teal" leading={
           <Button variant="ghost" size="icon" onClick={() => navigate('/tasks')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-xl font-bold">Create Checklist</h1>
-        </div>
+        }>Create Checklist</PageTitle>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Condensed Basic Info */}

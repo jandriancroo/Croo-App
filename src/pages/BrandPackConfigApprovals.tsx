@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/PageTitle";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1215,25 +1216,25 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
     filteredRows.length > 0 && effectiveSelected.size === filteredRows.length;
 
   return (
-    <div className={embedded ? "space-y-4 pb-24" : "container mx-auto p-4 space-y-4 max-w-5xl pb-24"}>
-      <div className="flex items-center gap-3">
-        {!embedded && (
-          <Button asChild variant="ghost" size="sm">
-            <Link to={`/brand/${brandId}/inventory`}>
-              <ArrowLeft className="h-4 w-4" /> Back
-            </Link>
-          </Button>
-        )}
-        <h1 className={embedded ? "text-base font-semibold" : "text-2xl font-semibold"}>Pack Config Approvals</h1>
-        <Badge variant="outline" className="ml-2">
-          {filteredRows.length} of {proposalRows.length}
-        </Badge>
-      </div>
-
-      <p className="text-sm text-muted-foreground">
-        Approving writes to <code>brand_pack_configs</code> and <code>location_pack_selections</code> only.
-        Counts, items, and templates are not touched.
-      </p>
+    <div className={embedded ? "space-y-4 pb-24" : "container mx-auto px-4 max-w-5xl pb-24 [&>*:not(:first-child):not(:nth-child(2))]:mt-4"}>
+      {embedded ? (
+        <>
+          <div className="flex items-center gap-3">
+            <h1 className="text-base font-semibold">Pack Config Approvals</h1>
+            <Badge variant="outline" className="ml-2">{filteredRows.length} of {proposalRows.length}</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Approving writes to <code>brand_pack_configs</code> and <code>location_pack_selections</code> only.
+            Counts, items, and templates are not touched.
+          </p>
+        </>
+      ) : (
+        <PageTitle color="orange"
+          leading={<Button asChild variant="ghost" size="icon"><Link to={`/brand/${brandId}/inventory`} aria-label="Back"><ArrowLeft className="h-4 w-4" /><span className="sr-only">Back</span></Link></Button>}
+          subtitle={<>Approving writes to <code>brand_pack_configs</code> and <code>location_pack_selections</code> only. Counts, items, and templates are not touched.</>}
+          action={<Badge variant="outline" className="h-11">{filteredRows.length} of {proposalRows.length}</Badge>}
+        >Pack Config Approvals</PageTitle>
+      )}
 
       <Card>
         <CardHeader className="pb-3">

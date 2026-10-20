@@ -324,28 +324,25 @@ export default function Certifications() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className="container mx-auto p-6">
+        <PageTitle
+          color="yellow"
+          leading={
             <Button variant="ghost" size="icon" onClick={() => navigate('/users')}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <PageTitle color="yellow">Certifications</PageTitle>
-              <p className="text-muted-foreground">
-                Track food handlers cards and ServSafe certifications
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 border rounded-lg p-0.5">
-            <Button size="icon-sm"
+          }
+          subtitle="Track food handlers cards and ServSafe certifications"
+          action={
+          <div className="flex items-center h-11 gap-1 border rounded-lg">
+            <Button size="icon"
               variant={viewMode === 'cards' ? 'default' : 'ghost'}
               className=""
               onClick={() => setViewMode('cards')}
             >
               <LayoutGrid className="h-4 w-4" />
             </Button>
-            <Button size="icon-sm"
+            <Button size="icon"
               variant={viewMode === 'list' ? 'default' : 'ghost'}
               className=""
               onClick={() => setViewMode('list')}
@@ -353,7 +350,8 @@ export default function Certifications() {
               <List className="h-4 w-4" />
             </Button>
           </div>
-        </div>
+          }
+        >Certifications</PageTitle>
 
         {/* Upload Dialog */}
         <Dialog open={uploadDialogOpen} onOpenChange={(open) => {

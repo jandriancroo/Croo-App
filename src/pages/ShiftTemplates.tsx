@@ -1,3 +1,4 @@
+import { PageTitle } from '@/components/PageTitle';
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -318,20 +319,19 @@ export default function ShiftTemplates() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="[&>*:not(:first-child):not(:nth-child(2))]:mt-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" onClick={() => navigate("/schedule")}>
-              ← Back to Schedule
-            </Button>
-            <h1 className="text-3xl font-bold">Shift Templates</h1>
-          </div>
+        <PageTitle color="blue" leading={
+          <Button variant="ghost" size="icon" onClick={() => navigate("/schedule")}>
+            <span aria-hidden>←</span>
+            <span className="sr-only">← Back to Schedule</span>
+          </Button>
+        } action={
           <Button onClick={openCreateDialog}>
             <Plus className="h-4 w-4 mr-2" />
             New Template
           </Button>
-        </div>
+        }>Shift Templates</PageTitle>
 
         {/* Stations (schedule grouping) */}
         {currentLocation?.id && (

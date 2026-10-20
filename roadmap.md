@@ -220,3 +220,6 @@
 ## Elements Phase 2B buttons — Oct 20
 - [x] xs / icon-sm sizes; shrunk Buttons moved onto shared sizes.
 - [ ] Hand-made (c) list held for Jordan review; crew kiosk files get own pass.
+
+## Phase 4 one page title — Oct 20
+- [x] PageTitle min-h-11 row, built-in mt-3.5/mb-3, subtitle + leading props; convert 16 places + section-2 pages; Inventory title row only.

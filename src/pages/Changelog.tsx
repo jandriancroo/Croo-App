@@ -107,22 +107,22 @@ export default function Changelog() {
 
   return (
     <Layout>
-      <div className="space-y-6 max-w-3xl mx-auto">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className="max-w-3xl mx-auto">
+        <PageTitle
+          color="sky"
+          leading={
             <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <PageTitle color="sky">Changelog</PageTitle>
-              <p className="text-muted-foreground">Track features, fixes, and improvements</p>
-            </div>
-          </div>
+          }
+          subtitle="Track features, fixes, and improvements"
+          action={
           <Button onClick={() => setAddDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Entry
           </Button>
-        </div>
+          }
+        >Changelog</PageTitle>
 
         {isLoading ? (
           <div className="text-center py-8 text-muted-foreground">Loading...</div>
