@@ -82,6 +82,7 @@ async function dispatchReminders() {
             shift_date: s.shift_date,
             start_time: s.start_time,
             location_name: s.schedules.locations.name,
+            location_id: s.schedules.location_id,
             tz,
             start_utc_ms: startUtcMs,
           });
@@ -127,6 +128,7 @@ async function dispatchReminders() {
             title: "Shift starting soon",
             body: `Your shift at ${r.location_name} starts at ${startLocal}.`,
             notification_type: "shift_reminders",
+            location_id: r.location_id,
             data: { type: "shift_reminder", shift_id: r.shift_id },
           },
         });

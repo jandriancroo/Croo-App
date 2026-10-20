@@ -865,7 +865,7 @@ serve(async (req) => {
             const sender = (await nameOf([me])).get(me) || 'New Message';
             await sb.functions.invoke('send-push-notification', {
               body: { user_ids: memberIds, sender_id: me, title: sender, body: content.substring(0, 100),
-                      notification_type: 'chat_messages', data: { chat_id: chatId, type: 'message', message_id: row.id } },
+                      notification_type: 'chat_messages', ...(chat.location_id ? { location_id: chat.location_id } : {}), data: { chat_id: chatId, type: 'message', message_id: row.id } },
             });
           }
         } catch (e) { console.error('watch chat push failed', e); }

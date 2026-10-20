@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { requireInternalCaller } from '../_shared/callerAuth.ts'
+import { clockedInUserIds } from '../_shared/onClock.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -88,8 +89,8 @@ async function drainAlertQueue() {
               user_ids: userIds,
               title: payload.title,
               body: payload.body,
-              notification_type: payload.notification_type,
-              type: payload.notification_type,
+              notification_type: payload.notification_type ?? item.alert_type,
+              type: payload.notification_type ?? item.alert_type,
               data: payload.data || {},
               location_id: item.location_id
             }
@@ -169,13 +170,8 @@ async function handleAlarmAlert(supabase: any, item: any, payload: any) {
   }
 
   if (task.notify_only_working) {
-    const { data: clockedInUsers } = await supabase
-      .from('timeclock_entries')
-      .select('user_id')
-      .eq('location_id', item.location_id)
-      .is('clock_out', null)
-
-    const clockedInSet = new Set(clockedInUsers?.map((u: any) => u.user_id) || [])
+    // Who's clocked in comes only from _shared/onClock.ts (the old timeclock_entries table no longer exists).
+    const clockedInSet = new Set(await clockedInUserIds(supabase, item.location_id))
 
     if (userIdsToNotify.length > 0) {
       userIdsToNotify = userIdsToNotify.filter(id => clockedInSet.has(id))
@@ -223,6 +219,7 @@ async function handleAlarmAlert(supabase: any, item: any, payload: any) {
       title: '⏰ ' + task.title,
       body: task.description || 'Recurring task reminder',
       type: 'alarm_task',
+      notification_type: 'alarm_task',
       data: { task_id: task.id, interval_key: intervalKey },
       location_id: item.location_id
     }

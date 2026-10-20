@@ -8,3 +8,4 @@
 - Theo clock in/out: rules only in _shared/punchPlan.ts (preview, tap, Undo); every punch insert goes through src/lib/punches.ts; clock-out never sends a shift_id. Why: one rule, one save, and in/out stay on the same shift.
 - Quick Nudge: _shared/nudgePlan.ts + *_nudge_status; who's clocked in only via _shared/onClock.ts (Toast stores: open paired toast_shifts); quickNudges.ts → quick-nudge; nudge_log; NUDGE_ICON. Why: one path; Toast stores have no time_punches.
 - Quick Nudge list: only quick-nudge action 'list' via _shared/nudgeList.ts (fed by nudgeableTargets/canNudge*); the Dash shows it only in components/dashboard/NudgeSection.tsx. Why: one rule set for what can be nudged.
+- Push delivery (enabled + "From home") is decided only by _shared/notificationGate.ts inside send-push-notification; who's clocked in comes from _shared/onClock.ts; every sender passes notification_type and location_id. Why: one choke point for every send path.

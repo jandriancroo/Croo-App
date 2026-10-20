@@ -154,6 +154,7 @@ export function ShareTaskDialog({
             user_ids: recipientIds,
             title: chat.is_group ? (chat.title || "Group Chat") : senderName,
             body: `📋 Task: ${taskTitle}`,
+            notification_type: "chat_messages",
             data: {
               type: "message",
               chatId: chat.id,

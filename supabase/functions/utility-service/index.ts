@@ -500,6 +500,7 @@ async function handleSubmitQRTaskReport(req: Request, supabaseAdmin: any): Promi
           title: notificationTitle,
           body: notificationBody,
           type: 'qr_task_report',
+          notification_type: 'qr_task_report',
           data: {
             task_id,
             report_id: report.id,
