@@ -225,7 +225,7 @@ export function QRTaskReportOverlay({ locationId, onDismiss }: QRTaskReportOverl
               {/* Close button */}
               <button
                 onClick={handleDismiss}
-                className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                className="absolute top-4 right-4 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
               >
                 <X className="h-5 w-5 text-white/70" />
               </button>

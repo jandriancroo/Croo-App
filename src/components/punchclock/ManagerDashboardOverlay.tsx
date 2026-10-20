@@ -1207,7 +1207,7 @@ export function ManagerDashboardOverlay({
                       >
                         <div className="flex items-center justify-between">
                           <span className={`text-sm font-semibold ${isDayMode ? 'text-slate-900' : 'text-white'}`}>{selectedHour.label}</span>
-                          <button type="button" onClick={() => setSelectedHour(null)}>
+                          <button type="button" aria-label="Close" className="-m-3 flex h-11 w-11 items-center justify-center" onClick={() => setSelectedHour(null)}>
                             <X className={`h-3.5 w-3.5 ${isDayMode ? 'text-slate-400 hover:text-slate-900' : 'text-slate-500 hover:text-white'}`} />
                           </button>
                         </div>
@@ -1304,7 +1304,7 @@ export function ManagerDashboardOverlay({
                               <PopoverTrigger asChild>
                                 <button
                                   type="button"
-                                  className={`flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-all ${
+                                  className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-left transition-all ${
                                     shift.isOnBreak
                                       ? 'bg-amber-500/15'
                                       : cut
@@ -1367,7 +1367,7 @@ export function ManagerDashboardOverlay({
                                   <div className="flex items-center justify-between">
                                     <h4 className={`text-sm font-semibold ${isDayMode ? 'text-slate-900' : 'text-white'}`}>Send Home Early</h4>
                                     {cut && (
-                                      <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-red-500 hover:bg-red-500/20 hover:text-red-400" onClick={() => handleRemoveCut(shift.userId)}>
+                                      <Button size="sm" variant="ghost" className="h-11 px-3 text-xs text-red-500 hover:bg-red-500/20 hover:text-red-400" onClick={() => handleRemoveCut(shift.userId)}>
                                         Clear
                                       </Button>
                                     )}
@@ -1378,7 +1378,7 @@ export function ManagerDashboardOverlay({
                                         key={mins}
                                         size="sm"
                                         variant={cut?.minutesCut === mins ? 'default' : 'outline'}
-                                        className={`h-9 text-sm font-medium ${cut?.minutesCut === mins ? 'border-red-500 bg-red-500 text-white hover:bg-red-600' : isDayMode ? 'border-slate-200 bg-slate-50 text-slate-900 hover:bg-slate-100' : 'border-neutral-600 bg-neutral-800 text-white hover:bg-neutral-700'}`}
+                                        className={`h-10 text-sm font-medium ${cut?.minutesCut === mins ? 'border-red-500 bg-red-500 text-white hover:bg-red-600' : isDayMode ? 'border-slate-200 bg-slate-50 text-slate-900 hover:bg-slate-100' : 'border-neutral-600 bg-neutral-800 text-white hover:bg-neutral-700'}`}
                                         onClick={() => handleAddCut(shift, mins)}
                                       >
                                         -{mins === 60 ? '1hr' : `${mins}m`}
@@ -1389,7 +1389,7 @@ export function ManagerDashboardOverlay({
                                     <p className={`mb-2 text-xs ${isDayMode ? 'text-slate-400' : 'text-neutral-400'}`}>Custom end time:</p>
                                     <div className="flex gap-2">
                                       <Input type="time" value={customTime} onChange={(e) => setCustomTime(e.target.value)} className={`h-9 flex-1 text-sm ${isDayMode ? 'border-slate-200 bg-slate-50' : 'border-neutral-600 bg-neutral-800 text-white'}`} />
-                                      <Button size="sm" variant="outline" className={`h-9 px-3 text-sm ${isDayMode ? 'border-slate-200 bg-slate-50 hover:bg-slate-100' : 'border-neutral-600 bg-neutral-800 text-white hover:bg-neutral-700'}`} onClick={() => handleCustomCut(shift)} disabled={!customTime}>
+                                      <Button size="sm" variant="outline" className={`h-10 px-3 text-sm ${isDayMode ? 'border-slate-200 bg-slate-50 hover:bg-slate-100' : 'border-neutral-600 bg-neutral-800 text-white hover:bg-neutral-700'}`} onClick={() => handleCustomCut(shift)} disabled={!customTime}>
                                         Set
                                       </Button>
                                     </div>
@@ -1404,7 +1404,7 @@ export function ManagerDashboardOverlay({
 
                     {hasAnyCuts && (
                       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`mt-3 border-t pt-3 ${isDayMode ? 'border-slate-200' : 'border-white/5'}`}>
-                        <Button size="sm" className={`h-9 w-full text-xs ${cutsSaved ? 'bg-green-500/20 text-green-600 hover:bg-green-500/30' : 'bg-red-500 text-white hover:bg-red-600'}`} onClick={() => setShowPreviewModal(true)}>
+                        <Button size="sm" className={`h-11 w-full text-xs ${cutsSaved ? 'bg-green-500/20 text-green-600 hover:bg-green-500/30' : 'bg-red-500 text-white hover:bg-red-600'}`} onClick={() => setShowPreviewModal(true)}>
                           <Calculator className="mr-1.5 h-3.5 w-3.5" />
                           {cutsSaved ? 'View Cuts' : 'Preview Savings'}
                         </Button>
@@ -1467,7 +1467,7 @@ export function ManagerDashboardOverlay({
                       type="button"
                       onPointerDown={(e) => { e.stopPropagation(); }}
                       onClick={(e) => { e.stopPropagation(); setShowTeamTasks(true); }}
-                      className={`mt-3 w-full rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] transition-all ${isDayMode ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-white text-neutral-900 hover:bg-neutral-200'}`}
+                      className={`mt-3 w-full rounded-full min-h-11 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] transition-all ${isDayMode ? 'bg-primary text-primary-foreground hover:bg-primary/90' : 'bg-white text-neutral-900 hover:bg-neutral-200'}`}
                     >
                       Team Tasks
                     </button>

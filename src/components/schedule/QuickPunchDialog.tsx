@@ -315,8 +315,8 @@ export function QuickPunchDialog({
               <Button
                 type="button"
                 variant="outline"
-                size="icon"
-                className="h-9 w-9 shrink-0"
+                size="icon-sm"
+                className="shrink-0"
                 onClick={() => {
                   const current = new Date(punchDate + 'T12:00:00');
                   const today = getTodayInTimezone();

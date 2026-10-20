@@ -14,7 +14,7 @@ interface ThemeToggleIconsProps {
  */
 export function ThemeToggleIcons({ isDayMode, onChange, className = '' }: ThemeToggleIconsProps) {
   const baseBtn =
-    'flex h-9 w-9 items-center justify-center rounded-full transition-all cursor-pointer';
+    'flex h-11 w-11 items-center justify-center rounded-full transition-all cursor-pointer';
   const stop = (e: SyntheticEvent) => {
     e.stopPropagation();
   };

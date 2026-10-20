@@ -483,7 +483,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="h-6 text-xs text-muted-foreground"
+                          className="h-11 text-xs text-muted-foreground"
                           onClick={() => {
                             setShowClockOut(false);
                             setClockOut('');
@@ -523,7 +523,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-6 w-6 p-0"
+                        className="h-11 w-11 p-0"
                         onClick={() => removeBreak(index)}
                       >
                         <X className="h-3 w-3" />
@@ -563,7 +563,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
+                  size="default"
                   className="w-full gap-1"
                   onClick={addBreak}
                 >

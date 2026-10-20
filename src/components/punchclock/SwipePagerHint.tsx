@@ -50,12 +50,12 @@ export function SwipePagerHint({ page, isDayMode, onDotClick }: SwipePagerHintPr
         <button
           aria-label="Go to punch clock"
           onClick={() => onDotClick?.('punch')}
-          className={`h-2 rounded-full transition-all ${isPunch ? `w-6 ${dotActive}` : `w-2 ${dotIdle}`}`}
+          className={`relative h-2 rounded-full after:absolute after:-inset-[18px] after:content-[''] transition-all ${isPunch ? `w-6 ${dotActive}` : `w-2 ${dotIdle}`}`}
         />
         <button
           aria-label="Go to dashboard"
           onClick={() => onDotClick?.('dashboard')}
-          className={`h-2 rounded-full transition-all ${!isPunch ? `w-6 ${dotActive}` : `w-2 ${dotIdle}`}`}
+          className={`relative h-2 rounded-full after:absolute after:-inset-[18px] after:content-[''] transition-all ${!isPunch ? `w-6 ${dotActive}` : `w-2 ${dotIdle}`}`}
         />
       </div>
     </div>
