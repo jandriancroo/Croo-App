@@ -209,3 +209,6 @@
 ## Notification targeting fix — Oct 20
 - [x] alert-push-sender passes location_id; send-push-notification drops recipients not assigned to that store (fail open); chat_members cleanup trigger on user_locations delete.
 - [ ] Quick task circles: Jordan to choose remove / keep only when late.
+
+## Elements Phase 2A — Oct 20
+- [x] Shared SegmentedControl + DayToggleRow; Tasks, Edit tab, location picker, 4 task dialogs + ShiftTemplates day rows, tab size overrides removed. Checked at 390/768.
