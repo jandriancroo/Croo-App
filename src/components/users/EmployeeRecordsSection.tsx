@@ -322,8 +322,8 @@ export function EmployeeRecordsSection({ userId, employeeName = "Employee" }: Em
         <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
           <Button
             variant="destructive"
-            size="sm"
-            className="absolute right-10 top-4 h-7 px-2.5 text-xs font-semibold gap-1"
+            size="xs"
+            className="absolute right-10 top-4 px-2.5 font-semibold gap-1"
             onClick={() => {
               if (!selectedDoc) return;
               exportRecordToPdf({

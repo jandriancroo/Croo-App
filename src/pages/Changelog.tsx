@@ -159,8 +159,8 @@ export default function Changelog() {
                         </div>
                         <Button
                           variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 shrink-0"
+                          size="icon-sm"
+                          className="shrink-0"
                           onClick={() => {
                             if (confirm('Delete this entry?')) {
                               deleteMutation.mutate(entry.id);

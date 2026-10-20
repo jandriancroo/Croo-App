@@ -114,17 +114,17 @@ export function HiringChatPreview({
               <>
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="xs"
                   onClick={copyApplicantLink}
-                  className="h-8 px-2"
+                  className="px-2"
                 >
                   {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 </Button>
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="xs"
                   onClick={openChat}
-                  className="h-8 px-2"
+                  className="px-2"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                 </Button>

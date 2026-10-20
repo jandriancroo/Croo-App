@@ -1807,7 +1807,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
             )}
 
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="h-8 text-xs flex-1" disabled={!opusSessionId || opusIsTesting}
+              <Button variant="outline" size="xs" className="flex-1" disabled={!opusSessionId || opusIsTesting}
                 onClick={async () => {
                   setOpusIsTesting(true); setOpusTestResult(null);
                   try {
@@ -1826,7 +1826,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 {opusIsTesting ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <TestTube className="h-3.5 w-3.5 mr-1" />}
                 Test
               </Button>
-              <Button size="sm" className="h-8 text-xs flex-1" disabled={!opusSessionId || opusIsSaving}
+              <Button size="xs" className="flex-1" disabled={!opusSessionId || opusIsSaving}
                 onClick={async () => {
                   if (!locationId) { toast.error('No location selected'); return; }
                   setOpusIsSaving(true);
@@ -1881,7 +1881,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="w-full h-9 text-xs font-semibold"
+                  className="w-full text-xs font-semibold"
                   disabled={opusIsFetchingEmployees}
                   onClick={async () => {
                     setOpusIsFetchingEmployees(true);
@@ -1936,7 +1936,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                     className="h-7 text-[10px] flex-1 font-mono"
                     type="number"
                   />
-                  <Button variant="ghost" size="sm" className="h-7 text-[10px] shrink-0" disabled={!opusNewId || opusIsFetchingEmployees}
+                  <Button variant="ghost" size="xs" className="shrink-0" disabled={!opusNewId || opusIsFetchingEmployees}
                     onClick={async () => {
                       const id = Number(opusNewId);
                       if (!id || opusMappings.some(m => m.opus_id === id)) {
@@ -2017,7 +2017,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 )}
 
                 {opusMappings.length > 0 && (
-                  <Button size="sm" className="w-full h-8 text-xs" disabled={opusIsSaving}
+                  <Button size="xs" className="w-full " disabled={opusIsSaving}
                     onClick={async () => {
                       if (!locationId) return;
                       setOpusIsSaving(true);

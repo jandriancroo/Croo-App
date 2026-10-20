@@ -233,9 +233,9 @@ export function I9DocumentsSection({ userId, employeeName = "Employee" }: I9Docu
                           <Badge variant="secondary" className="text-[10px] flex-shrink-0">Retrieved</Badge>
                         ) : (
                           <Button
-                            size="sm"
+                            size="xs"
                             variant="default"
-                            className="h-7 text-xs flex-shrink-0"
+                            className="flex-shrink-0"
                             disabled={retrieving === doc.id}
                             onClick={() =>
                               setConfirmRetrieve({

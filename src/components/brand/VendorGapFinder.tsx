@@ -919,8 +919,8 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                     <EyeOff className="h-3 w-3 mr-1" />
                     Ignore
                   </Button>
-                  <Button size="sm" variant="outline" onClick={handlePromote}
-                    disabled={promoteMutation.isPending} className="h-7 text-xs">
+                  <Button size="xs" variant="outline" onClick={handlePromote}
+                    disabled={promoteMutation.isPending} className="">
                     {promoteMutation.isPending
                       ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                       : <PackagePlus className="h-3 w-3 mr-1" />}
@@ -951,8 +951,8 @@ export default function VendorGapFinder({ brandId }: VendorGapFinderProps) {
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    size="sm"
-                    className="h-8 text-xs justify-between min-w-[160px] max-w-[220px]"
+                    size="xs"
+                    className="justify-between min-w-[160px] max-w-[220px]"
                     disabled={locationsInGaps.length === 0}
                   >
                     <span className="flex items-center gap-1 truncate">

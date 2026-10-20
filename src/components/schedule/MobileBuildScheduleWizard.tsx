@@ -558,9 +558,9 @@ export function MobileBuildScheduleWizard({
                       </Badge>
                     </div>
                     <Button
-                      size="sm"
+                      size="xs"
                       variant={cleared ? 'outline' : 'ghost'}
-                      className={cn('h-8 px-2 text-xs', !cleared && 'text-destructive hover:text-destructive')}
+                      className={cn('px-2 ', !cleared && 'text-destructive hover:text-destructive')}
                       onClick={() => {
                         setClearedUserIds(prev => {
                           const next = new Set(prev);

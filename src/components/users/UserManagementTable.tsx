@@ -186,7 +186,7 @@ export const UserManagementTable = ({
                         <div className="flex items-center gap-2">
                           <span className={`text-xs font-mono ${versionInfo.className}`}>{versionInfo.text}</span>
                           {isOutdated && (
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" title="Force reload for this user"
+                            <Button variant="ghost" size="icon-sm" className="" title="Force reload for this user"
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 await triggerForceReload(u.id);
