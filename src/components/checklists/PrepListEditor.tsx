@@ -72,7 +72,7 @@ export function PrepListEditor({ rows, onChange, locationId }: Props) {
           onRemove={() => removeRow(idx)}
         />
       ))}
-      <Button type="button" variant="ghost" size="sm" onClick={addRow} className="h-7 text-xs w-full justify-start">
+      <Button size="xs" type="button" variant="ghost" onClick={addRow} className="text-xs w-full justify-start">
         <Plus className="h-3 w-3 mr-1" /> Add prep item
       </Button>
     </div>
@@ -170,11 +170,10 @@ function PrepRowEditor({
           <Search className="h-3 w-3 absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         </div>
         {isLinked && (
-          <Button
+          <Button size="icon-sm"
             type="button"
             variant="ghost"
-            size="icon"
-            className="h-7 w-7 shrink-0"
+            className="shrink-0"
             onClick={unlink}
             title="Unlink from inventory"
           >
@@ -247,7 +246,7 @@ function PrepRowEditor({
         placeholder="—"
         className="h-7 text-xs px-1.5"
       />
-      <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={onRemove}>
+      <Button size="icon-sm" type="button" variant="ghost" className="" onClick={onRemove}>
         <X className="h-3 w-3" />
       </Button>
     </div>

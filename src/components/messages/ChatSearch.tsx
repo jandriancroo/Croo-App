@@ -32,10 +32,9 @@ export function ChatSearch({ onSearch, placeholder = "Search all chats..." }: Ch
           className="pl-10 pr-9 h-11 rounded-2xl border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
         />
         {query && (
-          <Button
+          <Button size="icon-sm"
             variant="ghost"
-            size="sm"
-            className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 p-0 rounded-full"
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full"
             onClick={handleClear}
           >
             <X className="h-4 w-4" />

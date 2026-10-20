@@ -84,10 +84,9 @@ export default function ArchivedRecipesSection({ brandId, searchQuery = "" }: Ar
                     className="flex items-center justify-between px-8 py-2 text-sm text-muted-foreground hover:bg-muted/10"
                   >
                     <span>{recipe.name}</span>
-                    <Button
+                    <Button size="xs"
                       variant="ghost"
-                      size="sm"
-                      className="h-7 gap-1 text-xs"
+                      className="gap-1 text-xs"
                       onClick={() => restoreMutation.mutate(recipe.id)}
                       disabled={restoreMutation.isPending}
                     >

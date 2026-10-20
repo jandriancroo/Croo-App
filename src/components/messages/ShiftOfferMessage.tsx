@@ -333,11 +333,11 @@ export function ShiftOfferMessage({ offerId, messageId, compact = false }: Shift
           {status && <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.c}`}>{status.t}</span>}
         </button>
         {offer.status === 'available' && !isMine ? (
-          <Button size="sm" className="h-9 shrink-0 rounded-full px-4" onClick={handleClaim} disabled={claiming}>
+          <Button size="xs" className="shrink-0 rounded-full px-4" onClick={handleClaim} disabled={claiming}>
             {claiming ? '…' : 'Claim'}
           </Button>
         ) : offer.status === 'claimed' && isAdmin ? (
-          <Button size="sm" variant="outline" className="h-9 shrink-0 rounded-full px-4" onClick={() => setExpanded(true)}>Review</Button>
+          <Button size="xs" variant="outline" className="shrink-0 rounded-full px-4" onClick={() => setExpanded(true)}>Review</Button>
         ) : null}
       </div>
     );

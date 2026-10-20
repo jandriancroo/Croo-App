@@ -652,7 +652,7 @@ function ChecklistItemCard({ item, index, updateItem, removeItem, canRemove, han
             />
           )}
           {canRemove && (
-            <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(index)} className="shrink-0 h-8 w-8">
+            <Button size="icon-sm" type="button" variant="ghost" onClick={() => removeItem(index)} className="shrink-0">
               <Trash2 className="h-4 w-4" />
             </Button>
           )}

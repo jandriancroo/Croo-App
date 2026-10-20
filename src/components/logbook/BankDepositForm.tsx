@@ -665,12 +665,11 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                             />
                           )}
                           {!day.alreadyDeposited && (
-                            <Button
+                            <Button size="icon-sm"
                               type="button"
                               variant={audit ? "outline" : "secondary"}
-                              size="icon"
                               className={cn(
-                                "h-9 w-9",
+                                "",
                                 audit && "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
                               )}
                               title={audit ? "Audited — tap to re-audit" : "Audit this deposit"}

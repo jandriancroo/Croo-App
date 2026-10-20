@@ -195,10 +195,10 @@ export function PositionManagementInline({ organizationId }: PositionManagementI
               autoFocus
               className="h-8 text-sm"
             />
-            <Button size="sm" className="h-8 w-8 p-0" onClick={handleAddPosition}>
+            <Button size="icon-sm" className="" onClick={handleAddPosition}>
               <Check className="h-3 w-3" />
             </Button>
-            <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setAdding(false); setNewPosition(''); }}>
+            <Button size="icon-sm" variant="ghost" className="" onClick={() => { setAdding(false); setNewPosition(''); }}>
               <X className="h-3 w-3" />
             </Button>
           </div>
@@ -222,10 +222,10 @@ export function PositionManagementInline({ organizationId }: PositionManagementI
                       autoFocus
                       className="h-7 w-28 text-xs"
                     />
-                    <Button size="sm" className="h-7 w-7 p-0" onClick={() => handleEditPosition(position.id, position.name, editValue)}>
+                    <Button size="icon-sm" className="" onClick={() => handleEditPosition(position.id, position.name, editValue)}>
                       <Check className="h-3 w-3" />
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingId(null); setEditValue(''); }}>
+                    <Button size="icon-sm" variant="ghost" className="" onClick={() => { setEditingId(null); setEditValue(''); }}>
                       <X className="h-3 w-3" />
                     </Button>
                   </div>

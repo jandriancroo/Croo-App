@@ -408,10 +408,9 @@ export function AddWidgetDialog({
         <DialogHeader className="shrink-0 border-b px-4 py-3">
           <DialogTitle className="flex items-center gap-2">
             {step !== 'type' && (
-              <Button 
+              <Button size="icon-sm" 
                 variant="ghost" 
-                size="sm" 
-                className="h-8 w-8 p-0"
+                className=""
                 onClick={handleBack}
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -558,7 +557,7 @@ export function AddWidgetDialog({
                         <img src={config.trackerPromoImageUrl} alt="Promo preview" className="absolute inset-0 h-full w-full object-cover" />
                         <PromoImageLayers />
                         <PromoBadgeOverlay label={config.trackerItemRefs?.[0] || config.title || 'Promo item'} />
-                        <Button type="button" variant="destructive" size="icon" className="absolute right-2 top-2 z-50 h-7 w-7" onClick={() => setConfig(prev => ({ ...prev, trackerPromoImageUrl: null }))}>
+                        <Button size="icon-sm" type="button" variant="destructive" className="absolute right-2 top-2 z-50" onClick={() => setConfig(prev => ({ ...prev, trackerPromoImageUrl: null }))}>
                           <X className="h-3.5 w-3.5" />
                         </Button>
                       </div>

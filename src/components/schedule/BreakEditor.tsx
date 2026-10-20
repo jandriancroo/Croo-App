@@ -86,7 +86,7 @@ export function BreakEditor({
             <span className="text-xs text-muted-foreground">({breaks.length})</span>
           )}
         </Label>
-        <Button type="button" variant="ghost" size="sm" onClick={addBreak} className="h-7 px-2">
+        <Button size="xs" type="button" variant="ghost" onClick={addBreak} className="px-2">
           <Plus className="h-3.5 w-3.5 mr-1" />
           Add break
         </Button>
@@ -120,11 +120,10 @@ export function BreakEditor({
                     onChange={(e) => updateBreak(b.id, { end_time: e.target.value })}
                     className="h-8 flex-1 min-w-0"
                   />
-                  <Button
+                  <Button size="icon-sm"
                     type="button"
                     variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
+                    className="shrink-0"
                     onClick={() => removeBreak(b.id)}
                   >
                     <Trash2 className="h-3.5 w-3.5 text-destructive" />

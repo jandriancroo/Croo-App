@@ -142,7 +142,7 @@ export function CloneLocationSettings() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium">Target Locations</label>
-              <Button variant="ghost" size="sm" onClick={selectAllTargets} className="text-xs h-7">
+              <Button size="xs" variant="ghost" onClick={selectAllTargets} className="text-xs">
                 {selectedTargets.length === targetLocations.length ? 'Deselect All' : 'Select All'}
               </Button>
             </div>

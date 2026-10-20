@@ -294,11 +294,10 @@ export function QuickPunchDialog({
           <div className="space-y-2">
             <Label>Date</Label>
             <div className="flex items-center gap-2">
-              <Button
+              <Button size="icon-sm"
                 type="button"
                 variant="outline"
-                size="icon"
-                className="h-9 w-9 shrink-0"
+                className="shrink-0"
                 onClick={() => {
                   const current = new Date(punchDate + 'T12:00:00');
                   setPunchDate(format(subDays(current, 1), 'yyyy-MM-dd'));
@@ -403,11 +402,10 @@ export function QuickPunchDialog({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Clock Out</Label>
-                  <Button
+                  <Button size="xs"
                     type="button"
                     variant="ghost"
-                    size="sm"
-                    className="h-6 text-xs text-muted-foreground"
+                    className="text-xs text-muted-foreground"
                     onClick={() => {
                       setShowClockOut(false);
                       setEndTime('');

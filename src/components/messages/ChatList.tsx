@@ -238,11 +238,10 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
           <div className="flex items-center gap-1.5 shrink-0">
             {/* Desktop: show pin button on hover */}
             {onTogglePin && (
-              <Button
+              <Button size="xs"
                 type="button"
                 variant="ghost"
-                size="icon"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex"
+                className="opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex"
                 onClick={(e) => {
                   e.stopPropagation();
                   onTogglePin(chat.id, chat.isPinned || false);

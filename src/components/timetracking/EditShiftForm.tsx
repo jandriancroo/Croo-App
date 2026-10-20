@@ -445,11 +445,10 @@ export function EditShiftForm({
           {shiftStates.length > 1 && (
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Shift #{idx + 1}</span>
-              <Button
+              <Button size="xs"
                 type="button"
                 variant="ghost"
-                size="sm"
-                className="text-destructive hover:text-destructive h-7 px-2 text-xs"
+                className="text-destructive hover:text-destructive px-2 text-xs"
                 onClick={() => setDeletingShiftIdx(idx)}
                 disabled={saving}
               >
@@ -585,11 +584,10 @@ export function EditShiftForm({
                 {PUNCH_LABEL[p.punch_type] || p.punch_type}{' '}
                 <span className="tabular-nums text-muted-foreground">{formatTimeForEdit(p)}</span>
               </span>
-              <Button
+              <Button size="xs"
                 type="button"
                 variant="ghost"
-                size="sm"
-                className="text-destructive hover:text-destructive h-7 px-2 text-xs"
+                className="text-destructive hover:text-destructive px-2 text-xs"
                 onClick={() => handleRemovePunch(p.id)}
                 disabled={saving}
               >

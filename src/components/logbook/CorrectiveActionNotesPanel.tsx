@@ -97,7 +97,7 @@ export function CorrectiveActionNotesPanel({
               <Lock className="h-3 w-3" /> Signed — locked
             </Badge>
           ) : dirty ? (
-            <Button size="sm" variant="secondary" className="h-7" onClick={save} disabled={saving}>
+            <Button size="xs" variant="secondary" className="" onClick={save} disabled={saving}>
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
               Save
             </Button>
@@ -131,7 +131,7 @@ export function CorrectiveActionNotesPanel({
         onOpenChange={(open) => { setTranscriptOpen(open); if (open) void loadTranscript(); }}
       >
         <CollapsibleTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-8 px-2 text-xs">
+          <Button size="xs" variant="ghost" className="px-2 text-xs">
             <ChevronDown className={`h-3.5 w-3.5 mr-1 transition-transform ${transcriptOpen ? "rotate-180" : ""}`} />
             {transcriptOpen ? "Hide" : "Show"} full transcript
           </Button>
@@ -150,10 +150,9 @@ export function CorrectiveActionNotesPanel({
                 className="text-xs font-mono"
                 onChange={(e) => { setTranscript(e.target.value); setDirty(true); }}
               />
-              <Button
+              <Button size="xs"
                 variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs mt-1"
+                className="px-2 text-xs mt-1"
                 onClick={() => setTranscriptFull(true)}
               >
                 <Maximize2 className="h-3.5 w-3.5 mr-1" />

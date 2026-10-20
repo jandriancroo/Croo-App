@@ -216,10 +216,9 @@ export function CorrectiveActionRecorder({
                 rows={8}
                 className="text-xs font-mono"
               />
-              <Button
+              <Button size="xs"
                 variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs mt-1"
+                className="px-2 text-xs mt-1"
                 onClick={() => setTranscriptFull(true)}
               >
                 <Maximize2 className="h-3.5 w-3.5 mr-1" />

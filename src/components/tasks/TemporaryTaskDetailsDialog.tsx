@@ -454,10 +454,9 @@ export function TemporaryTaskDetailsDialog({
                                 alt="Completion photo"
                                 className="w-full h-32 object-cover rounded-lg border"
                               />
-                              <Button
-                                size="sm"
+                              <Button size="xs"
                                 variant="secondary"
-                                className="absolute top-2 right-2 h-7 text-xs"
+                                className="absolute top-2 right-2 text-xs"
                                 onClick={() => handleToggleSubtask(subtask.id, false)}
                               >
                                 Remove

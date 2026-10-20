@@ -1281,14 +1281,14 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   const Icon = item.icon;
                   const isActive = location.pathname === item.path;
                   return (
-                    <Button
+                    <Button size="sm"
                       key={item.path}
                       variant={isActive ? 'secondary' : 'outline'}
                       onClick={() => {
                         navigate(item.path);
                         setMenuOpen(false);
                       }}
-                      className="justify-start gap-2 h-9 px-3"
+                      className="justify-start gap-2 px-3"
                       data-tour={item.path === '/users' ? 'nav-users' : item.path === '/my-team' ? 'nav-users' : undefined}
                     >
                       <Icon className="h-4 w-4" />
@@ -1344,14 +1344,14 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   const Icon = item.icon;
                   const isActive = location.pathname === item.path;
                   return (
-                    <Button 
+                    <Button size="sm" 
                       key={item.path} 
                       variant={isActive ? 'secondary' : 'outline'} 
                       onClick={() => {
                         navigate(item.path);
                         setMenuOpen(false);
                       }}
-                      className="justify-start gap-2 h-9 px-3"
+                      className="justify-start gap-2 px-3"
                       data-tour="nav-settings"
                     >
                       <Icon className="h-4 w-4" />
@@ -1439,13 +1439,13 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
 
                 {/* Replay Tour (shift_manager+) */}
                 {tourEligible && (
-                  <Button 
+                  <Button size="sm" 
                     variant="outline" 
                     onClick={() => {
                       setMenuOpen(false);
                       replayTour();
                     }}
-                    className="justify-start gap-2 h-9 px-3"
+                    className="justify-start gap-2 px-3"
                   >
                     <GraduationCap className="h-4 w-4" />
                     <span className="text-sm">Tour CrooHQ</span>
@@ -1453,13 +1453,13 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 )}
 
                 {/* Update App */}
-                <Button variant="outline" onClick={() => {
+                <Button size="sm" variant="outline" onClick={() => {
                   setMenuOpen(false);
                   const prevVersion = getCurrentAppVersion();
                   sessionStorage.setItem('pre_update_version', prevVersion);
                   toast.info('Updating app...');
                   setTimeout(() => window.location.reload(), 500);
-                }} className="justify-start gap-2 h-9 px-3">
+                }} className="justify-start gap-2 px-3">
                   <RefreshCw className="h-4 w-4" />
                   <span className="text-sm">Update</span>
                 </Button>

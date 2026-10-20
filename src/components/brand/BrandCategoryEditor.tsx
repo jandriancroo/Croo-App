@@ -130,10 +130,9 @@ export default function BrandCategoryEditor({ brandId, categories, open, onOpenC
             >
               <GripVertical className="h-3.5 w-3.5 text-muted-foreground cursor-grab flex-shrink-0" />
               <span className="flex-1 font-medium">{cat.name}</span>
-              <Button
+              <Button size="icon-sm"
                 variant="ghost"
-                size="icon"
-                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                className="text-muted-foreground hover:text-destructive"
                 onClick={() => deleteMutation.mutate(cat.id)}
               >
                 <Trash2 className="h-3 w-3" />
@@ -154,9 +153,8 @@ export default function BrandCategoryEditor({ brandId, categories, open, onOpenC
             }}
             className="h-8 text-sm"
           />
-          <Button
-            size="sm"
-            className="h-8 px-3"
+          <Button size="icon-sm"
+            className=""
             disabled={!newName.trim() || addMutation.isPending}
             onClick={() => addMutation.mutate(newName.trim())}
           >

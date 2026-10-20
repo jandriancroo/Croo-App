@@ -781,10 +781,9 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                               </Button>
                             </CollapsibleTrigger>
                           )}
-                          <Button
-                            size="icon"
+                          <Button size="icon-sm"
                             variant="ghost"
-                            className="h-7 w-7 text-destructive"
+                            className="text-destructive"
                             onClick={(e) => {
                               e.stopPropagation();
                               setAuditToDelete(audit.id);

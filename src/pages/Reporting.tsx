@@ -108,7 +108,7 @@ function SortableBlock({ block, onRemove, onEdit }: { block: ReportBlock; onRemo
         <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
         <span className="flex-1 text-xs font-medium leading-tight break-words line-clamp-2 min-w-0">{block.title}</span>
       </button>
-      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 flex-shrink-0" onClick={onRemove}><Trash2 className="h-3.5 w-3.5" /></Button>
+      <Button size="icon-sm" variant="ghost" className="flex-shrink-0" onClick={onRemove}><Trash2 className="h-3.5 w-3.5" /></Button>
     </div>
   );
 }
@@ -1008,10 +1008,10 @@ export default function Reporting() {
 
         {/* MOBILE CONTROL BAR — settings + data points + view toggle */}
         <div className="md:hidden flex items-center gap-2 px-3 py-2 border-b bg-card">
-          <Button variant="outline" size="sm" className="h-8 flex-1" onClick={() => setMobileSettingsOpen(true)}>
+          <Button size="xs" variant="outline" className="flex-1" onClick={() => setMobileSettingsOpen(true)}>
             <SlidersHorizontal className="h-3.5 w-3.5 mr-1" />Settings
           </Button>
-          <Button variant="outline" size="sm" className="h-8 flex-1" onClick={() => setMobileDataPointsOpen(true)}>
+          <Button size="xs" variant="outline" className="flex-1" onClick={() => setMobileDataPointsOpen(true)}>
             <Plus className="h-3.5 w-3.5 mr-1" />Add Block
           </Button>
         </div>
@@ -1162,7 +1162,7 @@ export default function Reporting() {
                   <>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-8 whitespace-nowrap">
+                        <Button size="xs" variant="outline" className="whitespace-nowrap">
                           {config.locationIds.length || 0} loc
                         </Button>
                       </PopoverTrigger>
@@ -1207,7 +1207,7 @@ export default function Reporting() {
           {preset === 'custom' && (
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8">
+                <Button size="xs" variant="outline" className="">
                   <CalendarIcon className="h-3.5 w-3.5 mr-1" />
                   {format(customRange.from, 'MMM d')} – {format(customRange.to, 'MMM d, yyyy')}
                 </Button>
@@ -1290,17 +1290,17 @@ export default function Reporting() {
               <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />Live Preview</div>
                 <div className="flex items-center gap-0.5 border rounded-md px-0.5 py-0.5 bg-background ml-2">
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setZoom(z => Math.max(0.25, +(z - 0.1).toFixed(2)))} title="Zoom out">
+                  <Button size="icon-sm" variant="ghost" className="" onClick={() => setZoom(z => Math.max(0.25, +(z - 0.1).toFixed(2)))} title="Zoom out">
                     <ZoomOut className="h-3.5 w-3.5" />
                   </Button>
                   <button onClick={() => setZoom(1)} className="text-xs font-medium tabular-nums w-10 text-center hover:text-primary" title="Reset to 100%">
                     {Math.round(zoom * 100)}%
                   </button>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setZoom(z => Math.min(2, +(z + 0.1).toFixed(2)))} title="Zoom in">
+                  <Button size="icon-sm" variant="ghost" className="" onClick={() => setZoom(z => Math.min(2, +(z + 0.1).toFixed(2)))} title="Zoom in">
                     <ZoomIn className="h-3.5 w-3.5" />
                   </Button>
                   <Separator orientation="vertical" className="h-4 mx-0.5" />
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
+                  <Button size="icon-sm" variant="ghost" className="" onClick={() => {
                     const el = previewScrollRef.current;
                     if (!el) return;
                     const avail = el.clientWidth - 32;

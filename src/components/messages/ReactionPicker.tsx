@@ -27,18 +27,17 @@ export function ReactionPicker({ onSelect }: ReactionPickerProps) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-6 px-2">
+        <Button size="icon-sm" variant="ghost" className="">
           <Smile className="h-4 w-4" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-2" align="start">
         <div className="flex gap-1">
           {REACTIONS.map((reaction) => (
-            <Button
+            <Button size="xs"
               key={reaction.id}
               variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 text-lg hover:scale-125 transition-transform"
+              className="p-0 text-lg hover:scale-125 transition-transform"
               onClick={() => handleSelect(reaction.id)}
               title={reaction.label}
             >

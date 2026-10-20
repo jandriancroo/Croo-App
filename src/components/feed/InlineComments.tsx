@@ -170,12 +170,11 @@ export function InlineComments({ postId, allowComments, currentUserId, canModera
                   maxLength={1000}
                   className="flex-1 h-8 rounded-full bg-muted px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
-                <Button
-                  size="icon"
+                <Button size="xs"
                   variant="ghost"
                   onClick={() => handleSendReply(c.id)}
                   disabled={!replyDraft.trim() || sendingReply}
-                  className="h-8 w-8 shrink-0 rounded-full"
+                  className="shrink-0 rounded-full"
                   aria-label="Send reply"
                 >
                   {sendingReply ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
@@ -226,12 +225,11 @@ export function InlineComments({ postId, allowComments, currentUserId, canModera
             maxLength={1000}
             className="flex-1 h-9 rounded-full bg-muted px-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
-          <Button
-            size="icon"
+          <Button size="xs"
             variant="ghost"
             onClick={handleSend}
             disabled={!draft.trim() || sending}
-            className="h-9 w-9 shrink-0 rounded-full"
+            className="shrink-0 rounded-full"
             aria-label="Send comment"
           >
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

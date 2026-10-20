@@ -448,12 +448,11 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-muted-foreground">Item {index + 1}</span>
                   {items.length > 1 && (
-                    <Button
+                    <Button size="icon-sm"
                       type="button"
                       variant="ghost"
-                      size="sm"
                       onClick={() => removeItem(item.id)}
-                      className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                      className="text-destructive hover:text-destructive"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -487,12 +486,11 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
                           <span className="text-xs text-muted-foreground">
                             {String.fromCharCode(97 + childIndex)}.
                           </span>
-                          <Button
+                          <Button size="icon-sm"
                             type="button"
                             variant="ghost"
-                            size="sm"
                             onClick={() => removeItem(child.id, item.id)}
-                            className="text-destructive hover:text-destructive h-6 w-6 p-0"
+                            className="text-destructive hover:text-destructive"
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
@@ -517,12 +515,11 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
                 )}
 
                 {/* Add sub-item button */}
-                <Button
+                <Button size="xs"
                   type="button"
                   variant="ghost"
-                  size="sm"
                   onClick={() => addSubItem(item.id)}
-                  className="text-xs text-muted-foreground h-8"
+                  className="text-xs text-muted-foreground"
                 >
                   <Plus className="h-3 w-3 mr-1" />
                   Add sub-item
@@ -566,12 +563,11 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
                       <p className="text-sm font-medium truncate">{attachment.name}</p>
                       <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
                     </div>
-                    <Button
+                    <Button size="icon-sm"
                       type="button"
                       variant="ghost"
-                      size="sm"
                       onClick={() => removeAttachment(index)}
-                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      className="text-destructive hover:text-destructive"
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -660,12 +656,11 @@ export function ReadAndSignForm({ locationId, employees, onSuccess, onCancel }: 
                       <p className="text-sm font-medium truncate">{attachment.name}</p>
                       <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
                     </div>
-                    <Button
+                    <Button size="icon-sm"
                       type="button"
                       variant="ghost"
-                      size="sm"
                       onClick={() => removeAttachment(index)}
-                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      className="text-destructive hover:text-destructive"
                     >
                       <X className="h-4 w-4" />
                     </Button>

@@ -761,11 +761,10 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
                           </Badge>
                         )}
                       </div>
-                      <Button
+                      <Button size="icon-sm"
                         type="button"
-                        size="icon"
                         variant="ghost"
-                        className="h-6 w-6"
+                        className=""
                         onClick={() => handleRemoveSubtask(index)}
                       >
                         <Trash2 className="h-3 w-3" />

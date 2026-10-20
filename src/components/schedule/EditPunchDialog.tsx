@@ -567,11 +567,10 @@ export function EditPunchDialog({
                   <div key={index} className="space-y-2 p-3 border rounded-lg bg-background">
                     <div className="flex items-center justify-between">
                       <Label className="text-xs font-medium">Break {index + 1}</Label>
-                      <Button
+                      <Button size="icon-sm"
                         type="button"
                         variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
+                        className=""
                         onClick={() => removeBreak(index)}
                       >
                         <X className="h-3 w-3" />

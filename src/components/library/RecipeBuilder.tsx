@@ -298,10 +298,9 @@ export function RecipeBuilder({ open, onOpenChange, recipeId, scope, brandId, or
               {heroUrl ? (
                 <>
                   <img src={heroUrl} alt="Recipe" className="absolute inset-0 w-full h-full object-cover" />
-                  <Button
-                    size="icon"
+                  <Button size="icon-sm"
                     variant="secondary"
-                    className="absolute top-2 right-2 h-7 w-7"
+                    className="absolute top-2 right-2"
                     onClick={() => setHeroUrl(null)}
                   >
                     <X className="h-4 w-4" />

@@ -205,10 +205,9 @@ export default function PendingVendorsCard() {
                       as printed on the invoice
                     </p>
                   </div>
-                  <Button
+                  <Button size="icon-sm"
                     variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 shrink-0"
+                    className="shrink-0"
                     onClick={() => dismiss.mutate(c)}
                     aria-label="Dismiss"
                   >
@@ -238,10 +237,9 @@ export default function PendingVendorsCard() {
                       Link to {suggestion.display_name}
                     </Button>
                   )}
-                  <Button
-                    size="sm"
+                  <Button size="xs"
                     variant="outline"
-                    className="h-8"
+                    className=""
                     onClick={() => {
                       setCreateFor(c);
                       setNewDisplay(c.raw_name);

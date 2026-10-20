@@ -98,7 +98,7 @@ export function ToastLinkField({ userId, currentLocationId, onLinked }: ToastLin
           <span className="text-muted-foreground truncate flex-1">
             Linked to Toast: <span className="font-medium text-foreground">{mapping.toast_name || mapping.toast_user_id}</span>
           </span>
-          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" disabled={saving} onClick={unlink}>Unlink</Button>
+          <Button size="xs" variant="ghost" className="px-2 text-xs" disabled={saving} onClick={unlink}>Unlink</Button>
         </div>
       ) : picking ? (
         <div className="space-y-1.5">
@@ -110,7 +110,7 @@ export function ToastLinkField({ userId, currentLocationId, onLinked }: ToastLin
               placeholder="Search Toast staff…"
               className="h-7 text-xs"
             />
-            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => { setPicking(false); setSearch(''); }}>
+            <Button size="icon-sm" variant="ghost" className="shrink-0" onClick={() => { setPicking(false); setSearch(''); }}>
               <X className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -136,7 +136,7 @@ export function ToastLinkField({ userId, currentLocationId, onLinked }: ToastLin
           )}
         </div>
       ) : (
-        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setPicking(true)}>
+        <Button size="xs" variant="outline" className="text-xs" onClick={() => setPicking(true)}>
           <Link2 className="h-3 w-3 mr-1" /> Link to Toast
         </Button>
       )}

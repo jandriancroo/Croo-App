@@ -157,7 +157,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
               onChange={(next) => (Object.keys(next) as (keyof typeof next)[]).forEach((k) => updateItem(index, k, next[k]))}
             />
           )}
-          <Button variant="ghost" size="icon" onClick={() => removeItem(index)} className="shrink-0 h-7 w-7">
+          <Button size="icon-sm" variant="ghost" onClick={() => removeItem(index)} className="shrink-0">
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -1047,7 +1047,7 @@ export default function EditChecklist() {
               <CardTitle className="text-base">Checklist Items</CardTitle>
               <CardDescription className="text-xs">Drag to reorder · Enter to add next</CardDescription>
             </div>
-            <Button onClick={() => addItem()} variant="outline" size="icon" className="h-8 w-8 shrink-0">
+            <Button size="icon-sm" onClick={() => addItem()} variant="outline" className="shrink-0">
               <Plus className="h-4 w-4" />
             </Button>
           </CardHeader>

@@ -145,10 +145,9 @@ export function SortableChecklistItem({
           {isAdmin && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
+                <Button size="icon-sm"
                   variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 flex-shrink-0"
+                  className="flex-shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <Pencil className="h-3.5 w-3.5" />

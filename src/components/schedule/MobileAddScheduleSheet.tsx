@@ -721,10 +721,10 @@ export function MobileAddScheduleSheet({
                 <>
                   {/* Day stepper */}
                   <div className="flex items-center justify-between rounded-xl border bg-card px-2 py-2">
-                    <Button
-                      variant="ghost" size="icon"
+                    <Button size="icon-sm"
+                      variant="ghost"
                       onClick={() => setDayCursor(c => (c - 1 + 7) % 7)}
-                      className="h-9 w-9"
+                      className=""
                     >
                       <ChevronLeft className="h-5 w-5" />
                     </Button>
@@ -740,10 +740,10 @@ export function MobileAddScheduleSheet({
                         {scheduleId && <Eye className="h-3.5 w-3.5 text-muted-foreground" />}
                       </p>
                     </button>
-                    <Button
-                      variant="ghost" size="icon"
+                    <Button size="icon-sm"
+                      variant="ghost"
                       onClick={() => setDayCursor(c => (c + 1) % 7)}
-                      className="h-9 w-9"
+                      className=""
                     >
                       <ChevronRight className="h-5 w-5" />
                     </Button>
@@ -871,7 +871,7 @@ export function MobileAddScheduleSheet({
                                   {tpl ? `Overrides "${tpl.template_name.split(/\d{1,2}:\d{2}/)[0].trim()}"` : 'Custom times below'}
                                 </p>
                               </div>
-                              <Button variant="ghost" size="icon" onClick={clearDayDraft} className="h-7 w-7 shrink-0">
+                              <Button size="icon-sm" variant="ghost" onClick={clearDayDraft} className="shrink-0">
                                 <Trash2 className="h-3.5 w-3.5 text-destructive" />
                               </Button>
                             </>
@@ -889,7 +889,7 @@ export function MobileAddScheduleSheet({
                                   {fmt12(tpl!.start_time)} – {fmt12(tpl!.end_time)}
                                 </p>
                               </div>
-                              <Button variant="ghost" size="icon" onClick={clearDayDraft} className="h-7 w-7 shrink-0">
+                              <Button size="icon-sm" variant="ghost" onClick={clearDayDraft} className="shrink-0">
                                 <Trash2 className="h-3.5 w-3.5 text-destructive" />
                               </Button>
                             </>
@@ -916,7 +916,7 @@ export function MobileAddScheduleSheet({
                         onChange={e => setCustomDayDraft(currentDraft?.start || '09:00', e.target.value)}
                       />
                       {currentDraft && (
-                        <Button variant="ghost" size="icon" onClick={clearDayDraft} className="h-9 w-9 shrink-0">
+                        <Button size="icon-sm" variant="ghost" onClick={clearDayDraft} className="shrink-0">
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       )}

@@ -98,10 +98,9 @@ export function GifPicker({ onSelect }: GifPickerProps) {
               className="pl-9 pr-9"
             />
             {search && (
-              <Button
+              <Button size="icon-sm"
                 variant="ghost"
-                size="sm"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
+                className="absolute right-1 top-1/2 -translate-y-1/2"
                 onClick={() => setSearch('')}
               >
                 <X className="h-3 w-3" />
@@ -111,11 +110,10 @@ export function GifPicker({ onSelect }: GifPickerProps) {
           {!search && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {categories.map((cat) => (
-                <Button
+                <Button size="xs"
                   key={cat}
                   variant="secondary"
-                  size="sm"
-                  className="h-6 text-xs capitalize"
+                  className="text-xs capitalize"
                   onClick={() => handleCategoryClick(cat)}
                 >
                   {cat}

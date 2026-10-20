@@ -267,11 +267,10 @@ export const UserManagementDialogs = ({ data }: UserManagementDialogsProps) => {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="temp-password">Temporary Password</Label>
-                <Button
+                <Button size="xs"
                   type="button"
                   variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
+                  className="px-2 text-xs"
                   onClick={() => data.setTempPassword(generateTempPassword())}
                 >
                   Generate

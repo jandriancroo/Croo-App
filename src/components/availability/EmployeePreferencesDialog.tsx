@@ -269,11 +269,10 @@ export function EmployeePreferencesDialog({
                               ? "Available all day"
                               : `${blocks.length} unavailable ${blocks.length === 1 ? "block" : "blocks"}`}
                           </span>
-                          <Button
+                          <Button size="xs"
                             type="button"
                             variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs"
+                            className="px-2 text-xs"
                             onClick={() => addBlock(key)}
                           >
                             <Plus className="h-3.5 w-3.5 mr-1" />
@@ -306,11 +305,10 @@ export function EmployeePreferencesDialog({
                               className="h-8 text-xs flex-1"
                               aria-label={`${DAY_LABELS[key]} unavailable end`}
                             />
-                            <Button
+                            <Button size="icon-sm"
                               type="button"
                               variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 flex-shrink-0 text-muted-foreground"
+                              className="flex-shrink-0 text-muted-foreground"
                               onClick={() => removeBlock(key, index)}
                               aria-label="Remove block"
                             >

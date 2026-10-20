@@ -883,10 +883,10 @@ export default function PunchClockCustomization() {
                         </div>
                       </div>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(theme)}>
+                        <Button size="icon-sm" variant="ghost" className="" onClick={() => openEditDialog(theme)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteTheme(theme.id)}>
+                        <Button size="icon-sm" variant="ghost" className="" onClick={() => handleDeleteTheme(theme.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -1056,19 +1056,17 @@ export default function PunchClockCustomization() {
                           style={{ backgroundImage: `url(${slide.imageUrl})` }}
                         />
                         <div className="absolute top-1 right-1 flex gap-1">
-                          <Button
+                          <Button size="icon-sm"
                             variant="secondary"
-                            size="sm"
-                            className="h-6 w-6 p-0"
+                            className=""
                             onClick={() => handleEditImage(index, slide.imageUrl)}
                             title="Crop & Zoom"
                           >
                             <Crop className="h-3 w-3" />
                           </Button>
-                          <Button
+                          <Button size="icon-sm"
                             variant="destructive"
-                            size="sm"
-                            className="h-6 w-6 p-0"
+                            className=""
                             onClick={() => updateSlide(index, "imageUrl", "")}
                           >
                             <X className="h-3 w-3" />

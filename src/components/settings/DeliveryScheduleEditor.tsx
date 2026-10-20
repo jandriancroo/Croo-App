@@ -116,17 +116,17 @@ export function DeliveryScheduleEditor({
                   </SelectContent>
                 </Select>
               </div>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive" onClick={() => removeSlot(i)}>
+              <Button size="icon-sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={() => removeSlot(i)}>
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
           ))}
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={addSlot}>
+            <Button size="xs" variant="outline" className="text-xs" onClick={addSlot}>
               <Plus className="h-3 w-3 mr-1" /> Add Slot
             </Button>
             {schedule.length > 0 && (
-              <Button size="sm" className="h-7 text-xs" onClick={save} disabled={isSaving}>
+              <Button size="xs" className="text-xs" onClick={save} disabled={isSaving}>
                 {isSaving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
                 Save Schedule
               </Button>

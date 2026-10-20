@@ -195,10 +195,9 @@ function DroppableDay({
     >
       {/* Header with copy buttons */}
       <div className="flex items-center justify-between mb-2">
-        <Button
+        <Button size="icon-sm"
           variant="ghost"
-          size="icon"
-          className="h-6 w-6"
+          className=""
           onClick={onCopyToPrevious}
           disabled={isFirst}
         >
@@ -213,10 +212,9 @@ function DroppableDay({
             <Users className="h-3 w-3 text-primary" />
           )}
         </button>
-        <Button
+        <Button size="icon-sm"
           variant="ghost"
-          size="icon"
-          className="h-6 w-6"
+          className=""
           onClick={onCopyToNext}
           disabled={isLast}
         >
@@ -257,10 +255,9 @@ function DroppableDay({
             min="0"
             step="100"
           />
-          <Button
+          <Button size="icon-sm"
             variant="ghost"
-            size="icon"
-            className="h-7 w-7"
+            className=""
             onClick={onSyncSales}
             title="Sync from sales data"
           >
