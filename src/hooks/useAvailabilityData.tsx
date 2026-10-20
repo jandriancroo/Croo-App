@@ -354,10 +354,15 @@ export function useAvailabilityData() {
   };
 
   const formatRequestedDate = (createdAt: string) => {
-    return formatDateTimeInTimezone(createdAt, TZ, {
+    const options: Intl.DateTimeFormatOptions = {
       month: "short",
       day: "numeric",
-    });
+      hour: "numeric",
+      minute: "2-digit",
+    };
+    // Fall back to the browser's local time when no store timezone is available
+    if (!TZ) return new Intl.DateTimeFormat("en-US", options).format(new Date(createdAt));
+    return formatDateTimeInTimezone(createdAt, TZ, options);
   };
 
   // Filtering & grouping
@@ -407,6 +412,11 @@ export function useAvailabilityData() {
     acc[weekKey].push(request);
     return acc;
   }, {} as Record<string, AvailabilityRequest[]>);
+
+  // Within each week group, show newest requests first (created_at descending)
+  Object.values(groupedByWeek).forEach((group) =>
+    group.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  );
 
   const sortedWeekKeys = Object.keys(groupedByWeek).sort();
 

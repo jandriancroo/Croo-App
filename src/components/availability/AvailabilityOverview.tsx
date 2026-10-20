@@ -156,7 +156,10 @@ export function AvailabilityOverview() {
   };
 
   const formatRequestedDate = (createdAt: string) => {
-    return formatInTimeZone(new Date(createdAt), TZ, "MMM d");
+    // Fall back to the browser's local time when no store timezone is available
+    return TZ
+      ? formatInTimeZone(new Date(createdAt), TZ, "MMM d, h:mm a")
+      : format(new Date(createdAt), "MMM d, h:mm a");
   };
 
   // Filter past requests (before start of current week)
