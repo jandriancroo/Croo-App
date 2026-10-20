@@ -58,13 +58,15 @@ export const ChecklistCard = memo(function ChecklistCard({
       {variant === 'card' && (
         <div 
           className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
-          style={{ 
-            background: isComplete 
-              ? 'hsl(var(--primary))' 
-              : isLocked 
-                ? 'hsl(var(--muted))' 
-                : 'hsl(var(--primary) / 0.5)' 
-          }} 
+          style={{
+            background: isComplete
+              ? 'hsl(var(--success))'
+              : showOverdue
+                ? 'hsl(var(--destructive))'
+                : isLocked
+                  ? 'hsl(var(--muted))'
+                  : 'hsl(var(--primary) / 0.5)'
+          }}
         />
       )}
 
@@ -83,7 +85,7 @@ export const ChecklistCard = memo(function ChecklistCard({
             {!isLocked && (
               <circle
                 cx="24" cy="24" r="20" fill="none"
-                stroke="hsl(var(--primary))"
+                stroke={ringColor}
                 strokeWidth="3" strokeLinecap="round"
                 strokeDasharray={2 * Math.PI * 20}
                 strokeDashoffset={isComplete ? 0 : (2 * Math.PI * 20) - (completionRate / 100) * (2 * Math.PI * 20)}
@@ -95,11 +97,16 @@ export const ChecklistCard = memo(function ChecklistCard({
             {isLocked ? (
               <Lock className="h-4 w-4 text-muted-foreground" />
             ) : isComplete ? (
-              <Check className="h-5 w-5 text-primary" strokeWidth={3} />
+              <Check className="h-5 w-5 text-success" strokeWidth={3} />
             ) : (
-              <span className="text-[11px] font-black text-primary">{completionRate}%</span>
+              <span className={cn("text-[11px] font-black", showOverdue ? "text-destructive" : "text-primary")}>{completionRate}%</span>
             )}
           </div>
+          {showOverdue && (
+            <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-background border border-destructive flex items-center justify-center shadow-sm">
+              <AlarmClock className="h-2.5 w-2.5 text-destructive" strokeWidth={2.5} />
+            </div>
+          )}
         </div>
 
         {/* Content */}
