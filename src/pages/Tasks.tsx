@@ -73,7 +73,7 @@ export default function Tasks() {
                     strokeLinecap="round" className="transition-all duration-500"
                   />
                 </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-foreground">
+                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-foreground">
                   {completionPercent}%
                 </span>
               </div>

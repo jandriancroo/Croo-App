@@ -1232,7 +1232,7 @@ export default function BrandPackConfigApprovals({ embedded = false }: { embedde
         <PageTitle color="orange"
           leading={<Button asChild variant="ghost" size="icon"><Link to={`/brand/${brandId}/inventory`} aria-label="Back"><ArrowLeft className="h-4 w-4" /><span className="sr-only">Back</span></Link></Button>}
           subtitle={<>Approving writes to <code>brand_pack_configs</code> and <code>location_pack_selections</code> only. Counts, items, and templates are not touched.</>}
-          action={<Badge variant="outline" className="h-11">{filteredRows.length} of {proposalRows.length}</Badge>}
+          action={<Badge variant="outline">{filteredRows.length} of {proposalRows.length}</Badge>}
         >Pack Config Approvals</PageTitle>
       )}
 
