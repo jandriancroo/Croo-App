@@ -208,7 +208,7 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
                 />
               )}
 
-              {renderPieGlyph(isLocked, completed, expected)}
+              {renderPieGlyph(isLocked, completed, expected, isOverdue)}
 
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 <div className="flex min-w-0 flex-col">
@@ -219,12 +219,6 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
                     <span className="text-[11px] text-muted-foreground">Nudged {nudgedAgo}m ago</span>
                   )}
                 </div>
-                {isOverdue && (
-                  <Badge variant="destructive" className="text-[9px] px-1 py-0 h-3.5 shrink-0 gap-0.5">
-                    <AlertCircle className="h-2.5 w-2.5" />
-                    Overdue
-                  </Badge>
-                )}
               </div>
 
               <ChecklistStat
