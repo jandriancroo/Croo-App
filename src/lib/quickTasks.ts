@@ -26,11 +26,11 @@ export async function notifyTaskAssigned(opts: { taskId: string; title: string; 
       body: opts.title,
       notification_type: 'task_assigned',
       data: { type: 'task_assigned', task_id: opts.taskId },
+      location_id: opts.locationId,
     };
     if (opts.employeeIds.length > 0) pushBody.user_ids = opts.employeeIds;
     if (opts.roles.length > 0) {
       pushBody.roles = opts.roles;
-      pushBody.location_id = opts.locationId;
     }
     if (pushBody.user_ids || pushBody.roles) {
       await supabase.functions.invoke('send-push-notification', { body: pushBody });
