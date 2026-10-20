@@ -70,4 +70,4 @@ export const mealFixtures = [
 export const hemetMealRules = { _basis: 'law', _paid: false, _first_h: 5, _duration: 30, _min_unpaid: 30, _waiver1: null, _second_h: 10, _waiver2: null };
 
 /** The on-track band in points (server _labor_pace_on_track_band). */
-export const ON_TRACK_BAND = 1.0;
+export const ON_TRACK_BAND = 0.5;

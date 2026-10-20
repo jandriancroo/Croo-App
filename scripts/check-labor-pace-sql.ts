@@ -42,7 +42,7 @@ for (const m of mealFixtures) {
   const sec = await rpc('_labor_pace_meal_sec', { _gross: m.gross, ...hemetMealRules });
   check(`break size: ${m.name}`, Number(sec) === m.sec, `got=${sec}`);
 }
-check('on-track band is 1.0 point', Number(await rpc('_labor_pace_on_track_band', {})) === ON_TRACK_BAND);
+check('on-track band is 0.5 point', Number(await rpc('_labor_pace_on_track_band', {})) === ON_TRACK_BAND);
 
 for (const id of STORES) {
   const [p, l] = await Promise.all([rpc('get_labor_pace', { _location_id: id }), rpc('get_store_labor', { _location_ids: [id], _start: '2026-01-01', _end: '2026-01-01' }).catch(() => null)]);
