@@ -13,6 +13,7 @@ import { useSchedulePreferences } from "@/hooks/useSchedulePreferences";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Settings, Calendar, Copy, Trash2, Wrench, ChevronDown, AlertTriangle, Sparkles, History, Minimize2, Maximize2, Printer } from "lucide-react";
+import { shareSchedulePdf } from "@/utils/shareSchedulePdf";
 import { exportScheduleToPrint } from "@/utils/exportSchedulePrint";
 import { Badge } from "@/components/ui/badge";
 import { DateNavigator } from "@/components/ui/date-navigator";
@@ -271,15 +272,17 @@ export default function Schedule() {
     });
   };
 
-  const handlePrintSchedule = () => {
+  const buildPrintData = () => {
     const printProfiles = profiles.map((p: any) => ({ id: p.id, fullName: p.full_name, role: p.role }));
     const printShifts = shifts.map((s: any) => {
       const dayIdx = (new Date(s.shift_date).getDay() + 6) % 7;
       return { userId: s.user_id || "", dayIndex: dayIdx, startTime: s.start_time, endTime: s.end_time, isTimeOff: s.is_time_off, templateName: s.template?.template_name, templateColor: s.template?.color, station_id: s.station_id, template: s.template };
     });
     const printEvents = events.map((e: any) => ({ dayIndex: e.day_of_week, name: e.event_name, time: e.event_time }));
-    exportScheduleToPrint({ locationName: currentLocation?.name || "Schedule", weekStart: currentWeekStart, profiles: printProfiles, shifts: printShifts, events: printEvents, stations: useStationGrouping ? stations : undefined });
+    return { locationName: currentLocation?.name || "Schedule", weekStart: currentWeekStart, profiles: printProfiles, shifts: printShifts, events: printEvents, stations: useStationGrouping ? stations : undefined };
   };
+  const handlePrintSchedule = () => exportScheduleToPrint(buildPrintData());
+  const handleSharePdf = () => shareSchedulePdf(buildPrintData());
 
 
 
@@ -312,6 +315,7 @@ export default function Schedule() {
           onGoLive={handleGoLive}
           onSendUpdate={requestUpdate}
           onOpenHistory={() => setHistoryOpen(true)}
+          onSharePdf={handleSharePdf}
           onRestored={() => fetchScheduleData(false)}
           approval={approval}
           onApprovalChanged={onApprovalChanged}
