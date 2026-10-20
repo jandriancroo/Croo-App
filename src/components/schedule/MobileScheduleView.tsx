@@ -20,6 +20,7 @@ import { useToastShifts, type ToastShiftRow } from '@/hooks/useToastShifts';
 import { useToastFreshness } from '@/hooks/useToastFreshness';
 import { QuickPunchDialog } from './QuickPunchDialog';
 import { ScheduleActionSplitButton } from './ScheduleActionSplitButton';
+import { PageTitle } from '@/components/PageTitle';
 import { EditPunchDialog } from './EditPunchDialog';
 import { invalidatePunchViews, usePunchViewsRefresh } from '@/lib/punchEditGuard';
 import { MobileEventDialog } from './MobileEventDialog';
@@ -817,6 +818,7 @@ export function MobileScheduleView({
   // Content for Schedule tab
   const renderScheduleContent = () => (
     <div className="space-y-0.5">
+      <PageTitle color="teal">Schedule</PageTitle>
       {/* Week Header - Centered with week label */}
       <div className="flex flex-col items-center gap-0.5">
         <DateNavigator
@@ -1041,18 +1043,12 @@ export function MobileScheduleView({
           <div className="flex flex-col h-full">
             <div className="flex-1 overflow-auto px-[max(1rem,env(safe-area-inset-left))] pt-3 pb-3 space-y-1.5">
               {/* Date header */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0 flex-1 flex justify-start">
-                  <DateNavigator
-                    onPrev={handlePreviousWeek}
-                    onNext={handleNextWeek}
-                    label={`${format(selectedDate, 'EEE, MMM d')}`}
-                  />
-                </div>
+              <PageTitle color="teal" action={
                   <ScheduleActionSplitButton
                     isToastLaborStore={isToastLaborStore}
                     isToday={isSelectedDateToday}
                     hasSchedule={!!scheduleId}
+                    isPublished={isPublished}
                     onQuickPunch={() => setQuickPunchOpen(true)}
                     onNewShift={() => {
                       setAddSheetTab('shift');
@@ -1064,6 +1060,15 @@ export function MobileScheduleView({
                     onNewEvent={() => setEventDialogOpen(true)}
                     onSharePdf={onSharePdf}
                   />
+              }>
+                Schedule
+              </PageTitle>
+              <div className="flex items-center justify-center">
+                <DateNavigator
+                  onPrev={handlePreviousWeek}
+                  onNext={handleNextWeek}
+                  label={`${format(selectedDate, 'EEEE, MMMM d')}`}
+                />
               </div>
 
               {/* Week Calendar Strip */}
