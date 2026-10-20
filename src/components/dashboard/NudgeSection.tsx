@@ -28,12 +28,12 @@ export function DashSectionHeader({
   tile: React.ReactNode; title: string; chips: React.ReactNode; open: boolean; onToggle: () => void; right?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex w-full min-w-0 items-center gap-2">
       <button type="button" onClick={onToggle} aria-expanded={open} className="flex min-h-[44px] flex-1 min-w-0 items-center gap-3 text-left">
         {tile}
         <span className="min-w-0 flex-1">
           <span className="block text-[16px] font-extrabold leading-tight">{title}</span>
-          <span className="mt-1 flex flex-wrap gap-1.5">{chips}</span>
+          <span className="mt-1 flex min-w-0 flex-wrap gap-1.5">{chips}</span>
         </span>
       </button>
       {right}
