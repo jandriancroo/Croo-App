@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils';
 import { DashSectionTitle } from '@/components/dashboard/DashSectionTitle';
 import { ChecklistStat } from '@/components/dashboard/ChecklistStat';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
-import { NudgeBadge } from '@/components/dashboard/NudgeBadge';
 
 interface ChecklistItem {
   id: string;
@@ -25,11 +24,6 @@ interface ChecklistsGridProps {
   trainingRemaining?: number;
   /** Total trainee rows — added to the header's total */
   trainingTotal?: number;
-  /** Managers and up: show the nudge badge on unfinished, open rows */
-  canNudge?: boolean;
-  onNudge?: (checklist: { id: string; title: string }) => void;
-  /** 'checklist:<id>' -> minutes since the last nudge at this store (last hour only) */
-  recentlyNudged?: Record<string, number>;
 }
 
 export const ChecklistsGrid = React.memo(function ChecklistsGrid({
@@ -39,9 +33,6 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
   trainingRows,
   trainingRemaining = 0,
   trainingTotal = 0,
-  canNudge = false,
-  onNudge,
-  recentlyNudged,
 }: ChecklistsGridProps) {
   const navigate = useNavigate();
   const { getBusinessDateInTimezone } = useLocationTimezone();
@@ -177,10 +168,6 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
             return nowSeconds > dH * 3600 + dM * 60 + (dS || 0);
           })();
 
-          const showNudge = canNudge && !!onNudge && !isLocked && expected > 0 && completed < expected;
-          const nudgedAgo = recentlyNudged?.[`checklist:${checklist.id}`];
-          const cooling = nudgedAgo != null;
-
           return (
             <div
               key={checklist.id}
@@ -191,13 +178,6 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
                 isLocked ? 'opacity-60' : 'cursor-pointer hover:bg-muted/40'
               )}
             >
-              {showNudge && (
-                <NudgeBadge
-                  onClick={() => onNudge!({ id: checklist.id, title: checklist.title })}
-                  minutesAgo={nudgedAgo}
-                  style={{ top: -20, right: -1 }}
-                />
-              )}
 
               {renderPieGlyph(isLocked, completed, expected, isOverdue)}
 
@@ -206,9 +186,6 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
                   <span className="min-w-0 truncate text-[15px] font-medium tracking-[-0.01em] text-foreground">
                     {checklist.title}
                   </span>
-                  {showNudge && cooling && (
-                    <span className="text-[11px] text-muted-foreground">Nudged {nudgedAgo}m ago</span>
-                  )}
                 </div>
               </div>
 

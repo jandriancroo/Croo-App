@@ -28,8 +28,9 @@ import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { QuickTasksSection } from '@/components/dashboard/QuickTasksSection';
 import { ChecklistsGrid } from '@/components/dashboard/ChecklistsGrid';
-import { QuickNudgeSheet } from '@/components/dashboard/QuickNudgeSheet';
-import type { TargetType } from '@/lib/quickNudges';
+import { NudgeSection } from '@/components/dashboard/NudgeSection';
+import { NUDGE_ROLES_CLIENT } from '@/lib/quickNudges';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { TrainingAssignmentsSection } from '@/components/dashboard/TrainingAssignmentsSection';
 import { CateringOrderDialog } from '@/components/dashboard/CateringOrderDialog';
 import { useChecklistCompletion } from '@/hooks/useChecklistCompletion';
@@ -527,43 +528,21 @@ export default function Dashboard() {
   const trainingTotal = trainingRowsFlat.filter(a => a.expected > 0).length;
   const trainingRemaining = trainingRowsFlat.filter(a => a.expected > 0 && a.completed < a.expected).length;
 
-  // Quick Nudge (managers and up): the sheet target and any nudge for a checklist at this store in the last hour.
-  const canNudge = isManager;
-  const [nudgeTarget, setNudgeTarget] = useState<{ type: TargetType; id: string; title: string } | null>(null);
-  const onNudge = useCallback((t: { type: TargetType; id: string; title: string }) => setNudgeTarget(t), []);
-  const { data: recentlyNudged } = useQuery({
-    queryKey: ['quick-nudges-recent', currentLocation?.id],
-    enabled: canNudge && !!currentLocation?.id,
-    staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
-    queryFn: async () => {
-      const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-      const { data } = await supabase
-        .from('nudge_log')
-        .select('target_type, target_id, created_at')
-        .eq('location_id', currentLocation!.id)
-        .gte('created_at', since)
-        .order('created_at', { ascending: false })
-        .limit(200);
-      const out: Record<string, number> = {};
-      for (const r of data || []) {
-        const k = `${r.target_type}:${r.target_id}`;
-        if (out[k] == null) out[k] = Math.max(0, Math.floor((Date.now() - new Date(r.created_at).getTime()) / 60000));
-      }
-      return out;
-    },
-  });
+  // Quick Nudge lives in one Nudge section: the swipe-up manager dash on phones, top of the Dash here on iPad/desktop.
+  const { role: myRole } = useUserRole() as { role: string | null };
+  const isMobileDash = useIsMobile();
+  const showNudgeSection = !isMobileDash && !!myRole && NUDGE_ROLES_CLIENT.includes(myRole);
 
   const quickTasksContent = (
-    <QuickTasksSection locationSettings={locationSettings} timezone={timezone} canNudge={canNudge} onNudge={onNudge} recentlyNudged={recentlyNudged} />
+    <>
+    {showNudgeSection && <NudgeSection locationId={currentLocation?.id} className="mb-4" />}
+    <QuickTasksSection locationSettings={locationSettings} timezone={timezone} />
+    </>
   );
 
   const checklistsGridContent = (
     <>
     <ChecklistsGrid
-      canNudge={canNudge}
-      onNudge={(c) => onNudge({ type: 'checklist', ...c })}
-      recentlyNudged={recentlyNudged}
       checklists={checklists}
       getCompletionData={getCompletionData}
       timezone={timezone}
@@ -578,15 +557,6 @@ export default function Dashboard() {
         />
       }
     />
-    {canNudge && (
-      <QuickNudgeSheet
-        targetType={nudgeTarget?.type ?? null}
-        targetId={nudgeTarget?.id ?? null}
-        title={nudgeTarget?.title ?? ''}
-        onClose={() => setNudgeTarget(null)}
-        onSent={() => queryClient.invalidateQueries({ queryKey: ['quick-nudges-recent', currentLocation?.id] })}
-      />
-    )}
     </>
   );
 

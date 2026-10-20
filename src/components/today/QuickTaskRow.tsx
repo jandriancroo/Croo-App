@@ -1,7 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Check } from 'lucide-react';
-import { NudgeBadge } from '@/components/dashboard/NudgeBadge';
 
 /** Same circle language as the Dash checklists: hollow, red when late, pie for steps, green check when done. */
 function TaskGlyph({ done, overdue, progress }: { done: boolean; overdue: boolean; progress?: { done: number; total: number } | null }) {
@@ -41,17 +40,16 @@ interface QuickTaskRowProps {
   done?: boolean;
   progress?: { done: number; total: number } | null;
   onSelect: () => void;
-  nudge?: { onClick: () => void; minutesAgo?: number };
 }
 
 /** Compact (~33px) quick task row for the mobile Dash Quick Tasks section. */
-export function QuickTaskRow({ title, dueLabel, overdue, done, progress, onSelect, nudge }: QuickTaskRowProps) {
+export function QuickTaskRow({ title, dueLabel, overdue, done, progress, onSelect }: QuickTaskRowProps) {
   return (
     <div className={cn('relative', done && 'opacity-60')}>
       <button
         type="button"
         onClick={onSelect}
-        className={cn('flex h-[33px] w-full items-center gap-2 bg-card px-2.5 text-left active:bg-muted/60', nudge && 'pr-11')}
+        className={cn('flex h-[33px] w-full items-center gap-2 bg-card px-2.5 text-left active:bg-muted/60')}
       >
         <TaskGlyph done={!!done} overdue={!!overdue} progress={progress} />
         <span className={cn('flex-1 truncate text-[13px] font-medium text-foreground', done && 'line-through')}>{title}</span>
@@ -64,8 +62,6 @@ export function QuickTaskRow({ title, dueLabel, overdue, done, progress, onSelec
           <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">{progress.done}/{progress.total}</span>
         )}
       </button>
-
-      {nudge && !done && <NudgeBadge onClick={nudge.onClick} minutesAgo={nudge.minutesAgo} style={{ top: -4, right: 0 }} />}
     </div>
   );
 }
