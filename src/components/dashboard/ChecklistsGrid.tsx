@@ -1,8 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, AlertCircle, Lock, Check } from 'lucide-react';
+import { ChevronRight, Clock, Lock, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 import { DashSectionTitle } from '@/components/dashboard/DashSectionTitle';
 import { ChecklistStat } from '@/components/dashboard/ChecklistStat';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
@@ -89,20 +88,9 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
     return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
-  // Pie glyph color ramp — text-color classes drive both the ring and the
-  // wedge (SVG strokes use currentColor). Lime steps one shade darker than the
-  // old segment ramp so the thin ring stays visible on white cards.
-  const pieColorClass = (percent: number) => {
-    if (percent >= 90) return 'text-emerald-500';
-    if (percent >= 80) return 'text-emerald-400';
-    if (percent >= 70) return 'text-green-400';
-    if (percent >= 60) return 'text-lime-500';
-    if (percent >= 50) return 'text-lime-400';
-    if (percent >= 30) return 'text-slate-400';
-    return 'text-slate-300';
-  };
-
-  const renderPieGlyph = (isLocked: boolean, completed: number, expected: number) => {
+  // One green (complete), one red (overdue), teal while in progress.
+  // Overdue lists show a clock inside the red ring instead of the pie.
+  const renderPieGlyph = (isLocked: boolean, completed: number, expected: number, isOverdue: boolean) => {
     // a. Locked — muted circle with a lock
     if (isLocked) {
       return (
@@ -112,21 +100,30 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
       );
     }
 
-    // b. Complete — solid emerald circle with a check
+    // b. Complete — solid green circle with a check
     if (expected > 0 && completed >= expected) {
       return (
-        <div aria-hidden className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600">
+        <div aria-hidden className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-success">
           <Check className="h-4 w-4 text-white" strokeWidth={3} />
         </div>
       );
     }
 
-    // c. Not started / no items — empty ring
+    // c. Overdue — red ring with a clock inside
+    if (isOverdue) {
+      return (
+        <div aria-hidden className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-destructive">
+          <Clock className="h-3.5 w-3.5 text-destructive" strokeWidth={2.5} />
+        </div>
+      );
+    }
+
+    // d. Not started / no items — empty ring
     if (completed === 0 || expected === 0) {
       return <div aria-hidden className="h-7 w-7 shrink-0 rounded-full border-2 border-border" />;
     }
 
-    // d. In progress — pie wedge inside a ring (2px ring, 3px gap, r=9 wedge)
+    // e. In progress — teal pie wedge inside a ring (2px ring, 3px gap, r=9 wedge)
     const pct = Math.min(100, (completed / expected) * 100);
     const wedge = (pct / 100) * 2 * Math.PI * 4.5;
     return (
@@ -135,7 +132,7 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
         width="28"
         height="28"
         viewBox="0 0 28 28"
-        className={cn('shrink-0', pieColorClass(Math.round(pct)))}
+        className="shrink-0 text-primary"
       >
         <circle cx="14" cy="14" r="13" fill="none" stroke="currentColor" strokeWidth="2" />
         <circle
@@ -206,7 +203,7 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
                 />
               )}
 
-              {renderPieGlyph(isLocked, completed, expected)}
+              {renderPieGlyph(isLocked, completed, expected, isOverdue)}
 
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 <div className="flex min-w-0 flex-col">
@@ -217,12 +214,6 @@ export const ChecklistsGrid = React.memo(function ChecklistsGrid({
                     <span className="text-[11px] text-muted-foreground">Nudged {nudgedAgo}m ago</span>
                   )}
                 </div>
-                {isOverdue && (
-                  <Badge variant="destructive" className="text-[9px] px-1 py-0 h-3.5 shrink-0 gap-0.5">
-                    <AlertCircle className="h-2.5 w-2.5" />
-                    Overdue
-                  </Badge>
-                )}
               </div>
 
               <ChecklistStat
