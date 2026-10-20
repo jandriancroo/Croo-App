@@ -513,6 +513,29 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Only notify people assigned to this store. Fail open on lookup errors.
+    if (location_id) {
+      const { data: assigned, error: assignedErr } = await supabaseClient
+        .from('user_locations')
+        .select('user_id')
+        .eq('location_id', location_id)
+        .in('user_id', user_ids);
+      if (assignedErr) {
+        console.error('[location filter] user_locations lookup failed, sending unchanged:', assignedErr);
+      } else {
+        const allowed = new Set((assigned || []).map((r: any) => r.user_id));
+        const before = user_ids.length;
+        user_ids = user_ids.filter((id: string) => allowed.has(id));
+        console.log(`[location filter] dropped ${before - user_ids.length} of ${before} recipients not assigned to location ${location_id}`);
+        if (user_ids.length === 0) {
+          return new Response(
+            JSON.stringify({ message: "No users assigned to this location" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+
     // Get user roles for all requested users
     const { data: userRoles, error: rolesError } = await supabaseClient
       .from('user_roles')
