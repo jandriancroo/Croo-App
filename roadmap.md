@@ -1,10 +1,13 @@
 # Roadmap
 
 ## CrooHQ public SEO — Oct 20
-- [ ] Tie SEO work to the unresolved hiring/job syndication issue; recover prior diagnosis and verify live job discovery.
-- [ ] Refresh SEO checks and research US restaurant-owner searches.
-- [ ] Improve verified public-page SEO issues without touching locked restaurant tools.
-- [ ] Verify public pages and record any live-publication or Google reporting setup blockers.
+- [x] Verify provider: croohq.com uses Wix nameservers; Cloudflare response headers do not establish a user-owned Cloudflare account. Connection cancelled, not linked.
+- [x] Recover September hiring diagnosis and test live job discovery: feed and direct rendered functions work; public job URLs serve homepage shell; sampled Hemet job is unknown to Google.
+- [x] Refresh foundations and research US restaurant-owner searches with Semrush; connect Jordan's Google Search Console. Homepage indexed; Sep 19–Oct 16 baseline: 22 clicks, 102 impressions.
+- [x] Align homepage search/social metadata to restaurant operations software; deploy existing dynamic sitemap with homepage and authoritative listing lastmod only; submit sitemap to verified Domain property.
+- [x] Verify homepage and Jobs navigation in browser, deployed sitemap XML and automatic build OK; locked restaurant features untouched.
+- [ ] Homepage metadata reaches production on next Jordan-approved publish; not published in this task.
+- [ ] Hiring routing repair blocked on identifying an accessible user-owned routing configuration; Wix NS means September Cloudflare ownership assumption is unverified. No DNS changes, no new Cloudflare infrastructure. External child sitemap finding remains unresolved until a same-domain endpoint exists; existing mechanism preserved.
 
 ## Theo monthly numbers — Oct 18
 - [x] Inventory Sales Summary metrics and extract byte-equivalent goal/pace/status/LY arithmetic without changing dashboard inputs or cube payloads.
