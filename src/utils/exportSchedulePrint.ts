@@ -51,7 +51,7 @@ function calcHours(start: string, end: string): number {
   return diff / 60;
 }
 
-export function exportScheduleToPrint(data: SchedulePrintData) {
+export function buildSchedulePrintHtml(data: SchedulePrintData): string {
   const weekEnd = addDays(data.weekStart, 6);
   const weekLabel = `${format(data.weekStart, "MMM d")} – ${format(weekEnd, "MMM d, yyyy")}`;
   const dayHeaders = Array.from({ length: 7 }, (_, i) => {
@@ -295,6 +295,11 @@ export function exportScheduleToPrint(data: SchedulePrintData) {
 </div>
 </body></html>`;
 
+  return html;
+}
+
+export function exportScheduleToPrint(data: SchedulePrintData) {
+  const html = buildSchedulePrintHtml(data);
   // Toolbar (hides on print)
   const toolbarHtml = `
     <div id="pdf-toolbar" style="
