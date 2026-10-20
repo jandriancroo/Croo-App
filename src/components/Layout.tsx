@@ -3,6 +3,7 @@ import { ReactNode, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
+import { QuickNudgeTutorial } from '@/components/dashboard/QuickNudgeTutorial';
 import { registerMenuControl, unregisterMenuControl } from '@/components/onboarding/tourMenuBridge';
 import { registerDockControl, unregisterDockControl } from '@/components/dock/dockBridge';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
@@ -1591,6 +1592,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
 
       {/* Onboarding Tour */}
       <OnboardingTour run={runTour} onComplete={completeTour} />
+      <QuickNudgeTutorial />
 
     </div>;
 };

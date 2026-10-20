@@ -17,11 +17,13 @@ interface Props {
   title: string;
   onClose: () => void;
   onSent?: () => void;
+  /** Preselect this template by name when it fits (e.g. 'Heads-up' for events). */
+  preferTemplateName?: string;
 }
 
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join('');
 
-export function QuickNudgeSheet({ targetType, targetId, title, onClose, onSent }: Props) {
+export function QuickNudgeSheet({ targetType, targetId, title, onClose, onSent, preferTemplateName }: Props) {
   const open = !!targetType && !!targetId;
   const { data, isLoading, error } = useQuery({
     queryKey: ['quick-nudge-options', targetType, targetId],
@@ -51,14 +53,15 @@ export function QuickNudgeSheet({ targetType, targetId, title, onClose, onSent }
   useEffect(() => {
     if (!open) { setMessage(''); setLoadedBody(null); setTemplateIdx(-1); return; }
     if (templates.length && loadedBody === null) {
-      let i = templates.findIndex((t) => t.id === data?.default_template_id && !t.missing_fields.length);
+      let i = preferTemplateName ? templates.findIndex((t) => t.name === preferTemplateName && !t.missing_fields.length) : -1;
+      if (i < 0) i = templates.findIndex((t) => t.id === data?.default_template_id && !t.missing_fields.length);
       if (i < 0) i = templates.findIndex((t) => !t.missing_fields.length);
       setTemplateIdx(i);
       const body = i >= 0 ? templates[i].body : '';
       setMessage(body);
       setLoadedBody(body);
     }
-  }, [open, templates, loadedBody, data?.default_template_id]);
+  }, [open, templates, loadedBody, data?.default_template_id, preferTemplateName]);
 
   const pickTemplate = (i: number) => {
     if (i === templateIdx || templates[i].missing_fields.length) return;

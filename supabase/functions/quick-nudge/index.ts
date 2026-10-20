@@ -5,7 +5,8 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { authenticateCaller } from "../_shared/callerAuth.ts";
 import { roleForUser, NUDGE_ROLES } from "../_shared/theoActions.ts";
 import { renderNudgeText, fieldsFor, missingFields, DEFAULT_NUDGE_TEMPLATES, MAX_MESSAGE, NUDGE_COOLDOWN_MIN, FIELD_LABELS, TARGET_TYPES, type TargetType } from "../_shared/nudgePlan.ts";
-import { loadTarget, nudgeAudience, senderFirstName } from "../_shared/nudgeData.ts";
+import { loadTarget, nudgeAudience, senderFirstName, nudgeableTargets, storeTimezone } from "../_shared/nudgeData.ts";
+import { buildNudgeList } from "../_shared/nudgeList.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -22,6 +23,7 @@ Deno.serve(async (req) => {
     const type = body?.target_type as TargetType;
     const targetId = body?.target_id;
     // b)
+    if (action === "list") return await listNudgeables(body?.location_id, userId);
     if (action !== "options" && action !== "send") return json({ error: "Unknown action." }, 400);
     if (!TARGET_TYPES.includes(type) || typeof targetId !== "string" || !UUID.test(targetId)) return json({ error: "target_type and target_id are required." }, 400);
 
@@ -148,3 +150,34 @@ Deno.serve(async (req) => {
     return json({ error: e instanceof Error ? e.message : "Something went wrong." }, 500);
   }
 });
+
+// LIST: today's nudgeable items at one store, built from the same canNudge* rules as send (via nudgeableTargets).
+async function listNudgeables(locationId: unknown, userId: string): Promise<Response> {
+  if (typeof locationId !== "string" || !UUID.test(locationId)) return json({ error: "location_id is required." }, 400);
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+  const { role } = await roleForUser(admin, userId);
+  if (!role || !NUDGE_ROLES.includes(role)) return json({ error: "Only managers can send nudges." }, 403);
+  const { data: access, error: accErr } = await admin.rpc("has_location_access", { _user_id: userId, _location_id: locationId });
+  if (accErr || access !== true) return json({ error: "You don't have access to this store." }, 403);
+
+  const now = Date.now();
+  const [tz, targets, { data: bd }] = await Promise.all([
+    storeTimezone(admin, locationId), nudgeableTargets(admin, locationId), admin.rpc("business_date", { _location_id: locationId }),
+  ]);
+  const ok = targets.filter((t) => !("code" in t.verdict));
+  const clIds = ok.filter((t) => t.type === "checklist").map((t) => t.id);
+  const taskIds = ok.filter((t) => t.type === "task").map((t) => t.id);
+  const evIds = ok.filter((t) => t.type === "event").map((t) => t.id);
+  const since = new Date(now - NUDGE_COOLDOWN_MIN * 60000).toISOString();
+  const [cls, tasks, evs, logs] = await Promise.all([
+    clIds.length ? admin.from("checklists").select("id, due_by_time").in("id", clIds) : { data: [] },
+    taskIds.length ? admin.from("temporary_tasks").select("id, task_style, last_triggered_at, expires_at").in("id", taskIds) : { data: [] },
+    evIds.length ? admin.from("schedule_events").select("id, event_time, event_end_time").in("id", evIds) : { data: [] },
+    admin.from("nudge_log").select("target_type, target_id, created_at").eq("location_id", locationId).gte("created_at", since),
+  ]);
+  const items = buildNudgeList({
+    targets: ok, now, tz, businessDate: typeof bd === "string" ? bd : null,
+    checklists: (cls as any).data || [], tasks: (tasks as any).data || [], events: (evs as any).data || [], logs: (logs as any).data || [],
+  });
+  return json({ items });
+}

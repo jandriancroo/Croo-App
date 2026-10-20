@@ -27,11 +27,6 @@ interface AssignedTemporaryTasksProps {
   compact?: boolean;
   /** Content to render between events and tasks in compact mode */
   afterEventsContent?: React.ReactNode;
-  /** Quick Nudge (managers and up): badge on nudgeable task and event pills */
-  canNudge?: boolean;
-  onNudge?: (t: { type: 'task' | 'event'; id: string; title: string }) => void;
-  /** 'task:<id>' / 'event:<id>' -> minutes since the last nudge (last hour) */
-  recentlyNudged?: Record<string, number>;
   /** Mobile Dash: render tasks as a collapsible "Quick Tasks" section of compact rows. */
   sectioned?: boolean;
 }
@@ -69,9 +64,6 @@ export function AssignedTemporaryTasks({
   includeEventTasks = false,
   compact = false,
   afterEventsContent,
-  canNudge = false,
-  onNudge,
-  recentlyNudged,
   sectioned = false,
 }: AssignedTemporaryTasksProps) {
   const { user } = useAuth();
@@ -272,7 +264,6 @@ export function AssignedTemporaryTasks({
   const incompleteEventTasks = eventTasks.filter(t => !isEventCompleted(t.id));
   const completedEventTasks = eventTasks.filter(t => isEventCompleted(t.id));
 
-  // Quick Nudge: client-side "can this pill be nudged" (the server re-checks everything).
   const nowLocalHHMM = new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
   // Schedule approval tasks open the week on the Schedule page instead of the task dialog.
   const navigate = useNavigate();
@@ -282,19 +273,6 @@ export function AssignedTemporaryTasks({
     if (!data) { toast.error("That schedule is no longer available."); return; }
     navigate(`/schedule?location=${data.location_id ?? task.location_id}&week=${data.week_start_date}`);
   };
-  const taskNudge = (task: any) => {
-    if (!canNudge || !onNudge) return undefined;
-    if (task.completed_at || task.write_up_id || task.schedule_id || task.icon_name === "opus_logo") return undefined;
-    if (task.expires_at && new Date(task.expires_at).getTime() <= Date.now()) return undefined;
-    if (task.task_style === "alarm" && !task.last_triggered_at) return undefined;
-    return { onClick: () => onNudge({ type: "task", id: task.id, title: task.title }), minutesAgo: recentlyNudged?.[`task:${task.id}`] };
-  };
-  const eventNudge = (ev: EventTask) => {
-    if (!canNudge || !onNudge || isEventCompleted(ev.id)) return undefined;
-    if (ev.event_end_time && nowLocalHHMM > ev.event_end_time.slice(0, 5)) return undefined;
-    return { onClick: () => onNudge({ type: "event", id: ev.id, title: ev.event_name }), minutesAgo: recentlyNudged?.[`event:${ev.id}`] };
-  };
-
   // Deep links from a nudge card: ?task=<id> opens that task, ?event=<id> highlights that event pill.
   const [searchParams, setSearchParams] = useSearchParams();
   const [pulseEventId, setPulseEventId] = useState<string | null>(null);
@@ -417,7 +395,6 @@ export function AssignedTemporaryTasks({
       icon: any;
       subtasksCompleted?: number;
       subtasksTotal?: number;
-      nudge?: { onClick: () => void; minutesAgo?: number };
       eventId?: string;
     }[] = [];
 
@@ -434,7 +411,6 @@ export function AssignedTemporaryTasks({
         onClick: () => handleEventTaskComplete(task.id),
         isEvent: true,
         icon: CalendarDays,
-        nudge: eventNudge(task),
         eventId: task.id,
       });
     });
@@ -450,7 +426,6 @@ export function AssignedTemporaryTasks({
         icon: getIconComponent(task.icon_name || "ClipboardList"),
         subtasksCompleted: counts?.completed,
         subtasksTotal: counts?.total,
-        nudge: taskNudge(task),
       });
     });
 
@@ -480,7 +455,7 @@ export function AssignedTemporaryTasks({
         rows.push({ key: `event-${ev.id}`, overdue, node: pulseWrap(ev.id, (
           <QuickTaskRow title={ev.event_name} icon={ClipboardList} done={done} overdue={overdue}
             dueLabel={`Due ${timeOnly(ev.event_time)}`}
-            onSelect={() => { if (!done) handleEventTaskComplete(ev.id); }} nudge={eventNudge(ev)} />
+            onSelect={() => { if (!done) handleEventTaskComplete(ev.id); }}  />
         )) });
       });
       tasks.forEach((task: any) => {
@@ -492,7 +467,7 @@ export function AssignedTemporaryTasks({
             done={done} overdue={overdue}
             dueLabel={task.expires_at ? `Due ${fmtHour(new Date(task.expires_at))}` : null}
             progress={counts ? { done: counts.completed, total: counts.total } : null}
-            onSelect={() => openTask(task)} nudge={taskNudge(task)} />
+            onSelect={() => openTask(task)}  />
         ) });
       });
       cateringOrders.forEach(order => {
@@ -557,7 +532,6 @@ export function AssignedTemporaryTasks({
         subtasksCompleted={item.subtasksCompleted}
         subtasksTotal={item.subtasksTotal}
         badge={item.progress ? { label: item.progress } : undefined}
-        nudge={item.nudge}
       />
       );
       return item.eventId ? pulseWrap(item.eventId, pill) : pill;
@@ -637,8 +611,7 @@ export function AssignedTemporaryTasks({
           onAction={() => handleEventTaskComplete(task.id)}
           isLoading={completingEventTask === task.id}
           iconStyle="minimal"
-          badge={{ label: "EVENT", color: task.category?.color || "#6366f1" }}
-          nudge={eventNudge(task)}
+          badge={{ label: "EVENT", color: task.category?.color || "#6366f1" }} 
         />
       ))}
 
@@ -661,8 +634,7 @@ export function AssignedTemporaryTasks({
             showShare={!!task.shareable}
             subtasksCompleted={counts?.completed}
             subtasksTotal={counts?.total}
-            isOpusTask={task.icon_name === "opus_logo"}
-            nudge={taskNudge(task)}
+            isOpusTask={task.icon_name === "opus_logo"} 
           />
         );
       })}
