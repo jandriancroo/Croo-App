@@ -1,6 +1,7 @@
 # Roadmap
 
 ## CrooHQ public SEO — Oct 20
+- [ ] Tie SEO work to the unresolved hiring/job syndication issue; recover prior diagnosis and verify live job discovery.
 - [ ] Refresh SEO checks and research US restaurant-owner searches.
 - [ ] Improve verified public-page SEO issues without touching locked restaurant tools.
 - [ ] Verify public pages and record any live-publication or Google reporting setup blockers.
