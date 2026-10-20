@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DayToggleRow } from "@/components/ui/day-toggle-row";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole, ASSIGNABLE_ROLE_OPTIONS } from '@/hooks/useUserRole';
@@ -657,14 +658,7 @@ export default function ScheduleSettings() {
 
               <div>
                 <Label>Days of Week</Label>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  {DAY_NAMES.map((day, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <input type="checkbox" id={`day-${index}`} checked={formData.days_of_week.includes(index)} onChange={() => toggleDay(index)} className="w-4 h-4 rounded border-input" />
-                      <label htmlFor={`day-${index}`} className="text-sm cursor-pointer">{day}</label>
-                    </div>
-                  ))}
-                </div>
+                <DayToggleRow className="mt-2" value={formData.days_of_week} onToggle={toggleDay} days={DAY_NAMES.map((d, i) => ({ value: i, label: d.slice(0, 3) }))} />
               </div>
 
               <div>
