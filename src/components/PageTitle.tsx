@@ -92,7 +92,7 @@ export const PageTitle = React.memo(function PageTitle({
         )}
       </div>
       {subtitle && (
-        <div className="text-sm text-muted-foreground -mt-1.5 mb-3 pt-1.5">{subtitle}</div>
+        <div className="text-sm text-muted-foreground -mt-1.5">{subtitle}</div>
       )}
     </div>
   );
