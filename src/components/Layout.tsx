@@ -282,6 +282,27 @@ export const Layout = ({
   } = useUserRole();
   const isMobile = useIsMobile();
   const mobileHeaderRef = useRef<HTMLElement>(null);
+  // Measure the phone header and dock wrapper (outside DockContent) so pages
+  // and floating bars can clear them via --app-header-h / --app-dock-h.
+  const [dockNavEl, dockNavRef] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    const root = document.documentElement;
+    const header = mobileHeaderRef.current;
+    if (!isMobile) {
+      root.style.removeProperty('--app-header-h');
+      root.style.setProperty('--app-dock-h', '0px');
+      return;
+    }
+    const update = () => {
+      if (header) root.style.setProperty('--app-header-h', `${header.getBoundingClientRect().height}px`);
+      if (dockNavEl) root.style.setProperty('--app-dock-h', `${dockNavEl.getBoundingClientRect().height}px`);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    if (header) ro.observe(header);
+    if (dockNavEl) ro.observe(dockNavEl);
+    return () => ro.disconnect();
+  }, [isMobile, dockNavEl]);
   const headerLocationRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);

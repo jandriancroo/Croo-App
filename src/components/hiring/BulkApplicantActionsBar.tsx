@@ -31,7 +31,7 @@ export function BulkApplicantActionsBar({
   };
 
   return (
-    <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in">
+    <div className="fixed bottom-[calc(var(--app-dock-h,5rem)+0.75rem)] sm:bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in">
       <div className="flex items-center gap-1 rounded-full border border-border bg-primary px-1 py-1 shadow-lg">
         <Badge variant="secondary" className="rounded-full px-3 py-1.5 text-xs font-semibold bg-primary-foreground text-primary shrink-0">
           {selectedCount} selected
