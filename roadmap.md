@@ -202,3 +202,6 @@
 - Open: HEIC photos too heavy for the server converter on big images; app-side photo conversion would fix it.
 - Don't touch: frozen past count costs; the profile rules file without re-running src/lib/heimarkProfile.test.ts.
 - [x] Ship 2: full-name hiring emails, shared brand email header, Availability Insights (7 AM local, replaces Who's Out)
+
+## Elements upgrade Phase 1 — Oct 20
+- [x] Shared control shapes (18 shared files + index.css), acceptance check at 390 run; clipping items reported, not fixed.

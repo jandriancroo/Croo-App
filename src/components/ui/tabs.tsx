@@ -16,7 +16,7 @@ const TabsList = React.forwardRef<
       ref={ref}
       className={cn(
         // Neutral base styling (works for both flex + grid)
-        "rounded-xl p-1 text-muted-foreground glass-subtle",
+        "rounded-xl p-[3px] text-muted-foreground bg-foreground/[0.06]",
         // Layout defaults (only when caller didn't specify grid)
         isGrid ? '' : 'inline-flex h-10 items-center justify-center',
         className,
@@ -34,7 +34,7 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md",
+      "inline-flex items-center justify-center whitespace-nowrap h-full rounded-[9px] px-3 text-[15px] font-medium text-foreground/70 ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:font-semibold",
       className,
     )}
     {...props}

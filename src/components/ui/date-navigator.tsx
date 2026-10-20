@@ -32,8 +32,8 @@ export function DateNavigator({
 }: DateNavigatorProps) {
   const isSubtle = variant === 'subtle';
   const arrowClasses = isSubtle
-    ? "h-7 w-7 p-0 text-muted-foreground hover:bg-muted hover:text-foreground disabled:text-muted-foreground/40 rounded-md"
-    : "h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full";
+    ? "h-10 w-10 p-0 text-muted-foreground hover:bg-muted hover:text-foreground disabled:text-muted-foreground/40 rounded-md"
+    : "h-11 w-11 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-[10px]";
   return (
     <div className={cn(
       "flex justify-center",
@@ -44,7 +44,7 @@ export function DateNavigator({
       <div className={cn(
         isSubtle
           ? "inline-flex items-center justify-between rounded-lg border border-border bg-background px-1.5 py-0.5 gap-0.5"
-          : "inline-flex items-center justify-between bg-primary rounded-lg px-3 py-1.5 gap-1",
+          : "inline-flex items-center justify-between bg-primary rounded-xl px-1 py-0.5 min-h-12 gap-1",
         className?.includes("w-full") && "w-full"
       )}>
         <Button 
