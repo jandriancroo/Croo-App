@@ -19,6 +19,7 @@ import { MobileShiftCard } from './MobileShiftCard';
 import { useToastShifts, type ToastShiftRow } from '@/hooks/useToastShifts';
 import { useToastFreshness } from '@/hooks/useToastFreshness';
 import { QuickPunchDialog } from './QuickPunchDialog';
+import { ScheduleActionSplitButton } from './ScheduleActionSplitButton';
 import { EditPunchDialog } from './EditPunchDialog';
 import { invalidatePunchViews, usePunchViewsRefresh } from '@/lib/punchEditGuard';
 import { MobileEventDialog } from './MobileEventDialog';
@@ -103,6 +104,7 @@ interface MobileScheduleViewProps {
   onGoLive?: () => void;
   onSendUpdate?: () => void;
   onOpenHistory?: () => void;
+  onSharePdf?: () => Promise<void> | void;
   onRestored?: () => void;
   isPublishing?: boolean;
   approval?: ReturnType<typeof useScheduleApproval> | null;
@@ -154,6 +156,7 @@ export function MobileScheduleView({
   onGoLive,
   onSendUpdate,
   onOpenHistory,
+  onSharePdf,
   onRestored,
   isPublishing = false,
   approval,
@@ -778,24 +781,6 @@ export function MobileScheduleView({
     });
   };
 
-  const [shareCopied, setShareCopied] = useState(false);
-  const handleShare = async () => {
-    const url = window.location.href;
-    const text = currentLocation?.name
-      ? `Schedule for ${currentLocation.name} — ${format(selectedDate, 'EEEE, MMMM d')}`
-      : `Schedule for ${format(selectedDate, 'EEEE, MMMM d')}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: document.title, text, url });
-      } catch {}
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(url);
-      setShareCopied(true);
-      setTimeout(() => setShareCopied(false), 2000);
-    } catch {}
-  };
 
   // Determine if a shift is published (same logic as desktop EmployeeRow)
   const isShiftPublished = (shift: Shift): boolean => {
@@ -832,8 +817,9 @@ export function MobileScheduleView({
   // Content for Schedule tab
   const renderScheduleContent = () => (
     <div className="space-y-0.5">
-      {/* Week Header - Centered with week label */}
-      <div className="flex flex-col items-center gap-0.5">
+      {/* Week Header - Centered with week label; managers get the split action button */}
+      <div className={(isAdmin || isManager) ? 'flex items-center justify-between gap-2' : ''}>
+      <div className="flex flex-col items-center gap-0.5 min-w-0 flex-1">
         <DateNavigator
           onPrev={handlePreviousWeek}
           onNext={handleNextWeek}
@@ -842,6 +828,24 @@ export function MobileScheduleView({
         <Badge variant={getWeekLabel().variant} className="text-xs">
           {getWeekLabel().label}
         </Badge>
+      </div>
+      {(isAdmin || isManager) && (
+        <ScheduleActionSplitButton
+          isToastLaborStore={isToastLaborStore}
+          isToday={isSelectedDateToday}
+          hasSchedule={!!scheduleId}
+          onQuickPunch={() => setQuickPunchOpen(true)}
+          onNewShift={() => {
+            setAddSheetTab('shift');
+            setAddSheetLockTab(true);
+            setAddSheetWeekOverride(null);
+            setAddSheetOpen(true);
+          }}
+          onBuildWeek={() => setBuildWizardOpen(true)}
+          onNewEvent={() => setEventDialogOpen(true)}
+          onSharePdf={onSharePdf}
+        />
+      )}
       </div>
 
       {/* Week Calendar - Compact pill-style selector */}
@@ -1100,66 +1104,6 @@ export function MobileScheduleView({
                 dayWord={isSelectedDateToday ? 'today' : 'this day'}
                 onSelect={(e) => setPreviewEvent(e)}
               />
-
-              {/* Quick Action Bar — always visible */}
-              <div className="mb-2 flex items-stretch gap-1 rounded-lg bg-primary p-0.5 text-primary-foreground shadow-sm">
-                {!isToastLaborStore && (
-                <button
-                  type="button"
-                  onClick={isSelectedDateToday ? () => setQuickPunchOpen(true) : undefined}
-                  disabled={!isSelectedDateToday}
-                  title={isSelectedDateToday ? undefined : 'Quick Punch is only available for today'}
-                  className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <UserPlus className="h-3.5 w-3.5" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wide">Quick Punch</span>
-                </button>
-                )}
-                {(isAdmin || isManager) && (
-                  <>
-                    {scheduleId && (
-                      <>
-                        {!isToastLaborStore && <div className="w-px bg-primary-foreground/15 my-1" />}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAddSheetTab('shift');
-                            setAddSheetLockTab(true);
-                            setAddSheetWeekOverride(null);
-                            setAddSheetOpen(true);
-                          }}
-                          className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
-                        >
-                          <CalendarPlus className="h-3.5 w-3.5" />
-                          <span className="text-[10px] font-semibold uppercase tracking-wide">New Shift</span>
-                        </button>
-                      </>
-                    )}
-                    <div className="w-px bg-primary-foreground/15 my-1" />
-                    <button
-                      type="button"
-                      onClick={() => setBuildWizardOpen(true)}
-                      className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
-                    >
-                      <LayoutGrid className="h-3.5 w-3.5" />
-                      <span className="text-[10px] font-semibold uppercase tracking-wide">Build Week</span>
-                    </button>
-                    {scheduleId && (
-                      <>
-                        <div className="w-px bg-primary-foreground/15 my-1" />
-                        <button
-                          type="button"
-                          onClick={() => setEventDialogOpen(true)}
-                          className="flex-1 flex flex-col items-center justify-center gap-0 py-1 rounded-md active:bg-primary-foreground/10 transition"
-                        >
-                          <CheckCircle className="h-3.5 w-3.5" />
-                          <span className="text-[10px] font-semibold uppercase tracking-wide">New Event</span>
-                        </button>
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
 
               {/* 5. TODAY: NOW + LATER sections with punch tracking */}
               {isSelectedDateToday ? ((() => {
@@ -1694,21 +1638,6 @@ export function MobileScheduleView({
         </Dialog>
       )}
 
-      {/* Share button — bottom right of page */}
-      <button
-        type="button"
-        onClick={handleShare}
-        className="fixed bottom-4 right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg active:scale-95 transition"
-        aria-label="Share schedule"
-        title="Share schedule"
-      >
-        <Share className="h-5 w-5" />
-        {shareCopied && (
-          <span className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-[10px] text-background">
-            Link copied!
-          </span>
-        )}
-      </button>
     </div>
   );
 }
