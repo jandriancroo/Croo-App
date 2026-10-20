@@ -751,6 +751,7 @@ html[data-theme="beach"] body.beach-dashboard [data-radix-popper-content-wrapper
 html[data-theme="beach"] body.beach-dashboard [role="listbox"],
 html[data-theme="beach"] body.beach-dashboard [role="menu"],
 html[data-theme="beach"] body.beach-dashboard [role="dialog"],
+html[data-theme="beach"] body.beach-dashboard [role="alertdialog"],
 html[data-theme="beach"] body.beach-dashboard [data-radix-menu-content],
 html[data-theme="beach"] body.beach-dashboard [vaul-drawer],
 html[data-theme="beach"] body.beach-dashboard .glass-card {
@@ -799,6 +800,7 @@ html[data-theme="playa"] body.playa-dashboard [data-radix-popper-content-wrapper
 html[data-theme="playa"] body.playa-dashboard [role="listbox"],
 html[data-theme="playa"] body.playa-dashboard [role="menu"],
 html[data-theme="playa"] body.playa-dashboard [role="dialog"],
+html[data-theme="playa"] body.playa-dashboard [role="alertdialog"],
 html[data-theme="playa"] body.playa-dashboard [data-radix-menu-content],
 html[data-theme="playa"] body.playa-dashboard [vaul-drawer],
 html[data-theme="playa"] body.playa-dashboard .glass-card {
@@ -848,6 +850,7 @@ html[data-theme="blaze"] body.blaze-dashboard [data-radix-popper-content-wrapper
 html[data-theme="blaze"] body.blaze-dashboard [role="listbox"],
 html[data-theme="blaze"] body.blaze-dashboard [role="menu"],
 html[data-theme="blaze"] body.blaze-dashboard [role="dialog"],
+html[data-theme="blaze"] body.blaze-dashboard [role="alertdialog"],
 html[data-theme="blaze"] body.blaze-dashboard [data-radix-menu-content],
 html[data-theme="blaze"] body.blaze-dashboard [vaul-drawer],
 html[data-theme="blaze"] body.blaze-dashboard .glass-card {
@@ -1187,9 +1190,9 @@ header.bg-primary .ovation-readable-panel .ovation-status-bad,
   }
 
   .dash-section-title__label {
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     font-weight: 600;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: hsl(var(--muted-foreground) / 0.85);
   }
@@ -2447,7 +2450,7 @@ html[data-theme="spookified"] body.spookified-dashboard .theo-chat-panel .bg-bac
 html[data-theme="spookified"] body.spookified-dashboard .theo-chat-panel .bg-card { background-color: hsl(var(--card)) !important; }
 html[data-theme="spookified"] body.spookified-dashboard .bg-card { background-color: hsl(var(--card) / 0.9) !important; }
 html[data-theme="spookified"] body.spookified-dashboard [data-radix-popper-content-wrapper] *,
-html[data-theme="spookified"] body.spookified-dashboard :is([role="listbox"], [role="menu"], [role="dialog"], [data-radix-menu-content], [vaul-drawer], .glass-card) {
+html[data-theme="spookified"] body.spookified-dashboard :is([role="listbox"], [role="menu"], [role="dialog"], [role="alertdialog"], [data-radix-menu-content], [vaul-drawer], .glass-card) {
   background-color: hsl(var(--popover)) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
 }
 html[data-theme="spookified"] body.spookified-dashboard .spookified-dashboard-content { position: relative; z-index: 1; }
