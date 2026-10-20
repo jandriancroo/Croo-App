@@ -97,10 +97,11 @@ export default function Tasks() {
             ) : (
               <>
                 {/* View toggle ABOVE date navigator */}
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <SegmentedControl
                     variant="neutral"
                     fullWidth
+                    className="min-w-[250px] flex-1"
                     value={viewMode}
                     onValueChange={(v) => setViewMode(v)}
                     options={[
