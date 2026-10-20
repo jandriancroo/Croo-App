@@ -817,9 +817,8 @@ export function MobileScheduleView({
   // Content for Schedule tab
   const renderScheduleContent = () => (
     <div className="space-y-0.5">
-      {/* Week Header - Centered with week label; managers get the split action button */}
-      <div className={(isAdmin || isManager) ? 'flex items-center justify-between gap-2' : ''}>
-      <div className="flex flex-col items-center gap-0.5 min-w-0 flex-1">
+      {/* Week Header - Centered with week label */}
+      <div className="flex flex-col items-center gap-0.5">
         <DateNavigator
           onPrev={handlePreviousWeek}
           onNext={handleNextWeek}
@@ -828,24 +827,6 @@ export function MobileScheduleView({
         <Badge variant={getWeekLabel().variant} className="text-xs">
           {getWeekLabel().label}
         </Badge>
-      </div>
-      {(isAdmin || isManager) && (
-        <ScheduleActionSplitButton
-          isToastLaborStore={isToastLaborStore}
-          isToday={isSelectedDateToday}
-          hasSchedule={!!scheduleId}
-          onQuickPunch={() => setQuickPunchOpen(true)}
-          onNewShift={() => {
-            setAddSheetTab('shift');
-            setAddSheetLockTab(true);
-            setAddSheetWeekOverride(null);
-            setAddSheetOpen(true);
-          }}
-          onBuildWeek={() => setBuildWizardOpen(true)}
-          onNewEvent={() => setEventDialogOpen(true)}
-          onSharePdf={onSharePdf}
-        />
-      )}
       </div>
 
       {/* Week Calendar - Compact pill-style selector */}
@@ -1060,12 +1041,29 @@ export function MobileScheduleView({
           <div className="flex flex-col h-full">
             <div className="flex-1 overflow-auto px-[max(1rem,env(safe-area-inset-left))] pt-3 pb-3 space-y-1.5">
               {/* Date header */}
-              <div className="flex items-center justify-center">
-                <DateNavigator
-                  onPrev={handlePreviousWeek}
-                  onNext={handleNextWeek}
-                  label={`${format(selectedDate, 'EEEE, MMMM d')}`}
-                />
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 flex-1 flex justify-start">
+                  <DateNavigator
+                    onPrev={handlePreviousWeek}
+                    onNext={handleNextWeek}
+                    label={`${format(selectedDate, 'EEE, MMM d')}`}
+                  />
+                </div>
+                  <ScheduleActionSplitButton
+                    isToastLaborStore={isToastLaborStore}
+                    isToday={isSelectedDateToday}
+                    hasSchedule={!!scheduleId}
+                    onQuickPunch={() => setQuickPunchOpen(true)}
+                    onNewShift={() => {
+                      setAddSheetTab('shift');
+                      setAddSheetLockTab(true);
+                      setAddSheetWeekOverride(null);
+                      setAddSheetOpen(true);
+                    }}
+                    onBuildWeek={() => setBuildWizardOpen(true)}
+                    onNewEvent={() => setEventDialogOpen(true)}
+                    onSharePdf={onSharePdf}
+                  />
               </div>
 
               {/* Week Calendar Strip */}
