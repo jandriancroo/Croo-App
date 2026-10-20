@@ -353,7 +353,7 @@ interface PushNotificationRequest {
   title: string;
   body: string;
   data?: Record<string, any>;
-  notification_type?: 'overdue_checklists' | 'late_arrivals' | 'announcements' | 'chat_messages' | 'schedule_updates' | 'shift_approvals' | 'certification_expiring' | 'logbook_entry' | 'catering_order' | 'drawer_count' | 'safe_count' | 'arcade_scores' | 'cash_drawer_count' | 'cash_safe_count' | 'cash_bank_deposit' | 'alarm_task' | 'quick_task' | 'checklist_nudge' | 'quick_nudge';
+  notification_type?: string;
   badge_count?: number;
   sender_id?: string; // Optional: exclude this user from receiving the notification
 }
