@@ -16,7 +16,7 @@ export function SupportButton() {
     <>
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-24 right-4 z-50 h-12 gap-2 rounded-full shadow-lg md:bottom-6"
+        className="fixed bottom-[calc(var(--app-dock-h,5rem)+1rem)] right-4 z-50 h-12 gap-2 rounded-full shadow-lg md:bottom-6"
         size="sm"
       >
         <Headphones className="h-4 w-4" />

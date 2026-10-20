@@ -13,6 +13,8 @@ interface Props {
   isToastLaborStore: boolean;
   isToday: boolean;
   hasSchedule: boolean;
+  /** Share PDF is blocked (greyed) until the week is published. */
+  isPublished: boolean;
   onQuickPunch: () => void;
   onNewShift: () => void;
   onBuildWeek: () => void;
@@ -49,7 +51,7 @@ export function ScheduleActionSplitButton(p: Props) {
   if (p.hasSchedule) all.push({ key: 'newShift', label: 'New Shift', icon: CalendarPlus, run: p.onNewShift });
   all.push({ key: 'buildWeek', label: 'Build Week', icon: LayoutGrid, run: p.onBuildWeek });
   if (p.hasSchedule) all.push({ key: 'newEvent', label: 'New Event', icon: CheckCircle, run: p.onNewEvent });
-  if (p.onSharePdf) all.push({ key: 'sharePdf', label: 'Share PDF', icon: FileDown, run: sharePdf });
+  if (p.onSharePdf) all.push({ key: 'sharePdf', label: 'Share PDF', icon: FileDown, run: sharePdf, disabled: !p.isPublished });
 
   const defKey = pickDefaultAction(p);
   const primary = all.find(a => a.key === defKey)!;
