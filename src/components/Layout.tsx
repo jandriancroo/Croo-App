@@ -1494,7 +1494,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       </header>
       
       
-      <main className={`container max-w-7xl mx-auto flex-1 px-safe pb-0 relative ${isMobile ? 'pt-[calc(env(safe-area-inset-top)+3.25rem)] pb-24' : 'pt-1 py-8 pb-8'}`}>
+      <main className={`container max-w-7xl mx-auto flex-1 px-safe pb-0 relative ${isMobile ? 'pt-[var(--app-header-h,calc(env(safe-area-inset-top)+3.5rem))] pb-[calc(var(--app-dock-h,6rem)+0.75rem)]' : 'pt-1 py-8 pb-8'}`}>
         {children}
       </main>
       
@@ -1504,7 +1504,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         <img src={crooLogo} alt="Croo" className="h-10 w-auto" />
       </footer>
       {!roleLoading && typeof document !== 'undefined' && createPortal(
-        <nav className={`mobile-dock-container ${isMobile ? '' : 'hidden'}`}>
+        <nav ref={dockNavRef} className={`mobile-dock-container ${isMobile ? '' : 'hidden'}`}>
           {/* Dash/Org Bubble Popup - swaps based on current route */}
           {showOrgBubble && hasMultiLocationAccess && (
             <div className="absolute bottom-full left-3 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-200">

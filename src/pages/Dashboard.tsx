@@ -6,7 +6,7 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ClipboardCheck, Settings2 } from 'lucide-react';
+import { ClipboardCheck, SlidersHorizontal } from 'lucide-react';
 import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
 import { CubeType, TrackerDisplayMode, TrackerRankMetric, TrackerScopeType } from '@/components/dashboard/AddWidgetDialog';
 import { WidgetsSection } from '@/components/dashboard/WidgetsSection';
@@ -619,19 +619,6 @@ export default function Dashboard() {
           <div className="space-y-1 spookified-dashboard-content">
             <PageTitle
               color="teal"
-              action={
-                !shouldUseRoleCubes && (
-                  <Button
-                    onClick={() => setShowEditDashboard(true)}
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10"
-                    title="Edit Dashboard"
-                  >
-                    <Settings2 className="h-4 w-4" />
-                  </Button>
-                )
-              }
             >
               Dash
             </PageTitle>
@@ -675,6 +662,16 @@ export default function Dashboard() {
             <div className="space-y-3">
               {quickTasksContent}
               {dashboardContent}
+              {!shouldUseRoleCubes && (
+                <Button
+                  onClick={() => setShowEditDashboard(true)}
+                  variant="outline"
+                  className="h-11 w-full rounded-lg bg-muted gap-2"
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Edit layout
+                </Button>
+              )}
             </div>
           )}
         </div>
