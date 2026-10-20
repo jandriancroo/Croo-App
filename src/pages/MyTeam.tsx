@@ -103,13 +103,10 @@ export default function MyTeam() {
 
   return (
     <Layout>
-      <div className="space-y-4">
-        <div>
-          <PageTitle color="emerald">My Team</PageTitle>
-          <p className="text-muted-foreground">
-            {teamMembers.length} team member{teamMembers.length !== 1 ? 's' : ''} at {currentLocation?.name || 'this location'}
-          </p>
-        </div>
+      <div>
+        <PageTitle color="emerald" subtitle={
+          <>{teamMembers.length} team member{teamMembers.length !== 1 ? 's' : ''} at {currentLocation?.name || 'this location'}</>
+        }>My Team</PageTitle>
 
         {teamMembers.length === 0 ? (
           <Card>

@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/PageTitle";
 import { useState, useMemo } from "react";
 
 import { useParams, useNavigate } from "react-router-dom";
@@ -595,16 +596,12 @@ const COGSReport = () => {
   
   return (
     <div className="min-h-screen bg-background">
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/inventory/${locationId}`)}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-lg font-semibold">COGS Report</h1>
-            <p className="text-xs text-muted-foreground">Cost of Goods Sold Analysis</p>
-          </div>
-        </div>
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4">
+        <PageTitle
+          color="emerald"
+          leading={<Button variant="ghost" size="icon" onClick={() => navigate(`/inventory/${locationId}`)}><ArrowLeft className="h-5 w-5" /></Button>}
+          subtitle="Cost of Goods Sold Analysis"
+        >COGS Report</PageTitle>
       </div>
       <div className="p-4 space-y-4 max-w-2xl mx-auto">
         <COGSReportContent locationId={locationId!} />

@@ -515,11 +515,8 @@ export default function Settings() {
 
   return (
     <Layout>
-      <div className="space-y-4 w-full">
-        <div>
-          <PageTitle color="slate">Settings</PageTitle>
-          <p className="text-muted-foreground">Manage your preferences</p>
-        </div>
+      <div className="w-full">
+        <PageTitle color="slate" subtitle="Manage your preferences">Settings</PageTitle>
 
         {/* Pill selector — only for org_admin and above */}
         {showPillSelector && (

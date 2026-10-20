@@ -1,3 +1,4 @@
+import { PageTitle } from '@/components/PageTitle';
 import { DateTime } from 'luxon';
 import { useScheduleLaborRules } from "@/hooks/useScheduleLaborRules";
 import { paidShiftHours } from "@/utils/shiftUtils";
@@ -998,28 +999,26 @@ export default function WeekTemplateBuilder() {
     <Layout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" onClick={() => navigate('/schedule-settings?tab=weeks')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <h1 className="text-2xl font-bold">
-              {isNew ? 'Create Week Template' : 'Edit Week Template'}
-            </h1>
-          </div>
-          <div className="flex items-center gap-4">
+        <PageTitle color="blue" leading={
+          <Button variant="ghost" size="icon" onClick={() => navigate('/schedule-settings?tab=weeks')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        } action={
+          <Button onClick={handleSave} disabled={saving}>
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? 'Saving...' : 'Save Template'}
+          </Button>
+        }>
+          {isNew ? 'Create Week Template' : 'Edit Week Template'}
+        </PageTitle>
+        <div className="flex items-center gap-4">
             {/* Weekly Total Hours */}
             <div className="flex items-center gap-2 bg-muted px-4 py-2 rounded-lg">
               <Clock className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Weekly Hours:</span>
               <span className="text-lg font-bold">{weeklyTotalHours.toFixed(1)}h</span>
             </div>
-            <Button onClick={handleSave} disabled={saving}>
-              <Save className="h-4 w-4 mr-2" />
-              {saving ? 'Saving...' : 'Save Template'}
-            </Button>
-          </div>
         </div>
 
         {/* Template Info */}

@@ -1,3 +1,4 @@
+import { PageTitle } from '@/components/PageTitle';
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
@@ -617,29 +618,21 @@ export default function PunchClockCustomization() {
     <Layout>
       <div className="space-y-6 max-w-3xl mx-auto">
         {/* Header */}
-        <div className="flex items-start gap-3">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => navigate('/settings')} 
-            className="mt-1 flex-shrink-0"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-              <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-primary flex-shrink-0" />
-              Punch Clock Customization
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {locationName} • Customize how the punch clock looks for employees
-            </p>
-          </div>
-          <Button variant="outline" onClick={() => setShowPreview(true)} disabled={!selectedThemeId}>
-            <Eye className="h-4 w-4 mr-2" />
-            Preview
-          </Button>
-        </div>
+        <PageTitle
+          color="purple"
+          leading={
+            <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          }
+          subtitle={<>{locationName} • Customize how the punch clock looks for employees</>}
+          action={
+            <Button variant="outline" onClick={() => setShowPreview(true)} disabled={!selectedThemeId}>
+              <Eye className="h-4 w-4 mr-2" />
+              Preview
+            </Button>
+          }
+        >Punch Clock Customization</PageTitle>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>

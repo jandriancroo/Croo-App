@@ -817,7 +817,7 @@ export function MobileScheduleView({
 
   // Content for Schedule tab
   const renderScheduleContent = () => (
-    <div className="space-y-0.5">
+    <div>
       <PageTitle color="teal">Schedule</PageTitle>
       {/* Week Header - Centered with week label */}
       <div className="flex flex-col items-center gap-0.5">
@@ -1041,9 +1041,9 @@ export function MobileScheduleView({
         (
           /* V2: Combined single-scroll view — no tabs */
           <div className="flex flex-col h-full">
-            <div className="flex-1 overflow-auto px-[max(1rem,env(safe-area-inset-left))] pt-3.5 pb-3 space-y-3">
+            <div className="flex-1 overflow-auto px-[max(1rem,env(safe-area-inset-left))] pt-0 pb-3">
               {/* Date header */}
-              <PageTitle color="teal" className="mt-0 [&_h1]:my-0" action={
+              <PageTitle color="teal" action={
                   <ScheduleActionSplitButton
                     isToastLaborStore={isToastLaborStore}
                     isToday={isSelectedDateToday}

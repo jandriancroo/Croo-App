@@ -1,3 +1,4 @@
+import { PageTitle } from '@/components/PageTitle';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
@@ -34,7 +35,7 @@ export default function QRCodeGenerator() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-8 bg-background">
-      <h1 className="text-2xl font-bold">Blaze Pizza - Tell Us QR Code</h1>
+      <PageTitle color="orange">Blaze Pizza - Tell Us QR Code</PageTitle>
       <div className="bg-white p-6 rounded-xl shadow-lg">
         <QRCodeSVG 
           id="qr-code"

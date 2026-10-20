@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/PageTitle";
 import { useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -75,18 +76,12 @@ const BrandAutoDeployLog = () => {
   }, [log]);
 
   return (
-    <div className="container max-w-6xl py-6 space-y-4">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-1.5">
-          <ArrowLeft className="h-4 w-4" /> Back
-        </Button>
-        <div>
-          <h1 className="text-2xl font-semibold">Auto-Deployment Log</h1>
-          <p className="text-sm text-muted-foreground">
-            Items the nightly sweep deployed automatically because a recipe referenced them but they weren't in local inventory.
-          </p>
-        </div>
-      </div>
+    <div className="container max-w-6xl pb-6 [&>*:not(:first-child):not(:nth-child(2))]:mt-4">
+      <PageTitle
+        color="blue"
+        leading={<Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back"><ArrowLeft className="h-4 w-4" /><span className="sr-only">Back</span></Button>}
+        subtitle="Items the nightly sweep deployed automatically because a recipe referenced them but they weren't in local inventory."
+      >Auto-Deployment Log</PageTitle>
 
       <div className="grid grid-cols-3 gap-3">
         <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Total events</div><div className="text-2xl font-semibold">{totals.total}</div></CardContent></Card>

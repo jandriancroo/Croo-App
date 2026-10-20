@@ -1,3 +1,4 @@
+import { PageTitle } from '@/components/PageTitle';
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -78,23 +79,16 @@ export default function UsageModelsPage() {
   return (
     <Layout>
       <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold">Usage Models</h1>
-            <p className="text-xs text-muted-foreground">
-              Current forecasting state for each item — locked overrides are respected.
-            </p>
-          </div>
+        <PageTitle color="cyan" subtitle="Current forecasting state for each item — locked overrides are respected." action={
           <Button
             onClick={() => refit.mutate()}
             disabled={refit.isPending}
-            size="sm"
             className="gap-1.5"
           >
             <RefreshCw className={`h-4 w-4 ${refit.isPending ? "animate-spin" : ""}`} />
             Refit location
           </Button>
-        </div>
+        }>Usage Models</PageTitle>
 
         <Card className="overflow-hidden">
           {isLoading ? (

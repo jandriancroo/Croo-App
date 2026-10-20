@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/PageTitle";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -154,19 +155,13 @@ export default function PayrollReview() {
           )}
           </>
         ) : (
-          <div className="space-y-6">
+          <div className="[&>*:not(:first-child):not(:nth-child(2))]:mt-6">
             {/* Header */}
-            <div className="space-y-4">
-              <Button variant="ghost" onClick={() => setSelectedPeriod(null)} className="pl-0">
-                <ChevronLeft className="mr-2 h-4 w-4" />
-                Pay Periods
-              </Button>
-              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-                <div>
-                  <h1 className="text-3xl font-bold">Payroll Period</h1>
-                  <p className="text-muted-foreground">{selectedPeriod.label}</p>
-                </div>
-                <div className="flex gap-2">
+            <PageTitle
+              color="emerald"
+              subtitle={selectedPeriod.label}
+              leading={<Button variant="ghost" size="icon" onClick={() => setSelectedPeriod(null)} aria-label="Pay Periods"><ChevronLeft className="h-4 w-4" /><span className="sr-only">Pay Periods</span></Button>}
+              action={<>
                   {isPeriodClosed ? (
                     <Button variant="outline" onClick={handleReopenPeriod}>
                       Re-Open Pay Period
@@ -182,9 +177,8 @@ export default function PayrollReview() {
                       Add punch
                     </Button>
                   )}
-                </div>
-              </div>
-            </div>
+              </>}
+            >Payroll Period</PageTitle>
 
             {currentLocation?.id && selectedPeriod && (
               <ClosePeriodDialog

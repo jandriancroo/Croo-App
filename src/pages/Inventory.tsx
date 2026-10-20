@@ -676,19 +676,20 @@ const Inventory = () => {
     <Layout>
       <div className="space-y-4">
         {/* Page header */}
-        <div className="flex items-start justify-between gap-3 pt-4">
-          <div className="min-w-0">
-            <PageTitle color="green">Inventory</PageTitle>
-            <p className="text-sm text-muted-foreground mt-0.5">
+        <PageTitle
+          color="green"
+          subtitle={
+            <>
               {location?.name || "Loading..."}
               {location?.store_number && <> · #{location.store_number}</>}
-            </p>
-          </div>
+            </>
+          }
+          action={
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button
               variant="outline"
               size="icon"
-              className="h-10 w-10 rounded-xl relative"
+              className="rounded-xl relative"
               onClick={() => setShowTransferDialog(true)}
               title="Transfer"
             >
@@ -702,7 +703,7 @@ const Inventory = () => {
             {!isLite && (
               <Button
                 size="icon"
-                className="h-10 w-10 rounded-xl"
+                className="rounded-xl"
                 onClick={handleStartCount}
                 title="New count"
               >
@@ -712,13 +713,14 @@ const Inventory = () => {
             <Button
               variant="outline"
               size="icon"
-              className="h-10 w-10 rounded-xl"
+              className="rounded-xl"
               onClick={() => setShowSettings(true)}
             >
               <Settings className="h-5 w-5" />
             </Button>
           </div>
-        </div>
+          }
+        >Inventory</PageTitle>
 
 
         <TransferDialog open={showTransferDialog} onClose={() => setShowTransferDialog(false)} locationId={locationId!} />

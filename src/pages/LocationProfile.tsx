@@ -1,3 +1,4 @@
+import { PageTitle } from '@/components/PageTitle';
 import { startBuildLawCheck } from '@/lib/laborRules/lawCheck';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -403,25 +404,17 @@ export default function LocationProfile() {
     <Layout>
       <div className="space-y-6 w-full overflow-x-hidden">
         {/* Header */}
-        <div className="flex items-start gap-3">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => orgId ? navigate(`/organization/${orgId}`) : navigate('/settings')} 
-            className="mt-1 flex-shrink-0"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-              <MapPin className="h-6 w-6 sm:h-8 sm:w-8 text-primary flex-shrink-0" />
-              <span className="truncate">{isNew ? 'New Location' : location?.name}</span>
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {isNew ? 'Create a new location' : 'Manage location settings'}
-            </p>
-          </div>
-        </div>
+        <PageTitle
+          color="blue"
+          leading={
+            <Button variant="ghost" size="icon" onClick={() => orgId ? navigate(`/organization/${orgId}`) : navigate('/settings')}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          }
+          subtitle={isNew ? 'Create a new location' : 'Manage location settings'}
+        >
+          {isNew ? 'New Location' : location?.name}
+        </PageTitle>
 
         {/* Map */}
         {!isNew && location?.latitude && location?.longitude && (

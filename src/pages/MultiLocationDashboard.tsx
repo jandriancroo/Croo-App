@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/PageTitle";
 import { useState, useMemo, useCallback } from 'react';
 import { Layout } from '@/components/Layout';
 import { useSearchParams } from 'react-router-dom';
@@ -238,13 +239,8 @@ export default function MultiLocationDashboard() {
 
   return (
     <Layout>
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl md:text-2xl font-bold">{dashTitle}</h1>
-          <span className="text-xs text-muted-foreground">
-            {allLocations.length} store{allLocations.length !== 1 ? 's' : ''}
-          </span>
-        </div>
+      <div className="[&>*:not(:first-child):not(:nth-child(2))]:mt-4">
+        <PageTitle color="blue" subtitle={<>{allLocations.length} store{allLocations.length !== 1 ? 's' : ''}</>}>{dashTitle}</PageTitle>
 
         {/* Toolbar: search + D/W/M + collapse */}
         <div className="flex items-center gap-2">

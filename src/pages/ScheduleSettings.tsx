@@ -1,3 +1,4 @@
+import { PageTitle } from '@/components/PageTitle';
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
@@ -317,12 +318,11 @@ export default function ScheduleSettings() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="outline" onClick={() => navigate("/schedule")}>
+        <PageTitle color="blue" leading={
+          <Button variant="ghost" size="icon" onClick={() => navigate("/schedule")}>
             ← Back to Schedule
           </Button>
-          <h1 className="text-2xl sm:text-3xl font-bold">Schedule Settings</h1>
-        </div>
+        }>Schedule Settings</PageTitle>
 
         <Card className="p-4 rounded-lg schedule-settings-events">
               <div className="flex items-center justify-between mb-3">

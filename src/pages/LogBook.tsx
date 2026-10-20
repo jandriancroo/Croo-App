@@ -91,7 +91,7 @@ export default function LogBook() {
   if (!hasLogAccess) {
     return (
       <Layout>
-        <div className="space-y-4">
+        <div>
           <PageTitle color="purple">Library</PageTitle>
           <LibraryPanel />
         </div>
@@ -102,7 +102,7 @@ export default function LogBook() {
   return (
     <Layout>
       <div className="space-y-4">
-        <div className="mb-4">
+        <div>
           <PageTitle
             color="purple"
             action={
@@ -120,7 +120,7 @@ export default function LogBook() {
           >
             {activeTab === "library" ? "Library" : "Logs"}
           </PageTitle>
-          <div className="flex items-center justify-between mt-3">
+          <div className="flex items-center justify-between">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList>
                 <TabsTrigger value="search">Recent Logs</TabsTrigger>

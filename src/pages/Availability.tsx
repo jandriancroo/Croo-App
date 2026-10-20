@@ -62,18 +62,13 @@ export default function Availability() {
 
   return (
     <Layout>
-      <div className="space-y-4">
-        <div>
-          <div className="flex justify-between items-center flex-wrap gap-4">
-            <div>
-              <PageTitle color="indigo">Availability</PageTitle>
-            </div>
-            <Button onClick={() => data.setRequestDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Request Time Off
-            </Button>
-          </div>
-        </div>
+      <div>
+        <PageTitle color="indigo" action={
+          <Button onClick={() => data.setRequestDialogOpen(true)}>
+            <Plus className="h-5 w-5 mr-2" />
+            Request Time Off
+          </Button>
+        }>Availability</PageTitle>
 
         {!data.canApproveRequests && data.canViewSickTime && (
           <Card className="p-6 bg-primary/5 border-primary/20">

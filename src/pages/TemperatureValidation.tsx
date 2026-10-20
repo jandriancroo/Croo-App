@@ -1,3 +1,4 @@
+import { PageTitle } from '@/components/PageTitle';
 import { useEffect, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -255,13 +256,7 @@ export default function TemperatureValidation() {
   return (
     <Layout>
       <div className="container mx-auto p-4 md:p-6 space-y-6 max-w-full md:max-w-4xl">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Temperature Validation</h1>
-            <p className="text-muted-foreground">
-              Review and correct AI-extracted temperature readings
-            </p>
-          </div>
+        <PageTitle color="red" subtitle="Review and correct AI-extracted temperature readings" action={
           <Button
             onClick={handleRescanAll}
             disabled={rescanning || loading}
@@ -269,7 +264,7 @@ export default function TemperatureValidation() {
           >
             {rescanning ? "Rescanning..." : "Rescan All Today"}
           </Button>
-        </div>
+        }>Temperature Validation</PageTitle>
 
         {readings.length === 0 ? (
           <Card>

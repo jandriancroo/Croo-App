@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/PageTitle";
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -494,32 +495,20 @@ export default function Hiring() {
 
   return (
     <Layout>
-      <div className="space-y-4">
+      <div>
         {/* Header */}
-        <div>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold">Hiring</h1>
-              <p className="text-muted-foreground">
-                {(organization as any).brand_name ? (
+        <PageTitle color="purple" subtitle={(organization as any).brand_name ? (
                   <><span className="font-medium text-foreground">{(organization as any).brand_name}</span> — {organization.name}</>
                 ) : (
                   organization.name
-                )}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowInterviewCalendar(true)}>
+                )} action={<>              <Button variant="outline" onClick={() => setShowInterviewCalendar(true)}>
                 <CalendarDays className="h-4 w-4 mr-2" />
                 <span className="hidden sm:inline">Interviews</span>
               </Button>
               <Button variant="outline" onClick={() => setShowQrDialog(true)}>
                 <QrCode className="h-4 w-4 mr-2" />
                 <span className="hidden sm:inline">Share Link</span>
-              </Button>
-            </div>
-          </div>
-        </div>
+              </Button></>}>Hiring</PageTitle>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>

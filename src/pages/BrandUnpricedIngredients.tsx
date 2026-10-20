@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/PageTitle";
 import { useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -102,22 +103,36 @@ export default function BrandUnpricedIngredients({ embedded = false }: { embedde
 
   return (
     <Wrapper>
-      <div className={embedded ? "space-y-4" : "container max-w-7xl mx-auto p-4 space-y-4"}>
+      <div className={embedded ? "space-y-4" : "container max-w-7xl mx-auto px-4 [&>*:not(:first-child):not(:nth-child(2))]:mt-4"}>
         {/* Header */}
-        <div className="flex items-center gap-3">
-          {!embedded && (
-            <Button variant="ghost" size="icon" onClick={() => navigate(`/brand/${brandId}/inventory`)}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          )}
-          <div className="flex-1 min-w-0">
-            {!embedded && <div className="text-xs text-muted-foreground">{brand?.name ?? "Brand"}</div>}
-            <h1 className={embedded ? "text-base font-semibold" : "text-xl font-semibold truncate"}>Unpriced Ingredients</h1>
-          </div>
-          <Button onClick={handleSync} disabled={syncing} size="sm" className="gap-2">
+        {embedded ? (
+          <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-0"><h1 className="text-base font-semibold">Unpriced Ingredients</h1></div>
+            <Button onClick={handleSync} disabled={syncing} size="sm" className="gap-2">
             <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
             {syncing ? "Syncing..." : "Sync All Vendor Prices"}
           </Button>
+          </div>
+        ) : (
+          <PageTitle color="amber"
+            leading={<Button variant="ghost" size="icon" onClick={() => navigate(`/brand/${brandId}/inventory`)}><ArrowLeft className="h-4 w-4" /></Button>}
+            subtitle={brand?.name ?? "Brand"}
+            action={<Button onClick={handleSync} disabled={syncing} className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Syncing..." : "Sync All Vendor Prices"}
+          </Button>}
+          >Unpriced Ingredients</PageTitle>
+        )}
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Filter by item name or category..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9"
+          />
         </div>
 
         {/* Summary */}
@@ -152,17 +167,6 @@ export default function BrandUnpricedIngredients({ embedded = false }: { embedde
             </div>
           </CardContent>
         </Card>
-
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Filter by item name or category..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
 
         {/* Table */}
         <Card>
