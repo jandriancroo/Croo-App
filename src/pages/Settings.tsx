@@ -524,10 +524,10 @@ export default function Settings() {
         {/* Pill selector — only for org_admin and above */}
         {showPillSelector && (
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'location' | 'org' | 'super')} className="w-full">
-            <TabsList className={`w-full grid ${isSuperAdmin ? 'grid-cols-3' : 'grid-cols-2'}`}>
-              <TabsTrigger value="location">{locationLabel}</TabsTrigger>
-              <TabsTrigger value="org">{orgLabel}</TabsTrigger>
-              {isSuperAdmin && <TabsTrigger value="super">Super Admin</TabsTrigger>}
+            <TabsList className="w-full flex h-10 items-center gap-0.5">
+              <TabsTrigger value="location"><span className="truncate">{locationLabel}</span></TabsTrigger>
+              <TabsTrigger value="org"><span className="truncate">{orgLabel}</span></TabsTrigger>
+              {isSuperAdmin && <TabsTrigger value="super"><span className="truncate">Super Admin</span></TabsTrigger>}
             </TabsList>
           </Tabs>
         )}
