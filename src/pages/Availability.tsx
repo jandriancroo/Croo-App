@@ -63,7 +63,7 @@ export default function Availability() {
   return (
     <Layout>
       <div>
-        <PageTitle color="indigo" action={
+        <PageTitle color="indigo" status={availabilityStatus} action={
           <Button onClick={() => data.setRequestDialogOpen(true)}>
             <Plus className="h-5 w-5 mr-2" />
             Request Time Off
