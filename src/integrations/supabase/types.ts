@@ -15381,6 +15381,65 @@ export type Database = {
           ot: number
         }[]
       }
+      _labor_pace_break_owed_sec: {
+        Args: { _gross: number; _location_id: string }
+        Returns: number
+      }
+      _labor_pace_meal_sec: {
+        Args: {
+          _basis: string
+          _duration: number
+          _first_h: number
+          _gross: number
+          _min_unpaid: number
+          _paid: boolean
+          _second_h: number
+          _waiver1: number
+          _waiver2: number
+        }
+        Returns: number
+      }
+      _labor_pace_on_track_band: { Args: never; Returns: number }
+      _labor_pace_pairs: {
+        Args: { _date: string; _location_id: string; _src: string }
+        Returns: {
+          clock_in: string
+          clock_out: string
+          est_end: string
+          is_open: boolean
+          on_break: boolean
+          shift_id: string
+          taken_unpaid_sec: number
+          user_id: string
+          worked_sec: number
+        }[]
+      }
+      _labor_pace_shift_eval: {
+        Args: {
+          _first_in: string
+          _last_out: string
+          _now: string
+          _npairs: number
+          _on_break: boolean
+          _open: boolean
+          _owed_sec: number
+          _s_end: string
+          _s_start: string
+          _schedule_only: boolean
+          _src: string
+          _taken_sec: number
+        }
+        Returns: Record<string, unknown>
+      }
+      _labor_pace_template_end: {
+        Args: {
+          _clock_in: string
+          _date: string
+          _location_id: string
+          _tz: string
+        }
+        Returns: string
+      }
       _labor_pair_shifts: {
         Args: {
           _date: string
@@ -15452,42 +15511,6 @@ export type Database = {
       }
       _location_business_date: {
         Args: { _location_id: string }
-        Returns: string
-      }
-      _lp_pairs: {
-        Args: { _date: string; _location_id: string; _src: string }
-        Returns: {
-          clock_in: string
-          clock_out: string
-          est_end: string
-          is_open: boolean
-          on_break: boolean
-          shift_id: string
-          user_id: string
-          worked_sec: number
-        }[]
-      }
-      _lp_shift_eval: {
-        Args: {
-          _first_in: string
-          _last_out: string
-          _now: string
-          _npairs: number
-          _open: boolean
-          _s_end: string
-          _s_start: string
-          _schedule_only: boolean
-          _src: string
-        }
-        Returns: Record<string, unknown>
-      }
-      _lp_template_end: {
-        Args: {
-          _clock_in: string
-          _date: string
-          _location_id: string
-          _tz: string
-        }
         Returns: string
       }
       _org_role_notification_settings: {
@@ -16085,7 +16108,7 @@ export type Database = {
           source: string
         }[]
       }
-      get_labor_projection: {
+      get_labor_pace: {
         Args: { _date?: string; _location_id: string }
         Returns: Json
       }
