@@ -73,7 +73,7 @@ serve(async (req) => {
           location_id: assignment.location_id,
           title,
           body,
-          notification_type: "checklist",
+          notification_type: "training_approval",
           data: { url: `/complete/${assignment.checklist_id}?assignment=${assignment.id}` },
         }),
       );
@@ -86,7 +86,7 @@ serve(async (req) => {
           location_id: assignment.location_id,
           title,
           body,
-          notification_type: "checklist",
+          notification_type: "training_approval",
           data: { url: `/complete/${assignment.checklist_id}?assignment=${assignment.id}` },
         }),
       );
