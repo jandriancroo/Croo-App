@@ -58,7 +58,7 @@ export function PostComposer({
 
   const reset = () => {
     setBody(''); setSubject(''); setMedia([]); setChannelId(defaultChannelId); setBadgeId(null);
-    setIsAnnouncement(false); setPinned(false);
+    setIsAnnouncement(false); setPinned(false); setRequireConfirm(false);
   };
 
   useEffect(() => {
