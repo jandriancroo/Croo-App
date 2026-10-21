@@ -6613,6 +6613,8 @@ export type Database = {
           location_id: string
           plain_miss: number | null
           plain_pct: number | null
+          pos_miss: number | null
+          pos_pct: number | null
           sales_pace_at_snapshot: number | null
           smart_close_enabled: boolean
           smart_close_minutes: number | null
@@ -6630,6 +6632,8 @@ export type Database = {
           location_id: string
           plain_miss?: number | null
           plain_pct?: number | null
+          pos_miss?: number | null
+          pos_pct?: number | null
           sales_pace_at_snapshot?: number | null
           smart_close_enabled: boolean
           smart_close_minutes?: number | null
@@ -6647,6 +6651,8 @@ export type Database = {
           location_id?: string
           plain_miss?: number | null
           plain_pct?: number | null
+          pos_miss?: number | null
+          pos_pct?: number | null
           sales_pace_at_snapshot?: number | null
           smart_close_enabled?: boolean
           smart_close_minutes?: number | null
