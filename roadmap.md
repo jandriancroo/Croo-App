@@ -1,16 +1,8 @@
 # Roadmap
 
+## Held
+(none)
+
 ## Done
-- Promo tracker editor: right side no longer cut off, page scrolls after a photo is added
-- Promo item rows: photo description reads fully, camera icon instead of "Add photo" text
-- Dash layout saved per person (follows you across devices)
-- Phase B: 17 decorative PDF borders plus independent winner/closing effects; saved picker/color choices and shared live/builder SVG previews.
-- Verified phone/desktop 220px hero, save/reopen and restore, tappable periods, paused/reduced motion, and 13 passing promo tests.
-- V2 correction: seven PDF strand styles rebuilt on the outer edge; all remaining treatments moved outward with 10px inward limit.
-- Preserved original tracker width and 220px height (hero and wrapper); spacing is outside, not inside. Verified phone/desktop, saved choices, period taps, paused/reduced motion and 15 tests.
-
-## Held (waiting on Jordan)
-- Finished rows: "final layout is option 3, plus a read-only details view" — not started; Jordan wants to change or confirm first.
-
-## Up next
-- Remaining border mockups — waiting for Jordan's references; current styles already use outer-edge placement.
+- Finished rows final layout (option 3 + read-only completed view, Oct 21 spec): one-line done rows (24px check, 16px bold title, temp/number reading right-aligned, 52px time, 40px avatar, chevron); read-only review with Completed-by card, Reading card (Edit reading for temp), temp photo 96px thumb / photo grid / note text, Retake + Undo buttons, permission-gated footer note; "Worked on by" line above Add notes sorted by items completed. Verified phone 390 + iPad 834, undo-from-review returns to list, test data deleted.
+- Progress bar turns success green at 100%, teal below; verified 6/6 green and 5/6 teal.

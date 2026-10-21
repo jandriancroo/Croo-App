@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DateTime } from 'luxon';
 import { PhotoPickerButton } from '@/components/PhotoPickerButton';
 import { ChecklistQuestionText } from '@/components/tasks/ChecklistQuestionText';
@@ -156,9 +155,10 @@ function useContentWidth(ref: React.RefObject<HTMLElement>) {
 
 function ProgressBar({ done, total }: { done: number; total: number }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const full = total > 0 && done >= total;
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={total} aria-label={`${done} of ${total} done`}>
-      <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${pct}%` }} />
+      <div className={cn('h-full rounded-full transition-[width] duration-300', full ? 'bg-[hsl(var(--success))]' : 'bg-primary')} style={{ width: `${pct}%` }} />
     </div>
   );
 }
@@ -281,70 +281,11 @@ function Name({ it, ctx, className }: { it: RunItem; ctx: RunCtx; className?: st
 }
 
 const initialsOf = (full: string) => full.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
-const fullWhen = (iso: string) => {
+/** "6:21 AM · Mon Oct 19" — time first, then the day. */
+const completedWhen = (iso: string) => {
   const d = DateTime.fromISO(iso);
-  return d.isValid ? `${d.toFormat('ccc LLL d')} · ${timeOf(iso)}` : timeOf(iso);
+  return d.isValid ? `${timeOf(iso)} · ${d.toFormat('ccc LLL d')}` : timeOf(iso);
 };
-
-/** Right column of a done row: 26px avatar + time; tap the avatar for who/when. */
-function DoneWho({ ctx, id }: { ctx: RunCtx; id: string }) {
-  const c = ctx.completer(id);
-  if (!c) return null;
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button type="button" aria-label={`Completed by ${c.fullName}`} onClick={(e) => e.stopPropagation()}
-          className="flex w-11 shrink-0 flex-col items-center self-start">
-          <Avatar className="h-[26px] w-[26px]">
-            <AvatarImage src={c.profilePhoto || undefined} />
-            <AvatarFallback className="bg-secondary text-[10px] font-semibold text-secondary-foreground">{initialsOf(c.fullName)}</AvatarFallback>
-          </Avatar>
-          <span className="mt-0.5 whitespace-nowrap text-[10px] leading-none text-muted-foreground">{timeOf(c.completedAt)}</span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-3" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-2.5">
-          <Avatar className="h-9 w-9">
-            <AvatarImage src={c.profilePhoto || undefined} />
-            <AvatarFallback className="bg-secondary text-xs font-semibold text-secondary-foreground">{initialsOf(c.fullName)}</AvatarFallback>
-          </Avatar>
-          <div>
-            <div className="text-sm font-semibold">{c.fullName}</div>
-            <div className="text-xs text-muted-foreground">{fullWhen(c.completedAt)}</div>
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function DoneReading({ ctx, it }: { ctx: RunCtx; it: RunItem }) {
-  const r = ctx.reading(it.id);
-  const has = r.temp != null;
-  const tone = !has ? 'warn' : r.valid === false ? 'bad' : 'good';
-  const color = tone === 'good' ? 'text-[hsl(var(--success))]' : tone === 'bad' ? 'text-destructive' : 'text-[hsl(var(--warning))]';
-  const chip = !has || r.unconfirmed ? 'Unconfirmed' : r.valid === false ? 'Out of range' : null;
-  return (
-    <span className="mt-0.5 block">
-      <span className="flex flex-nowrap items-center gap-1.5">
-        <span className="flex items-center gap-[3px]">
-          <span className={cn('text-base font-bold tabular-nums', color)}>{has ? `${Number(r.temp).toFixed(1)}°F` : '?°F'}</span>
-          <button type="button" aria-label={has ? 'Edit temperature' : 'Enter temperature'} className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center"
-            onClick={(e) => { e.stopPropagation(); ctx.setTempValue(it.id, has ? String(r.temp) : ''); ctx.setTempOpen(it.id, true); }}>
-            <span className={cn('flex h-[22px] w-[22px] items-center justify-center rounded-full',
-              tone === 'good' ? 'bg-[hsl(var(--success)/0.14)]' : tone === 'bad' ? 'bg-destructive/10' : 'bg-[hsl(var(--warning)/0.16)]', color)}><Pencil className="h-3 w-3" /></span>
-          </button>
-        </span>
-        {chip && (
-          <span className={cn('whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold',
-            chip === 'Out of range' ? 'bg-destructive/10 text-destructive' : 'bg-[hsl(var(--warning)/0.14)] text-[hsl(var(--warning))]')}>{chip}</span>
-        )}
-        <PhotoIcon ctx={ctx} it={it} />
-      </span>
-      {r.editedBy && <span className="block text-xs text-muted-foreground">Edited by {r.editedBy}</span>}
-    </span>
-  );
-}
 
 function PhotoIcon({ ctx, it }: { ctx: RunCtx; it: RunItem }) {
   const ph = ctx.photos(it);
@@ -377,7 +318,8 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
   };
   const longPressEnd = () => { if (pressTimer.current) { window.clearTimeout(pressTimer.current); pressTimer.current = null; } };
 
-  const doneDot = <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--success))] text-primary-foreground', flash && 'animate-in zoom-in-50 duration-300')} aria-hidden><Check className="h-3.5 w-3.5" strokeWidth={3} /></span>;
+  const badTemp = done && temp && !amber && ctx.reading(it.id).valid === false;
+  const doneDot = <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-primary-foreground', badTemp ? 'bg-destructive' : 'bg-[hsl(var(--success))]', flash && 'animate-in zoom-in-50 duration-300')} aria-hidden><Check className="h-3.5 w-3.5" strokeWidth={3} /></span>;
   let circle: ReactNode;
   if (amber) circle = <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--warning))] text-sm font-bold text-primary-foreground" aria-hidden>!</span>;
   else if (done) circle = ctx.canUndo(it.id)
@@ -387,7 +329,8 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
 
   const photos = done && photo && !temp ? ctx.photos(it) : [];
   const r = temp ? ctx.reading(it.id) : null;
-  const savedText = done && (it.item_type === 'text' || it.item_type === 'number' || it.item_type === 'multiple_choice') ? String(ctx.savedValue(it.id) ?? ctx.value(it.id) ?? '') : '';
+  const savedNum = done && it.item_type === 'number' ? String(ctx.savedValue(it.id) ?? ctx.value(it.id) ?? '') : '';
+  const who = done && !amber ? ctx.completer(it.id) : undefined;
 
   // Right side when not done.
   let right: ReactNode = null;
@@ -410,56 +353,82 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
     else right = <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />;
   }
 
+  // Done row: one line — check, title, reading (temp/number), time, avatar, chevron.
+  if (done && !amber) {
+    const readingText = temp ? (r && r.temp != null ? `${Number(r.temp).toFixed(1)}°F` : '?°F') : savedNum;
+    return (
+      <div className={cn('border-b border-border last:border-b-0', badTemp ? 'bg-destructive/[0.06]' : 'bg-card')}>
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={`${it.question}, done`}
+          onClick={tap}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(); } }}
+          className="flex w-full cursor-pointer items-center gap-1.5 py-3 pl-3 pr-[10px] text-left"
+        >
+          <span className="flex shrink-0">{circle}</span>
+          <span className="min-w-0 flex-1">
+            <Name it={it} ctx={ctx} className="block break-words text-base font-bold leading-snug" />
+            {photos.length > 0 && (
+              <span className="mt-[5px] flex flex-wrap gap-1">
+                {photos.map((u, i) => (
+                  <button key={i} type="button" onClick={(e) => { e.stopPropagation(); ctx.previewMany ? ctx.previewMany(photos, i) : ctx.preview(u); }} aria-label={`See photo ${i + 1}`} className="h-[34px] w-[34px] overflow-hidden rounded-md border">
+                    <img src={u} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </span>
+            )}
+          </span>
+          {readingText && (
+            <span className={cn('shrink-0 text-right text-base font-bold tabular-nums', badTemp ? 'text-destructive' : temp && r && r.temp == null && 'text-[hsl(var(--warning))]')}>{readingText}</span>
+          )}
+          {who && <span className="w-[52px] shrink-0 whitespace-nowrap text-right text-[11.5px] text-muted-foreground">{timeOf(who.completedAt)}</span>}
+          {who && (
+            <Avatar className="h-10 w-10 shrink-0">
+              <AvatarImage src={who.profilePhoto || undefined} />
+              <AvatarFallback className="bg-secondary text-xs font-semibold text-secondary-foreground">{initialsOf(who.fullName)}</AvatarFallback>
+            </Avatar>
+          )}
+          <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
-      className={cn('border-b border-border last:border-b-0', amber ? 'bg-[hsl(var(--warning)/0.08)]' : done && temp && ctx.reading(it.id).valid === false ? 'bg-destructive/[0.06]' : 'bg-card')}
+      className={cn('border-b border-border last:border-b-0', amber ? 'bg-[hsl(var(--warning)/0.08)]' : 'bg-card')}
     >
       <div
         role="button"
         tabIndex={0}
-        aria-label={`${it.question}${done ? ', done' : ''}`}
+        aria-label={it.question}
         onClick={tap}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(); } }}
-        onPointerDown={!oneTap || done ? undefined : longPressStart}
+        onPointerDown={!oneTap ? longPressStart : undefined}
         onPointerUp={longPressEnd}
         onPointerLeave={longPressEnd}
-        className={cn('flex w-full cursor-pointer items-start px-3 text-left', done ? 'gap-x-2.5 py-[7px]' : 'flex-wrap gap-x-3 py-2.5')}
+        className="flex w-full cursor-pointer flex-wrap items-start gap-x-3 px-3 py-2.5 text-left"
       >
         <span className="flex shrink-0">{circle}</span>
-        <span className={cn('min-w-0 flex-1', !done && 'pt-[3px]')}>
-          <Name it={it} ctx={ctx} className={cn('block break-words font-semibold', done ? 'text-[13.5px] leading-[1.25]' : 'text-[15px] leading-snug', done && !amber && 'text-muted-foreground')} />
+        <span className="min-w-0 flex-1 pt-[3px]">
+          <Name it={it} ctx={ctx} className="block break-words text-[15px] font-semibold leading-snug" />
           {amber ? (
             <span className="mt-0.5 block text-sm text-[hsl(var(--warning))]">Photo saved. Type the temperature.</span>
-          ) : !done ? (
+          ) : (
             <>
               {(subText(it, ctx) || it.manager_shift === 'am' || it.manager_shift === 'pm') && (
                 <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">{subText(it, ctx) && <span>{subText(it, ctx)}</span>}<ShiftTag it={it} /></span>
               )}
               <Markers it={it} />
             </>
-          ) : null}
-          {!done && ctx.tempOpen(it.id) && temp && (
+          )}
+          {ctx.tempOpen(it.id) && temp && !amber && (
             <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></span>
           )}
           {amber && <span className="mt-2 flex items-center gap-3"><TempInput ctx={ctx} id={it.id} /><PhotoIcon ctx={ctx} it={it} /></span>}
-          {done && temp && !amber && <DoneReading ctx={ctx} it={it} />}
-          {done && temp && !amber && ctx.tempOpen(it.id) && (
-            <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></span>
-          )}
-          {photos.length > 0 && (
-            <span className="mt-[5px] flex flex-wrap gap-1">
-              {photos.map((u, i) => (
-                <button key={i} type="button" onClick={(e) => { e.stopPropagation(); ctx.previewMany ? ctx.previewMany(photos, i) : ctx.preview(u); }} aria-label={`See photo ${i + 1}`} className="h-[34px] w-[34px] overflow-hidden rounded-md border">
-                  <img src={u} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
-                </button>
-              ))}
-            </span>
-          )}
-          {savedText && it.item_type === 'number' && <span className="mt-0.5 block text-base font-bold tabular-nums">{savedText}</span>}
-          {savedText && it.item_type !== 'number' && <span className="mt-0.5 block whitespace-pre-wrap break-words text-sm line-clamp-3">{savedText}</span>}
         </span>
         {right && <span className="flex min-h-7 items-center self-center">{right}</span>}
-        {done && !amber && <DoneWho ctx={ctx} id={it.id} />}
       </div>
     </div>
   );
@@ -796,49 +765,53 @@ function CompletedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
   const photos = ctx.photos(it);
   const r = temp ? ctx.reading(it.id) : null;
   const saved = ctx.savedValue(it.id) ?? ctx.value(it.id);
+  const can = ctx.canUndo(it.id);
   const openPhoto = (i: number) => { if (ctx.previewMany) ctx.previewMany(photos, i); else ctx.preview(photos[i]); };
   const tone = !r ? null : r.temp == null ? 'warn' : r.valid === false ? 'bad' : 'good';
+  const isNum = it.item_type === 'number';
+  const hasReading = (temp && r != null) || (isNum && saved != null && saved !== '');
   return (
     <div className="space-y-3">
       {c && (
         <div className="flex items-center gap-3 rounded-xl bg-muted/60 p-3">
-          <Avatar className="h-10 w-10 shrink-0">
+          <Avatar className="h-11 w-11 shrink-0">
             <AvatarImage src={c.profilePhoto || undefined} />
             <AvatarFallback className="bg-secondary text-sm font-semibold text-secondary-foreground">{initialsOf(c.fullName)}</AvatarFallback>
           </Avatar>
           <div className="min-w-0">
             <div className={capLabel}>Completed by</div>
             <div className="break-words text-[15px] font-bold">{c.fullName}</div>
-            <div className="text-xs text-muted-foreground">{fullWhen(c.completedAt)}</div>
+            <div className="text-xs text-muted-foreground">Completed {completedWhen(c.completedAt)}</div>
           </div>
         </div>
       )}
-      {temp && r && (
-        <div className={cn('flex items-center justify-between gap-3 rounded-xl p-3',
-          tone === 'good' && 'bg-[hsl(var(--success)/0.1)]', tone === 'bad' && 'bg-destructive/10', tone === 'warn' && 'bg-[hsl(var(--warning)/0.12)]')}>
-          <div className="min-w-0">
-            <div className="text-sm text-muted-foreground">{r.temp != null ? 'Reading' : 'No reading'}</div>
-            <div className={cn('text-3xl font-bold tabular-nums', tone === 'good' && 'text-[hsl(var(--success))]', tone === 'bad' && 'text-destructive', tone === 'warn' && 'text-[hsl(var(--warning))]')}>
-              {r.temp != null ? `${Number(r.temp).toFixed(1)}°F` : '?°F'}
+      {hasReading && (
+        <div className={cn('rounded-xl p-3', temp && (tone === 'good' ? 'bg-[hsl(var(--success)/0.1)]' : tone === 'bad' ? 'bg-destructive/10' : 'bg-[hsl(var(--warning)/0.12)]'))}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className={capLabel}>Reading</div>
+              <div className={cn('text-3xl font-bold tabular-nums', temp && tone === 'bad' && 'text-destructive', temp && tone === 'warn' && 'text-[hsl(var(--warning))]')}>
+                {temp ? (r!.temp != null ? `${Number(r!.temp).toFixed(1)}°F` : '?°F') : String(saved)}
+              </div>
+              {temp && r!.editedBy && <div className="text-xs text-muted-foreground">Edited by {r!.editedBy}</div>}
             </div>
-            {r.editedBy && <div className="text-xs text-muted-foreground">Edited by {r.editedBy}</div>}
+            {temp && can && (
+              <Button type="button" variant="outline" className="h-11 shrink-0 border-border bg-card"
+                onClick={() => { ctx.setTempValue(it.id, r!.temp != null ? String(r!.temp) : ''); ctx.setTempOpen(it.id, true); }}>
+                <Pencil className="mr-1.5 h-4 w-4" />Edit reading
+              </Button>
+            )}
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold',
-              tone === 'good' && 'bg-[hsl(var(--success))] text-primary-foreground', tone === 'bad' && 'bg-destructive text-destructive-foreground', tone === 'warn' && 'bg-[hsl(var(--warning))] text-primary-foreground')}>
-              {tone === 'good' ? 'Safe' : tone === 'bad' ? 'Out of range' : 'Unconfirmed'}
-            </span>
-            <button type="button" aria-label={r.temp != null ? 'Edit temperature' : 'Enter temperature'}
-              onClick={() => { ctx.setTempValue(it.id, r.temp != null ? String(r.temp) : ''); ctx.setTempOpen(it.id, true); }}
-              className={cn('flex h-11 w-11 items-center justify-center rounded-full',
-                tone === 'good' && 'bg-[hsl(var(--success))] text-primary-foreground', tone === 'bad' && 'bg-destructive text-destructive-foreground', tone === 'warn' && 'bg-[hsl(var(--warning))] text-primary-foreground')}>
-              <Pencil className="h-4 w-4" />
+          {temp && ctx.tempOpen(it.id) && <div className="mt-2"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></div>}
+          {temp && photos[0] && (
+            <button type="button" onClick={() => openPhoto(0)} className="mt-3 flex items-center gap-3 text-left" aria-label="See temp photo full size">
+              <img src={photos[0]} alt="Temp photo" className="h-24 w-24 rounded-xl border object-cover" loading="lazy" decoding="async" />
+              <span><span className="block text-sm font-medium">Temp photo</span><span className="block text-sm text-muted-foreground">Tap to enlarge</span></span>
             </button>
-          </div>
+          )}
         </div>
       )}
-      {temp && ctx.tempOpen(it.id) && <TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} />}
-      {photos.length > 0 && (
+      {!temp && photos.length > 0 && (
         <div className={cn('grid gap-2', photos.length > 1 ? 'grid-cols-2' : 'grid-cols-1')}>
           {photos.map((u, i) => (
             <button key={i} type="button" onClick={() => openPhoto(i)} className="block overflow-hidden rounded-xl border" aria-label={`See photo ${i + 1} full size`}>
@@ -847,7 +820,6 @@ function CompletedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
           ))}
         </div>
       )}
-      {it.item_type === 'number' && saved != null && saved !== '' && <div className="text-3xl font-bold tabular-nums">{String(saved)}</div>}
       {it.item_type === 'text' && !!saved && <div className="whitespace-pre-wrap break-words rounded-xl bg-muted p-3 text-[15px] leading-relaxed">{String(saved)}</div>}
       {it.item_type === 'multiple_choice' && (
         <div className="space-y-2">
@@ -864,6 +836,24 @@ function CompletedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
       )}
       <NotesPanel it={it} />
       <ReferenceRows it={it} ctx={ctx} showPhotos />
+      {can && (
+        <div className="space-y-2 pt-1">
+          {temp && (
+            ctx.uploading(it.id) ? (
+              <span className="flex h-12 items-center justify-center text-sm text-primary">Uploading…</span>
+            ) : (
+              <PhotoPickerButton direct="camera" onFileSelected={(f) => ctx.upload(it.id, f)} className="block w-full">
+                <span className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-card text-base font-medium"><RotateCcw className="h-4 w-4" />Retake temp photo</span>
+              </PhotoPickerButton>
+            )
+          )}
+          <Button type="button" variant="outline" className="h-12 w-full border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => ctx.undo(it.id)}>
+            Undo this item
+          </Button>
+          <p className="text-center text-xs text-muted-foreground">Only {c ? c.fullName.split(' ')[0] : 'the person who did this'} or a Shift Manager and above can undo or edit.</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -895,6 +885,17 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
 
   // Completed tasks in list order, for the read-only review card.
   const doneWalk = useMemo(() => walk.filter((it) => counted(it) && ctx.isDone(it) && !ctx.needsTemp(it)), [walk, ctx]);
+  // "Worked on by" — everyone who completed at least one item, most items first.
+  const workedOnBy = useMemo(() => {
+    const counts = new Map<string, { name: string; n: number }>();
+    for (const it of doneWalk) {
+      const c = ctx.completer(it.id);
+      if (!c) continue;
+      const cur = counts.get(c.userId);
+      if (cur) cur.n += 1; else counts.set(c.userId, { name: shortName(c.fullName), n: 1 });
+    }
+    return [...counts.values()].sort((a, b) => b.n - a.n).map((x) => x.name);
+  }, [doneWalk, ctx]);
   const rIdx = reviewId ? doneWalk.findIndex((w) => w.id === reviewId) : -1;
   const reviewCurrent = rIdx >= 0 ? doneWalk[rIdx] : null;
 
@@ -996,6 +997,9 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
       )}
       {hiddenLine}
       {groups}
+      {workedOnBy.length > 0 && (
+        <p className="px-1 text-[12.5px] text-muted-foreground"><span className="font-bold text-foreground">Worked on by</span> {workedOnBy.join(', ')}</p>
+      )}
       {ctx.footer}
       {firstTodo && (
         <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+88px)] z-30 px-3 md:bottom-4 md:px-6">
@@ -1125,20 +1129,19 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
     </div>
   );
 
+  const reviewBad = !!reviewCurrent && isTempTask(reviewCurrent) && ctx.reading(reviewCurrent.id).valid === false;
   const reviewView = reviewCurrent && (
     <div className="space-y-3 pb-6">
-      {topBar}
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={backToList} aria-label="Back to list"><ArrowLeft className="h-5 w-5" /></Button>
+        <div className="min-w-0 flex-1">
+          <Name it={reviewCurrent} ctx={ctx} className="block break-words text-base font-bold leading-tight" />
+          <div className="text-xs text-muted-foreground">{sectionOf.get(reviewCurrent.id) || 'Tasks'} · {ctx.title}</div>
+        </div>
+        {reviewBad && <span className="shrink-0 rounded-full bg-destructive px-2.5 py-1 text-xs font-semibold text-destructive-foreground">Out of range</span>}
+      </div>
       <div key={reviewCurrent.id} className="space-y-3 rounded-2xl border bg-card p-4">
-        <div className={capLabel}>{(sectionOf.get(reviewCurrent.id) || 'Tasks')} · {typeLabel(reviewCurrent, ctx.minPhotos(reviewCurrent))} · Done</div>
-        <Name it={reviewCurrent} ctx={ctx} className="block break-words text-2xl font-bold leading-tight" />
-        <ShiftTag it={reviewCurrent} />
         <CompletedBody it={reviewCurrent} ctx={ctx} />
-        {ctx.canUndo(reviewCurrent.id) && (
-          <Button type="button" variant="outline" className="h-12 w-full border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
-            onClick={() => { ctx.undo(reviewCurrent.id); backToList(); }}>
-            <RotateCcw className="mr-2 h-4 w-4" />Undo
-          </Button>
-        )}
       </div>
       {twoPane ? reviewNav : (
         <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+88px)] z-20 -mx-1 rounded-2xl border bg-background/95 p-2 backdrop-blur">{reviewNav}</div>
