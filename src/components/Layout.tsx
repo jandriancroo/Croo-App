@@ -1025,7 +1025,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
               {!roleLoading && isShiftManager && (
                 <button
                   onClick={() => window.dispatchEvent(new Event('open-theo'))}
-                  className="group relative flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 transition-all duration-200"
+                  className="group relative flex h-8 items-center justify-center gap-2 whitespace-nowrap px-3.5 rounded-lg md:min-w-[7.5rem] bg-white/15 hover:bg-white/25 active:scale-95 transition-all duration-200"
                   aria-label="Ask Theo"
                 >
                   <span className="relative flex items-center justify-center h-5 w-5 shrink-0">
