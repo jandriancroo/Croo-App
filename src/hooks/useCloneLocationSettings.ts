@@ -1,4 +1,5 @@
 import { referencePhotoFields } from '@/lib/checklistReferencePhotos';
+import { pickScheduleFields } from '@/lib/taskHistory/schedule';
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -123,6 +124,7 @@ export function useCloneLocationSettings() {
           assigned_day_of_week: cl.assigned_day_of_week,
           lock_until_time: cl.lock_until_time,
           visible_days_before_month_end: cl.visible_days_before_month_end,
+          ...pickScheduleFields(cl),
         })
         .select('id')
         .single();

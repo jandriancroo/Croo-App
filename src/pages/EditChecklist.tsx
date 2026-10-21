@@ -1,4 +1,8 @@
 import { referencePhotoFields, getPrimaryReferencePhoto } from '@/lib/checklistReferencePhotos';
+import { FrequencyPicker } from '@/components/tasks/FrequencyPicker';
+import { defaultScheduleForm, scheduleFormError, scheduleFormFromRow, scheduleFormToRow, type ScheduleFormValue } from '@/lib/checklistScheduleForm';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
+import { getTodayInTimezone } from '@/utils/timezoneUtils';
 import { PageTitle } from '@/components/PageTitle';
 import { TaskAssigneePicker } from '@/components/tasks/TaskAssigneePicker';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -331,6 +335,9 @@ export default function EditChecklist() {
   const [description, setDescription] = useState('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'single_day'>('daily');
   const [scheduledDate, setScheduledDate] = useState('');
+  const [schedule, setSchedule] = useState<ScheduleFormValue>(defaultScheduleForm);
+  const { timezone: storeTimezone } = useLocationTimezone();
+  const storeToday = getTodayInTimezone(storeTimezone);
   const [dueByTime, setDueByTime] = useState('');
   const [lockUntilTime, setLockUntilTime] = useState('');
   const [lockTimeEnabled, setLockTimeEnabled] = useState(false);
@@ -350,10 +357,10 @@ export default function EditChecklist() {
   const captureBaselineRef = useRef(false);
   const [baselineKey, setBaselineKey] = useState<string | null>(null);
   const formKey = useMemo(() => JSON.stringify({
-    title, description, frequency, scheduledDate, dueByTime, lockUntilTime, lockTimeEnabled,
+    title, description, frequency, scheduledDate, schedule, dueByTime, lockUntilTime, lockTimeEnabled,
     templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, enableAmPmDivision,
     positionFilteringEnabled, items,
-  }), [title, description, frequency, scheduledDate, dueByTime, lockUntilTime, lockTimeEnabled,
+  }), [title, description, frequency, scheduledDate, schedule, dueByTime, lockUntilTime, lockTimeEnabled,
     templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, enableAmPmDivision,
     positionFilteringEnabled, items]);
   const isDirty = baselineKey !== null && formKey !== baselineKey;
@@ -458,6 +465,7 @@ export default function EditChecklist() {
       setDescription(checklist.description || '');
       setFrequency(checklist.frequency as 'daily' | 'weekly' | 'monthly' | 'single_day');
       setScheduledDate((checklist as any).scheduled_date || '');
+      setSchedule(scheduleFormFromRow(checklist as any));
       setDueByTime(normalizeTimeForInput(checklist.due_by_time));
 
       const savedLockTimeRaw = checklist.lock_until_time;
@@ -598,6 +606,14 @@ export default function EditChecklist() {
       return;
     }
 
+    if (templateType === 'standard') {
+      const scheduleError = scheduleFormError(schedule);
+      if (scheduleError) {
+        toast({ title: 'Check the frequency', description: scheduleError, variant: 'destructive' });
+        return;
+      }
+    }
+
     try {
       setSaving(true);
 
@@ -607,12 +623,16 @@ export default function EditChecklist() {
       const checklistUpdate = {
         title,
         description,
-        frequency,
-        scheduled_date: frequency === 'single_day' ? (scheduledDate || null) : null,
+        ...(templateType === 'standard'
+          ? scheduleFormToRow(schedule, storeToday)
+          : {
+              frequency,
+              scheduled_date: frequency === 'single_day' ? (scheduledDate || null) : null,
+              visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
+            }),
         due_by_time: dueDb,
         lock_until_time: lockDb,
         template_type: templateType,
-        visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
         enable_am_pm_division: enableAmPmDivision,
         position_filtering_enabled: positionFilteringEnabled,
         updated_at: new Date().toISOString(),
@@ -772,7 +792,7 @@ export default function EditChecklist() {
         if (userTagsError) throw userTagsError;
       }
 
-      const archiveCopy = archivePeriodCopy({ template_type: templateType, frequency });
+      const archiveCopy = archivePeriodCopy({ template_type: templateType, frequency, ...(templateType === 'standard' ? scheduleFormToRow(schedule, storeToday) : {}) } as any);
       toast({
         title: 'Success',
         description: removedIds.length > 0
@@ -927,7 +947,7 @@ export default function EditChecklist() {
                     Set per assignment
                   </div>
                 </div>
-              ) : (
+              ) : templateType === 'dynamic' ? (
                 <div className="space-y-1">
                   <Label htmlFor="frequency" className="text-xs">Frequency</Label>
                   <Select value={frequency} onValueChange={(value: any) => setFrequency(value)}>
@@ -940,8 +960,15 @@ export default function EditChecklist() {
                     </SelectContent>
                   </Select>
                 </div>
-              )}
+              ) : null}
             </div>
+
+            {templateType === 'standard' && (
+              <div className="space-y-1">
+                <Label className="text-xs">Frequency</Label>
+                <FrequencyPicker value={schedule} onChange={setSchedule} todayStr={storeToday} />
+              </div>
+            )}
 
             {templateType !== 'dynamic' && (
               <div className="space-y-1">
@@ -963,7 +990,7 @@ export default function EditChecklist() {
 
 
 
-            {templateType !== 'training' && frequency === 'single_day' && (
+            {templateType === 'dynamic' && frequency === 'single_day' && (
               <div className="space-y-1">
                 <Label className="text-xs">Date</Label>
                 <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
@@ -976,7 +1003,7 @@ export default function EditChecklist() {
               <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief description" rows={2} />
             </div>
 
-            {frequency === 'monthly' && (
+            {templateType === 'dynamic' && frequency === 'monthly' && (
               <div className="space-y-1">
                 <Label className="text-xs">Show During Last X Days of Month</Label>
                 <Select value={visibleDaysBeforeMonthEnd?.toString() || '7'} onValueChange={(value) => setVisibleDaysBeforeMonthEnd(parseInt(value))}>

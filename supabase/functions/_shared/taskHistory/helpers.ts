@@ -8,6 +8,8 @@
  *  - src/utils/checklistArchivePeriod.ts (getScorePeriodStart, isItemExpectedInPeriod)
  */
 
+import { checklistScorePeriod, type ChecklistScheduleFields } from './schedule.ts';
+
 export const DEFAULT_TIMEZONE = 'America/Los_Angeles';
 const DEFAULT_CUTOFF_HOUR = 5;
 const HOURS_AFTER_CLOSE = 3;
@@ -126,8 +128,15 @@ export const getScorePeriodStart = (args: {
   dayOfWeekMon0: number;
   timezone?: string;
   closeTime?: string | null;
+  /** The checklist row — when given, its schedule decides the period (week/month/quarter). */
+  schedule?: ChecklistScheduleFields | null;
 }): Date => {
   const timezone = args.timezone ?? DEFAULT_TIMEZONE;
+  if (args.schedule && args.templateType !== 'dynamic') {
+    const p = checklistScorePeriod({ ...args.schedule, template_type: args.templateType ?? args.schedule.template_type }, args.businessDateStr);
+    if (p.kind !== 'day') return parseDateStringInTimezone(p.start, timezone);
+    return getBusinessDayRangeInTimezone(args.businessDateStr, timezone, args.closeTime).start;
+  }
   if (args.frequency === 'monthly') {
     const [y, m] = args.businessDateStr.split('-');
     return parseDateStringInTimezone(`${y}-${m}-01`, timezone);

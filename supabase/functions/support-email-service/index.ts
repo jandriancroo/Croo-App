@@ -4,6 +4,10 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { requireCaller } from "../_shared/callerAuth.ts";
+import { checklistShowsOn, isPeriodScored } from "../_shared/taskHistory/schedule.ts";
+
+/** Day-scored Standard list (weekdays / a set day / one date), or a Dynamic list. */
+const isDayList = (c: any) => c.template_type === "dynamic" || (c.template_type !== "training" && !isPeriodScored(c));
 
 // Format a UTC timestamp to America/Los_Angeles time string
 // ── Business-day window, location timezone + that location's business open ──
@@ -478,7 +482,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     supabase.from("logbook_entries").select(`id, entry_date, created_at, category:category_id (name), created_by_profile:created_by (full_name)`).eq("location_id", location_id).eq("entry_date", entry_date),
     // Use business day boundaries matching app's getBusinessDayRangeInTimezone
     supabase.from("checklist_submissions").select("id, checklist_id, submitted_at, submitted_by_profile:submitted_by (full_name)").eq("location_id", location_id).gte("submitted_at", businessDayStartUTC).lt("submitted_at", businessDayEndUTC),
-    supabase.from("checklists").select("id, title, frequency, template_type, is_active, family_id, replaces_checklist_id, superseded_at, checklist_items(id, days_of_week, deleted_at)").eq("location_id", location_id),
+    supabase.from("checklists").select("id, title, frequency, template_type, scheduled_date, visible_days_before_month_end, schedule_repeats, schedule_period, schedule_mode, schedule_weekdays, schedule_day, schedule_quarter_month, schedule_last_n, is_active, family_id, replaces_checklist_id, superseded_at, checklist_items(id, days_of_week, deleted_at)").eq("location_id", location_id),
     supabase.from("user_locations").select("user_id").eq("location_id", location_id),
   ]);
 
@@ -604,7 +608,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   }
 
   // Checklists: match submissions to active daily + dynamic checklists (dynamic may have frequency="weekly" but template_type="dynamic")
-  const dailyChecklists = (activeChecklists || []).filter((c: any) => c.frequency === "daily" || c.template_type === "dynamic");
+  const dailyChecklists = (activeChecklists || []).filter((c: any) => isDayList(c) && (c.template_type === "dynamic" || checklistShowsOn(c, entry_date)));
   const checklistMap = new Map((activeChecklists || []).map((c: any) => [c.id, c.title]));
   const completedIds = new Set((checklistSubs || []).map((s: any) => s.checklist_id));
   
@@ -1113,7 +1117,7 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
     supabase.from("sales_cache").select("sale_date, net_sales, guest_count, pizza_count, projected_sales, override_projection, living_projection, initial_projection").eq("location_id", location_id).gte("sale_date", week_start).lte("sale_date", week_end),
     supabase.from("labor_cache").select("labor_date, labor_hours, labor_cost").eq("location_id", location_id).gte("labor_date", week_start).lte("labor_date", week_end),
     supabase.rpc("labor_goal_pct", { _location_id: location_id, _date: null }),
-    supabase.from("checklists").select("id, title, frequency, template_type, is_active, family_id, replaces_checklist_id, superseded_at, checklist_items(id, days_of_week, deleted_at)").eq("location_id", location_id),
+    supabase.from("checklists").select("id, title, frequency, template_type, scheduled_date, visible_days_before_month_end, schedule_repeats, schedule_period, schedule_mode, schedule_weekdays, schedule_day, schedule_quarter_month, schedule_last_n, is_active, family_id, replaces_checklist_id, superseded_at, checklist_items(id, days_of_week, deleted_at)").eq("location_id", location_id),
     supabase.from("logbook_entries").select("id, entry_date, created_at, category:category_id (name), created_by_profile:created_by (full_name)").eq("location_id", location_id).gte("entry_date", week_start).lte("entry_date", week_end),
   ]);
 
@@ -1187,13 +1191,14 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
     .lt("submitted_at", weekEndUTC.toISOString());
 
   // Calculate expected items across the week (archive-aware, per business day)
-  const dailyAndDynamicChecklists = (activeChecklists || []).filter((c: any) => c.frequency === "daily" || c.template_type === "dynamic");
+  const dailyAndDynamicChecklists = (activeChecklists || []).filter(isDayList);
   let totalExpectedItems = 0;
   const expectedItemIds = new Set<string>();
   for (const dateStr of weekDates) {
     const monDow = mon0DayOfWeek(dateStr);
     const dayStart = businessDayRange(dateStr, weekCtx).start;
     for (const c of dailyAndDynamicChecklists) {
+      if (c.template_type !== "dynamic" && !checklistShowsOn(c, dateStr)) continue;
       const items = (c.checklist_items || []).filter((i: any) => expectedInPeriod(i, dayStart));
       const isDynamic = c.template_type === "dynamic";
       const todayItems = isDynamic
@@ -1395,11 +1400,12 @@ Write concise insights about sales trends, labor efficiency, cash handling, and 
   // ---- Checklist weekly rows ----
   // Count per-checklist daily completions
   const weeklyChecklistData: { title: string; daysCompleted: number; totalDays: number }[] = [];
-  const dailyAndDynamic = (activeChecklists || []).filter((c: any) => c.frequency === "daily" || c.template_type === "dynamic");
+  const dailyAndDynamic = (activeChecklists || []).filter(isDayList);
   for (const c of dailyAndDynamic) {
     let activeDays = 0;
     let completedDays = 0;
     for (const dateStr of weekDates) {
+      if (c.template_type !== "dynamic" && !checklistShowsOn(c, dateStr)) continue;
       const monDow = mon0DayOfWeek(dateStr);
       const { start: dayStart, end: dayEnd } = businessDayRange(dateStr, weekCtx);
       // A day the GM emptied by archiving still counts as an active day this week

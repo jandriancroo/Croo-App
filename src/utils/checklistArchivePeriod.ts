@@ -15,6 +15,7 @@ import {
   getBusinessDayRangeInTimezone,
   parseDateStringInTimezone,
 } from '@/utils/timezoneUtils';
+import { checklistScorePeriod, type ChecklistScheduleFields } from '@/lib/taskHistory/schedule';
 
 export interface ArchivableItem {
   deleted_at?: string | null;
@@ -56,6 +57,8 @@ interface ScorePeriodArgs {
   dayOfWeekMon0: number;
   timezone?: string;
   closeTime?: string | null;
+  /** The checklist row — when given, its schedule decides the period (week/month/quarter). */
+  schedule?: ChecklistScheduleFields | null;
 }
 
 /**
@@ -71,7 +74,13 @@ export const getScorePeriodStart = ({
   dayOfWeekMon0,
   timezone = DEFAULT_TIMEZONE,
   closeTime,
+  schedule,
 }: ScorePeriodArgs): Date => {
+  if (schedule && templateType !== 'dynamic') {
+    const p = checklistScorePeriod({ ...schedule, template_type: templateType ?? schedule.template_type }, businessDateStr);
+    if (p.kind !== 'day') return parseDateStringInTimezone(p.start, timezone);
+    return getBusinessDayRangeInTimezone(businessDateStr, timezone, closeTime).start;
+  }
   if (frequency === 'monthly') {
     const [y, m] = businessDateStr.split('-');
     return parseDateStringInTimezone(`${y}-${m}-01`, timezone);

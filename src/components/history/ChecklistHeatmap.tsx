@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { checklistScorePeriod, checklistShowsOn } from '@/lib/taskHistory/schedule';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -106,7 +107,15 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
           id,
           template_type,
           frequency,
+          scheduled_date,
           visible_days_before_month_end,
+          schedule_repeats,
+          schedule_period,
+          schedule_mode,
+          schedule_weekdays,
+          schedule_day,
+          schedule_quarter_month,
+          schedule_last_n,
           is_active,
           family_id,
           replaces_checklist_id,
@@ -157,6 +166,7 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
             dayOfWeekMon0: currentDay,
             timezone,
             closeTime,
+            schedule: cl as any,
           });
           return (cl.checklist_items || []).filter((it: any) => isItemExpectedInPeriod(it, scoreStart));
         };
@@ -169,15 +179,7 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
         const applicable = liveThatDay.filter(cl => {
 
           const items = expectedItems(cl);
-          const isMonthly = cl.frequency === 'monthly';
-          if (isMonthly) {
-            if (cl.visible_days_before_month_end) {
-              const lastDay = new Date(day.getFullYear(), day.getMonth() + 1, 0);
-              const daysUntilEnd = lastDay.getDate() - day.getDate();
-              if (daysUntilEnd >= cl.visible_days_before_month_end) return false;
-            }
-            return items.length > 0;
-          }
+          if (cl.template_type !== 'dynamic' && cl.template_type !== 'training' && !checklistShowsOn(cl as any, dateStr)) return false;
           if (cl.template_type === 'dynamic') {
             const todayItems = items.filter((it: any) => it.days_of_week?.includes(currentDay));
             return todayItems.length > 0;
@@ -193,12 +195,15 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
         let totalRate = 0;
         let completedFully = 0;
         for (const cl of applicable) {
-          const isMonthly = cl.frequency === 'monthly';
-          const periodStart = isMonthly
-            ? new Date(day.getFullYear(), day.getMonth(), 1).toISOString()
+          // "Last N days" lists score once for their week/month/quarter (device-local window, as before).
+          const sp = checklistScorePeriod(cl as any, dateStr);
+          const [sy, sm, sd] = sp.start.split('-').map(Number);
+          const [ey, em, ed] = sp.end.split('-').map(Number);
+          const periodStart = sp.kind !== 'day'
+            ? new Date(sy, sm - 1, sd).toISOString()
             : dayStart.toISOString();
-          const periodEnd = isMonthly
-            ? new Date(day.getFullYear(), day.getMonth() + 1, 0, 23, 59, 59).toISOString()
+          const periodEnd = sp.kind !== 'day'
+            ? new Date(ey, em - 1, ed, 23, 59, 59).toISOString()
             : dayEnd.toISOString();
 
           const clExpected = expectedItems(cl);

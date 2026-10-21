@@ -421,6 +421,13 @@
       "when": 1792608154911,
       "tag": "0059_temperature_unconfirmed_and_read_issues",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1792609368619,
+      "tag": "0060_checklist_schedule_picker",
+      "breakpoints": true
     }
   ]
 }

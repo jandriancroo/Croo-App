@@ -1,4 +1,5 @@
 import { referencePhotoFields } from '@/lib/checklistReferencePhotos';
+import { pickScheduleFields } from '@/lib/taskHistory/schedule';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -157,6 +158,7 @@ export function CopyChecklistDialog({
               due_by_time: checklist.due_by_time,
               assigned_day_of_week: checklist.assigned_day_of_week,
               visible_days_before_month_end: checklist.visible_days_before_month_end,
+              ...pickScheduleFields(checklist),
               display_order: checklist.display_order,
               position_filtering_enabled: checklist.position_filtering_enabled ?? false,
               location_id: targetLocationId,

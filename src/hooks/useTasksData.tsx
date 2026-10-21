@@ -8,6 +8,8 @@ import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 
 import { getDayOfWeekInTimezone } from "@/utils/dateUtils";
+import { getTodayInTimezone } from "@/utils/timezoneUtils";
+import { checklistShowsOn } from "@/lib/taskHistory/schedule";
 import { isItemLive } from "@/utils/checklistArchivePeriod";
 import {
   loadChecklistHistory,
@@ -63,7 +65,6 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
       if (error) throw error;
 
       const currentDay = getDayOfWeekInTimezone(timezone);
-      const today = new Date();
 
       return data.filter(checklist => {
         // Admins see everything (including inactive for edit tab)
@@ -87,13 +88,9 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
           return todayItems && todayItems.length > 0;
         }
 
-        if (checklist.frequency === 'monthly' && checklist.visible_days_before_month_end) {
-          const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-          const daysUntilMonthEnd = lastDayOfMonth.getDate() - today.getDate();
-          return daysUntilMonthEnd < checklist.visible_days_before_month_end;
-        }
-
-        return true;
+        // Training is assigned per person; Standard follows the shared schedule rule.
+        if (checklist.template_type === 'training') return true;
+        return checklistShowsOn(checklist as any, getTodayInTimezone(timezone));
       });
     },
     // Only the Edit tab (or managers/admins who can act on templates) need this

@@ -3,12 +3,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getScorePeriodStart, isItemExpectedInPeriod } from '@/utils/checklistArchivePeriod';
+import { checklistScorePeriod, isPeriodScored, type ChecklistScheduleFields } from '@/lib/taskHistory/schedule';
 
-interface Checklist {
+interface Checklist extends ChecklistScheduleFields {
   id: string;
   frequency: string;
   template_type: string | null;
 }
+
+/** Device-local window for a yyyy-MM-dd range (same convention as the old month window). */
+const localWindow = (start: string, end: string) => {
+  const [sy, sm, sd] = start.split('-').map(Number);
+  const [ey, em, ed] = end.split('-').map(Number);
+  return { start: new Date(sy, sm - 1, sd, 0, 0, 0, 0), end: new Date(ey, em - 1, ed, 23, 59, 59, 999) };
+};
 
 interface CompletionEntry {
   expected: number;
@@ -34,14 +42,23 @@ export function useChecklistCompletion(
       const currentDay = getDayOfWeekInTimezone(timezone);
       const { start: periodStartBusiness, end: periodEndBusiness } = getBusinessDayRangeInTimezone(businessDateStr);
 
-      // Monthly period
+      // Week/month/quarter period per list ("Last N days" lists score once per period).
+      // Device-local calendar date — same convention the old month window used.
       const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      const deviceToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const periodWindow = new Map<string, { start: Date; end: Date }>();
+      for (const c of checklists) {
+        if (!isPeriodScored(c)) continue;
+        const p = checklistScorePeriod(c, deviceToday);
+        periodWindow.set(c.id, localWindow(p.start, p.end));
+      }
+      const windows = [...periodWindow.values()];
+      const monthStart = new Date(Math.min(...windows.map(w => w.start.getTime()), now.getTime()));
+      const monthEnd = new Date(Math.max(...windows.map(w => w.end.getTime()), 0));
 
       const checklistIds = checklists.map(c => c.id);
-      const dailyChecklistIds = checklists.filter(c => c.frequency !== 'monthly').map(c => c.id);
-      const monthlyChecklistIds = checklists.filter(c => c.frequency === 'monthly').map(c => c.id);
+      const dailyChecklistIds = checklists.filter(c => !periodWindow.has(c.id)).map(c => c.id);
+      const monthlyChecklistIds = checklists.filter(c => periodWindow.has(c.id)).map(c => c.id);
 
       // ALL 3 QUERIES IN PARALLEL
       const [
@@ -124,6 +141,7 @@ export function useChecklistCompletion(
           dayOfWeekMon0: currentDay,
           timezone,
           closeTime,
+          schedule: checklist,
         });
         const checklistItems = allItems.filter((it) => isItemExpectedInPeriod(it, scoreStart));
 
@@ -148,9 +166,9 @@ export function useChecklistCompletion(
         const scoped = sortedItems.filter(inScope);
         const itemCount = scoped.length;
 
-        const isMonthly = checklist.frequency === 'monthly';
-        const periodStart = isMonthly ? monthStart : periodStartBusiness;
-        const periodEnd = isMonthly ? monthEnd : periodEndBusiness;
+        const win = periodWindow.get(checklist.id);
+        const periodStart = win ? win.start : periodStartBusiness;
+        const periodEnd = win ? win.end : periodEndBusiness;
 
         const responses = (responsesByChecklist.get(checklist.id) || []).filter((r: any) => {
           const createdAt = new Date(r.created_at);

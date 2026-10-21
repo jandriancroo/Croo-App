@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import { checklistShowsOn, isPeriodScored } from "@/lib/taskHistory/schedule";
 import { 
   getTodayInTimezone, 
   getDayOfWeekInTimezone, 
@@ -39,6 +40,15 @@ export function ChecklistCompletionAlerts() {
           frequency,
           template_type,
           due_by_time,
+          scheduled_date,
+          visible_days_before_month_end,
+          schedule_repeats,
+          schedule_period,
+          schedule_mode,
+          schedule_weekdays,
+          schedule_day,
+          schedule_quarter_month,
+          schedule_last_n,
           checklist_items(id, days_of_week, deleted_at)
         `)
         .eq('is_active', true)
@@ -61,7 +71,8 @@ export function ChecklistCompletionAlerts() {
           );
           return todayItems.length > 0;
         }
-        return checklist.frequency === 'daily';
+        // Day-scored Standard lists that show today (weekdays, a set day, one date).
+        return !isPeriodScored(checklist as any) && checklistShowsOn(checklist as any, today);
       });
 
       // Get submissions for today only (between midnight and end of day)

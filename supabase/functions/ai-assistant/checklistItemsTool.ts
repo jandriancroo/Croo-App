@@ -45,7 +45,7 @@ export async function runQueryChecklistItems(db: any, args: any, c: ChecklistIte
 
   const { data: versions } = await db
     .from("checklists")
-    .select(`id, title, template_type, frequency, scheduled_date, visible_days_before_month_end, due_by_time, is_active, family_id, replaces_checklist_id, superseded_at,
+    .select(`id, title, template_type, frequency, scheduled_date, visible_days_before_month_end, schedule_repeats, schedule_period, schedule_mode, schedule_weekdays, schedule_day, schedule_quarter_month, schedule_last_n, due_by_time, is_active, family_id, replaces_checklist_id, superseded_at,
       checklist_items(id, question, days_of_week, item_type, deleted_at)`)
     .neq("template_type", "training")
     .eq("location_id", locationId)

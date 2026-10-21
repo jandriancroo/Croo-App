@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuthorizedCaller } from "../_shared/callerAuth.ts";
+import { checklistShowsOn, isPeriodScored } from "../_shared/taskHistory/schedule.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -703,10 +704,9 @@ async function handleGenerateWeeklySummary(
   // 3. Get task completion stats
   const { data: checklists } = await supabase
     .from('checklists')
-    .select(`id, title, frequency, assigned_day_of_week, checklist_items(id, days_of_week)`)
+    .select(`id, title, frequency, template_type, assigned_day_of_week, scheduled_date, visible_days_before_month_end, schedule_repeats, schedule_period, schedule_mode, schedule_weekdays, schedule_day, schedule_quarter_month, schedule_last_n, checklist_items(id, days_of_week)`)
     .eq('location_id', location_id)
-    .eq('is_active', true)
-    .neq('frequency', 'monthly');
+    .eq('is_active', true);
 
   const { data: submissions } = await supabase
     .from('checklist_submissions')
@@ -724,8 +724,13 @@ async function handleGenerateWeeklySummary(
     const dayOfWeek = date.getDay();
     
     for (const checklist of (checklists || [])) {
+      // Week/month/quarter ("Last N days") lists are scored per period, not per day.
+      if (isPeriodScored(checklist as any)) continue;
+      const isStandard = checklist.template_type !== 'dynamic' && checklist.template_type !== 'training';
       let isExpected = false;
-      if (checklist.frequency === 'daily') {
+      if (isStandard) {
+        isExpected = checklistShowsOn(checklist as any, dateStr);
+      } else if (checklist.frequency === 'daily') {
         isExpected = true;
       } else if (checklist.frequency === 'weekly') {
         if (checklist.assigned_day_of_week === null || checklist.assigned_day_of_week === dayOfWeek) {
@@ -737,7 +742,7 @@ async function handleGenerateWeeklySummary(
       
       const applicableItems = checklist.checklist_items?.filter((item: any) => {
         if (!item.days_of_week || item.days_of_week.length === 0) {
-          return checklist.frequency === 'daily';
+          return isStandard || checklist.frequency === 'daily';
         }
         return item.days_of_week.includes(dayOfWeek);
       }) || [];

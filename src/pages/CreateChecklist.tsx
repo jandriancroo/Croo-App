@@ -25,6 +25,10 @@ import { NotesTextarea } from '@/components/tasks/NotesTextarea';
 import { AssigneePicker } from '@/components/shared/AssigneePicker';
 import { ChecklistMentionInput } from '@/components/tasks/ChecklistMentionInput';
 import type { ChecklistLinkRef } from '@/lib/checklistLinks';
+import { FrequencyPicker } from '@/components/tasks/FrequencyPicker';
+import { defaultScheduleForm, scheduleFormError, scheduleFormToRow, type ScheduleFormValue } from '@/lib/checklistScheduleForm';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
+import { getTodayInTimezone } from '@/utils/timezoneUtils';
 
 interface ChecklistItem {
   question: string;
@@ -51,6 +55,9 @@ export default function CreateChecklist() {
   const [description, setDescription] = useState('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'single_day'>('daily');
   const [scheduledDate, setScheduledDate] = useState('');
+  const [schedule, setSchedule] = useState<ScheduleFormValue>(defaultScheduleForm);
+  const { timezone: storeTimezone } = useLocationTimezone();
+  const storeToday = getTodayInTimezone(storeTimezone);
   const [dueByTime, setDueByTime] = useState('');
   const [lockUntilTime, setLockUntilTime] = useState('');
   const [lockTimeEnabled, setLockTimeEnabled] = useState(false);
@@ -125,6 +132,7 @@ export default function CreateChecklist() {
       setDescription(parsed.description ?? '');
       setFrequency(parsed.frequency ?? 'daily');
       setScheduledDate(parsed.scheduledDate ?? '');
+      if (parsed.schedule && typeof parsed.schedule === 'object') setSchedule({ ...defaultScheduleForm(), ...parsed.schedule });
       setDueByTime(parsed.dueByTime ?? '');
       const savedLockTime = parsed.lockUntilTime ?? '';
       setLockUntilTime(savedLockTime);
@@ -153,7 +161,7 @@ export default function CreateChecklist() {
       localStorage.setItem(
         draftKey,
         JSON.stringify({
-          title, description, frequency, scheduledDate, dueByTime,
+          title, description, frequency, scheduledDate, schedule, dueByTime,
           lockUntilTime: lockTimeEnabled ? lockUntilTime : '',
           templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, items, bulkText,
         })
@@ -161,7 +169,7 @@ export default function CreateChecklist() {
     } catch {
       // ignore storage errors
     }
-  }, [didLoadDraft, isAdmin, roleLoading, currentLocation?.id, draftKey, title, description, frequency, scheduledDate, dueByTime, lockUntilTime, lockTimeEnabled, templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, items, bulkText]);
+  }, [didLoadDraft, isAdmin, roleLoading, currentLocation?.id, draftKey, title, description, frequency, scheduledDate, schedule, dueByTime, lockUntilTime, lockTimeEnabled, templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, items, bulkText]);
 
   const clearDraft = () => {
     try { localStorage.removeItem(draftKey); } catch { /* ignore */ }
@@ -291,6 +299,13 @@ export default function CreateChecklist() {
       toast.error('Please select a location first');
       return;
     }
+    if (templateType === 'standard') {
+      const scheduleError = scheduleFormError(schedule);
+      if (scheduleError) {
+        toast.error(scheduleError);
+        return;
+      }
+    }
 
     setLoading(true);
     try {
@@ -335,14 +350,14 @@ export default function CreateChecklist() {
       .from('checklists')
       .insert({
         title, description,
-        frequency: templateType === 'training' ? 'single_day' : frequency,
-        scheduled_date: templateType !== 'training' && frequency === 'single_day' ? (scheduledDate || null) : null,
+        ...(templateType === 'training'
+          ? { frequency: 'single_day', scheduled_date: null, visible_days_before_month_end: null }
+          : scheduleFormToRow(schedule, storeToday)),
         due_by_time: dueByTime || null,
         lock_until_time: lockTimeEnabled && lockUntilTime ? lockUntilTime : null,
         template_type: templateType === 'training' ? 'training' : 'standard',
         created_by: userId,
         location_id: locationId,
-        visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
         position_filtering_enabled: positionFilteringEnabled,
       })
       .select()
@@ -446,7 +461,7 @@ export default function CreateChecklist() {
                       Set per assignment
                     </div>
                   </div>
-                ) : (
+                ) : templateType === 'dynamic' ? (
                   <div className="space-y-1">
                     <Label className="text-xs">Frequency</Label>
                     <Select value={frequency} onValueChange={(value: any) => setFrequency(value)}>
@@ -459,10 +474,17 @@ export default function CreateChecklist() {
                       </SelectContent>
                     </Select>
                   </div>
-                )}
+                ) : null}
               </div>
 
-              {templateType !== 'training' && frequency === 'single_day' && (
+              {templateType === 'standard' && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Frequency</Label>
+                  <FrequencyPicker value={schedule} onChange={setSchedule} todayStr={storeToday} />
+                </div>
+              )}
+
+              {templateType === 'dynamic' && frequency === 'single_day' && (
                 <div className="space-y-1">
                   <Label className="text-xs">Date</Label>
                   <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
@@ -475,7 +497,7 @@ export default function CreateChecklist() {
                 <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief description" rows={2} />
               </div>
 
-              {frequency === 'monthly' && (
+              {templateType === 'dynamic' && frequency === 'monthly' && (
                 <div className="space-y-1">
                   <Label className="text-xs">Show During Last X Days of Month</Label>
                   <Select value={visibleDaysBeforeMonthEnd?.toString() || '7'} onValueChange={(value) => setVisibleDaysBeforeMonthEnd(parseInt(value))}>
