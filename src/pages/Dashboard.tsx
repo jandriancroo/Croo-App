@@ -20,7 +20,7 @@ import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 // useShouldUseRoleCubes removed — unified dashboard_widgets handles role visibility via RLS
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
-import { getDayOfWeekInTimezone, getBusinessDateInTimezone, getTodayInTimezone } from '@/utils/timezoneUtils';
+import { getDayOfWeekInTimezone, getBusinessDateInTimezone } from '@/utils/timezoneUtils';
 import { checklistShowsOn } from '@/lib/taskHistory/schedule';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
@@ -524,7 +524,7 @@ export default function Dashboard() {
         }
         
         // Standard lists: one shared schedule rule (weekdays, monthly/quarterly days, last-N windows, one date).
-        return checklistShowsOn(checklist as any, getTodayInTimezone(timezone));
+        return checklistShowsOn(checklist as any, getTodayInTimezone());
       });
 
       return { checklists: filteredChecklists as Checklist[] };
