@@ -39,6 +39,7 @@ import { useTrainingAssignments } from '@/hooks/useTrainingAssignments';
 import { groupTrainingAssignments } from '@/components/dashboard/TrainingAssignmentsSection';
 import type { CubeConfig, SectionKey } from '@/components/dashboard/EditDashboardDialog';
 import { getSectionOrder, DEFAULT_SECTION_ORDER } from '@/components/dashboard/EditDashboardDialog';
+import { useSectionOrder } from '@/hooks/useSectionOrder';
 import { useActivePromoTracker } from '@/hooks/useActivePromoTracker';
 import { BillingActivationBanner } from '@/components/billing/BillingActivationBanner';
 import { PageTitle } from '@/components/PageTitle';
