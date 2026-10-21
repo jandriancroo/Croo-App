@@ -15,11 +15,13 @@ struct CrooVisionApp: App {
         }
         .defaultSize(width: 1240, height: 780)
 
+        // Theo: a real 3D orb floating in the room (no glass, no panel). Grab the bar under him to move him.
         WindowGroup("Theo", id: "theo") {
-            TheoWindow()
+            TheoVolume()
                 .environmentObject(store)
         }
-        .defaultSize(width: 520, height: 760)
+        .windowStyle(.volumetric)
+        .defaultSize(width: 0.45, height: 0.6, depth: 0.45, in: .meters)
     }
 }
 

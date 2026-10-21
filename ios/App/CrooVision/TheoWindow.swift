@@ -86,7 +86,7 @@ struct TheoWindow: View {
 }
 
 /// Shown once if this Vision Pro was paired before Theo went native.
-private struct TheoSignIn: View {
+struct TheoSignIn: View {
     @EnvironmentObject var store: VisionStore
     @State private var email = ""
     @State private var password = ""
