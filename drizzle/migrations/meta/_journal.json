@@ -449,6 +449,20 @@
       "when": 1792617010334,
       "tag": "0063_checklist_bulk_read_log",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1792624640938,
+      "tag": "0064_reusable_system_alerts",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1792624832959,
+      "tag": "0065_system_alert_safe_defaults",
+      "breakpoints": true
     }
   ]
 }
