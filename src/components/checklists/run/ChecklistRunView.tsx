@@ -121,7 +121,11 @@ function subText(it: RunItem, ctx: RunCtx) {
     return min > 1 ? (n > 0 ? `Photo · ${n} of ${min} taken` : `Photo · ${min} needed`) : 'Photo';
   }
   if (it.item_type === 'manager_approval') return 'Manager sign-off';
-  if (isCheck(it.item_type)) return 'Checkmark';
+  if (it.item_type === 'multiple_choice') return 'Pick one';
+  if (it.item_type === 'number') return 'Number';
+  if (it.item_type === 'text') return 'Text';
+  if (it.item_type === 'prep_list') return 'Prep list';
+  if (isCheck(it.item_type)) return isOneTap(it) ? '' : 'Checkmark';
   return typeLabel(it, min);
 }
 
@@ -163,7 +167,7 @@ export function TempReadingChip({ temp, valid, onEdit, canEdit }: { temp: number
     <span className="inline-flex shrink-0 items-center gap-1.5">
       <span
         className={cn(
-          'inline-flex h-7 items-center rounded-full px-2.5 text-xs font-semibold tabular-nums',
+          'inline-flex h-6 items-center rounded-full px-2 text-xs font-semibold tabular-nums',
           tone === 'good' && 'bg-[hsl(var(--success)/0.12)] text-[hsl(var(--success))]',
           tone === 'bad' && 'bg-destructive/10 text-destructive',
           tone === 'warn' && 'bg-[hsl(var(--warning)/0.14)] text-[hsl(var(--warning))]',
@@ -177,14 +181,14 @@ export function TempReadingChip({ temp, valid, onEdit, canEdit }: { temp: number
           type="button"
           onClick={(e) => { e.stopPropagation(); onEdit(); }}
           aria-label={has ? 'Edit temperature' : 'Enter temperature'}
-          className={cn(
-            'flex h-9 w-9 items-center justify-center rounded-full',
-            tone === 'good' && 'bg-[hsl(var(--success))] text-primary-foreground',
-            tone === 'bad' && 'bg-destructive text-destructive-foreground',
-            tone === 'warn' && 'bg-[hsl(var(--warning))] text-primary-foreground',
-          )}
+          className="-m-2 flex h-11 w-11 items-center justify-center"
         >
-          <Pencil className="h-3.5 w-3.5" />
+          <span className={cn(
+            'flex h-7 w-7 items-center justify-center rounded-full',
+            tone === 'good' && 'bg-[hsl(var(--success)/0.14)] text-[hsl(var(--success))]',
+            tone === 'bad' && 'bg-destructive/10 text-destructive',
+            tone === 'warn' && 'bg-[hsl(var(--warning)/0.16)] text-[hsl(var(--warning))]',
+          )}><Pencil className="h-3.5 w-3.5" /></span>
         </button>
       )}
     </span>
@@ -218,19 +222,18 @@ function CompleterPill({ ctx, id }: { ctx: RunCtx; id: string }) {
   const can = ctx.canUndo(id);
   const inner = (
     <>
-      <Check className="h-4 w-4 shrink-0 text-[hsl(var(--success))]" strokeWidth={3} />
       {c && (
         <>
           <Avatar className="h-6 w-6 shrink-0">
             <AvatarImage src={c.profilePhoto || undefined} />
             <AvatarFallback className="text-[10px]">{c.fullName.split(' ').map((n) => n[0]).join('')}</AvatarFallback>
           </Avatar>
-          <span className="truncate text-sm font-medium">{shortName(c.fullName)}</span>
+          <span className="truncate text-sm text-muted-foreground">{shortName(c.fullName)} · {timeOf(c.completedAt)}</span>
         </>
       )}
     </>
   );
-  const cls = 'inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full border border-[hsl(var(--success)/0.4)] bg-[hsl(var(--success)/0.08)] px-2 py-1';
+  const cls = 'inline-flex min-h-6 max-w-full items-center gap-1.5';
   return (
     <span className="inline-flex min-w-0 items-center gap-2">
       {can ? (
@@ -238,7 +241,6 @@ function CompleterPill({ ctx, id }: { ctx: RunCtx; id: string }) {
       ) : (
         <span className={cls}>{inner}</span>
       )}
-      {c && <span className="shrink-0 text-xs text-muted-foreground">{timeOf(c.completedAt)}</span>}
     </span>
   );
 }
@@ -263,15 +265,13 @@ function Markers({ it }: { it: RunItem }) {
 
 function ShiftTag({ it }: { it: RunItem }) {
   if (it.manager_shift !== 'am' && it.manager_shift !== 'pm') return null;
-  return <span className="ml-1.5 inline-flex rounded-full border px-1.5 py-0.5 align-middle text-[10px] font-semibold text-muted-foreground">{it.manager_shift === 'am' ? '☀ AM' : '☾ PM'}</span>;
+  return <span className="inline-flex rounded-full border px-1.5 py-px align-middle text-[10px] font-semibold leading-4 text-muted-foreground">{it.manager_shift === 'am' ? '☀ AM' : '☾ PM'}</span>;
 }
 
 function Name({ it, ctx, className }: { it: RunItem; ctx: RunCtx; className?: string }) {
   return (
     <span className={className}>
       <ChecklistQuestionText text={it.question || ''} refs={parseLinkRefs(it.link_refs)} onOpen={ctx.openLink} />
-      {it.is_required && <span className="ml-1 text-destructive">*</span>}
-      <ShiftTag it={it} />
     </span>
   );
 }
@@ -326,8 +326,6 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
       </span>
     );
     else right = <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />;
-  } else if (done && !oneTap) {
-    right = <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground/60" />;
   }
 
   return (
@@ -345,14 +343,16 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
         onPointerLeave={longPressEnd}
         className="flex min-h-14 w-full cursor-pointer items-start gap-3 px-3 py-3 text-left"
       >
-        <span className="flex shrink-0 pt-0.5">{circle}</span>
-        <span className="min-w-0 flex-1">
+        <span className="flex shrink-0">{circle}</span>
+        <span className="min-w-0 flex-1 pt-[3px]">
           <Name it={it} ctx={ctx} className={cn('block break-words text-[15px] font-semibold leading-snug', done && !amber && 'text-muted-foreground')} />
           {amber ? (
             <span className="mt-0.5 block text-sm text-[hsl(var(--warning))]">Photo saved. Type the temperature.</span>
           ) : !done ? (
             <>
-              <span className="mt-0.5 block text-sm text-muted-foreground">{subText(it, ctx)}</span>
+              {(subText(it, ctx) || it.manager_shift === 'am' || it.manager_shift === 'pm') && (
+                <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">{subText(it, ctx) && <span>{subText(it, ctx)}</span>}<ShiftTag it={it} /></span>
+              )}
               <Markers it={it} />
             </>
           ) : null}
@@ -361,7 +361,7 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
           )}
           {amber && <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} /></span>}
           {done && (
-            <span className="mt-1.5 flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1" onClick={(e) => e.stopPropagation()}>
               <CompleterPill ctx={ctx} id={it.id} />
               {temp && r && !amber && (
                 <>
@@ -377,7 +377,7 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
           {photos.length > 0 && (
             <span className="mt-2 flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
               {photos.map((u, i) => (
-                <button key={i} type="button" onClick={() => ctx.preview(u)} aria-label={`See photo ${i + 1}`} className="h-14 w-14 overflow-hidden rounded-lg border">
+                <button key={i} type="button" onClick={() => ctx.preview(u)} aria-label={`See photo ${i + 1}`} className="h-16 w-16 overflow-hidden rounded-lg border">
                   <img src={u} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 </button>
               ))}
@@ -803,7 +803,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
   });
 
   const listView = (
-    <div className="space-y-3 pb-4">
+    <div className="space-y-3 pb-24">
       {wideList ? (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-3">
@@ -830,8 +830,8 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
       {groups}
       {ctx.footer}
       {firstTodo && (
-        <div className="sticky z-20 pt-2" style={{ bottom: 'calc(var(--app-dock-h, 6rem) + 0.5rem)' }}>
-          <Button type="button" className="h-12 w-full text-base font-semibold shadow-sm" onClick={() => open(firstTodo.id)}>
+        <div className="fixed inset-x-0 z-30 px-3" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)' }}>
+          <Button type="button" className="mx-auto flex h-12 w-full max-w-[1176px] bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90" onClick={() => open(firstTodo.id)}>
             Go one by one · {left} left<ChevronRight className="ml-1 h-5 w-5" />
           </Button>
         </div>
