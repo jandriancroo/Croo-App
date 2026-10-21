@@ -1,12 +1,14 @@
-// Must match the checklist_responses DELETE/UPDATE policy role list.
+// Must match has_role_or_higher(uid, 'shift_manager_in_training') used by the
+// checklist_responses DELETE/UPDATE policies (same order as the DB function).
 export const CHECKLIST_UNDO_ANY_ROLES = [
+  'shift_manager_in_training',
   'shift_manager',
   'manager',
   'general_manager',
   'admin',
   'org_admin',
-  'brand_admin',
   'fbc',
+  'brand_admin',
   'super_admin',
 ] as const;
 
