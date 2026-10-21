@@ -17,7 +17,6 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SegmentedControl } from '@/components/ui/segmented-control';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
@@ -243,7 +242,7 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
 
           {!form && (
-            <ScrollArea className="flex-1">
+            <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
               <div className="space-y-3 p-4">
                 {promos.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">No promo running or scheduled.</p>}
                 {promos.map(p => (
@@ -260,13 +259,13 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
                 {perms.org && <Button variant={perms.brand ? 'outline' : 'default'} className="w-full" onClick={() => setForm(emptyForm('org'))}><Plus className="mr-1 h-4 w-4" />New org contest</Button>}
                 {!canCreate && <p className="text-center text-xs text-muted-foreground">Only brand admins and org admins can create promos.</p>}
               </div>
-            </ScrollArea>
+            </div>
           )}
 
           {form && (
             <>
-              <ScrollArea className="flex-1">
-                <div className="space-y-5 p-4">
+              <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
+                <div className="min-w-0 space-y-5 p-4">
                   <PromoHeroView
                     title={form.title || 'Campaign name'} slides={previewSlides} activeRef={previewSlides[0]?.ref ?? ''}
                     subtitle={previewSlides[0] ? `${previewSlides[0].label} · 0 sold` : ''}
@@ -381,7 +380,7 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
                     <Button type="button" variant="outline" className="w-full text-destructive" onClick={() => setConfirmEnd(true)}>End promo now</Button>
                   )}
                 </div>
-              </ScrollArea>
+              </div>
               <div className="flex shrink-0 gap-2 border-t px-4 py-3">
                 <Button variant="outline" className="flex-1" onClick={() => setForm(null)}>Back</Button>
                 <Button className="flex-1" disabled={saving || !form.title.trim() || !form.starts_on || !form.ends_on || refs.length === 0} onClick={save}>

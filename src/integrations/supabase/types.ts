@@ -10974,6 +10974,7 @@ export type Database = {
           pin_pending_set_by: string | null
           profile_photo_url: string | null
           role: string | null
+          ui_prefs: Json
           updated_at: string | null
           weekly_availability: Json | null
         }
@@ -11005,6 +11006,7 @@ export type Database = {
           pin_pending_set_by?: string | null
           profile_photo_url?: string | null
           role?: string | null
+          ui_prefs?: Json
           updated_at?: string | null
           weekly_availability?: Json | null
         }
@@ -11036,6 +11038,7 @@ export type Database = {
           pin_pending_set_by?: string | null
           profile_photo_url?: string | null
           role?: string | null
+          ui_prefs?: Json
           updated_at?: string | null
           weekly_availability?: Json | null
         }

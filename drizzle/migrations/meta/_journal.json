@@ -393,6 +393,13 @@
       "when": 1792558816739,
       "tag": "0055_promo_trackers_one_record",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1792561664849,
+      "tag": "0056_profiles_ui_prefs",
+      "breakpoints": true
     }
   ]
 }

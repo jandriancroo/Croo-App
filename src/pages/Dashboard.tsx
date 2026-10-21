@@ -39,6 +39,7 @@ import { useTrainingAssignments } from '@/hooks/useTrainingAssignments';
 import { groupTrainingAssignments } from '@/components/dashboard/TrainingAssignmentsSection';
 import type { CubeConfig, SectionKey } from '@/components/dashboard/EditDashboardDialog';
 import { getSectionOrder, DEFAULT_SECTION_ORDER } from '@/components/dashboard/EditDashboardDialog';
+import { useSectionOrder } from '@/hooks/useSectionOrder';
 import { useActivePromoTracker } from '@/hooks/useActivePromoTracker';
 import { BillingActivationBanner } from '@/components/billing/BillingActivationBanner';
 import { PageTitle } from '@/components/PageTitle';
@@ -99,9 +100,12 @@ export default function Dashboard() {
   const { data: activePromo } = useActivePromoTracker(currentLocation?.id);
   const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
   const [showEditDashboard, setShowEditDashboard] = useState(false);
-  const [dashboardSectionOrder, setDashboardSectionOrder] = useState<SectionKey[]>(() => 
+  const [dashboardSectionOrder, setDashboardSectionOrder] = useState<SectionKey[]>(() =>
     currentLocation?.id ? getSectionOrder(currentLocation.id) : DEFAULT_SECTION_ORDER
   );
+  // Per-user saved layout (server) wins over this device's copy once loaded
+  const savedSectionOrder = useSectionOrder(currentLocation?.id);
+  useEffect(() => { setDashboardSectionOrder(savedSectionOrder); }, [savedSectionOrder]);
   const queryClient = useQueryClient();
 
   // Sales data from shared cache — SalesSummary is the MASTER WRITER via setQueryData.
