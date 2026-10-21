@@ -44,7 +44,7 @@ checks AS (
           FROM public._labor_smart_close_adjust('working', '2026-10-20 22:00-07', '2026-10-20 20:00-07', 7200, 20) a)
   UNION ALL SELECT 'smart: early close removes time', (SELECT a.exp_out = '2026-10-20 21:45-07' AND a.remaining_sec = 7200 - 900
           FROM public._labor_smart_close_adjust('working', '2026-10-20 22:00-07', '2026-10-20 20:00-07', 7200, -15) a)
-  UNION ALL SELECT 'smart: never earlier than now', (SELECT a.exp_out = '2026-10-20 21:50-07' AND a.remaining_sec = 600
+  UNION ALL SELECT 'smart: never earlier than now', (SELECT a.exp_out = '2026-10-20 21:50-07' AND a.remaining_sec = 0
           FROM public._labor_smart_close_adjust('working', '2026-10-20 22:00-07', '2026-10-20 21:50-07', 600, -60) a)
   UNION ALL SELECT 'smart: past scheduled end is untouched', (SELECT a.exp_out IS NULL AND a.remaining_sec = 0
           FROM public._labor_smart_close_adjust('over_schedule', '2026-10-20 22:00-07', '2026-10-20 22:10-07', 0, 30) a)
