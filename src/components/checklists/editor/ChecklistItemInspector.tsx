@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Copy, Trash2, Link as LinkIcon, Video, CheckSquare, Type, Hash, Camera, Thermometer, List, ClipboardList, Heading, ShieldCheck } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { cn } from '@/lib/utils';
+import { Copy, Trash2, Link as LinkIcon, Video, CheckSquare, Type, Hash, Camera, Thermometer, List, ClipboardList, Heading, ShieldCheck, MoreHorizontal, Minus, Plus, Check, ChevronLeft } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,8 @@ export const ITEM_TYPES = [
   { value: 'manager_approval', label: 'Manager Approval', Icon: ShieldCheck },
 ] as const;
 
+const PRIMARY_TYPES = ['confirmation', 'image', 'temperature', 'text', 'number'] as const;
+
 export const typeMeta = (t: string) => ITEM_TYPES.find((x) => x.value === displayType(t)) ?? ITEM_TYPES[0];
 
 interface Props {
@@ -40,9 +43,14 @@ interface Props {
   availablePositions: string[];
   uploadReference: (file: File) => Promise<string>;
   autoFocusName?: boolean;
+  /** Task number among tasks (sections not counted). */
+  itemNumber?: number | null;
+  /** Phone sheet: two pages + Done. */
+  compact?: boolean;
+  onDone?: () => void;
 }
 
-export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, onRemove, locationId, showAmPm, showPosition, availablePositions, uploadReference, autoFocusName }: Props) {
+export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, onRemove, locationId, showAmPm, showPosition, availablePositions, uploadReference, autoFocusName, itemNumber, compact, onDone }: Props) {
   const [pending, setPending] = useState<{ next: EditorItem; drop: number } | null>(null);
   const isSection = item.item_type === 'section_header';
   const set = (patch: Partial<EditorItem>) => onChange({ ...item, ...patch });
@@ -64,65 +72,84 @@ export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, o
 
   const shownType = displayType(item.item_type);
   const photos = getReferencePhotos(item);
+  const [moreOpen, setMoreOpen] = useState(() => !PRIMARY_TYPES.includes(shownType as any));
+  const [refOpen, setRefOpen] = useState<'photo' | 'link' | 'video' | null>(null);
+  const [page, setPage] = useState<'main' | 'notes'>('main');
+  const pickType = (v: string) => { if (v !== shownType) applyShrinking({ ...item, item_type: v }); };
 
-  return (
-    <div className="space-y-4">
-      <div className="space-y-1">
-        <Label>{isSection ? 'Section heading' : 'Task name'}</Label>
-        <ChecklistMentionInput
-          multiline
-          rows={2}
-          fieldProps={{ 'data-checklist-inspector-name': true, autoFocus: autoFocusName } as any}
-          value={item.question}
-          onChange={(v) => set({ question: v })}
-          refs={item.link_refs || []}
-          onRefsChange={(next) => set({ link_refs: next })}
-          locationId={locationId}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onEnter(); }
-          }}
-          placeholder={isSection ? 'Section heading' : 'Task name — type @ to link'}
-          className="min-h-11 resize-none"
-        />
-        <p className="text-sm text-muted-foreground">Type @ to link a recipe, log, role or teammate. Enter adds the next task.</p>
+  const label = (t: string) => <div className="mb-1.5 text-sm font-semibold">{t}</div>;
+  const header = (left?: ReactNode) => (
+    <div className="flex min-h-11 items-center justify-between gap-2">
+      <div className="flex items-center gap-1">
+        {left}
+        <span className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+          {isSection ? 'Section' : `Item ${itemNumber ?? ''}`}
+        </span>
       </div>
+      {compact && onDone && <Button type="button" className="h-11 px-5" onClick={onDone}>Done</Button>}
+    </div>
+  );
 
-      <div className="space-y-1">
-        <Label>Type</Label>
-        <Select
-          value={shownType}
-          onValueChange={(v) => {
-            if (v === shownType) return;
-            applyShrinking({ ...item, item_type: v });
-          }}
-        >
-          <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {ITEM_TYPES.map(({ value, label, Icon }) => (
-              <SelectItem key={value} value={value}><span className="flex items-center gap-2"><Icon className="h-4 w-4" /> {label}</span></SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+  const typeBtn = (value: string, text: string, Icon: any, selected: boolean, onClick: () => void) => (
+    <button
+      key={value}
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className={cn(
+        'flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl border px-2 py-2 text-sm font-medium',
+        selected ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-foreground',
+      )}
+    >
+      <Icon className="h-4 w-4 shrink-0" /><span className="min-w-0 break-words">{text}</span>
+    </button>
+  );
+
+  const moreSelected = !PRIMARY_TYPES.includes(shownType as any);
+  const typeGrid = (
+    <div>
+      {label('Type')}
+      <div className={cn('grid gap-2', compact ? 'grid-cols-3' : 'grid-cols-2')}>
+        {PRIMARY_TYPES.map((v) => {
+          const t = ITEM_TYPES.find((x) => x.value === v)!;
+          const text = compact && v === 'temperature' ? 'Temp' : v === 'temperature' ? 'Temp photo' : t.label;
+          return typeBtn(v, text, t.Icon, shownType === v, () => pickType(v));
+        })}
+        {typeBtn('more', compact ? 'More' : 'More types', MoreHorizontal, moreSelected, () => setMoreOpen((o) => !o))}
       </div>
-
-      {!isSection && showPosition && (
-        <div className="space-y-1">
-          <Label>Assigned to</Label>
-          <TaskAssigneePicker
-            locationId={locationId}
-            value={item}
-            availablePositions={availablePositions}
-            className="min-h-11 w-full"
-            onChange={(next) => set(next as Partial<EditorItem>)}
-          />
+      {moreOpen && (
+        <div className={cn('mt-2 grid gap-2', compact ? 'grid-cols-2' : 'grid-cols-2')}>
+          {ITEM_TYPES.filter((t) => !PRIMARY_TYPES.includes(t.value as any)).map((t) => typeBtn(t.value, t.label, t.Icon, shownType === t.value, () => pickType(t.value)))}
         </div>
       )}
+    </div>
+  );
 
-      {!isSection && showAmPm && (
-        <div className="space-y-1">
-          <Label>Shift</Label>
+  const stepBtn = 'flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card disabled:opacity-40';
+  const photoStepper = !isSection && hasPhotoCount(item.item_type) && (
+    <div className="flex min-h-11 items-center justify-between gap-3">
+      <span className="text-sm font-semibold">Photos required</span>
+      <div className="flex items-center gap-3">
+        <button type="button" aria-label="Fewer photos" className={stepBtn} disabled={minPhotos(item) <= 1} onClick={() => applyShrinking({ ...item, options: { minPhotos: minPhotos(item) - 1 } })}><Minus className="h-4 w-4" /></button>
+        <span className="w-5 text-center text-base font-bold" aria-live="polite">{minPhotos(item)}</span>
+        <button type="button" aria-label="More photos" className={stepBtn} disabled={minPhotos(item) >= 6} onClick={() => applyShrinking({ ...item, options: { minPhotos: minPhotos(item) + 1 } })}><Plus className="h-4 w-4" /></button>
+      </div>
+    </div>
+  );
+
+  const extras = !isSection && (
+    <>
+      {showPosition && (
+        <div className="flex min-h-11 items-center justify-between gap-3">
+          <span className="text-sm font-semibold">Assigned to</span>
+          <TaskAssigneePicker locationId={locationId} value={item} availablePositions={availablePositions} className="min-h-11 max-w-[60%]" onChange={(next) => set(next as Partial<EditorItem>)} />
+        </div>
+      )}
+      {showAmPm && (
+        <div className="flex min-h-11 items-center justify-between gap-3">
+          <span className="text-sm font-semibold">Shift</span>
           <Select value={item.manager_shift || 'none'} onValueChange={(v) => set({ manager_shift: v === 'none' ? null : (v as 'am' | 'pm') })}>
-            <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="min-h-11 w-28"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="none">All</SelectItem>
               <SelectItem value="am">AM</SelectItem>
@@ -131,87 +158,142 @@ export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, o
           </Select>
         </div>
       )}
-
-      {!isSection && hasPhotoCount(item.item_type) && (
-        <div className="space-y-1">
-          <Label>Photos required</Label>
-          <Select value={String(minPhotos(item))} onValueChange={(v) => applyShrinking({ ...item, options: { minPhotos: parseInt(v) } })}>
-            <SelectTrigger className="min-h-11"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {[1, 2, 3, 4, 5, 6].map((n) => <SelectItem key={n} value={String(n)}>{n} photo{n > 1 ? 's' : ''}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {!isSection && item.item_type === 'temperature' && (
-        <label className="flex items-center justify-between gap-3 min-h-11 cursor-pointer">
+      {item.item_type === 'temperature' && (
+        <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3">
           <span>
-            <span className="block text-sm font-medium">Temp alerts</span>
+            <span className="block text-sm font-semibold">Temp alerts</span>
             <span className="block text-sm text-muted-foreground">Alert managers on unsafe temps.</span>
           </span>
           <Switch checked={item.temperature_alert_enabled || false} onCheckedChange={(c) => set({ temperature_alert_enabled: c })} />
         </label>
       )}
-
-      {!isSection && item.item_type === 'multiple_choice' && (
-        <div className="space-y-1">
-          <Label>Options</Label>
-          <Input
-            value={Array.isArray(item.options) ? item.options.join(', ') : ''}
-            onChange={(e) => set({ options: e.target.value.split(',').map((o) => o.trim()) })}
-            placeholder="Options (comma-separated)"
-          />
+      {item.item_type === 'multiple_choice' && (
+        <div>
+          {label('Options')}
+          <Input value={Array.isArray(item.options) ? item.options.join(', ') : ''} onChange={(e) => set({ options: e.target.value.split(',').map((o) => o.trim()) })} placeholder="Options (comma-separated)" className="h-11" />
         </div>
       )}
-
-      {!isSection && item.item_type === 'prep_list' && (
-        <div className="space-y-1">
-          <Label>Prep list</Label>
+      {item.item_type === 'prep_list' && (
+        <div>
+          {label('Prep list')}
           <PrepListEditor rows={item.prep_rows || []} onChange={(rows) => set({ prep_rows: rows })} locationId={locationId} />
         </div>
       )}
+    </>
+  );
 
-      {!isSection && (
-        <div className="space-y-1">
-          <Label>Reference photos</Label>
-          <ReferencePhotoSlots
-            urls={photos}
-            slots={referenceSlotCount(item)}
-            upload={uploadReference}
-            onChange={(urls) => onChange(setReferencePhotos(item, urls))}
-          />
+  const pill = (key: 'photo' | 'link' | 'video', text: string, Icon: any, filled: boolean) => (
+    <button
+      type="button"
+      aria-pressed={refOpen === key}
+      onClick={() => setRefOpen((o) => (o === key ? null : key))}
+      className={cn(
+        'inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium',
+        filled ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border bg-card text-foreground',
+        refOpen === key && 'ring-2 ring-primary/30',
+      )}
+    >
+      {filled ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}{text}
+    </button>
+  );
+
+  const notesAndRef = !isSection && (
+    <>
+      <div>
+        {label('Notes for the crew')}
+        <NotesTextarea value={item.reference_notes || ''} onChange={(v) => set({ reference_notes: v })} placeholder="Instructions (optional)" rows={3} className="w-full" />
+      </div>
+      <div>
+        {label('Reference')}
+        <div className="flex flex-wrap gap-2">
+          {pill('photo', 'Photo', Camera, photos.length > 0)}
+          {pill('link', 'Link', LinkIcon, !!item.reference_link?.trim())}
+          {pill('video', 'Video', Video, !!item.reference_video_url?.trim())}
         </div>
-      )}
-
-      {!isSection && (
-        <>
-          <div className="space-y-1">
-            <Label>Notes</Label>
-            <NotesTextarea value={item.reference_notes || ''} onChange={(v) => set({ reference_notes: v })} placeholder="Instructions / notes (optional)" rows={2} className="w-full" />
+        {refOpen === 'photo' && (
+          <div className="pt-3">
+            <ReferencePhotoSlots urls={photos} slots={referenceSlotCount(item)} upload={uploadReference} onChange={(urls) => onChange(setReferencePhotos(item, urls))} />
           </div>
-          <div className="space-y-1">
-            <Label className="flex items-center gap-1"><LinkIcon className="h-3.5 w-3.5" /> Link</Label>
-            <Input type="url" value={item.reference_link || ''} onChange={(e) => set({ reference_link: e.target.value })} placeholder="https://..." />
-          </div>
-          <div className="space-y-1">
-            <Label className="flex items-center gap-1"><Video className="h-3.5 w-3.5" /> Video</Label>
-            <Input type="url" value={item.reference_video_url || ''} onChange={(e) => set({ reference_video_url: e.target.value })} placeholder="https://youtube.com/..." />
-          </div>
-        </>
-      )}
-
-      <div className="flex gap-2 border-t pt-4">
-        <Button type="button" variant="outline" className="h-11 flex-1" onClick={onDuplicate}>
-          <Copy className="h-4 w-4 mr-2" /> Duplicate
-        </Button>
-        {onRemove && (
-          <Button type="button" variant="outline" className="h-11 flex-1 text-destructive" onClick={onRemove}>
-            <Trash2 className="h-4 w-4 mr-2" /> Remove
-          </Button>
+        )}
+        {refOpen === 'link' && (
+          <Input type="url" aria-label="Reference link" value={item.reference_link || ''} onChange={(e) => set({ reference_link: e.target.value })} placeholder="https://..." className="mt-3 h-11" />
+        )}
+        {refOpen === 'video' && (
+          <Input type="url" aria-label="Reference video" value={item.reference_video_url || ''} onChange={(e) => set({ reference_video_url: e.target.value })} placeholder="https://youtube.com/..." className="mt-3 h-11" />
         )}
       </div>
+    </>
+  );
 
+  const nameField = (
+    <div>
+      {label(isSection ? 'Section heading' : 'Task name')}
+      <ChecklistMentionInput
+        multiline
+        rows={2}
+        fieldProps={{ 'data-checklist-inspector-name': true, autoFocus: autoFocusName } as any}
+        value={item.question}
+        onChange={(v) => set({ question: v })}
+        refs={item.link_refs || []}
+        onRefsChange={(next) => set({ link_refs: next })}
+        locationId={locationId}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onEnter(); }
+        }}
+        placeholder={isSection ? 'Section heading' : 'Task name — type @ to link'}
+        className="min-h-11 resize-none text-base"
+      />
+    </div>
+  );
+
+  const duplicateBtn = (
+    <Button type="button" variant="outline" className="h-11 flex-1 border border-border bg-card" onClick={onDuplicate}>
+      <Copy className="mr-2 h-4 w-4" /> Duplicate
+    </Button>
+  );
+  const deleteBtn = onRemove && (
+    <Button type="button" variant="outline" className="h-11 flex-1 border border-destructive/40 bg-card text-destructive hover:text-destructive" onClick={onRemove}>
+      <Trash2 className="mr-2 h-4 w-4" /> Delete
+    </Button>
+  );
+
+  const body = compact ? (
+    page === 'notes' ? (
+      <div className="space-y-4">
+        {header(<Button type="button" variant="ghost" size="icon" className="-ml-2 h-11 w-11" aria-label="Back to task" onClick={() => setPage('main')}><ChevronLeft className="h-5 w-5" /></Button>)}
+        {notesAndRef}
+        <div className="flex gap-2 border-t pt-4">{duplicateBtn}</div>
+      </div>
+    ) : (
+      <div className="space-y-4">
+        {header()}
+        {nameField}
+        {typeGrid}
+        {photoStepper}
+        {extras}
+        <div className="flex gap-2">
+          {!isSection ? (
+            <Button type="button" variant="outline" className="h-11 flex-[2] border border-border bg-card" onClick={() => setPage('notes')}>Notes and reference</Button>
+          ) : duplicateBtn}
+          {deleteBtn}
+        </div>
+      </div>
+    )
+  ) : (
+    <div className="space-y-4">
+      {header()}
+      {nameField}
+      {typeGrid}
+      {photoStepper}
+      {extras}
+      {notesAndRef}
+      <div className="flex gap-2 border-t pt-4">{duplicateBtn}{deleteBtn}</div>
+    </div>
+  );
+
+  return (
+    <div>
+      {body}
       <AlertDialog open={!!pending} onOpenChange={(o) => !o && setPending(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageTitle } from '@/components/PageTitle';
 import { SegmentedControl } from '@/components/ui/segmented-control';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { blankItem, duplicateItem, moveChecklistItems, type EditorItem } from '@/lib/checklistEditorItems';
 import { ChecklistItemInspector, typeMeta } from './ChecklistItemInspector';
@@ -88,7 +88,7 @@ function ItemRow({ item, id, selected, inSection, onSelect, showAmPm }: {
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
         'relative flex items-stretch border-b border-border last:border-b-0',
-        isSection ? 'bg-muted' : selected ? 'bg-primary/10' : 'bg-card',
+        isSection ? 'bg-muted' : selected ? 'bg-primary/10 shadow-[inset_3px_0_0_hsl(var(--primary))]' : 'bg-card',
         isDragging && 'z-50 opacity-60',
       )}
     >
@@ -107,7 +107,7 @@ function ItemRow({ item, id, selected, inSection, onSelect, showAmPm }: {
           ) : (
             <>
               <meta.Icon className="h-5 w-5 shrink-0 text-primary" aria-label={meta.label} />
-              <span className={cn('min-w-0 flex-1 break-words line-clamp-2 text-[15px] font-semibold leading-snug', !name && 'italic font-normal text-muted-foreground')}>
+              <span className={cn('min-w-0 flex-1 break-words line-clamp-2 text-[15px] leading-snug', selected ? 'font-bold' : 'font-semibold', !name && 'italic font-normal text-muted-foreground')}>
                 {name || 'Untitled task'}
               </span>
               {showAmPm && item.manager_shift && (
@@ -131,6 +131,7 @@ export function ChecklistEditor(p: Props) {
   const addInputRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const wide = useIsWide(rootRef);
+  const roomy = useIsWide(rootRef, 1100);
 
   const selectedIndex = items.findIndex((it, i) => keyOf(it, i) === selectedKey);
   const selected = selectedIndex >= 0 ? items[selectedIndex] : null;
@@ -198,6 +199,9 @@ export function ChecklistEditor(p: Props) {
       availablePositions={p.availablePositions}
       uploadReference={p.uploadReference}
       autoFocusName={focusNameKey === selectedKey}
+      itemNumber={selected.item_type === 'section_header' ? null : items.slice(0, selectedIndex + 1).filter((it) => it.item_type !== 'section_header').length}
+      compact={!wide}
+      onDone={() => setSelectedKey(null)}
     />
   );
 
@@ -297,14 +301,14 @@ export function ChecklistEditor(p: Props) {
           wide={wide}
         />
       ) : (
-        <div className={cn(wide && 'grid grid-cols-[minmax(0,48fr)_minmax(0,52fr)] items-start gap-4')}>
+        <div className={cn(wide && roomy ? 'grid grid-cols-[minmax(0,1fr)_330px] items-start gap-4' : 'grid grid-cols-[minmax(0,48fr)_minmax(0,52fr)] items-start gap-4')}>
           <div className="space-y-3">
             {list}
             {p.itemsFooter}
           </div>
 
           {wide && (
-            <div className="sticky top-16 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-2xl border bg-card p-4">
+            <div className="sticky top-16 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-2xl border border-primary bg-card p-4">
               {inspector ?? <p className="py-8 text-center text-sm text-muted-foreground">Tap a task to edit it.</p>}
             </div>
           )}
@@ -319,10 +323,9 @@ export function ChecklistEditor(p: Props) {
 
       {!wide && (
         <Sheet open={!!selected && tab === 'items'} onOpenChange={(o) => !o && setSelectedKey(null)}>
-          <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto rounded-t-2xl">
-            <SheetHeader className="pb-2 text-left">
-              <SheetTitle>{selected?.item_type === 'section_header' ? 'Edit section' : 'Edit task'}</SheetTitle>
-            </SheetHeader>
+          <SheetContent side="bottom" aria-describedby={undefined} className="max-h-[85vh] overflow-y-auto rounded-t-2xl px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-2 [&>button.absolute]:hidden">
+            <div className="mx-auto mb-1 h-1.5 w-10 rounded-full bg-muted-foreground/30" aria-hidden />
+            <SheetTitle className="sr-only">{selected?.item_type === 'section_header' ? 'Edit section' : 'Edit task'}</SheetTitle>
             {inspector}
           </SheetContent>
         </Sheet>
