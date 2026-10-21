@@ -301,7 +301,7 @@ export function ChecklistEditor(p: Props) {
           wide={wide}
         />
       ) : (
-        <div className={cn(wide && roomy ? 'grid grid-cols-[minmax(0,1fr)_330px] items-start gap-4' : 'grid grid-cols-[minmax(0,48fr)_minmax(0,52fr)] items-start gap-4')}>
+        <div className={cn(!wide ? undefined : roomy ? 'grid grid-cols-[minmax(0,1fr)_330px] items-start gap-4' : 'grid grid-cols-[minmax(0,48fr)_minmax(0,52fr)] items-start gap-4')}>
           <div className="space-y-3">
             {list}
             {p.itemsFooter}
