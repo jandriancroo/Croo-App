@@ -463,6 +463,13 @@
       "when": 1792624832959,
       "tag": "0065_system_alert_safe_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1792625298697,
+      "tag": "0066_system_alert_hero_media",
+      "breakpoints": true
     }
   ]
 }

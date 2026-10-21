@@ -13416,6 +13416,8 @@ export type Database = {
           body: string
           created_at: string
           created_by: string
+          hero_media_path: string | null
+          hero_media_type: string | null
           id: string
           kind: string
           published_at: string | null
@@ -13431,6 +13433,8 @@ export type Database = {
           body?: string
           created_at?: string
           created_by?: string
+          hero_media_path?: string | null
+          hero_media_type?: string | null
           id?: string
           kind?: string
           published_at?: string | null
@@ -13446,6 +13450,8 @@ export type Database = {
           body?: string
           created_at?: string
           created_by?: string
+          hero_media_path?: string | null
+          hero_media_type?: string | null
           id?: string
           kind?: string
           published_at?: string | null
@@ -16863,6 +16869,8 @@ export type Database = {
           body: string
           created_at: string
           created_by: string
+          hero_media_path: string | null
+          hero_media_type: string | null
           id: string
           kind: string
           published_at: string | null
