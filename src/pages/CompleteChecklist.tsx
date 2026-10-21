@@ -387,9 +387,9 @@ export default function CompleteChecklist() {
         // Lists scored over a whole week / month / quarter share one copy for
         // that period (same rule the Dash and scores use); others: one per day.
         const viewDateStr = `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}-${String(viewDate.getDate()).padStart(2, '0')}`;
-        const window = sharedCopyWindow(checklist as any, viewDateStr);
-        const [sy, sm, sd] = window.start.split('-').map(Number);
-        const [ey, em, ed] = window.end.split('-').map(Number);
+        const copyWin = sharedCopyWindow(checklist as any, viewDateStr);
+        const [sy, sm, sd] = copyWin.start.split('-').map(Number);
+        const [ey, em, ed] = copyWin.end.split('-').map(Number);
         periodStart = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
         periodEnd = new Date(ey, em - 1, ed, 23, 59, 59, 999);
 
