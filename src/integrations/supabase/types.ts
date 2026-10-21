@@ -2723,6 +2723,13 @@ export type Database = {
           position_filtering_enabled: boolean | null
           replaces_checklist_id: string | null
           requires_manager_approval: boolean
+          schedule_day: number | null
+          schedule_last_n: number | null
+          schedule_mode: string | null
+          schedule_period: string | null
+          schedule_quarter_month: number | null
+          schedule_repeats: boolean | null
+          schedule_weekdays: number[] | null
           scheduled_date: string | null
           superseded_at: string | null
           template_type: string | null
@@ -2748,6 +2755,13 @@ export type Database = {
           position_filtering_enabled?: boolean | null
           replaces_checklist_id?: string | null
           requires_manager_approval?: boolean
+          schedule_day?: number | null
+          schedule_last_n?: number | null
+          schedule_mode?: string | null
+          schedule_period?: string | null
+          schedule_quarter_month?: number | null
+          schedule_repeats?: boolean | null
+          schedule_weekdays?: number[] | null
           scheduled_date?: string | null
           superseded_at?: string | null
           template_type?: string | null
@@ -2773,6 +2787,13 @@ export type Database = {
           position_filtering_enabled?: boolean | null
           replaces_checklist_id?: string | null
           requires_manager_approval?: boolean
+          schedule_day?: number | null
+          schedule_last_n?: number | null
+          schedule_mode?: string | null
+          schedule_period?: string | null
+          schedule_quarter_month?: number | null
+          schedule_repeats?: boolean | null
+          schedule_weekdays?: number[] | null
           scheduled_date?: string | null
           superseded_at?: string | null
           template_type?: string | null
@@ -16376,6 +16397,31 @@ export type Database = {
           title: string
           total_items: number
         }[]
+      }
+      checklist_period_end: {
+        Args: {
+          c: Database["public"]["Tables"]["checklists"]["Row"]
+          d: string
+        }
+        Returns: string
+      }
+      checklist_period_kind: {
+        Args: { c: Database["public"]["Tables"]["checklists"]["Row"] }
+        Returns: string
+      }
+      checklist_period_start: {
+        Args: {
+          c: Database["public"]["Tables"]["checklists"]["Row"]
+          d: string
+        }
+        Returns: string
+      }
+      checklist_shows_on: {
+        Args: {
+          c: Database["public"]["Tables"]["checklists"]["Row"]
+          d: string
+        }
+        Returns: boolean
       }
       claim_checklist_photo: {
         Args: {
