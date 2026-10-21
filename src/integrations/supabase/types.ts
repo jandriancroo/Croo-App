@@ -6602,6 +6602,60 @@ export type Database = {
         }
         Relationships: []
       }
+      labor_pace_scorecard: {
+        Row: {
+          actual_pct: number | null
+          business_date: string
+          closers: Json
+          filled_at: string | null
+          final_labor_dollars: number | null
+          final_sales: number | null
+          location_id: string
+          plain_miss: number | null
+          plain_pct: number | null
+          sales_pace_at_snapshot: number | null
+          smart_close_enabled: boolean
+          smart_close_minutes: number | null
+          smart_miss: number | null
+          smart_pct: number | null
+          snapshot_at: string
+        }
+        Insert: {
+          actual_pct?: number | null
+          business_date: string
+          closers?: Json
+          filled_at?: string | null
+          final_labor_dollars?: number | null
+          final_sales?: number | null
+          location_id: string
+          plain_miss?: number | null
+          plain_pct?: number | null
+          sales_pace_at_snapshot?: number | null
+          smart_close_enabled: boolean
+          smart_close_minutes?: number | null
+          smart_miss?: number | null
+          smart_pct?: number | null
+          snapshot_at: string
+        }
+        Update: {
+          actual_pct?: number | null
+          business_date?: string
+          closers?: Json
+          filled_at?: string | null
+          final_labor_dollars?: number | null
+          final_sales?: number | null
+          location_id?: string
+          plain_miss?: number | null
+          plain_pct?: number | null
+          sales_pace_at_snapshot?: number | null
+          smart_close_enabled?: boolean
+          smart_close_minutes?: number | null
+          smart_miss?: number | null
+          smart_pct?: number | null
+          snapshot_at?: string
+        }
+        Relationships: []
+      }
       labor_rule_presets: {
         Row: {
           created_at: string
@@ -16233,6 +16287,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      fill_labor_pace_scorecard: { Args: never; Returns: number }
       generate_pairing_code: { Args: never; Returns: string }
       generate_unique_pin: { Args: never; Returns: string }
       get_active_conversion: {
@@ -16339,6 +16394,10 @@ export type Database = {
       }
       get_labor_pace: {
         Args: { _date?: string; _location_id: string }
+        Returns: Json
+      }
+      get_labor_pace_scorecard: {
+        Args: { _days?: number; _location_id: string }
         Returns: Json
       }
       get_labor_totals_for_dates: {
@@ -17098,6 +17157,7 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      snapshot_labor_pace_scorecard: { Args: never; Returns: number }
       soft_delete_announcement_post: {
         Args: { _post_id: string }
         Returns: undefined
