@@ -27,6 +27,7 @@ interface PostComposerProps {
     pinned: boolean;
     badgeId: string | null;
     isAnnouncement: boolean;
+    requireConfirm: boolean;
   }) => Promise<any>;
   onCreateBadge?: (input: { label: string; color?: string | null }) => Promise<any>;
 }
@@ -46,6 +47,7 @@ export function PostComposer({
   const [badgeId, setBadgeId] = useState<string | null>(null);
   const [isAnnouncement, setIsAnnouncement] = useState(false);
   const [pinned, setPinned] = useState(false);
+  const [requireConfirm, setRequireConfirm] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [badgeDialogOpen, setBadgeDialogOpen] = useState(false);
@@ -114,6 +116,7 @@ export function PostComposer({
         pinned: canAnnounce ? pinned : false,
         badgeId,
         isAnnouncement: canAnnounce ? isAnnouncement : false,
+        requireConfirm: canAnnounce && isAnnouncement && requireConfirm,
       });
       reset();
       onOpenChange(false);
@@ -278,6 +281,12 @@ export function PostComposer({
                         <Pin className="h-4 w-4" /> Pin to top of feed
                       </Label>
                       <Switch id="pin-post" checked={pinned} onCheckedChange={setPinned} />
+                    </div>
+                  )}
+                  {isAnnouncement && (
+                    <div className="flex items-center justify-between pl-6">
+                      <Label htmlFor="require-confirm" className="text-sm">Require "I've read this" tap</Label>
+                      <Switch id="require-confirm" checked={requireConfirm} onCheckedChange={setRequireConfirm} />
                     </div>
                   )}
                 </>

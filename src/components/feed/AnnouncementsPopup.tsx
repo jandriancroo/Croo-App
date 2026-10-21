@@ -41,7 +41,7 @@ export function AnnouncementsPopup({ enabled }: { enabled: boolean }) {
   };
   // Only visible time counts, not time spent in another tab or with the app backgrounded.
   useEffect(() => {
-    if (!post || !enabled) return;
+    if (!post || !enabled || post.require_confirm) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const update = () => {
       clearTimeout(timer);
@@ -62,7 +62,7 @@ export function AnnouncementsPopup({ enabled }: { enabled: boolean }) {
       </DialogHeader>
       <div className="max-h-[55dvh] overflow-y-auto space-y-3" onScroll={e => {
         const el = e.currentTarget;
-        if (document.visibilityState === 'visible' && el.scrollTop + el.clientHeight >= el.scrollHeight - 4) void finish();
+        if (!post.require_confirm && document.visibilityState === 'visible' && el.scrollTop + el.clientHeight >= el.scrollHeight - 4) void finish();
       }}>
         <p className="whitespace-pre-wrap text-sm leading-relaxed">{post.body}</p>
         {post.media.map((media, i) => media.type === 'image'
