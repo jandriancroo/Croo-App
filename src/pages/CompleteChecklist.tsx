@@ -76,6 +76,7 @@ interface ResponseWithCompleter {
   isImage: boolean;
   extractedTemperature?: number | null;
   temperatureValid?: boolean | null;
+  temperatureUnconfirmed?: boolean;
   completedBy?: {
     userId: string;
     fullName: string;
@@ -456,7 +457,8 @@ export default function CompleteChecklist() {
             completed_by,
             created_at,
             extracted_temperature,
-            temperature_valid
+            temperature_valid,
+            temperature_unconfirmed
           `)
           .eq('submission_id', submissionId);
 
@@ -511,6 +513,7 @@ export default function CompleteChecklist() {
             isImage,
             extractedTemperature: resp.extracted_temperature,
             temperatureValid: resp.temperature_valid,
+            temperatureUnconfirmed: !!resp.temperature_unconfirmed,
             completedBy: undefined,
           } as any;
 
@@ -821,6 +824,9 @@ export default function CompleteChecklist() {
     if (!submissionId || !user?.id) return;
 
     const tempValid = getTemperatureValidity(tempF);
+    // Photo tasks keep their photo; typing only sets the reading (no completion change).
+    const manualItem = items.find(i => i.id === itemId);
+    const isPhotoTask = manualItem?.item_type !== 'temperature';
 
     try {
       const { data: existing, error: existingError } = await supabase
@@ -832,14 +838,20 @@ export default function CompleteChecklist() {
 
       if (existingError) throw existingError;
 
-      const responseData = {
-        response_image_url: null,
-        response_text: String(tempF),
-        completed_by: user.id,
+      const tempFields = {
         extracted_temperature: tempF,
         temperature_valid: tempValid,
+        temperature_unconfirmed: false,
         temperature_validated_at: new Date().toISOString(),
       };
+      const responseData = isPhotoTask
+        ? tempFields
+        : { response_image_url: null, response_text: String(tempF), completed_by: user.id, ...tempFields };
+
+      if (isPhotoTask && !existing?.id) {
+        toast.error('Take the photo first, then type the temperature');
+        return;
+      }
 
       let responseId: string | undefined;
       if (existing?.id) {
@@ -864,6 +876,16 @@ export default function CompleteChecklist() {
         .select('full_name, profile_photo_url')
         .eq('id', user.id)
         .single();
+
+      if (isPhotoTask) {
+        setResponsesWithCompleters(prev => ({
+          ...prev,
+          [itemId]: { ...prev[itemId], extractedTemperature: tempF, temperatureValid: tempValid, temperatureUnconfirmed: false },
+        }));
+        setManualTempOpen(prev => ({ ...prev, [itemId]: false }));
+        toast.success(`Saved ${tempF}°F`);
+        return;
+      }
 
       setResponses(prev => ({ ...prev, [itemId]: String(tempF) }));
       setResponsesWithCompleters(prev => ({
@@ -997,69 +1019,83 @@ export default function CompleteChecklist() {
       let extractedTemp = null;
       let tempValid = null;
 
-      const shouldValidateTemp = item?.item_type === 'temperature' || 
-        (item?.item_type === 'image' && item?.requires_temperature_validation === true);
+      const shouldValidateTemp = item?.item_type === 'temperature' ||
+        ((item?.item_type === 'image' || item?.item_type === 'PHOTO') && item?.requires_temperature_validation === true);
 
+      let tempUnconfirmed = false;
+      let hasNewReading = false;
       if (shouldValidateTemp) {
         const { data: tempData, error: tempError } = await supabase.functions.invoke(
           'ai-extraction-service?action=extract-temperature',
           { body: { imageUrl: data.publicUrl } }
         );
-
-        if (tempError || !tempData || tempData.temperature == null) {
-          toast.warning(
-            tempData?.reason === 'reads_disagree' ? "Not sure of the temperature" : "Couldn't read the temperature",
-            { description: 'Please type the temperature you see on the thermometer.' }
-          );
-          setManualTempOpen(prev => ({ ...prev, [itemId]: true }));
-        }
-        if (!tempError && tempData) {
+        const taskLocationId = currentLocation?.id || checklist?.location_id;
+        const reason: string | null = tempError || !tempData ? 'function_error' : (tempData.reason ?? null);
+        if (!tempError && tempData && tempData.temperature != null) {
           extractedTemp = tempData.temperature;
           tempValid = tempData.isValid;
-          
-          // Alert managers if temperature is out of safe zone
-          const taskLocationId = currentLocation?.id || checklist?.location_id;
-          if (tempValid === false && extractedTemp !== null && taskLocationId && user?.id) {
-            const alertTitle = `🌡️ Unsafe Temp: ${item.question}`;
-            const alertBody = `${extractedTemp}°F is out of safe zone. Verify and take corrective action.`;
-            const dedupKey = `temp_alert_${taskLocationId}_${item.id}_${new Date().toISOString().split('T')[0]}_${Date.now()}`;
+          tempUnconfirmed = !!tempData.unconfirmed;
+          hasNewReading = true;
+        }
+        // Evidence for every photo that didn't get a clean reading.
+        if (reason) {
+          void supabase.from('temperature_read_issues').insert({
+            reason,
+            reads: tempData?.reads ?? null,
+            saved_temperature: hasNewReading ? extractedTemp : null,
+            image_url: data.publicUrl,
+            item_id: itemId,
+            submission_id: submissionId || null,
+            location_id: taskLocationId || null,
+            user_id: user?.id,
+          } as any).then(({ error }) => { if (error) console.warn('[temp-read-issue] log failed', error.message); });
+        }
+        if (!hasNewReading) {
+          toast.warning("Couldn't read the temperature", { description: 'Please type the temperature you see on the thermometer.' });
+          setManualTempOpen(prev => ({ ...prev, [itemId]: true }));
+        }
 
-            // Resolve manager user IDs for this location
-            const { data: managerUsers } = await supabase
-              .from('user_locations')
-              .select('user_id, user_roles!inner(role)')
-              .eq('location_id', taskLocationId)
-              .in('user_roles.role', ['super_admin', 'org_admin', 'admin', 'manager', 'general_manager', 'shift_manager', 'shift_manager_in_training']);
+        // Alert managers if temperature is out of safe zone (unconfirmed still alerts).
+        if (hasNewReading && tempValid === false && extractedTemp !== null && taskLocationId && user?.id && item) {
+          const unconfirmedLabel = tempUnconfirmed ? ' (unconfirmed reading)' : '';
+          const alertTitle = `🌡️ Unsafe Temp${tempUnconfirmed ? ' (unconfirmed)' : ''}: ${item.question}`;
+          const alertBody = `${extractedTemp}°F${unconfirmedLabel} is out of safe zone. Verify and take corrective action.`;
+          const dedupKey = `temp_alert_${taskLocationId}_${item.id}_${new Date().toISOString().split('T')[0]}_${Date.now()}`;
 
-            const managerIds = managerUsers?.map((u: any) => u.user_id) || [];
+          const { data: managerUsers } = await supabase
+            .from('user_locations')
+            .select('user_id, user_roles!inner(role)')
+            .eq('location_id', taskLocationId)
+            .in('user_roles.role', ['super_admin', 'org_admin', 'admin', 'manager', 'general_manager', 'shift_manager', 'shift_manager_in_training']);
 
-            if (managerIds.length > 0) {
-              // Queue alert for manager dashboard + push notification
-              const { error: alertError } = await supabase
-                .from('alert_queue')
-                .insert({
-                  alert_type: 'unsafe_temperature',
-                  dedup_key: dedupKey,
-                  location_id: taskLocationId,
-                  payload: {
-                    user_ids: managerIds,
-                    title: alertTitle,
-                    body: alertBody,
-                    notification_type: 'unsafe_temperature',
-                    data: {
-                      type: 'unsafe_temperature',
-                      location_id: taskLocationId,
-                      checklist_item: item.question,
-                      temperature: extractedTemp
-                    }
+          const managerIds = managerUsers?.map((u: any) => u.user_id) || [];
+
+          if (managerIds.length > 0) {
+            const { error: alertError } = await supabase
+              .from('alert_queue')
+              .insert({
+                alert_type: 'unsafe_temperature',
+                dedup_key: dedupKey,
+                location_id: taskLocationId,
+                payload: {
+                  user_ids: managerIds,
+                  title: alertTitle,
+                  body: alertBody,
+                  notification_type: 'unsafe_temperature',
+                  data: {
+                    type: 'unsafe_temperature',
+                    location_id: taskLocationId,
+                    checklist_item: item.question,
+                    temperature: extractedTemp,
+                    unconfirmed: tempUnconfirmed,
                   }
-                });
+                }
+              });
 
-              if (!alertError) {
-                toast.warning(`Temperature out of range — managers notified`, {
-                  description: `${extractedTemp}°F on ${item.question}`
-                });
-              }
+            if (!alertError) {
+              toast.warning(`Temperature out of range — managers notified`, {
+                description: `${extractedTemp}°F${unconfirmedLabel} on ${item.question}`
+              });
             }
           }
         }
@@ -1121,9 +1157,15 @@ export default function CompleteChecklist() {
           response_image_url: isMultiPhoto ? null : data.publicUrl,
           response_text: isMultiPhoto ? JSON.stringify(newValue) : null,
           completed_by: user.id,
-          extracted_temperature: extractedTemp,
-          temperature_valid: tempValid,
-          temperature_validated_at: new Date().toISOString()
+          // A retake never erases a saved reading unless it produced a new one.
+          ...(hasNewReading
+            ? {
+                extracted_temperature: extractedTemp,
+                temperature_valid: tempValid,
+                temperature_unconfirmed: tempUnconfirmed,
+                temperature_validated_at: new Date().toISOString(),
+              }
+            : {}),
         };
 
         if (existing) {
