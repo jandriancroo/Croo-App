@@ -1,319 +1,25 @@
-import { referencePhotoFields, getPrimaryReferencePhoto } from '@/lib/checklistReferencePhotos';
-import { FrequencyPicker } from '@/components/tasks/FrequencyPicker';
-import { defaultScheduleForm, scheduleFormError, scheduleFormFromRow, scheduleFormToRow, type ScheduleFormValue } from '@/lib/checklistScheduleForm';
+import { getPrimaryReferencePhoto } from '@/lib/checklistReferencePhotos';
+import { defaultScheduleForm, scheduleFormError, scheduleFormFromRow, scheduleFormToRow } from '@/lib/checklistScheduleForm';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getTodayInTimezone } from '@/utils/timezoneUtils';
 import { PageTitle } from '@/components/PageTitle';
-import { TaskAssigneePicker } from '@/components/tasks/TaskAssigneePicker';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ReferencePhotoField } from '@/components/tasks/ReferencePhotoField';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, ArrowLeft, X, GripVertical, ChevronDown, ChevronUp, Upload, Link as LinkIcon, Video, Plus, CheckSquare, Type, Camera, Thermometer, List, Hash, Heading, ClipboardList, ShieldCheck } from 'lucide-react';
-import { PrepListEditor, type PrepRow } from '@/components/checklists/PrepListEditor';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Switch } from '@/components/ui/switch';
+import { Loader2, ArrowLeft } from 'lucide-react';
+import { type PrepRow } from '@/components/checklists/PrepListEditor';
 import { useUserRole } from '@/hooks/useUserRole';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { compressImage } from '@/utils/imageCompression';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { NotesTextarea } from '@/components/tasks/NotesTextarea';
-import { AssigneePicker } from '@/components/shared/AssigneePicker';
-import { ChecklistMentionInput } from '@/components/tasks/ChecklistMentionInput';
-import { parseLinkRefs, type ChecklistLinkRef } from '@/lib/checklistLinks';
+import { parseLinkRefs } from '@/lib/checklistLinks';
 import { archivePeriodCopy } from '@/utils/checklistVersions';
+import { toItemRow, newItemKey, type EditorItem } from '@/lib/checklistEditorItems';
+import { ChecklistEditor } from '@/components/checklists/editor/ChecklistEditor';
+import type { ChecklistEditorSettings } from '@/components/checklists/editor/types';
 
-interface ChecklistItem {
-  id?: string;
-  question: string;
-  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature' | 'number' | 'section_header' | 'prep_list' | 'manager_approval';
-  is_required: boolean;
-  temperature_alert_enabled?: boolean;
-  options?: string[] | { minPhotos?: number };
-  reference_image_url?: string | null;
-  reference_image_urls?: string[];
-  reference_link?: string;
-  reference_video_url?: string;
-  reference_notes?: string;
-  order_index: number;
-  manager_shift?: 'am' | 'pm' | null;
-  position?: string | null;
-  station_id?: string | null;
-  assigned_role?: string | null;
-  assigned_user_id?: string | null;
-  prep_rows?: PrepRow[];
-  link_refs?: ChecklistLinkRef[];
-}
-
-interface SortableChecklistItemProps {
-  id: string;
-  item: ChecklistItem;
-  index: number;
-  updateItem: (index: number, field: keyof ChecklistItem, value: any) => void;
-  removeItem: (index: number) => void;
-  handleReferenceImageUpload: (index: number, file: File) => Promise<void>;
-  showAmPmSelector?: boolean;
-  showPositionSelector?: boolean;
-  availablePositions?: string[];
-  onEnterKey?: (index: number) => void;
-  isFocused?: boolean;
-  onFocus?: (index: number) => void;
-  onBlur?: () => void;
-  locationId?: string | null;
-}
-
-interface SortableChecklistItemPropsExt extends SortableChecklistItemProps {
-  belongsToSection?: boolean;
-}
-
-function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload, showAmPmSelector, showPositionSelector, availablePositions, onEnterKey, isFocused, onFocus, onBlur, belongsToSection, locationId }: SortableChecklistItemPropsExt) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  const style = { transform: CSS.Transform.toString(transform), transition };
-  const [showReference, setShowReference] = useState(false);
-
-  const isSection = item.item_type === 'section_header';
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`flex gap-1.5 p-2 border rounded-lg transition-colors ${
-        isSection
-          ? 'bg-primary/5 border-primary/30 font-semibold mt-3'
-          : belongsToSection
-            ? 'bg-background ml-5 border-l-2 border-l-primary/40'
-            : 'bg-background'
-      } ${isDragging ? 'opacity-50 z-50' : ''} ${isFocused ? 'border-primary ring-1 ring-primary/30' : ''}`}
-    >
-      <button
-        className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground mt-2 shrink-0 relative after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']"
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="h-4 w-4" />
-      </button>
-      
-      <div className="flex-1 space-y-1.5 min-w-0">
-        {/* Row 1: title (auto-grow) + type icons + position + delete */}
-        <div className="flex items-start gap-1.5">
-          <ChecklistMentionInput
-            multiline
-            rows={1}
-            fieldProps={{ 'data-checklist-item-input': true }}
-            value={item.question}
-            onChange={(v) => updateItem(index, 'question', v)}
-            refs={item.link_refs || []}
-            onRefsChange={(next) => updateItem(index, 'link_refs', next)}
-            locationId={locationId}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                onEnterKey?.(index);
-              }
-            }}
-            onFieldFocus={() => onFocus?.(index)}
-            onFieldBlur={() => onBlur?.()}
-            placeholder={isSection ? 'Section heading' : 'Task name — type @ to link'}
-            className="min-h-[32px] text-sm resize-none py-1.5"
-            wrapperClassName="flex-1 min-w-0"
-          />
-
-          {/* Type dropdown with icons */}
-          <Select
-            value={item.item_type}
-            onValueChange={(value) => updateItem(index, 'item_type', value)}
-          >
-            <SelectTrigger className="w-auto min-w-0 h-7 px-2 shrink-0 gap-1">
-              {item.item_type === 'number' && <Hash className="h-3.5 w-3.5" />}
-              {item.item_type === 'confirmation' && <CheckSquare className="h-3.5 w-3.5" />}
-              {item.item_type === 'text' && <Type className="h-3.5 w-3.5" />}
-              {item.item_type === 'image' && <Camera className="h-3.5 w-3.5" />}
-              {item.item_type === 'temperature' && <Thermometer className="h-3.5 w-3.5" />}
-              {item.item_type === 'multiple_choice' && <List className="h-3.5 w-3.5" />}
-              {item.item_type === 'section_header' && <Heading className="h-3.5 w-3.5" />}
-              {item.item_type === 'prep_list' && <ClipboardList className="h-3.5 w-3.5" />}
-              {item.item_type === 'manager_approval' && <ShieldCheck className="h-3.5 w-3.5" />}
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="confirmation"><span className="flex items-center gap-2"><CheckSquare className="h-3.5 w-3.5" /> Check</span></SelectItem>
-              <SelectItem value="text"><span className="flex items-center gap-2"><Type className="h-3.5 w-3.5" /> Text</span></SelectItem>
-              <SelectItem value="number"><span className="flex items-center gap-2"><Hash className="h-3.5 w-3.5" /> Number</span></SelectItem>
-              <SelectItem value="image"><span className="flex items-center gap-2"><Camera className="h-3.5 w-3.5" /> Photo</span></SelectItem>
-              <SelectItem value="temperature"><span className="flex items-center gap-2"><Thermometer className="h-3.5 w-3.5" /> Temp Photo</span></SelectItem>
-              <SelectItem value="multiple_choice"><span className="flex items-center gap-2"><List className="h-3.5 w-3.5" /> Multiple Choice</span></SelectItem>
-              <SelectItem value="prep_list"><span className="flex items-center gap-2"><ClipboardList className="h-3.5 w-3.5" /> Prep List</span></SelectItem>
-              <SelectItem value="section_header"><span className="flex items-center gap-2"><Heading className="h-3.5 w-3.5" /> Section Header</span></SelectItem>
-              <SelectItem value="manager_approval"><span className="flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5" /> Manager Approval</span></SelectItem>
-            </SelectContent>
-          </Select>
-
-          {!isSection && showPositionSelector && (
-            <TaskAssigneePicker
-              locationId={locationId}
-              value={item}
-              availablePositions={availablePositions || []}
-              onChange={(next) => (Object.keys(next) as (keyof typeof next)[]).forEach((k) => updateItem(index, k, next[k]))}
-            />
-          )}
-          <Button size="icon-sm" variant="ghost" onClick={() => removeItem(index)} className="shrink-0">
-            <X className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-
-        {/* Conditional row: shift + min photos + temp alert */}
-        {!isSection && (showAmPmSelector || item.item_type === 'image' || item.item_type === 'temperature') && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {showAmPmSelector && (
-              <Select
-                value={item.manager_shift || 'none'}
-                onValueChange={(value) => updateItem(index, 'manager_shift', value === 'none' ? null : value)}
-              >
-                <SelectTrigger className="w-20 h-7 text-xs">
-                  <SelectValue placeholder="Shift" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">All</SelectItem>
-                  <SelectItem value="am">AM</SelectItem>
-                  <SelectItem value="pm">PM</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-
-            {(item.item_type === 'image' || item.item_type === 'temperature') && (
-              <Select
-                value={String((item.options && typeof item.options === 'object' && !Array.isArray(item.options)) ? item.options.minPhotos || 1 : 1)}
-                onValueChange={(value) => updateItem(index, 'options', { minPhotos: parseInt(value) })}
-              >
-                <SelectTrigger className="w-20 h-7 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[1, 2, 3, 4, 5, 6].map(n => (
-                    <SelectItem key={n} value={String(n)}>{n} photo{n > 1 ? 's' : ''}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            {item.item_type === 'temperature' && (
-              <label className="flex items-center gap-1 text-[11px] text-muted-foreground cursor-pointer">
-                <Checkbox
-                  checked={item.temperature_alert_enabled || false}
-                  onCheckedChange={(checked) => updateItem(index, 'temperature_alert_enabled', checked)}
-                  className="h-3.5 w-3.5"
-                />
-                Temp alerts
-              </label>
-            )}
-          </div>
-        )}
-
-        {!isSection && item.item_type === 'multiple_choice' && (
-          <Input
-            value={Array.isArray(item.options) ? item.options.join(', ') : ''}
-            onChange={(e) =>
-              updateItem(index, 'options', e.target.value.split(',').map((opt) => opt.trim()))
-            }
-            placeholder="Options (comma-separated)"
-            className="text-xs h-7"
-          />
-        )}
-
-        {!isSection && item.item_type === 'prep_list' && (
-          <PrepListEditor
-            rows={item.prep_rows || []}
-            onChange={(rows) => updateItem(index, 'prep_rows', rows)}
-            locationId={locationId}
-          />
-        )}
-
-        {/* Collapsible notes + reference materials */}
-        {!isSection && (
-        <Collapsible open={showReference} onOpenChange={setShowReference}>
-          <CollapsibleTrigger asChild>
-            <button type="button" className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1">
-              {showReference ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              {item.reference_notes ? 'Notes ✓' : 'Notes & reference'}
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-2 pt-1.5">
-            <NotesTextarea
-              value={item.reference_notes || ''}
-              onChange={(v) => updateItem(index, 'reference_notes', v)}
-              placeholder="Instructions / notes (optional)"
-              rows={2}
-              className="text-xs w-full"
-            />
-            <div className="space-y-2">
-              <ReferencePhotoField
-                compact
-                url={item.reference_image_url}
-                onUpload={(file) => handleReferenceImageUpload(index, file)}
-                onRemove={() => updateItem(index, 'reference_image_url', null)}
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-0.5">
-                  <Label className="text-[10px] flex items-center gap-1"><LinkIcon className="h-2.5 w-2.5" /> Link</Label>
-                  <Input
-                    type="url"
-                    value={item.reference_link || ''}
-                    onChange={(e) => updateItem(index, 'reference_link', e.target.value)}
-                    placeholder="https://..."
-                    className="text-xs h-7 w-full"
-                  />
-                </div>
-                <div className="space-y-0.5">
-                  <Label className="text-[10px] flex items-center gap-1"><Video className="h-2.5 w-2.5" /> Video</Label>
-                  <Input
-                    type="url"
-                    value={item.reference_video_url || ''}
-                    onChange={(e) => updateItem(index, 'reference_video_url', e.target.value)}
-                    placeholder="https://youtube.com/..."
-                    className="text-xs h-7 w-full"
-                  />
-                </div>
-              </div>
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/** DB shape of one item (without checklist_id) — shared by save and the stale-save snapshot. */
-function toItemRow(item: ChecklistItem, orderIndex: number, amPm: boolean, posFilter: boolean) {
-  const dbItemType = item.item_type;
-  return {
-    question: item.question,
-    item_type: dbItemType,
-    is_required: item.is_required,
-    requires_temperature_validation: dbItemType === 'temperature',
-    temperature_alert_enabled: dbItemType === 'temperature' ? (item.temperature_alert_enabled || false) : false,
-    options: item.item_type === 'multiple_choice' ? item.options : (item.item_type === 'image' || item.item_type === 'temperature') ? item.options : null,
-    ...referencePhotoFields(item),
-    reference_link: item.reference_link || null,
-    reference_video_url: item.reference_video_url || null,
-    reference_notes: item.reference_notes || null,
-    order_index: orderIndex,
-    manager_shift: amPm ? (item.manager_shift || null) : null,
-    position: posFilter ? (item.position || null) : null,
-    station_id: posFilter ? (item.station_id || null) : null,
-    assigned_role: posFilter ? ((item.assigned_role as any) || null) : null,
-    assigned_user_id: posFilter ? (item.assigned_user_id || null) : null,
-    link_refs: (item.link_refs ?? []) as any,
-  };
-}
+type ChecklistItem = EditorItem;
 
 /** Only the keys whose values differ (deep compare via JSON). */
 function changedFields(before: Record<string, unknown>, after: Record<string, unknown>) {
@@ -331,26 +37,23 @@ export default function EditChecklist() {
   const { isAdmin, loading: roleLoading } = useUserRole();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'single_day'>('daily');
-  const [scheduledDate, setScheduledDate] = useState('');
-  const [schedule, setSchedule] = useState<ScheduleFormValue>(defaultScheduleForm);
+  const [settings, setSettings] = useState<ChecklistEditorSettings>(() => ({
+    title: '', description: '', templateType: 'standard', frequency: 'daily', scheduledDate: '',
+    visibleDaysBeforeMonthEnd: 7, schedule: defaultScheduleForm(), dueByTime: '', lockUntilTime: '',
+    lockTimeEnabled: false, selectedRoles: [], selectedUserIds: [], enableAmPmDivision: false,
+    positionFilteringEnabled: false,
+  }));
+  const patchSettings = (patch: Partial<ChecklistEditorSettings>) => setSettings((prev) => ({ ...prev, ...patch }));
+  const {
+    title, description, frequency, scheduledDate, schedule, dueByTime, lockUntilTime, lockTimeEnabled,
+    templateType, selectedRoles, selectedUserIds, visibleDaysBeforeMonthEnd, enableAmPmDivision,
+    positionFilteringEnabled,
+  } = settings;
   const { timezone: storeTimezone } = useLocationTimezone();
   const storeToday = getTodayInTimezone(storeTimezone);
-  const [dueByTime, setDueByTime] = useState('');
-  const [lockUntilTime, setLockUntilTime] = useState('');
-  const [lockTimeEnabled, setLockTimeEnabled] = useState(false);
-  const [templateType, setTemplateType] = useState<'standard' | 'dynamic' | 'training'>('standard');
-  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [visibleDaysBeforeMonthEnd, setVisibleDaysBeforeMonthEnd] = useState<number | null>(7);
-  const [enableAmPmDivision, setEnableAmPmDivision] = useState(false);
-  const [positionFilteringEnabled, setPositionFilteringEnabled] = useState(false);
   const [availablePositions, setAvailablePositions] = useState<string[]>([]);
   const [checklistLocationId, setChecklistLocationId] = useState<string | null>(null);
   const [items, setItems] = useState<ChecklistItem[]>([]);
-  const [focusedItemIndex, setFocusedItemIndex] = useState<number | null>(null);
 
   // Unsaved-changes tracking + stale-save snapshot (all hooks before any return).
   const itemSnapshotRef = useRef<Map<string, Record<string, unknown>>>(new Map());
@@ -461,24 +164,23 @@ export default function EditChecklist() {
 
       if (userTagsError) throw userTagsError;
 
-      setTitle(checklist.title);
-      setDescription(checklist.description || '');
-      setFrequency(checklist.frequency as 'daily' | 'weekly' | 'monthly' | 'single_day');
-      setScheduledDate((checklist as any).scheduled_date || '');
-      setSchedule(scheduleFormFromRow(checklist as any));
-      setDueByTime(normalizeTimeForInput(checklist.due_by_time));
-
-      const savedLockTimeRaw = checklist.lock_until_time;
-      const savedLockTime = normalizeTimeForInput(savedLockTimeRaw);
-      setLockUntilTime(savedLockTime);
-      setLockTimeEnabled(!!savedLockTime);
-
-      setTemplateType((checklist.template_type || 'standard') as 'standard' | 'dynamic' | 'training');
-      setVisibleDaysBeforeMonthEnd(checklist.visible_days_before_month_end || 7);
-      setEnableAmPmDivision((checklist as any).enable_am_pm_division || false);
-      setPositionFilteringEnabled((checklist as any).position_filtering_enabled || false);
-      setSelectedRoles(roleTags?.map(rt => rt.role) || []);
-      setSelectedUserIds(userTags?.map(ut => ut.user_id) || []);
+      const savedLockTime = normalizeTimeForInput(checklist.lock_until_time);
+      setSettings({
+        title: checklist.title,
+        description: checklist.description || '',
+        frequency: checklist.frequency as ChecklistEditorSettings['frequency'],
+        scheduledDate: (checklist as any).scheduled_date || '',
+        schedule: scheduleFormFromRow(checklist as any),
+        dueByTime: normalizeTimeForInput(checklist.due_by_time),
+        lockUntilTime: savedLockTime,
+        lockTimeEnabled: !!savedLockTime,
+        templateType: (checklist.template_type || 'standard') as ChecklistEditorSettings['templateType'],
+        visibleDaysBeforeMonthEnd: checklist.visible_days_before_month_end || 7,
+        enableAmPmDivision: (checklist as any).enable_am_pm_division || false,
+        positionFilteringEnabled: (checklist as any).position_filtering_enabled || false,
+        selectedRoles: roleTags?.map(rt => rt.role) || [],
+        selectedUserIds: userTags?.map(ut => ut.user_id) || [],
+      });
       setChecklistLocationId(checklist.location_id || null);
 
       // Fetch available positions
@@ -560,6 +262,7 @@ export default function EditChecklist() {
         }
 
         return {
+          _key: newItemKey(),
           id: item.id,
           question: item.question,
           item_type: itemType as ChecklistItem['item_type'],
@@ -820,95 +523,15 @@ export default function EditChecklist() {
       setSaving(false);
     }
   };
-
-  const addItem = (atIndex?: number) => {
-    const newItem: ChecklistItem = {
-      question: '',
-      item_type: 'confirmation',
-      is_required: true,
-      order_index: 0,
-    };
-    const insertAt = atIndex !== undefined ? atIndex : 0;
-    const newItems = [...items];
-    newItems.splice(insertAt, 0, newItem);
-    setItems(newItems.map((it, i) => ({ ...it, order_index: i })));
-    setFocusedItemIndex(insertAt);
-    setTimeout(() => {
-      const inputs = document.querySelectorAll<HTMLInputElement>('[data-checklist-item-input]');
-      inputs[insertAt]?.focus();
-    }, 50);
-  };
-
-  const handleReferenceImageUpload = async (index: number, file: File) => {
-    // Errors propagate so the photo field shows its inline message.
+  const uploadReference = async (file: File): Promise<string> => {
+    // Errors propagate so the photo slot shows its inline message.
     const compressedFile = await compressImage(file, 1200, 1200, 0.8);
-    const itemId = items[index]?.id || 'new';
-    const fileName = `references/${id || 'new'}/${itemId}-${Date.now()}.jpg`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('checklist-images')
-      .upload(fileName, compressedFile);
+    const fileName = `references/${id || 'new'}/ref-${Date.now()}.jpg`;
+    const { error: uploadError } = await supabase.storage.from('checklist-images').upload(fileName, compressedFile);
     if (uploadError) throw uploadError;
-
-    const { data } = supabase.storage
-      .from('checklist-images')
-      .getPublicUrl(fileName);
-
-    updateItem(index, 'reference_image_url', data.publicUrl);
+    const { data } = supabase.storage.from('checklist-images').getPublicUrl(fileName);
     toast({ title: 'Photo added', description: 'Tap Save to keep it.' });
-  };
-
-  const removeItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index));
-  };
-
-  const updateItem = (index: number, field: keyof ChecklistItem, value: any) => {
-    // Functional update — two fields can be written in the same tick (e.g. an
-    // @mention sets both `question` and `link_refs`) without clobbering each other.
-    setItems((prev) => {
-      const newItems = [...prev];
-      newItems[index] = { ...newItems[index], [field]: value };
-      return newItems;
-    });
-  };
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    setItems((items) => {
-      const oldIndex = items.findIndex((_, i) => `item-${i}` === active.id);
-      const newIndex = items.findIndex((_, i) => `item-${i}` === over.id);
-      if (oldIndex < 0 || newIndex < 0) return items;
-
-      const isHeader = items[oldIndex].item_type === 'section_header';
-      if (!isHeader) {
-        return arrayMove(items, oldIndex, newIndex);
-      }
-
-      // Section header: move the whole block (header + items until next header)
-      let blockEnd = items.length;
-      for (let i = oldIndex + 1; i < items.length; i++) {
-        if (items[i].item_type === 'section_header') { blockEnd = i; break; }
-      }
-      // Don't allow dropping inside own block
-      if (newIndex > oldIndex && newIndex < blockEnd) return items;
-
-      const block = items.slice(oldIndex, blockEnd);
-      const rest = [...items.slice(0, oldIndex), ...items.slice(blockEnd)];
-      const targetItem = items[newIndex];
-      let insertAt = rest.indexOf(targetItem);
-      if (insertAt < 0) insertAt = rest.length;
-      // Moving down: insert after target so visual position matches drop
-      if (oldIndex < newIndex) insertAt += 1;
-      return [...rest.slice(0, insertAt), ...block, ...rest.slice(insertAt)];
-    });
+    return data.publicUrl;
   };
 
   if (roleLoading || loading) {
@@ -925,230 +548,38 @@ export default function EditChecklist() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-4 max-w-4xl [&>*:not(:first-child):not(:nth-child(2))]:mt-4">
+      <div className="container mx-auto p-4 max-w-5xl [&>*:not(:first-child):not(:nth-child(2))]:mt-4">
         <PageTitle color="teal" leading={
-          <Button variant="ghost" size="icon" onClick={leaveEditor}>
+          <Button variant="ghost" size="icon" onClick={leaveEditor} aria-label="Back">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         }>Edit Checklist</PageTitle>
 
-        {/* Condensed Basic Info */}
-        <Card>
-          <CardContent className="pt-4 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="title" className="text-xs">Title</Label>
-                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Morning Kitchen Check" />
-              </div>
-              {templateType === 'training' ? (
-                <div className="space-y-1">
-                  <Label className="text-xs">Scheduling</Label>
-                  <div className="h-10 flex items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">
-                    Set per assignment
-                  </div>
-                </div>
-              ) : templateType === 'dynamic' ? (
-                <div className="space-y-1">
-                  <Label htmlFor="frequency" className="text-xs">Frequency</Label>
-                  <Select value={frequency} onValueChange={(value: any) => setFrequency(value)}>
-                    <SelectTrigger id="frequency"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                      <SelectItem value="single_day">Single Day</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              ) : null}
+        <ChecklistEditor
+          initialTab="items"
+          settings={settings}
+          onSettingsChange={patchSettings}
+          items={items}
+          setItems={setItems}
+          templateTypeOptions={templateType === 'dynamic' ? ['dynamic'] : ['standard', 'training']}
+          locationId={checklistLocationId}
+          storeToday={storeToday}
+          availablePositions={availablePositions}
+          uploadReference={uploadReference}
+          addPosition="top"
+          minItems={0}
+          singleDayHint="Shows only on this date, then moves to history."
+          onCancel={leaveEditor}
+          onSave={handleSave}
+          saving={saving}
+          saveLabel="Save"
+          savingLabel="Saving..."
+          notice={isDirty ? (
+            <div role="status" className="rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-medium text-foreground">
+              Unsaved changes — tap Save
             </div>
-
-            {templateType === 'standard' && (
-              <div className="space-y-1">
-                <Label className="text-xs">Frequency</Label>
-                <FrequencyPicker value={schedule} onChange={setSchedule} todayStr={storeToday} />
-              </div>
-            )}
-
-            {templateType !== 'dynamic' && (
-              <div className="space-y-1">
-                <Label className="text-xs">Template Type</Label>
-                <Select value={templateType} onValueChange={(v: any) => setTemplateType(v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="standard">Standard</SelectItem>
-                    <SelectItem value="training">Training</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-[10px] text-muted-foreground">
-                  {templateType === 'training'
-                    ? 'Reusable training list — it only appears once assigned to a team member for a date.'
-                    : 'Switch to Training to assign this list per person and per date.'}
-                </p>
-              </div>
-            )}
-
-
-
-            {templateType === 'dynamic' && frequency === 'single_day' && (
-              <div className="space-y-1">
-                <Label className="text-xs">Date</Label>
-                <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} />
-                <p className="text-[10px] text-muted-foreground">Shows only on this date, then moves to history.</p>
-              </div>
-            )}
-
-            <div className="space-y-1">
-              <Label htmlFor="description" className="text-xs">Description</Label>
-              <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief description" rows={2} />
-            </div>
-
-            {templateType === 'dynamic' && frequency === 'monthly' && (
-              <div className="space-y-1">
-                <Label className="text-xs">Show During Last X Days of Month</Label>
-                <Select value={visibleDaysBeforeMonthEnd?.toString() || '7'} onValueChange={(value) => setVisibleDaysBeforeMonthEnd(parseInt(value))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="3">Last 3 days</SelectItem>
-                    <SelectItem value="5">Last 5 days</SelectItem>
-                    <SelectItem value="7">Last 7 days</SelectItem>
-                    <SelectItem value="10">Last 10 days</SelectItem>
-                    <SelectItem value="14">Last 14 days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs">Lock Until Time</Label>
-                  <Switch checked={lockTimeEnabled} onCheckedChange={(checked) => { setLockTimeEnabled(checked); if (!checked) setLockUntilTime(''); }} />
-                </div>
-                {lockTimeEnabled && <Input type="time" value={lockUntilTime} onChange={(e) => setLockUntilTime(e.target.value)} />}
-                <p className="text-[10px] text-muted-foreground">{lockTimeEnabled ? 'Locked until this time each day' : 'Lock checklist until a time'}</p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Alert Time</Label>
-                <Input type="time" value={dueByTime} onChange={(e) => setDueByTime(e.target.value)} />
-                <p className="text-[10px] text-muted-foreground">Alert if incomplete after this time</p>
-              </div>
-            </div>
-
-            {templateType === 'training' ? (
-              <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
-                Training template — visibility is controlled by who you assign it to.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-3">
-                <AssigneePicker
-                  locationId={checklistLocationId}
-                  selectedRoles={selectedRoles}
-                  onRolesChange={setSelectedRoles}
-                  selectedUserIds={selectedUserIds}
-                  onUserIdsChange={setSelectedUserIds}
-                  label="Visible to"
-                  helperText="Roles auto-include everyone in that role. Add specific people to grant access without changing their role (e.g. shadowing a line check)."
-                />
-              </div>
-            )}
-
-            {/* Toggle row */}
-            <div className="flex flex-wrap gap-4 pt-2 border-t">
-              <label className="flex items-center gap-2 text-xs cursor-pointer">
-                <Switch checked={enableAmPmDivision} onCheckedChange={setEnableAmPmDivision} />
-                AM/PM Division
-              </label>
-              <label className="flex items-center gap-2 text-xs cursor-pointer">
-                <Switch checked={positionFilteringEnabled} onCheckedChange={setPositionFilteringEnabled} />
-                Assign tasks
-              </label>
-            </div>
-            {positionFilteringEnabled && (
-              <p className="text-xs text-muted-foreground">Give each task to a position or station (follows the store's station setting), a role, or one person. Everyone else can still see it with "My tasks" off.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Checklist Items */}
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-base">Checklist Items</CardTitle>
-              <CardDescription className="text-xs">Drag to reorder · Enter to add next</CardDescription>
-            </div>
-            <Button size="icon-sm" onClick={() => addItem()} variant="outline" className="shrink-0">
-              <Plus className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3 px-4">
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={items.map((_, i) => `item-${i}`)} strategy={verticalListSortingStrategy}>
-                {(() => {
-                  // Compute which items are children of a preceding section header
-                  let currentSection = false;
-                  return items.map((item, index) => {
-                    if (item.item_type === 'section_header') {
-                      currentSection = true;
-                      return (
-                        <SortableChecklistItem
-                          key={`item-${index}`}
-                          id={`item-${index}`}
-                          item={item}
-                          index={index}
-                          updateItem={updateItem}
-                          removeItem={removeItem}
-                          handleReferenceImageUpload={handleReferenceImageUpload}
-                          showAmPmSelector={enableAmPmDivision}
-                          showPositionSelector={positionFilteringEnabled}
-                          availablePositions={availablePositions}
-                          onEnterKey={(idx) => addItem(idx)}
-                          isFocused={focusedItemIndex === index}
-                          onFocus={(idx) => setFocusedItemIndex(idx)}
-                          onBlur={() => setFocusedItemIndex(null)}
-                          belongsToSection={false}
-                          locationId={checklistLocationId}
-                        />
-                      );
-                    }
-                    return (
-                      <SortableChecklistItem
-                        key={`item-${index}`}
-                        id={`item-${index}`}
-                        item={item}
-                        index={index}
-                        updateItem={updateItem}
-                        removeItem={removeItem}
-                        handleReferenceImageUpload={handleReferenceImageUpload}
-                        showAmPmSelector={enableAmPmDivision}
-                        showPositionSelector={positionFilteringEnabled}
-                        availablePositions={availablePositions}
-                        onEnterKey={(idx) => addItem(idx)}
-                        isFocused={focusedItemIndex === index}
-                        onFocus={(idx) => setFocusedItemIndex(idx)}
-                        onBlur={() => setFocusedItemIndex(null)}
-                        belongsToSection={currentSection}
-                        locationId={checklistLocationId}
-                      />
-                    );
-                  });
-                })()}
-              </SortableContext>
-            </DndContext>
-          </CardContent>
-        </Card>
-
-        {isDirty && (
-          <div role="status" className="rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-medium text-foreground">
-            Unsaved changes — tap Save
-          </div>
-        )}
-        <div className="flex gap-4">
-          <Button onClick={leaveEditor} variant="outline" className="flex-1">Cancel</Button>
-          <Button onClick={handleSave} disabled={saving} className="flex-1">
-            {saving ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>) : (<><Save className="mr-2 h-4 w-4" />Save Changes</>)}
-          </Button>
-        </div>
+          ) : null}
+        />
       </div>
     </Layout>
   );
