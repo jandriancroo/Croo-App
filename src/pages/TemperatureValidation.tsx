@@ -148,6 +148,8 @@ export default function TemperatureValidation() {
         .from('checklist_responses')
         .update({
           temperature_validated_at: new Date().toISOString(),
+          temperature_unconfirmed: false,
+          temperature_edited_at: new Date().toISOString(), // server stamps who/when/replaced value
         })
         .eq('id', readingId);
 

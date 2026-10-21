@@ -2513,6 +2513,9 @@ export type Database = {
           response_image_urls: Json | null
           response_text: string | null
           submission_id: string
+          temperature_edited_at: string | null
+          temperature_edited_by: string | null
+          temperature_previous: number | null
           temperature_unconfirmed: boolean
           temperature_valid: boolean | null
           temperature_validated_at: string | null
@@ -2528,6 +2531,9 @@ export type Database = {
           response_image_urls?: Json | null
           response_text?: string | null
           submission_id: string
+          temperature_edited_at?: string | null
+          temperature_edited_by?: string | null
+          temperature_previous?: number | null
           temperature_unconfirmed?: boolean
           temperature_valid?: boolean | null
           temperature_validated_at?: string | null
@@ -2543,6 +2549,9 @@ export type Database = {
           response_image_urls?: Json | null
           response_text?: string | null
           submission_id?: string
+          temperature_edited_at?: string | null
+          temperature_edited_by?: string | null
+          temperature_previous?: number | null
           temperature_unconfirmed?: boolean
           temperature_valid?: boolean | null
           temperature_validated_at?: string | null
