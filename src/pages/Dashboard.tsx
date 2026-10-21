@@ -30,9 +30,6 @@ import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { QuickTasksSection } from '@/components/dashboard/QuickTasksSection';
 import { ChecklistsGrid } from '@/components/dashboard/ChecklistsGrid';
-import { NudgeSection } from '@/components/dashboard/NudgeSection';
-import { NUDGE_ROLES_CLIENT } from '@/lib/quickNudges';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { TrainingAssignmentsSection } from '@/components/dashboard/TrainingAssignmentsSection';
 import { CateringOrderDialog } from '@/components/dashboard/CateringOrderDialog';
 import { useChecklistCompletion } from '@/hooks/useChecklistCompletion';
@@ -553,14 +550,10 @@ export default function Dashboard() {
   const trainingTotal = trainingRowsFlat.filter(a => a.expected > 0).length;
   const trainingRemaining = trainingRowsFlat.filter(a => a.expected > 0 && a.completed < a.expected).length;
 
-  // Quick Nudge lives in one Nudge section: the swipe-up manager dash on phones, top of the Dash here on iPad/desktop.
-  const { role: myRole } = useUserRole() as { role: string | null };
-  const isMobileDash = useIsMobile();
-  const showNudgeSection = !isMobileDash && !!myRole && NUDGE_ROLES_CLIENT.includes(myRole);
+  // Quick Nudge: swipe-up manager dash on phones, header button (Layout) on iPad/desktop.
 
   const quickTasksContent = (
     <>
-    {showNudgeSection && <NudgeSection locationId={currentLocation?.id} className="mb-5" />}
     <QuickTasksSection locationSettings={locationSettings} timezone={timezone} />
     </>
   );

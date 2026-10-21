@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { QuickNudgeTutorial } from '@/components/dashboard/QuickNudgeTutorial';
+import { NudgeHeaderButton } from '@/components/dashboard/NudgeHeaderButton';
+import { NUDGE_ROLES_CLIENT } from '@/lib/quickNudges';
 import { registerMenuControl, unregisterMenuControl } from '@/components/onboarding/tourMenuBridge';
 import { registerDockControl, unregisterDockControl } from '@/components/dock/dockBridge';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
@@ -278,7 +280,8 @@ export const Layout = ({
     canViewTimecards,
     isSuperAdmin,
     isBrandAdmin,
-    loading: roleLoading
+    loading: roleLoading,
+    role
   } = useUserRole();
   const isMobile = useIsMobile();
   const mobileHeaderRef = useRef<HTMLElement>(null);
@@ -1034,6 +1037,11 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     Ask Theo
                   </span>
                 </button>
+              )}
+
+              {/* Quick Nudge — iPad/desktop only (header is hidden on phones) */}
+              {!roleLoading && !isMobile && !!role && NUDGE_ROLES_CLIENT.includes(role) && currentLocation?.id && (
+                <NudgeHeaderButton locationId={currentLocation.id} />
               )}
 
               {/* Location Selector */}

@@ -114,23 +114,13 @@ export const PageTitle = React.memo(function PageTitle({
   leading,
   status,
 }: PageTitleProps) {
-  const barColor = (COLOR_MAP as Record<string, string>)[color] ?? color;
   return (
     <div className={cn('mt-3.5 mb-3', className)}>
       {status !== null && <StatusLine status={status} />}
       <div className="min-h-10 md:min-h-11 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1 min-w-0">
           {leading && <div className="flex items-center shrink-0 -ml-2">{leading}</div>}
-          <Tag className="font-apple-system text-[22px] md:text-[29px] font-bold leading-[1.2] tracking-tight flex items-center gap-0 md:gap-3 min-w-0 my-0">
-            <span
-              aria-hidden
-              className="hidden md:inline-block shrink-0 rounded-[2px]"
-              style={{
-                width: '4px',
-                height: '0.72em',
-                backgroundColor: barColor,
-              }}
-            />
+          <Tag className="font-apple-system text-[22px] md:text-[29px] font-bold leading-[1.2] tracking-tight flex items-center gap-0 min-w-0 my-0">
             <span className="truncate">{children}</span>
           </Tag>
         </div>
