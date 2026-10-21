@@ -351,6 +351,13 @@
       "when": 1792551836029,
       "tag": "0049_smart_close_position_layer",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1792552012323,
+      "tag": "0050_smart_close_position_layer_fix_and_core",
+      "breakpoints": true
     }
   ]
 }

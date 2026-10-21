@@ -15659,10 +15659,20 @@ export type Database = {
         Args: { _gross: number; _location_id: string }
         Returns: number
       }
-      _labor_pace_core: {
-        Args: { _date: string; _location_id: string; _smart: boolean }
-        Returns: Json
-      }
+      _labor_pace_core:
+        | {
+            Args: { _date: string; _location_id: string; _smart: boolean }
+            Returns: Json
+          }
+        | {
+            Args: {
+              _date: string
+              _location_id: string
+              _position?: boolean
+              _smart: boolean
+            }
+            Returns: Json
+          }
       _labor_pace_meal_sec: {
         Args: {
           _basis: string
