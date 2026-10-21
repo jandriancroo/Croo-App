@@ -280,13 +280,15 @@ function DoneWho({ ctx, id }: { ctx: RunCtx; id: string }) {
   const c = ctx.completer(id);
   if (!c) return null;
   return (
-    <span className="flex w-[72px] shrink-0 flex-col items-end text-right">
+    <span className="flex max-w-[118px] shrink-0 flex-col items-end text-right">
       <Avatar className="h-8 w-8">
         <AvatarImage src={c.profilePhoto || undefined} />
-        <AvatarFallback className="bg-secondary text-xs font-semibold text-secondary-foreground">{c.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}</AvatarFallback>
+        <AvatarFallback className="bg-secondary text-[11px] font-semibold text-secondary-foreground">{c.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}</AvatarFallback>
       </Avatar>
-      <span className="mt-0.5 w-full truncate text-[12px] font-bold leading-[1.15]">{shortName(c.fullName)}</span>
-      <span className="text-[11px] leading-[1.15] text-muted-foreground">{timeOf(c.completedAt)}</span>
+      <span className="mt-0.5 flex max-w-full items-baseline gap-1 whitespace-nowrap leading-[1.15]">
+        <span className="truncate text-[12px] font-bold">{shortName(c.fullName)}</span>
+        <span className="shrink-0 text-[11px] text-muted-foreground">{timeOf(c.completedAt)}</span>
+      </span>
     </span>
   );
 }
