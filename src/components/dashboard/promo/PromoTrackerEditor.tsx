@@ -147,6 +147,7 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [cropSrc, setCropSrc] = useState('');
   const [cropTarget, setCropTarget] = useState<string | null>(null); // item ref, or '__campaign__'
   const [uploadingRef, setUploadingRef] = useState<string | null>(null);
@@ -316,6 +317,9 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
 
                   <div className="space-y-2">
                     <Label>Tracked items · {refs.length}</Label>
+                    <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setPickerOpen(true)}>
+                      <Plus className="mr-1 h-4 w-4" />Add item
+                    </Button>
                     <DndContext collisionDetection={closestCenter} onDragEnd={onDragEnd}>
                       <SortableContext items={refs} strategy={verticalListSortingStrategy}>
                         <div className="space-y-2">
@@ -330,8 +334,18 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
                       </SortableContext>
                     </DndContext>
                     {refs.length > 1 && <p className="text-xs text-muted-foreground">Drag to set the order the hero plays in.</p>}
-                    <TrackerPosItemPicker value={refs} onChange={onPickerChange} label="Add items" />
                   </div>
+
+                  <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+                    <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-md flex-col overflow-hidden p-0 [&>button]:top-[6px]">
+                      <DialogHeader className="shrink-0 border-b px-4 py-3">
+                        <DialogTitle>Add items</DialogTitle>
+                      </DialogHeader>
+                      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                        <TrackerPosItemPicker value={refs} onChange={onPickerChange} label="Search POS items" />
+                      </div>
+                    </DialogContent>
+                  </Dialog>
 
                   <label className="flex items-center justify-between gap-3 rounded-xl border p-3">
                     <span><span className="block text-sm font-medium">Cycle through items</span><span className="block text-xs text-muted-foreground">Every 8 seconds · long-press to pause</span></span>
