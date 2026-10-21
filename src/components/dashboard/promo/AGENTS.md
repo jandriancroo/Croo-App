@@ -1,0 +1,2 @@
+- Crop only the photo/shade layer; hero and border wrappers remain overflow-visible with decoration clearance. Why: outer-edge SVG borders must not be clipped or cover controls.
+- Live hero, editor and picker use PromoBorderOverlay and shared rounded-edge geometry. Why: identical saved styles without extra ranking requests.

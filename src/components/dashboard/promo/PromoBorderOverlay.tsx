@@ -7,7 +7,6 @@ const c = (name: string) => `hsl(var(--promo-border-${name}))`;
 const frame = 'M24 0H346A24 24 0 0 1 370 24V196A24 24 0 0 1 346 220H24A24 24 0 0 1 0 196V24A24 24 0 0 1 24 0Z';
 const points = (n: number) => roundedEdge(370, 220, 24, n).map(p => [p.x, p.y]);
 const lampPoints = points(28);
-const edgePoints = points(20);
 const colors = ['pink', 'gold', 'blue', 'green', 'orange'];
 
 function Bulbs({ palette, glow, count = 28, marquee = false, small = false }: {
@@ -22,7 +21,7 @@ function Bulbs({ palette, glow, count = 28, marquee = false, small = false }: {
 }
 
 function Sparkles({ gold = false }: { gold?: boolean }) {
-  return <>{[[22, 22, 9], [348, 22, 9], [22, 198, 8], [348, 198, 8], [110, 8, 4], [262, 8, 4], [46, 210, 4], [324, 210, 4]].map(([x, y, r], i) =>
+  return <>{[[6, 6, 6], [364, 6, 6], [6, 214, 6], [364, 214, 6], [110, 0, 4], [262, 0, 4], [46, 220, 4], [324, 220, 4]].map(([x, y, r], i) =>
     <path key={i} className={`promo-border-twinkle${i % 2 ? '-alt' : ''} promo-border-phase-${i % 4}`} transform={`translate(${x} ${y})`} fill={c(gold ? 'gold' : 'white')}
       d={`M0 ${-r}Q${r * .18} ${-r * .18} ${r} 0Q${r * .18} ${r * .18} 0 ${r}Q${-r * .18} ${r * .18} ${-r} 0Q${-r * .18} ${-r * .18} 0 ${-r}Z`} />)}</>;
 }
@@ -37,48 +36,41 @@ function Web({ transform }: { transform: string }) {
 function Bunting({ july }: { july: boolean }) {
   const palette = july ? ['red', 'white', 'patriot'] : ['pastel-pink', 'pastel-green', 'pastel-gold', 'pastel-blue', 'pastel-purple'];
   return <>
-    <path d="M-4 4Q185 40 374 4" fill="none" stroke={c('wire')} strokeWidth="1.6" />
+    <path d="M-4 -8Q185 -4 374 -8" fill="none" stroke={c('wire')} strokeWidth="1.6" />
     {Array.from({ length: 9 }, (_, i) => {
       const x = 17 + i * 42;
-      const y = 22 - 14.2 * ((x - 185) / 168) ** 2;
-      return <g key={i}><path d={`M${x - 11} ${y}H${x + 11}L${x} ${y + 24}Z`} fill={c(palette[i % palette.length])} stroke={c('ink')} strokeOpacity=".12" />
+      const y = -6 - 2 * ((x - 185) / 168) ** 2;
+      return <g key={i}><path d={`M${x - 9} ${y}H${x + 9}L${x} ${y + 16}Z`} fill={c(palette[i % palette.length])} stroke={c('ink')} strokeOpacity=".12" />
         {july && i % 3 === 2 && <path d="M0 -4L1.2 -1.2H4L1.8 .8L2.6 3.6L0 2L-2.6 3.6L-1.8 .8L-4 -1.2H-1.2Z" transform={`translate(${x} ${y + 8})`} fill={c('white')} />}</g>;
     })}
     {july && <Sparkles />}
   </>;
 }
 
-function Citrus({ x, y, color, r = 11 }: { x: number; y: number; color: string; r?: number }) {
-  return <g transform={`translate(${x} ${y})`}>
-    <circle r={r} fill={c(color)} /><circle r={r - 2.5} fill="none" stroke={c('white')} strokeWidth="1.5" opacity=".7" />
-    {Array.from({ length: 8 }, (_, i) => <path key={i} transform={`rotate(${i * 45})`} d={`M0 0H${r - 3}`} stroke={c('white')} strokeWidth="1.2" opacity=".8" />)}
-  </g>;
-}
-
 function Decorative({ border, glow, gingham, flame }: { border: PromoBorder; glow: string; gingham: string; flame: string }) {
   switch (border.style) {
     case 'halloween': return <>
-      <Web transform="scale(1.15)" /><Web transform="translate(370 0) scale(-1.15 1.15)" />
-      <Web transform="translate(0 220) scale(1 -.7)" /><Web transform="translate(370 220) scale(-1 -.7)" />
-      {[[255, 52, 1], [80, 170, .8], [318, 148, .7]].map(([x, y, s], i) => <path key={i} transform={`translate(${x} ${y}) scale(${s})`} fill={c('bat')} d="M0 0C-3 -6 -10 -8 -16 -4C-12 -4 -11 0 -9 2C-8 0 -5 0 -3 3C-2 1 -1 1 0 5C1 2 2 1 3 3C5 0 8 0 9 2C11 0 12 -4 16 -4C10 -8 3 -6 0 0Z" />)}
-      {[150, 190, 230].map((x, i) => <g key={x} className={`promo-border-twinkle promo-border-phase-${i}`}><circle cx={x} cy="9" r="8" fill={c(i % 2 ? 'purple' : 'orange')} filter={`url(#${glow})`} opacity=".55" /><circle cx={x} cy="9" r="3.6" fill={c(i % 2 ? 'purple' : 'orange')} /></g>)}
+      <Web transform="translate(-10 -10) scale(.45)" /><Web transform="translate(380 -10) scale(-.45 .45)" />
+      <Web transform="translate(-10 230) scale(.45 -.45)" /><Web transform="translate(380 230) scale(-.45 -.45)" />
+      {[[255, 0, .6], [80, 220, .6], [370, 148, .6]].map(([x, y, s], i) => <path key={i} transform={`translate(${x} ${y}) scale(${s})`} fill={c('bat')} d="M0 0C-3 -6 -10 -8 -16 -4C-12 -4 -11 0 -9 2C-8 0 -5 0 -3 3C-2 1 -1 1 0 5C1 2 2 1 3 3C5 0 8 0 9 2C11 0 12 -4 16 -4C10 -8 3 -6 0 0Z" />)}
+      {[150, 190, 230].map((x, i) => <g key={x} className={`promo-border-twinkle promo-border-phase-${i}`}><circle cx={x} cy="0" r="8" fill={c(i % 2 ? 'purple' : 'orange')} filter={`url(#${glow})`} opacity=".55" /><circle cx={x} cy="0" r="3.6" fill={c(i % 2 ? 'purple' : 'orange')} /></g>)}
     </>;
-    case 'spring-bunting': return <g transform="translate(0 -36)"><Bunting july={false} /></g>;
-    case 'fourth-july': return <g transform="translate(0 -36)"><Bunting july /></g>;
+    case 'spring-bunting': return <Bunting july={false} />;
+    case 'fourth-july': return <Bunting july />;
     case 'new-year': return <><path d={frame} fill="none" stroke={c('gold')} strokeWidth="1.5" opacity=".8" /><Sparkles gold /></>;
     case 'marquee': return <><path d={frame} fill="none" stroke={c('wire')} strokeWidth="12" opacity=".75" /><Bulbs palette={[c('ivory')]} glow={glow} count={36} marquee /></>;
     case 'confetti': return <>{[[0, 0], [370, 0], [0, 220], [370, 220]].map(([x, y], k) => <g key={k} transform={`translate(${x} ${y}) scale(${x ? -1 : 1} ${y ? -1 : 1})`}>
-      {Array.from({ length: 12 }, (_, i) => { const a = 6 + (i * 17) % 62, b = 2 + (i * 13) % 38; return i % 3 === 0 ? <circle key={i} cx={a} cy={b} r="2.2" fill={c(colors[i % 5])} /> : <rect key={i} x={a} y={b} width="6" height="3" rx="1" transform={`rotate(${i * 43} ${a} ${b})`} fill={c(colors[i % 5])} />; })}
+      {Array.from({ length: 12 }, (_, i) => { const a = -6 + (i * 7) % 48, b = -6 + (i * 3) % 12; return i % 3 === 0 ? <circle key={i} cx={a} cy={b} r="2.2" fill={c(colors[i % 5])} /> : <rect key={i} x={a} y={b} width="6" height="3" rx="1" transform={`rotate(${i * 43} ${a} ${b})`} fill={c(colors[i % 5])} />; })}
     </g>)}</>;
     case 'game-day': return <g fill="none" stroke={c('white')}><path d={frame} strokeWidth="2.2" strokeDasharray="14 3 6 3" opacity=".9" />
-      {Array.from({ length: 9 }, (_, i) => <path key={i} d={`M${40 + i * 34} 8v8M${40 + i * 34} 204v8`} strokeWidth="2" opacity=".8" />)}
-      {[40, 74, 108, 142, 176].map(y => <path key={y} d={`M8 ${y}h8M354 ${y}h8`} strokeWidth="2" opacity=".8" />)}
+      {Array.from({ length: 9 }, (_, i) => <path key={i} d={`M${40 + i * 34} -4v8M${40 + i * 34} 216v8`} strokeWidth="2" opacity=".8" />)}
+      {[40, 74, 108, 142, 176].map(y => <path key={y} d={`M-4 ${y}h8M366 ${y}h8`} strokeWidth="2" opacity=".8" />)}
       
     </g>;
-    case 'flame': return <>
+    case 'flame': return <g transform="translate(0 142) scale(1 .4)">
       <rect y="206" width="370" height="14" fill={c('orange')} opacity=".55" filter={`url(#${glow})`} />
       {Array.from({ length: 17 }, (_, i) => { const x = i * 23 - 6, h = 31 + (i * 13) % 18; return <g key={i} className={`promo-border-flame promo-border-phase-${i % 4}`}><path d={`M${x} 220C${x + 3} ${220 - h / 2} ${x + 9} ${220 - h / 2} ${x + 14} ${220 - h}C${x + 17} ${220 - h / 2} ${x + 26} ${220 - h / 2} ${x + 29} 220Z`} fill={`url(#${flame})`} /><path d={`M${x + 6} 220Q${x + 10} ${220 - h * .45} ${x + 14} ${220 - h * .65}Q${x + 19} ${220 - h * .35} ${x + 23} 220Z`} fill={c('flame-core')} /></g>; })}
-    </>;
+    </g>;
     case 'neon': return <g className="promo-border-pulse" fill="none" stroke={borderColor(border.color || 'pink', 'pink')}><path d={frame} strokeWidth="8" opacity=".6" filter={`url(#${glow})`} /><path d={frame} strokeWidth="2.4" /><path d={frame} stroke={c('white')} strokeWidth=".7" opacity=".7" /></g>;
     case 'gingham': return <><path d={frame} fill="none" stroke={`url(#${gingham})`} strokeWidth="14" /></>;
     default: return null;
