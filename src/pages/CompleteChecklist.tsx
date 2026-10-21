@@ -1437,7 +1437,7 @@ export default function CompleteChecklist() {
     choose: (id, v) => { setResponses(prev => ({ ...prev, [id]: v })); autoSaveResponse(id, v, false); },
     submit: (id, v) => autoSaveResponse(id, v, false),
     upload: (id, file, index) => handleImageUpload(id, file, index),
-    reading: (id) => ({ temp: responsesWithCompleters[id]?.extractedTemperature, valid: responsesWithCompleters[id]?.temperatureValid, editedBy: responsesWithCompleters[id]?.tempEditedBy }),
+    reading: (id) => ({ temp: responsesWithCompleters[id]?.extractedTemperature, valid: responsesWithCompleters[id]?.temperatureValid, editedBy: responsesWithCompleters[id]?.tempEditedBy, unconfirmed: !!(responsesWithCompleters[id] as any)?.temperatureUnconfirmed }),
     tempOpen: (id) => !!manualTempOpen[id],
     setTempOpen: (id, open) => setManualTempOpen(prev => ({ ...prev, [id]: open })),
     tempValue: (id) => manualTempValue[id] ?? '',

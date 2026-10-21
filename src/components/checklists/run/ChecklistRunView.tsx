@@ -55,7 +55,7 @@ export interface RunCtx {
   choose: (id: string, v: string) => void;
   submit: (id: string, v: string) => void;
   upload: (id: string, file: File, index?: number) => void;
-  reading: (id: string) => { temp: number | null | undefined; valid: boolean | null | undefined; editedBy?: string | null };
+  reading: (id: string) => { temp: number | null | undefined; valid: boolean | null | undefined; editedBy?: string | null; unconfirmed?: boolean };
   tempOpen: (id: string) => boolean;
   setTempOpen: (id: string, open: boolean) => void;
   tempValue: (id: string) => string;
@@ -276,6 +276,44 @@ function Name({ it, ctx, className }: { it: RunItem; ctx: RunCtx; className?: st
   );
 }
 
+function DoneWho({ ctx, id }: { ctx: RunCtx; id: string }) {
+  const c = ctx.completer(id);
+  if (!c) return null;
+  return (
+    <span className="flex w-[72px] shrink-0 flex-col items-end text-right">
+      <Avatar className="h-10 w-10">
+        <AvatarImage src={c.profilePhoto || undefined} />
+        <AvatarFallback className="bg-secondary text-xs font-semibold text-secondary-foreground">{c.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}</AvatarFallback>
+      </Avatar>
+      <span className="mt-1 w-full truncate text-[12px] font-bold leading-tight" style={{ fontSize: 'clamp(10px, 3vw, 12px)' }}>{shortName(c.fullName)}</span>
+      <span className="text-[11px] leading-tight text-muted-foreground">{timeOf(c.completedAt)}</span>
+    </span>
+  );
+}
+
+function DoneReading({ ctx, it }: { ctx: RunCtx; it: RunItem }) {
+  const r = ctx.reading(it.id);
+  const has = r.temp != null;
+  const tone = !has ? 'warn' : r.valid === false ? 'bad' : 'good';
+  const color = tone === 'good' ? 'text-[hsl(var(--success))]' : tone === 'bad' ? 'text-destructive' : 'text-[hsl(var(--warning))]';
+  const chip = !has || r.unconfirmed ? 'Unconfirmed' : r.valid === false ? 'Out of range' : 'Safe';
+  return (
+    <span className="mt-1 block" onClick={(e) => e.stopPropagation()}>
+      <span className="flex flex-nowrap items-center gap-2">
+        <span className={cn('text-xl font-bold tabular-nums', color)}>{has ? `${Number(r.temp).toFixed(1)}°F` : '?°F'}</span>
+        <span className={cn('whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold',
+          chip === 'Safe' ? 'bg-[hsl(var(--success)/0.12)] text-[hsl(var(--success))]' : chip === 'Out of range' ? 'bg-destructive/10 text-destructive' : 'bg-[hsl(var(--warning)/0.14)] text-[hsl(var(--warning))]')}>{chip}</span>
+        <button type="button" aria-label={has ? 'Edit temperature' : 'Enter temperature'} className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center"
+          onClick={() => { ctx.setTempValue(it.id, has ? String(r.temp) : ''); ctx.setTempOpen(it.id, true); }}>
+          <span className={cn('flex h-7 w-7 items-center justify-center rounded-full',
+            tone === 'good' ? 'bg-[hsl(var(--success)/0.14)]' : tone === 'bad' ? 'bg-destructive/10' : 'bg-[hsl(var(--warning)/0.16)]', color)}><Pencil className="h-3.5 w-3.5" /></span>
+        </button>
+      </span>
+      {r.editedBy && <span className="block text-xs text-muted-foreground">Edited by {r.editedBy}</span>}
+    </span>
+  );
+}
+
 // ---------- list rows ----------
 function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide: boolean; onOpen: () => void; flash: boolean }) {
   const done = ctx.isDone(it);
@@ -298,8 +336,12 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
   const circle = amber ? (
     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--warning))] text-sm font-bold text-primary-foreground" aria-hidden>!</span>
   ) : done ? (
-    <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--success))] text-primary-foreground', flash && 'animate-in zoom-in-50 duration-300')} aria-hidden><Check className="h-4 w-4" strokeWidth={3} /></span>
-  ) : (
+    ctx.canUndo(it.id) ? (
+      <button type="button" onClick={(e) => { e.stopPropagation(); ctx.undo(it.id); }} aria-label={`Undo ${it.question}`} className="-m-2 flex h-11 w-11 items-center justify-center">
+        <span className={cn('flex h-7 w-7 items-center justify-center rounded-full bg-[hsl(var(--success))] text-primary-foreground', flash && 'animate-in zoom-in-50 duration-300')}><Check className="h-4 w-4" strokeWidth={3} /></span>
+      </button>
+    ) : <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--success))] text-primary-foreground', flash && 'animate-in zoom-in-50 duration-300')} aria-hidden><Check className="h-4 w-4" strokeWidth={3} /></span>
+  )) : (
     <span className="h-7 w-7 shrink-0 rounded-full border-2 border-muted-foreground/40" aria-hidden />
   );
 
@@ -330,7 +372,7 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
 
   return (
     <div
-      className={cn('border-b border-border last:border-b-0', amber ? 'bg-[hsl(var(--warning)/0.08)]' : 'bg-card')}
+      className={cn('border-b border-border last:border-b-0', amber ? 'bg-[hsl(var(--warning)/0.08)]' : done && temp && ctx.reading(it.id).valid === false ? 'bg-destructive/[0.06]' : 'bg-card')}
     >
       <div
         role="button"
@@ -360,17 +402,7 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
             <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></span>
           )}
           {amber && <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} /></span>}
-          {done && (
-            <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1" onClick={(e) => e.stopPropagation()}>
-              <CompleterPill ctx={ctx} id={it.id} />
-              {temp && r && !amber && (
-                <>
-                  {r.editedBy && <span className="text-xs text-muted-foreground">Edited by {r.editedBy}</span>}
-                  <TempReadingChip temp={r.temp} valid={r.valid} canEdit onEdit={() => { ctx.setTempValue(it.id, r.temp != null ? String(r.temp) : ''); ctx.setTempOpen(it.id, true); }} />
-                </>
-              )}
-            </span>
-          )}
+          {done && temp && !amber && <DoneReading ctx={ctx} it={it} />}
           {done && temp && !amber && ctx.tempOpen(it.id) && (
             <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></span>
           )}
@@ -383,9 +415,10 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
               ))}
             </span>
           )}
-          {savedText && <span className="mt-1.5 block whitespace-pre-wrap break-words rounded-lg bg-muted px-3 py-2 text-sm">{savedText}</span>}
+          {savedText && <span className={cn('mt-0.5 block break-words text-[15px]', it.item_type === 'text' ? 'line-clamp-3 whitespace-pre-wrap' : 'font-bold')}>{savedText}</span>}
         </span>
         {right && <span className="flex min-h-7 items-center self-center">{right}</span>}
+        {done && !amber && <DoneWho ctx={ctx} id={it.id} />}
       </div>
     </div>
   );
@@ -792,7 +825,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
         {(s.label || ctx.sections.length > 1) && (
           <div className="flex items-baseline justify-between px-1 pt-2">
             <span className={capLabel}>{s.label || 'Tasks'}</span>
-            <span className={capLabel}>{leftHere > 0 ? `${leftHere} left` : 'All done'}</span>
+            <span className={capLabel}>{leftHere > 0 ? `${leftHere} left` : `${s.items.filter((x) => walkable(x) && !todo(x)).length} of ${s.items.filter(walkable).length}`}</span>
           </div>
         )}
         <div className="overflow-hidden rounded-2xl border bg-card">
