@@ -1,3 +1,5 @@
+import { referencePhotoFields, getPrimaryReferencePhoto } from '@/lib/checklistReferencePhotos';
+import { canUndoChecklistItem } from '@/lib/checklistUndo';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -114,7 +116,7 @@ export default function CompleteChecklist() {
   const {
     user
   } = useAuth();
-  const { isAdmin, isManager, isShiftManager } = useUserRole();
+  const { role, isAdmin, isManager, isShiftManager } = useUserRole();
   const { currentLocation } = useLocation();
 
   // Checklist reload guard: app updates wait until she leaves this page.
@@ -287,7 +289,7 @@ export default function CompleteChecklist() {
   
   // Permission check: the person who checked it, or Shift Manager in Training and above
   const canUndoItem = (itemId: string) =>
-    isShiftManager || (!!user?.id && responsesWithCompleters[itemId]?.completedBy?.userId === user.id);
+    canUndoChecklistItem(role, user?.id, responsesWithCompleters[itemId]?.completedBy?.userId);
   // currentLocation already declared above
   const navigate = useNavigate();
   const autoSaveTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -602,6 +604,8 @@ export default function CompleteChecklist() {
         error: itemsError
       } = await supabase.from('checklist_items').select('*').eq('checklist_id', id).is('deleted_at', null).order('order_index');
       if (itemsError) throw itemsError;
+      // Reference photo comes from the shared helper (list first, old column fallback).
+      for (const it of (itemsData || []) as any[]) it.reference_image_url = getPrimaryReferencePhoto(it) ?? undefined;
 
       // For dynamic checklists, filter items for the viewing day
       if (checklistData.template_type === 'dynamic') {

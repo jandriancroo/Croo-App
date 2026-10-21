@@ -2088,6 +2088,7 @@ export type Database = {
           position: string | null
           question: string
           reference_image_url: string | null
+          reference_image_urls: string[]
           reference_link: string | null
           reference_notes: string | null
           reference_video_url: string | null
@@ -2113,6 +2114,7 @@ export type Database = {
           position?: string | null
           question: string
           reference_image_url?: string | null
+          reference_image_urls?: string[]
           reference_link?: string | null
           reference_notes?: string | null
           reference_video_url?: string | null
@@ -2138,6 +2140,7 @@ export type Database = {
           position?: string | null
           question?: string
           reference_image_url?: string | null
+          reference_image_urls?: string[]
           reference_link?: string | null
           reference_notes?: string | null
           reference_video_url?: string | null

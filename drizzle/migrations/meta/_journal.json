@@ -407,6 +407,13 @@
       "when": 1792602065523,
       "tag": "0057_checklist_response_uncheck_owner_or_smit",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1792607953890,
+      "tag": "0058_checklist_items_reference_image_urls",
+      "breakpoints": true
     }
   ]
 }
