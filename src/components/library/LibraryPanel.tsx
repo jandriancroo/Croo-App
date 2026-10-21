@@ -163,7 +163,7 @@ export function LibraryPanel() {
                 </div>
                 {d.tags?.length > 0 && (
                   <div className="flex flex-wrap gap-1">
-                    {d.tags.slice(0, 3).map((t) => <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>)}
+                    {d.tags.slice(0, 3).map((t) => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}
                   </div>
                 )}
               </CardContent>

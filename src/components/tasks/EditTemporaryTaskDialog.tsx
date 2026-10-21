@@ -752,11 +752,11 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
                           <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
                         )}
                         <span className="text-sm">{subtask.title}</span>
-                        <Badge variant="outline" className="text-[10px] px-1.5">
+                        <Badge variant="outline" className="text-xs px-1.5">
                           {subtask.item_type === "photo" ? "Photo" : "Check"}
                         </Badge>
                         {subtask.isNew && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5">
+                          <Badge variant="secondary" className="text-xs px-1.5">
                             New
                           </Badge>
                         )}

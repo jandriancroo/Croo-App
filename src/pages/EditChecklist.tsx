@@ -89,7 +89,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, handle
       } ${isDragging ? 'opacity-50 z-50' : ''} ${isFocused ? 'border-primary ring-1 ring-primary/30' : ''}`}
     >
       <button
-        className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground mt-2 shrink-0"
+        className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground mt-2 shrink-0 relative after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']"
         {...attributes}
         {...listeners}
       >

@@ -84,9 +84,9 @@ export function CorrectiveActionTrails({ employeeId, selectedFamilyId, onSelect,
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                    <Badge variant="outline" className="text-[10px]">{latest.reason}</Badge>
+                    <Badge variant="outline" className="text-xs">{latest.reason}</Badge>
                     {latest.is_final_warning && (
-                      <Badge variant="outline" className="text-[10px] border-destructive text-destructive">
+                      <Badge variant="outline" className="text-xs border-destructive text-destructive">
                         Final warning
                       </Badge>
                     )}

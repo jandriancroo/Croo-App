@@ -553,7 +553,7 @@ export function MobileBuildScheduleWizard({
                       <div className={cn('text-sm font-medium truncate', cleared && 'line-through opacity-60')}>
                         {profile ? (profile.nickname || profile.full_name) : 'Unassigned'}
                       </div>
-                      <Badge variant="secondary" className="text-[10px] h-4 px-1.5 mt-0.5">
+                      <Badge variant="secondary" className="text-xs h-4 px-1.5 mt-0.5">
                         {count} draft{count === 1 ? '' : 's'}
                       </Badge>
                     </div>

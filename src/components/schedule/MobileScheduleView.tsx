@@ -965,7 +965,7 @@ export function MobileScheduleView({
           // Skeleton loading state - show 4 placeholder cards
           <div className="space-y-2">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex rounded-lg bg-card border border-border/30 shadow-neumorphic overflow-hidden animate-pulse">
+              <div key={i} className="flex rounded-lg bg-card border border-border/30 shadow-[0_1px_3px_rgba(0,0,0,0.08)] overflow-hidden animate-pulse">
                 <div className="w-1 bg-muted" />
                 <div className="flex-1 p-3 space-y-2">
                   <div className="flex items-center gap-3">

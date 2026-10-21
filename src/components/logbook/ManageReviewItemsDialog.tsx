@@ -133,7 +133,7 @@ function SortableItem({
             <div
               {...attributes}
               {...listeners}
-              className="cursor-grab active:cursor-grabbing touch-none pt-1"
+              className="cursor-grab active:cursor-grabbing touch-none pt-1 relative after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']"
             >
               <GripVertical className="h-4 w-4 text-muted-foreground" />
             </div>

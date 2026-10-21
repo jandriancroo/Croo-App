@@ -211,7 +211,7 @@ export function I9DocumentsSection({ userId, employeeName = "Employee" }: I9Docu
                 {/* Requested doc types */}
                 <div className="flex flex-wrap gap-1">
                   {docTypes.map((type) => (
-                    <Badge key={type} variant="outline" className="text-[10px]">
+                    <Badge key={type} variant="outline" className="text-xs">
                       {DOC_TYPE_LABELS[type] || type}
                     </Badge>
                   ))}
@@ -230,7 +230,7 @@ export function I9DocumentsSection({ userId, employeeName = "Employee" }: I9Docu
                           </div>
                         </div>
                         {doc.retrieved_at ? (
-                          <Badge variant="secondary" className="text-[10px] flex-shrink-0">Retrieved</Badge>
+                          <Badge variant="secondary" className="text-xs flex-shrink-0">Retrieved</Badge>
                         ) : (
                           <Button
                             size="xs"

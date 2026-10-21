@@ -136,7 +136,7 @@ export const UserManagementTable = ({
                       <div className="md:hidden">
                         <div className="font-medium truncate">{getDisplayName(u.full_name, u.nickname) || 'No name'}</div>
                         <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
-                          <Badge variant={getUserStatusDisplay(u).variant} className="text-[10px] px-1.5 py-0">
+                          <Badge variant={getUserStatusDisplay(u).variant} className="text-xs px-1.5 py-0">
                             {getUserStatusDisplay(u).label}
                           </Badge>
                           <span className="text-muted-foreground">•</span>

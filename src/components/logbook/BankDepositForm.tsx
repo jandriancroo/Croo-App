@@ -608,12 +608,12 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                     <Label className="text-sm font-medium">Daily Breakdown</Label>
                     <div className="flex items-center gap-1.5">
                       {verificationEnabled && (
-                        <Badge variant="outline" className="text-[10px] gap-1">
+                        <Badge variant="outline" className="text-xs gap-1">
                           <Camera className="h-3 w-3" />
                           = deposit slip
                         </Badge>
                       )}
-                      <Badge variant="outline" className="text-[10px] gap-1">
+                      <Badge variant="outline" className="text-xs gap-1">
                         <ShieldCheck className="h-3 w-3" />
                         = audit
                       </Badge>
@@ -636,7 +636,7 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">{dateLabel}</span>
                             {day.pulls.length > 1 && (
-                              <Badge variant="outline" className="text-[10px]">
+                              <Badge variant="outline" className="text-xs">
                                 {day.pulls.length} pulls
                               </Badge>
                             )}
@@ -766,7 +766,7 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                     </div>
                     {verificationEnabled && currentLocation && (
                       <div className="flex items-center justify-between gap-2 pt-2 border-t border-primary/20">
-                        <Badge variant="outline" className="text-[10px] gap-1">
+                        <Badge variant="outline" className="text-xs gap-1">
                           <Camera className="h-3 w-3" />
                           = bank receipt {receiptPath ? "(attached)" : "(required)"}
                         </Badge>

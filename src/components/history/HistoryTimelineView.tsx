@@ -186,11 +186,11 @@ export function HistoryTimelineView({ items, selectedDate, onDateChange, isLoadi
           <span className="text-xs sm:text-sm text-muted-foreground">{dateLabel}</span>
           <div className="flex-1 h-px bg-border hidden sm:block" />
           <div className="flex items-center gap-1.5 ml-auto">
-            <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 sm:px-2">
+            <Badge variant="secondary" className="text-xs sm:text-xs px-1.5 sm:px-2">
               {regularCount}
             </Badge>
             {alarmCount > 0 && (
-              <Badge variant="outline" className="text-[10px] sm:text-xs gap-0.5 px-1.5">
+              <Badge variant="outline" className="text-xs sm:text-xs gap-0.5 px-1.5">
                 <Bell className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                 {alarmCount}
               </Badge>

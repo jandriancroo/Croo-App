@@ -179,7 +179,7 @@ function EmployeeRowComponent({
       <div className={`flex items-center gap-1 border-r border-border bg-muted/30 overflow-hidden ${isCompactMode ? 'min-h-[26px] px-1 py-0.5' : 'min-h-[60px] p-2'}`}>
         {/* Drag Handle inside employee card */}
         {isDraggable && profile.id !== "unassigned" && (
-          <div {...attributes} {...listeners} className="flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
+          <div {...attributes} {...listeners} className="flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground relative after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']">
             <GripVertical className="h-4 w-4" />
           </div>
         )}

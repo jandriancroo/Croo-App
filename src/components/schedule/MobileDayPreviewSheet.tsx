@@ -245,7 +245,7 @@ export function MobileDayPreviewSheet({
               </span>
               <div className="flex items-center gap-1">
                 {salesData?.isProjection && (
-                  <Badge variant="secondary" className="text-[10px] gap-1 h-5">
+                  <Badge variant="secondary" className="text-xs gap-1 h-5">
                     <Sparkles className="h-3 w-3" /> Croo AI
                   </Badge>
                 )}
@@ -298,7 +298,7 @@ export function MobileDayPreviewSheet({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <p className="text-sm font-semibold truncate">{pendingDraft.employeeName}</p>
-                        <Badge className="h-4 px-1.5 text-[9px] font-bold uppercase tracking-wide shrink-0">
+                        <Badge className="h-4 px-1.5 text-xs font-bold uppercase tracking-wide shrink-0">
                           Pending
                         </Badge>
                       </div>

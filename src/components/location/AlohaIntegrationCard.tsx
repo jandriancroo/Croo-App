@@ -116,9 +116,9 @@ export default function AlohaIntegrationCard({ locationId }: AlohaIntegrationCar
             Aloha (BWW GO)
           </CardTitle>
           {isActive ? (
-            <Badge variant="secondary" className="text-[10px]">Connected</Badge>
+            <Badge variant="secondary" className="text-xs">Connected</Badge>
           ) : (
-            <Badge variant="outline" className="text-[10px]">Not connected</Badge>
+            <Badge variant="outline" className="text-xs">Not connected</Badge>
           )}
         </div>
       </CardHeader>

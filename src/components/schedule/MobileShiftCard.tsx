@@ -106,7 +106,7 @@ export function MobileShiftCard({
   return (
     <div
       className={cn(
-        "flex rounded-lg bg-card shadow-neumorphic cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden relative",
+        "flex rounded-lg bg-card shadow-[0_1px_3px_rgba(0,0,0,0.08)] cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden relative",
         isPublished 
           ? 'border border-border/30' 
           : 'opacity-70 border-[3px] border-dashed border-border/70 grayscale-[30%]'

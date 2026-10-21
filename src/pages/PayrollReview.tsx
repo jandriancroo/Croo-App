@@ -589,7 +589,7 @@ export default function PayrollReview() {
                           </div>
                           <div className="flex gap-1">
                             {shift.flags.map((flag, fIdx) => (
-                              <Badge key={fIdx} variant="outline" className="text-[10px] px-1 py-0">
+                              <Badge key={fIdx} variant="outline" className="text-xs px-1 py-0">
                                 {flag}
                               </Badge>
                             ))}

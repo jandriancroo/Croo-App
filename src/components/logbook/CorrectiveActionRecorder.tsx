@@ -111,7 +111,7 @@ export function CorrectiveActionRecorder({
         <div className="flex items-center gap-2 min-w-0">
           <Mic className="h-4 w-4 text-primary shrink-0" />
           <span className="text-sm font-medium">Record the conversation</span>
-          <Badge variant="outline" className="text-[10px]">Optional</Badge>
+          <Badge variant="outline" className="text-xs">Optional</Badge>
         </div>
 
         {!locked && rec.status === "idle" && (
@@ -169,11 +169,11 @@ export function CorrectiveActionRecorder({
       {hasResult && (
         <div className="space-y-3">
           <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-            <Badge variant="secondary" className="text-[10px]">
+            <Badge variant="secondary" className="text-xs">
               {fmt(rec.durationSeconds)} recorded
             </Badge>
             {rec.sttModel && (
-              <Badge variant="outline" className="text-[10px]">
+              <Badge variant="outline" className="text-xs">
                 {rec.sttModel === "mini" ? "Mini transcription" : "Standard transcription"}
               </Badge>
             )}
@@ -187,7 +187,7 @@ export function CorrectiveActionRecorder({
             )}
             {rec.bullets.map((b, i) => (
               <div key={i} className="flex gap-2 items-start">
-                <Badge variant="outline" className="text-[10px] shrink-0 mt-1.5 max-w-[45%] truncate">
+                <Badge variant="outline" className="text-xs shrink-0 mt-1.5 max-w-[45%] truncate">
                   {b.speaker}
                 </Badge>
                 <Textarea

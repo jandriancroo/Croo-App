@@ -99,7 +99,7 @@ export function SortableChecklistItem({
           <div className="flex-1 min-w-0 flex items-start gap-2">
             {isAdmin && (
               <div
-                className="cursor-grab active:cursor-grabbing touch-none text-muted-foreground mt-0.5 flex-shrink-0"
+                className="cursor-grab active:cursor-grabbing touch-none text-muted-foreground mt-0.5 flex-shrink-0 relative after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']"
                 {...attributes}
                 {...listeners}
                 onClick={(e) => e.stopPropagation()}
@@ -111,29 +111,29 @@ export function SortableChecklistItem({
               <div className="flex items-center gap-2">
                 <p className="font-medium text-sm truncate">{checklist.title}</p>
                 {isDraft && (
-                  <Badge className="text-[10px] px-1.5 gap-0.5">
+                  <Badge className="text-xs px-1.5 gap-0.5">
                     Draft
                     {checklist.activation_at ? ` · goes live ${formatActivation(checklist.activation_at, timezone)}` : ' · not scheduled'}
                   </Badge>
                 )}
                 {isOldVersion && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 text-muted-foreground">
+                  <Badge variant="outline" className="text-xs px-1.5 text-muted-foreground">
                     Last version
                   </Badge>
                 )}
                 {!checklist.is_active && !isDraft && !isOldVersion && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 text-muted-foreground">
+                  <Badge variant="outline" className="text-xs px-1.5 text-muted-foreground">
                     Inactive
                   </Badge>
                 )}
 
                 {isDynamic && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 gap-0.5">
+                  <Badge variant="outline" className="text-xs px-1.5 gap-0.5">
                     <CalendarDays className="h-2.5 w-2.5" />
                     {dayNames[currentDay]}
                   </Badge>
                 )}
-                <Badge variant="outline" className="text-[10px] px-1.5">
+                <Badge variant="outline" className="text-xs px-1.5">
                   {frequencyLabel}
                 </Badge>
               </div>

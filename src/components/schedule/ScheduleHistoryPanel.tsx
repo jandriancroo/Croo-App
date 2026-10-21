@@ -182,13 +182,13 @@ export function ScheduleHistoryPanel({ open, onOpenChange, scheduleId, weekStart
                       <div className="flex flex-wrap items-center gap-1.5 text-sm">
                         <Icon className={cn('h-4 w-4', t.cls)} />
                         <span className="font-medium">{r.change_type === 'withdrawn' && r.note === 'Cleared' ? 'Cleared' : t.label}</span>
-                        {r.change_type === 'published' && r.note === 'Original' && <Badge variant="secondary" className="text-[10px]">Original</Badge>}
-                        {r.source === 'shift_offer' && <Badge variant="outline" className="text-[10px]">Shift swap</Badge>}
-                        {r.source === 'undo' && <Badge variant="outline" className="text-[10px]">Undo</Badge>}
-                        {(r.source === 'revert_original' || r.source === 'revert_today') && r.change_type !== 'reverted' && <Badge variant="outline" className="text-[10px]">Revert</Badge>}
-                        {!r.week_live && <Badge variant="outline" className="text-[10px]">Draft</Badge>}
+                        {r.change_type === 'published' && r.note === 'Original' && <Badge variant="secondary" className="text-xs">Original</Badge>}
+                        {r.source === 'shift_offer' && <Badge variant="outline" className="text-xs">Shift swap</Badge>}
+                        {r.source === 'undo' && <Badge variant="outline" className="text-xs">Undo</Badge>}
+                        {(r.source === 'revert_original' || r.source === 'revert_today') && r.change_type !== 'reverted' && <Badge variant="outline" className="text-xs">Revert</Badge>}
+                        {!r.week_live && <Badge variant="outline" className="text-xs">Draft</Badge>}
                         {r.week_live && ['added','removed','time_changed','date_changed','reassigned','details_changed'].includes(r.change_type) && (
-                          <Badge variant="outline" className={cn('text-[10px]', r.is_draft ? 'border-amber-500 text-amber-600' : 'border-primary text-primary')}>
+                          <Badge variant="outline" className={cn('text-xs', r.is_draft ? 'border-amber-500 text-amber-600' : 'border-primary text-primary')}>
                             {r.is_draft ? 'Not sent yet' : 'Sent'}
                           </Badge>
                         )}

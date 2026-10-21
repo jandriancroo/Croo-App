@@ -721,17 +721,17 @@ export default function Hiring() {
                                   <InterviewJoinLink url={app.interview_meeting_url} compact />
                                 )}
                                 {app.interview_status === 'accepted' && (
-                                  <Badge variant="outline" className="text-[10px] px-1 py-0 bg-green-500/10 text-green-600 border-green-500/30">
+                                  <Badge variant="outline" className="text-xs px-1 py-0 bg-green-500/10 text-green-600 border-green-500/30">
                                     Confirmed
                                   </Badge>
                                 )}
                                 {app.interview_status === 'pending' && (
-                                  <Badge variant="outline" className="text-[10px] px-1 py-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
+                                  <Badge variant="outline" className="text-xs px-1 py-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
                                     Invite Sent
                                   </Badge>
                                 )}
                                 {app.interview_status === 'reschedule_requested' && (
-                                  <Badge variant="outline" className="text-[10px] px-1 py-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
+                                  <Badge variant="outline" className="text-xs px-1 py-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
                                     New time requested
                                   </Badge>
                                 )}
@@ -806,7 +806,7 @@ export default function Hiring() {
                             
                             {/* Location + Date */}
                             <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
-                              {app.location ? <span>{app.location.name}</span> : <Badge variant="outline" className="text-[10px] px-1.5 py-0">No location</Badge>}
+                              {app.location ? <span>{app.location.name}</span> : <Badge variant="outline" className="text-xs px-1.5 py-0">No location</Badge>}
                               <span>{format(new Date(app.submitted_at), 'MMM d, yyyy')}</span>
                             </div>
                             

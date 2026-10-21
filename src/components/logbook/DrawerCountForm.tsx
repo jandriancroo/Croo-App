@@ -482,7 +482,7 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
                 {priorPulls.map((pull, idx) => (
                   <div key={idx} className="flex items-center justify-between p-2.5 bg-muted/50 rounded-lg">
                     <div className="flex items-center gap-2 text-sm">
-                      <Badge variant="outline" className="text-[10px] px-1.5">Pull #{idx + 1}</Badge>
+                      <Badge variant="outline" className="text-xs px-1.5">Pull #{idx + 1}</Badge>
                       <span className="text-muted-foreground">
                         {new Date(pull.time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                       </span>
@@ -512,7 +512,7 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
                   <Label>Expected Deposit from Qu</Label>
                   {isLoadingQuDeposit && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                   {quDepositLoaded && !isLoadingQuDeposit && (
-                    <Badge variant="secondary" className="text-[10px] py-0">
+                    <Badge variant="secondary" className="text-xs py-0">
                       {expectedSource === "pos_cache" ? "From cash sales" : "Auto-filled"}
                     </Badge>
                   )}

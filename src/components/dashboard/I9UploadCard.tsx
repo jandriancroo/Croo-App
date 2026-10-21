@@ -52,7 +52,7 @@ export function I9UploadCard() {
               </div>
               Secure Document Request
             </CardTitle>
-            <Badge variant="outline" className="text-primary border-primary/50 text-[10px]">
+            <Badge variant="outline" className="text-primary border-primary/50 text-xs">
               <Lock className="h-2.5 w-2.5 mr-1" />
               Encrypted
             </Badge>

@@ -397,7 +397,7 @@ export function PrepListComplete({
                 <span className="text-xs text-muted-foreground">—</span>
               ) : prep === 0 ? (
 
-                <Badge variant="secondary" className="text-[10px] h-5">
+                <Badge variant="secondary" className="text-xs h-5">
                   {overPar ? 'over' : '✓'}
                 </Badge>
               ) : (

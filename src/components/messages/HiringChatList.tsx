@@ -230,7 +230,7 @@ export function HiringChatList({ onSelectConversation, selectedId, autoSelectApp
                   <span className={`truncate text-[15px] ${conv.unread_count > 0 ? 'font-bold' : 'font-medium'}`}>
                     {conv.application.full_name}
                   </span>
-                  <Badge variant="secondary" className={`h-5 shrink-0 px-1.5 text-[10px] font-medium capitalize ${getStatusColor(conv.application.status)}`}>
+                  <Badge variant="secondary" className={`h-5 shrink-0 px-1.5 text-xs font-medium capitalize ${getStatusColor(conv.application.status)}`}>
                     {conv.application.status}
                   </Badge>
                   {conv.last_message && (
