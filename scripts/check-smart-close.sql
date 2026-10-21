@@ -5,9 +5,9 @@ SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
 WITH stores AS (SELECT id, name FROM public.locations WHERE name IN ('Hemet', 'Hayward')),
 checks AS (
   -- 1) Parity: smart off = today's numbers exactly (only the two new keys are added).
+  -- Hemet has Smart Close ON, so its live get_labor_pace differs by design; parity is checked with _smart = false.
   SELECT 'parity smart-off: ' || s.name AS name,
-         (public.get_labor_pace(s.id) - 'smart_close' - 'smart_close_minutes') = public._labor_pace_baseline(s.id)
-         AND (public.get_labor_pace(s.id)->>'smart_close')::boolean = false AS ok
+         (public._labor_pace_core(s.id, NULL, false) - 'smart_close' - 'smart_close_minutes') = public._labor_pace_baseline(s.id) AS ok
     FROM stores s
   UNION ALL
   -- Smart on keeps everything except remaining/pace numbers and per-closer expected_out.
@@ -15,6 +15,26 @@ checks AS (
          (public._labor_pace_core(s.id, NULL, true)->'worked_hours') IS NOT DISTINCT FROM (public._labor_pace_baseline(s.id)->'worked_hours')
          AND (public._labor_pace_core(s.id, NULL, true)->'worked_labor_dollars') IS NOT DISTINCT FROM (public._labor_pace_baseline(s.id)->'worked_labor_dollars')
     FROM stores s
+  UNION ALL
+  -- Position layer: scope exists with trust n/(n+8); use_position = false predicts exactly like the 3-layer version.
+  SELECT 'position scope: trust n/(n+8)',
+         coalesce((SELECT bool_and(h.trust = round(h.n::numeric / (h.n + 8), 4)) FROM public.labor_close_habits h WHERE h.scope = 'position'), false)
+  UNION ALL
+  SELECT 'position off = 3-layer predict',
+         public._labor_close_predict_min((SELECT id FROM public.locations WHERE name = 'Hemet'),
+           (SELECT user_id FROM public.labor_shift_outcomes WHERE is_closer AND exclude_reason IS NULL LIMIT 1),
+           2, '90-100', 'PM Manager', NULL, false)
+         IS NOT DISTINCT FROM
+         public._labor_close_predict_min((SELECT id FROM public.locations WHERE name = 'Hemet'),
+           (SELECT user_id FROM public.labor_shift_outcomes WHERE is_closer AND exclude_reason IS NULL LIMIT 1),
+           2, '90-100', NULL, NULL, false)
+  UNION ALL
+  SELECT 'no store using position layer', NOT EXISTS (SELECT 1 FROM public.labor_smart_close_settings WHERE use_position)
+  UNION ALL
+  SELECT 'only Hemet enabled',
+         (SELECT count(*) FROM public.labor_smart_close_settings WHERE enabled) = 1
+         AND EXISTS (SELECT 1 FROM public.labor_smart_close_settings sc JOIN public.locations l ON l.id = sc.location_id
+                      WHERE sc.enabled AND l.name = 'Hemet')
   UNION ALL
   -- 2) Closer rule.
   SELECT 'closer: end at close (hours)', public._labor_closer_rule('2026-10-20 22:00-07', '2026-10-20 22:00-07', '2026-10-20 23:00-07') = 'hours'

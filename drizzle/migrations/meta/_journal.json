@@ -344,6 +344,34 @@
       "when": 1792547752067,
       "tag": "0048_labor_pace_scorecard",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1792551836029,
+      "tag": "0049_smart_close_position_layer",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1792552012323,
+      "tag": "0050_smart_close_position_layer_fix_and_core",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1792552087660,
+      "tag": "0051_smart_close_position_backtest_scorecard",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1792552185174,
+      "tag": "0052_smart_close_drop_old_signatures",
+      "breakpoints": true
     }
   ]
 }

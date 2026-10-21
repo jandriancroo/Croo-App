@@ -6613,6 +6613,8 @@ export type Database = {
           location_id: string
           plain_miss: number | null
           plain_pct: number | null
+          pos_miss: number | null
+          pos_pct: number | null
           sales_pace_at_snapshot: number | null
           smart_close_enabled: boolean
           smart_close_minutes: number | null
@@ -6630,6 +6632,8 @@ export type Database = {
           location_id: string
           plain_miss?: number | null
           plain_pct?: number | null
+          pos_miss?: number | null
+          pos_pct?: number | null
           sales_pace_at_snapshot?: number | null
           smart_close_enabled: boolean
           smart_close_minutes?: number | null
@@ -6647,6 +6651,8 @@ export type Database = {
           location_id?: string
           plain_miss?: number | null
           plain_pct?: number | null
+          pos_miss?: number | null
+          pos_pct?: number | null
           sales_pace_at_snapshot?: number | null
           smart_close_enabled?: boolean
           smart_close_minutes?: number | null
@@ -7199,18 +7205,21 @@ export type Database = {
           location_id: string
           note: string | null
           updated_at: string
+          use_position: boolean
         }
         Insert: {
           enabled?: boolean
           location_id: string
           note?: string | null
           updated_at?: string
+          use_position?: boolean
         }
         Update: {
           enabled?: boolean
           location_id?: string
           note?: string | null
           updated_at?: string
+          use_position?: boolean
         }
         Relationships: []
       }
@@ -15580,6 +15589,8 @@ export type Database = {
           _band: string
           _dow: number
           _location_id: string
+          _position?: string
+          _use_position?: boolean
           _user_id: string
         }
         Returns: number
@@ -15644,7 +15655,12 @@ export type Database = {
         Returns: number
       }
       _labor_pace_core: {
-        Args: { _date: string; _location_id: string; _smart: boolean }
+        Args: {
+          _date: string
+          _location_id: string
+          _position?: boolean
+          _smart: boolean
+        }
         Returns: Json
       }
       _labor_pace_meal_sec: {
