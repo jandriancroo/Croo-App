@@ -93,7 +93,7 @@ export default function Tasks() {
                   {completionPercent >= 100 ? (
                     <Check aria-hidden className="h-4 w-4 text-[hsl(var(--status-on-track))]" strokeWidth={3} />
                   ) : (
-                    <span aria-hidden className="text-xs font-bold tabular-nums leading-none text-foreground">
+                    <span aria-hidden className="text-xs font-bold tabular-nums tracking-tight leading-none text-foreground">
                       {completionPercent}%
                     </span>
                   )}
