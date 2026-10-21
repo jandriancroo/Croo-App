@@ -310,7 +310,6 @@ function DoneReading({ ctx, it }: { ctx: RunCtx; it: RunItem }) {
         <span className={cn('whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold',
           chip === 'Safe' ? 'bg-[hsl(var(--success)/0.12)] text-[hsl(var(--success))]' : chip === 'Out of range' ? 'bg-destructive/10 text-destructive' : 'bg-[hsl(var(--warning)/0.14)] text-[hsl(var(--warning))]')}>{chip}</span>
         <PhotoIcon ctx={ctx} it={it} />
-        <PhotoIcon ctx={ctx} it={it} />
       </span>
       {r.editedBy && <span className="block text-xs text-muted-foreground">Edited by {r.editedBy}</span>}
     </span>
