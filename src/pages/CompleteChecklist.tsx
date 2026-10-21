@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
-import { CheckCircle2, Eye, Lock, ThumbsUp, ThumbsDown, Camera, Check } from 'lucide-react';
+import { CheckCircle2, Eye, Lock, ThumbsUp, ThumbsDown, Camera, Check, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -70,6 +70,32 @@ interface Checklist {
   position_filtering_enabled?: boolean;
   lock_until_time?: string | null;
 }
+const shortName = (full?: string | null) => {
+  const parts = (full || '').trim().split(/\s+/);
+  return parts[0] ? `${parts[0]}${parts[1] ? ` ${parts[1][0]}.` : ''}` : 'Unknown';
+};
+
+/** One control for every reading: the number (or "?" when none) plus the same edit button. */
+function TempReadingChip({ temp, valid, onEdit, canEdit }: { temp: number | null | undefined; valid: boolean | null | undefined; onEdit: () => void; canEdit: boolean }) {
+  const has = temp != null;
+  return (
+    <span className="inline-flex items-center gap-1.5 shrink-0">
+      {!has ? (
+        <Badge variant="secondary" className="text-xs tabular-nums" aria-label="No reading">?°F</Badge>
+      ) : valid === false ? (
+        <Badge variant="destructive" className="text-xs tabular-nums"><ThumbsDown className="h-3 w-3 mr-1" />{Number(temp).toFixed(1)}°F</Badge>
+      ) : (
+        <Badge className="text-xs tabular-nums bg-green-600"><ThumbsUp className="h-3 w-3 mr-1" />{Number(temp).toFixed(1)}°F</Badge>
+      )}
+      {canEdit && (
+        <Button type="button" size="icon-sm" onClick={(e) => { e.stopPropagation(); onEdit(); }} aria-label={has ? 'Edit temperature' : 'Enter temperature'}>
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+      )}
+    </span>
+  );
+}
+
 interface ResponseWithCompleter {
   responseId: string;
   value: any;
@@ -77,6 +103,8 @@ interface ResponseWithCompleter {
   extractedTemperature?: number | null;
   temperatureValid?: boolean | null;
   temperatureUnconfirmed?: boolean;
+  /** Short name of whoever last typed over the reading ("Maya R."). */
+  tempEditedBy?: string | null;
   completedBy?: {
     userId: string;
     fullName: string;
@@ -458,7 +486,8 @@ export default function CompleteChecklist() {
             created_at,
             extracted_temperature,
             temperature_valid,
-            temperature_unconfirmed
+            temperature_unconfirmed,
+            temperature_edited_by
           `)
           .eq('submission_id', submissionId);
 
@@ -520,6 +549,7 @@ export default function CompleteChecklist() {
           if (resp.completed_by) {
             completerIds.add(resp.completed_by);
           }
+          if (resp.temperature_edited_by) completerIds.add(resp.temperature_edited_by);
         });
 
         // Load profile details for all completers in one query
@@ -547,6 +577,7 @@ export default function CompleteChecklist() {
           const profile = response.completed_by ? profilesMap[response.completed_by] : undefined;
           (loadedWithCompleters as any)[itemId] = {
             ...data,
+            tempEditedBy: response.temperature_edited_by ? shortName(profilesMap[response.temperature_edited_by]?.full_name) : null,
             completedBy: response.completed_by
               ? {
                   userId: response.completed_by,
@@ -810,19 +841,36 @@ export default function CompleteChecklist() {
     return tempF <= 41 || tempF >= 135;
   };
 
-  // Crew says the unconfirmed AI reading is right.
-  const confirmTemperature = async (itemId: string) => {
-    const resp = responsesWithCompleters[itemId];
-    if (!resp?.responseId) return;
-    const { error } = await supabase
-      .from('checklist_responses')
-      .update({ temperature_unconfirmed: false, temperature_validated_at: new Date().toISOString() })
-      .eq('id', resp.responseId);
-    if (error) {
-      toast.error("Couldn't confirm the reading", { description: error.message });
-      return;
+  // Same manager alert for scans and hand-typed readings.
+  const alertUnsafeTemperature = async (item: ChecklistItem, extractedTemp: number, tempUnconfirmed: boolean) => {
+    const taskLocationId = currentLocation?.id || checklist?.location_id;
+    if (!taskLocationId || !user?.id) return;
+    const unconfirmedLabel = tempUnconfirmed ? ' (unconfirmed reading)' : '';
+    const alertTitle = `🌡️ Unsafe Temp${tempUnconfirmed ? ' (unconfirmed)' : ''}: ${item.question}`;
+    const alertBody = `${extractedTemp}°F${unconfirmedLabel} is out of safe zone. Verify and take corrective action.`;
+    const dedupKey = `temp_alert_${taskLocationId}_${item.id}_${new Date().toISOString().split('T')[0]}_${Date.now()}`;
+    const { data: managerUsers } = await supabase
+      .from('user_locations')
+      .select('user_id, user_roles!inner(role)')
+      .eq('location_id', taskLocationId)
+      .in('user_roles.role', ['super_admin', 'org_admin', 'admin', 'manager', 'general_manager', 'shift_manager', 'shift_manager_in_training']);
+    const managerIds = managerUsers?.map((u: any) => u.user_id) || [];
+    if (managerIds.length === 0) return;
+    const { error: alertError } = await supabase.from('alert_queue').insert({
+      alert_type: 'unsafe_temperature',
+      dedup_key: dedupKey,
+      location_id: taskLocationId,
+      payload: {
+        user_ids: managerIds,
+        title: alertTitle,
+        body: alertBody,
+        notification_type: 'unsafe_temperature',
+        data: { type: 'unsafe_temperature', location_id: taskLocationId, checklist_item: item.question, temperature: extractedTemp, unconfirmed: tempUnconfirmed },
+      },
+    });
+    if (!alertError) {
+      toast.warning('Temperature out of range — managers notified', { description: `${extractedTemp}°F${unconfirmedLabel} on ${item.question}` });
     }
-    setResponsesWithCompleters(prev => ({ ...prev, [itemId]: { ...prev[itemId], temperatureUnconfirmed: false } }));
   };
 
   const saveManualTemperature = async (itemId: string, tempText: string) => {
@@ -858,6 +906,7 @@ export default function CompleteChecklist() {
         temperature_valid: tempValid,
         temperature_unconfirmed: false,
         temperature_validated_at: new Date().toISOString(),
+        temperature_edited_at: new Date().toISOString(), // server stamps who/when/replaced value
       };
       const responseData = isPhotoTask
         ? tempFields
@@ -895,10 +944,11 @@ export default function CompleteChecklist() {
       if (isPhotoTask) {
         setResponsesWithCompleters(prev => ({
           ...prev,
-          [itemId]: { ...prev[itemId], extractedTemperature: tempF, temperatureValid: tempValid, temperatureUnconfirmed: false },
+          [itemId]: { ...prev[itemId], extractedTemperature: tempF, temperatureValid: tempValid, temperatureUnconfirmed: false, tempEditedBy: shortName(profile?.full_name) },
         }));
         setManualTempOpen(prev => ({ ...prev, [itemId]: false }));
         toast.success(`Saved ${tempF}°F`);
+        if (!tempValid && manualItem) await alertUnsafeTemperature(manualItem, tempF, false);
         return;
       }
 
@@ -911,6 +961,8 @@ export default function CompleteChecklist() {
           isImage: false,
           extractedTemperature: tempF,
           temperatureValid: tempValid,
+          temperatureUnconfirmed: false,
+          tempEditedBy: shortName(profile?.full_name),
           completedBy: profile
             ? {
                 userId: user.id,
@@ -924,6 +976,7 @@ export default function CompleteChecklist() {
 
       setManualTempOpen(prev => ({ ...prev, [itemId]: false }));
       toast.success('Temperature saved');
+      if (!tempValid && manualItem) await alertUnsafeTemperature(manualItem, tempF, false);
     } catch (error: any) {
       console.error('Error saving manual temperature:', error);
       toast.error('Failed to save temperature');
@@ -1071,48 +1124,8 @@ export default function CompleteChecklist() {
         }
 
         // Alert managers if temperature is out of safe zone (unconfirmed still alerts).
-        if (hasNewReading && tempValid === false && extractedTemp !== null && taskLocationId && user?.id && item) {
-          const unconfirmedLabel = tempUnconfirmed ? ' (unconfirmed reading)' : '';
-          const alertTitle = `🌡️ Unsafe Temp${tempUnconfirmed ? ' (unconfirmed)' : ''}: ${item.question}`;
-          const alertBody = `${extractedTemp}°F${unconfirmedLabel} is out of safe zone. Verify and take corrective action.`;
-          const dedupKey = `temp_alert_${taskLocationId}_${item.id}_${new Date().toISOString().split('T')[0]}_${Date.now()}`;
-
-          const { data: managerUsers } = await supabase
-            .from('user_locations')
-            .select('user_id, user_roles!inner(role)')
-            .eq('location_id', taskLocationId)
-            .in('user_roles.role', ['super_admin', 'org_admin', 'admin', 'manager', 'general_manager', 'shift_manager', 'shift_manager_in_training']);
-
-          const managerIds = managerUsers?.map((u: any) => u.user_id) || [];
-
-          if (managerIds.length > 0) {
-            const { error: alertError } = await supabase
-              .from('alert_queue')
-              .insert({
-                alert_type: 'unsafe_temperature',
-                dedup_key: dedupKey,
-                location_id: taskLocationId,
-                payload: {
-                  user_ids: managerIds,
-                  title: alertTitle,
-                  body: alertBody,
-                  notification_type: 'unsafe_temperature',
-                  data: {
-                    type: 'unsafe_temperature',
-                    location_id: taskLocationId,
-                    checklist_item: item.question,
-                    temperature: extractedTemp,
-                    unconfirmed: tempUnconfirmed,
-                  }
-                }
-              });
-
-            if (!alertError) {
-              toast.warning(`Temperature out of range — managers notified`, {
-                description: `${extractedTemp}°F${unconfirmedLabel} on ${item.question}`
-              });
-            }
-          }
+        if (hasNewReading && tempValid === false && extractedTemp !== null && item) {
+          await alertUnsafeTemperature(item, extractedTemp, tempUnconfirmed);
         }
       }
 
@@ -1644,18 +1657,23 @@ export default function CompleteChecklist() {
                     </span>
                   )}
 
-                  {/* Temperature badge inline */}
-                  {responsesWithCompleters[item.id]?.extractedTemperature !== null && 
-                   responsesWithCompleters[item.id]?.extractedTemperature !== undefined && (
-                    responsesWithCompleters[item.id]?.temperatureValid === false ? (
-                      <Badge variant="destructive" className="ml-auto text-xs">
-                        <ThumbsDown className="h-3 w-3 mr-1" /> {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F
-                      </Badge>
-                    ) : (
-                      <Badge className="ml-auto text-xs bg-green-600">
-                        <ThumbsUp className="h-3 w-3 mr-1" /> {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F
-                      </Badge>
-                    )
+                  {/* Temperature: same chip + edit button for every reading (or "?" when none) */}
+                  {(item.item_type === 'temperature' || item.requires_temperature_validation === true) && (
+                    <span className="ml-auto flex items-center gap-1.5 shrink-0">
+                      {responsesWithCompleters[item.id]?.tempEditedBy && (
+                        <span className="text-[10px] text-muted-foreground truncate max-w-[7rem]">Edited by {responsesWithCompleters[item.id]?.tempEditedBy}</span>
+                      )}
+                      <TempReadingChip
+                        temp={responsesWithCompleters[item.id]?.extractedTemperature}
+                        valid={responsesWithCompleters[item.id]?.temperatureValid}
+                        canEdit={!isSubmitted}
+                        onEdit={() => {
+                          const t = responsesWithCompleters[item.id]?.extractedTemperature;
+                          setManualTempValue(prev => ({ ...prev, [item.id]: t != null ? String(t) : '' }));
+                          setManualTempOpen(prev => ({ ...prev, [item.id]: true }));
+                        }}
+                      />
+                    </span>
                   )}
                 </div>
               )}
@@ -1980,19 +1998,10 @@ export default function CompleteChecklist() {
                         )}
 
 
-                        {/* Type the temperature in when the photo can't be read */}
-                        {showTempEntry && !isUploading && needsTempConfirm && !manualTempOpen[item.id] && (
-                          <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
-                            <span className="text-sm">We read {Number(savedTemp).toFixed(1)}°F. Looks right?</span>
-                            <Button size="sm" onClick={() => confirmTemperature(item.id)}>Yes</Button>
-                            <Button size="sm" variant="ghost" onClick={() => setManualTempOpen(prev => ({ ...prev, [item.id]: true }))}>
-                              Type it
-                            </Button>
-                          </div>
-                        )}
-                        {showTempEntry && !isUploading && !(needsTempConfirm && !manualTempOpen[item.id]) && (
+                        {/* Number entry, opened from the temperature edit button */}
+                        {showTempEntry && !isUploading && (
                           manualTempOpen[item.id] ? (
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <Input
                                 type="number"
                                 inputMode="decimal"
@@ -2009,15 +2018,17 @@ export default function CompleteChecklist() {
                                 Cancel
                               </Button>
                             </div>
-                          ) : (
-                            <button
-                              type="button"
-                              className="text-xs text-muted-foreground underline underline-offset-2"
-                              onClick={() => setManualTempOpen(prev => ({ ...prev, [item.id]: true }))}
-                            >
-                              {savedTemp != null ? 'Wrong reading? Type the temperature' : 'Type the temperature instead'}
-                            </button>
-                          )
+                          ) : !hasResponse && !isSubmitted ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-muted-foreground">Temperature</span>
+                              <TempReadingChip
+                                temp={savedTemp}
+                                valid={responsesWithCompleters[item.id]?.temperatureValid}
+                                canEdit
+                                onEdit={() => setManualTempOpen(prev => ({ ...prev, [item.id]: true }))}
+                              />
+                            </div>
+                          ) : null
                         )}
                       </div>
                     );
