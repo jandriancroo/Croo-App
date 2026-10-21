@@ -341,7 +341,7 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
         <span className={cn('flex h-7 w-7 items-center justify-center rounded-full bg-[hsl(var(--success))] text-primary-foreground', flash && 'animate-in zoom-in-50 duration-300')}><Check className="h-4 w-4" strokeWidth={3} /></span>
       </button>
     ) : <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--success))] text-primary-foreground', flash && 'animate-in zoom-in-50 duration-300')} aria-hidden><Check className="h-4 w-4" strokeWidth={3} /></span>
-  )) : (
+  ) : (
     <span className="h-7 w-7 shrink-0 rounded-full border-2 border-muted-foreground/40" aria-hidden />
   );
 
