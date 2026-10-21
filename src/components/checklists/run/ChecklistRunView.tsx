@@ -532,9 +532,13 @@ function GuidedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
             <div className="flex shrink-0 items-center gap-2">
               <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold',
                 tone === 'good' && 'bg-[hsl(var(--success))] text-primary-foreground', tone === 'bad' && 'bg-destructive text-destructive-foreground', tone === 'warn' && 'bg-[hsl(var(--warning))] text-primary-foreground')}>
-                {tone === 'good' ? 'Safe' : tone === 'bad' ? 'Out of range' : 'Type it'}
+                {tone === 'good' ? 'Safe' : tone === 'bad' ? 'Out of range' : '?'}
               </span>
-              <TempReadingChip temp={undefined} valid={undefined} canEdit onEdit={openEdit} />
+              <button type="button" onClick={openEdit} aria-label={has ? 'Edit temperature' : 'Enter temperature'}
+                className={cn('flex h-11 w-11 items-center justify-center rounded-full',
+                  tone === 'good' && 'bg-[hsl(var(--success))] text-primary-foreground', tone === 'bad' && 'bg-destructive text-destructive-foreground', tone === 'warn' && 'bg-[hsl(var(--warning))] text-primary-foreground')}>
+                <Pencil className="h-4 w-4" />
+              </button>
             </div>
           </div>
         )}
