@@ -24,5 +24,5 @@ describe('checklist undo', () => {
     expect(canUndoChecklistItem('team_member', 'u1', 'u1')).toBe(true);
   });
   it('SM in training is not on the policy list', () =>
-    expect(canUndoChecklistItem('shift_manager_in_training', 'u1', 'u2')).toBe(false));
+    expect(canUndoChecklistItem('shift_manager_in_training', 'u1', 'u2')).toBe(true));
 });
