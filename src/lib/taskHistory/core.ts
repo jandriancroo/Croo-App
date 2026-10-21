@@ -187,7 +187,7 @@ export async function loadChecklistHistory(
 
     for (const sub of submissions) {
       for (const r of responsesBySubmission[sub.id] || []) {
-        if (r.created_at) {
+        if (r.created_at && isPeriodScored(checklist)) {
           const t = new Date(r.created_at).getTime();
           if (t < checklist.periodStart.getTime() || t > checklist.periodEnd.getTime()) continue;
         }
