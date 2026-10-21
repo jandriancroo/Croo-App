@@ -111,6 +111,8 @@ export function DuplicateChecklistDialog({ open, onOpenChange, checklist, draft 
   const splitWarning =
     cadence === "weekly"
       ? "Going live now splits this week between the old and new version. Scores still add up across both — nothing vanishes or double-counts."
+      : cadence === "monthly" && target && target.template_type !== "dynamic" && checklistScorePeriodKind(target as any) === "quarter"
+      ? "Going live now splits this quarter between the old and new version. Scores still add up across both — nothing vanishes or double-counts."
       : cadence === "monthly"
       ? "Going live now splits this month between the old and new version. Scores still add up across both — nothing vanishes or double-counts."
       : "Going live now switches the crew over on their next tap.";

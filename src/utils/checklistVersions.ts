@@ -103,14 +103,20 @@ export const canGoLiveNow = (_c: VersionedChecklist): boolean => true;
 export const archivePeriodCopy = (
   c: Pick<VersionedChecklist, 'template_type' | 'frequency'>
 ): { scoreLine: string; nextLine: string } => {
-  const cadence = swapCadence(c as VersionedChecklist);
-  if (cadence === 'monthly') {
+  const kind = c.template_type === 'dynamic' ? 'week' : checklistScorePeriodKind(c as unknown as ChecklistScheduleFields);
+  if (kind === 'quarter') {
+    return {
+      scoreLine: "This quarter's score still has the hole where it was, so the percentage won't jump.",
+      nextLine: "Starting the 1st it isn't expected at all.",
+    };
+  }
+  if (kind === 'month') {
     return {
       scoreLine: "This month's score still has the hole where it was, so the percentage won't jump.",
       nextLine: 'Starting the 1st it isn\'t expected at all.',
     };
   }
-  if (cadence === 'weekly') {
+  if (kind === 'week') {
     return {
       scoreLine: "This week's score still has the hole where it was, so the percentage won't jump.",
       nextLine: "Starting Monday it isn't expected at all.",
