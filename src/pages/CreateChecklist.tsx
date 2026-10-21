@@ -395,3 +395,64 @@ export default function CreateChecklist() {
     navigate(`/dynamic-checklist/${checklist.id}`);
   };
 
+  const bulkAdd = (
+    <Collapsible>
+      <CollapsibleTrigger asChild>
+        <Button type="button" variant="ghost" className="h-11 w-full text-sm text-muted-foreground">
+          <FileInput className="h-4 w-4 mr-2" />
+          Bulk Add Items
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-2 space-y-3">
+        <p className="text-sm text-muted-foreground">
+          One per line. Prefixes: <code>Photo:</code> <code>Temp:</code> <code>Text:</code> <code>Confirm:</code> <code>MC: question | opt1, opt2</code>
+        </p>
+        <Textarea
+          value={bulkText}
+          onChange={(e) => setBulkText(e.target.value)}
+          placeholder="Photo: Take picture of prep station&#10;Confirm: All surfaces sanitized&#10;Temp: Walk-in cooler"
+          rows={5}
+          className="font-mono text-sm"
+        />
+        <Button type="button" onClick={parseBulkText} variant="secondary" className="h-11 w-full">
+          <Plus className="h-4 w-4 mr-2" />
+          Parse & Add Items
+        </Button>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+
+  return (
+    <Layout>
+      <div className="max-w-5xl mx-auto [&>*:not(:first-child):not(:nth-child(2))]:mt-4 p-4">
+        <PageTitle color="teal" leading={
+          <Button variant="ghost" size="icon" onClick={() => navigate('/tasks')} aria-label="Back">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        }>Create Checklist</PageTitle>
+
+        <ChecklistEditor
+          initialTab="settings"
+          settings={settings}
+          onSettingsChange={patchSettings}
+          items={items}
+          setItems={setItems}
+          templateTypeOptions={['standard', 'dynamic', 'training']}
+          locationId={currentLocation?.id}
+          storeToday={storeToday}
+          availablePositions={availablePositions}
+          uploadReference={uploadReference}
+          addPosition="end"
+          minItems={1}
+          singleDayHint="Shows only on this date, then moves to history. Leave blank for today."
+          onCancel={() => navigate('/tasks')}
+          onSave={handleSubmit}
+          saving={loading}
+          saveLabel="Create"
+          savingLabel="Creating..."
+          itemsFooter={bulkAdd}
+        />
+      </div>
+    </Layout>
+  );
+}
