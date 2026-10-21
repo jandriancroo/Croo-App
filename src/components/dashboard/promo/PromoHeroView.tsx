@@ -74,7 +74,7 @@ export function PromoHeroView({
   const decorated = !!border || borderWinner || borderClosing;
 
   return (
-    <div data-promo-border-space className={cn('min-w-0 w-full overflow-visible', decorated && 'my-4')}>
+    <div data-promo-border-space data-decorated={decorated || undefined} className="min-w-0 w-full overflow-visible">
     <div data-promo-hero className={cn('relative w-full overflow-visible rounded-3xl shadow-md', !activeImage && 'bg-primary', PROMO_HERO_HEIGHT_CLASS)}>
       {/* Photo layers (crossfade) */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
