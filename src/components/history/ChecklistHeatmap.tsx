@@ -179,7 +179,7 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
         const applicable = liveThatDay.filter(cl => {
 
           const items = expectedItems(cl);
-          if (cl.template_type !== 'dynamic' && !checklistShowsOn(cl as any, dateStr)) return false;
+          if (cl.template_type !== 'dynamic' && cl.template_type !== 'training' && !checklistShowsOn(cl as any, dateStr)) return false;
           if (cl.template_type === 'dynamic') {
             const todayItems = items.filter((it: any) => it.days_of_week?.includes(currentDay));
             return todayItems.length > 0;
