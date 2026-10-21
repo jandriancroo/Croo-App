@@ -8,6 +8,8 @@
  */
 import { DateTime } from 'luxon';
 
+import { checklistScorePeriodKind, type ChecklistScheduleFields } from '@/lib/taskHistory/schedule';
+
 export interface VersionedChecklist {
   id: string;
   is_active?: boolean | null;
@@ -86,8 +88,11 @@ export const versionsLiveOnDay = <T extends VersionedChecklist>(
 export type SwapCadence = 'weekly' | 'monthly' | 'daily';
 
 export const swapCadence = (c: VersionedChecklist): SwapCadence => {
-  if (c.frequency === 'monthly') return 'monthly';
-  if (c.template_type === 'dynamic' || c.frequency === 'weekly') return 'weekly';
+  if (c.template_type === 'dynamic') return 'weekly';
+  // Standard: follows the scoring period (weekday / set-day lists score per day).
+  const kind = checklistScorePeriodKind(c as ChecklistScheduleFields);
+  if (kind === 'month' || kind === 'quarter') return 'monthly';
+  if (kind === 'week') return 'weekly';
   return 'daily';
 };
 

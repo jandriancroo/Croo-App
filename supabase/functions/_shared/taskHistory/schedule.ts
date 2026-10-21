@@ -192,3 +192,17 @@ export function describeChecklistSchedule(c: ChecklistScheduleFields): string {
   }
   return 'Every day';
 }
+
+/** Schedule columns to carry when copying / cloning a checklist. */
+export function pickScheduleFields(c: ChecklistScheduleFields) {
+  return {
+    scheduled_date: c.scheduled_date ?? null,
+    schedule_repeats: c.schedule_repeats ?? null,
+    schedule_period: c.schedule_period ?? null,
+    schedule_mode: c.schedule_mode ?? null,
+    schedule_weekdays: c.schedule_weekdays ?? null,
+    schedule_day: c.schedule_day ?? null,
+    schedule_quarter_month: c.schedule_quarter_month ?? null,
+    schedule_last_n: c.schedule_last_n ?? null,
+  };
+}

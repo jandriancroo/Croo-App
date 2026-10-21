@@ -1,4 +1,5 @@
 import { useSortable } from '@dnd-kit/sortable';
+import { describeChecklistSchedule } from '@/lib/taskHistory/schedule';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from "@/components/ui/button";
 import { FileCheck, GripVertical, Pencil, EyeOff, Eye, Trash2, Copy, CalendarDays, CopyPlus, Archive, Zap } from "lucide-react";
@@ -76,10 +77,7 @@ export function SortableChecklistItem({
     }
   };
 
-  const frequencyLabel = checklist.frequency === 'daily' ? 'Daily' 
-    : checklist.frequency === 'weekly' ? 'Weekly'
-    : checklist.frequency === 'monthly' ? 'Monthly'
-    : checklist.frequency;
+  const frequencyLabel = describeChecklistSchedule(checklist as any);
 
   return (
     <div
