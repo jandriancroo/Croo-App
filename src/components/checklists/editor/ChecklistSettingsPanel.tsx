@@ -119,14 +119,12 @@ export function ChecklistSettingsPanel({ value: s, onChange, templateTypeOptions
     <div className="space-y-3">
       <SectionCard label="Basics">
         <div className="space-y-3">
+          {typePicker}
           <div className="space-y-1">
             <Label htmlFor="checklist-title">Title</Label>
             <Input id="checklist-title" value={s.title} onChange={(e) => onChange({ title: e.target.value })} placeholder="e.g., Morning Kitchen Check" className="h-11" />
           </div>
-          <div className={cn('gap-3', wide ? 'grid grid-cols-2 items-start' : 'space-y-3')}>
-            {frequency}
-            {typePicker}
-          </div>
+          {frequency}
           <div className="space-y-1">
             <Label htmlFor="checklist-description">Description</Label>
             <Textarea id="checklist-description" value={s.description} onChange={(e) => onChange({ description: e.target.value })} placeholder="Brief description (optional)" rows={2} />
