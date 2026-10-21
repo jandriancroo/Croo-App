@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { DateTime } from 'luxon';
-import { ArrowLeft, Bell, Eye, Loader2, Pencil, Plus, Send, Archive, Save } from 'lucide-react';
+import { ArrowLeft, Bell, Eye, Loader2, Pencil, Plus, List, ListOrdered, Send, Archive, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { Layout } from '@/components/Layout';
 import { PageTitle } from '@/components/PageTitle';
@@ -16,7 +16,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
-import { ALERT_THEMES, SystemAlert, validateSystemAlert } from '@/lib/systemAlerts';
+import { ALERT_BUTTON_PRESETS, ALERT_THEMES, SystemAlert, validateSystemAlert } from '@/lib/systemAlerts';
 import { SystemAlertDialog, SystemAlertHeroMedia } from '@/components/system-alerts/SystemAlertDialog';
 
 function blankAlert(userId: string): SystemAlert {
@@ -33,6 +33,18 @@ export default function SystemAlertsAdmin() {
   const [publishing, setPublishing] = useState<SystemAlert | null>(null);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [customLabel, setCustomLabel] = useState(false);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const addListPrefix = (style: 'bullet' | 'number') => {
+    if (!editing) return;
+    const el = bodyRef.current; const text = editing.body;
+    const start = el?.selectionStart ?? text.length; const end = el?.selectionEnd ?? text.length;
+    const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+    const lineEnd = text.indexOf('\n', end) === -1 ? text.length : text.indexOf('\n', end);
+    const lines = text.slice(lineStart, lineEnd).split('\n').map((l, i) => (style === 'bullet' ? '- ' : `${i + 1}. `) + l.replace(/^\s*([-•*]|\d+[.)])\s+/, ''));
+    update({ body: text.slice(0, lineStart) + lines.join('\n') + text.slice(lineEnd) });
+    requestAnimationFrame(() => el?.focus());
+  };
   const uploadHero = async (file: File | undefined) => {
     if (!file || !editing) return;
     const type = file.type.startsWith('video/') ? 'video' : file.type.startsWith('image/') ? 'image' : null;
@@ -69,7 +81,7 @@ export default function SystemAlertsAdmin() {
         ? await supabase.from('system_alerts').update(payload).eq('id', editing.id).eq('status', 'draft').select().single()
         : await supabase.from('system_alerts').insert({ ...payload, created_by: user.id }).select().single();
       if (result.error) throw result.error;
-      refresh(); setEditing(null); toast.success('Draft saved');
+      refresh(); setCustomLabel(false); setEditing(null); toast.success('Draft saved');
     } catch { toast.error('Could not save the alert. Please try again.'); }
     finally { setBusy(false); }
   };
@@ -97,10 +109,14 @@ export default function SystemAlertsAdmin() {
         <div className="space-y-2"><Label>Audience</Label><Select value={editing.audience} onValueChange={audience => update({ audience })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="super_admin">Only me (test)</SelectItem><SelectItem value="all">Everyone</SelectItem></SelectContent></Select></div>
       </div>
       <div className="space-y-2"><Label htmlFor="alert-title">Title</Label><Input id="alert-title" value={editing.title} maxLength={160} onChange={e => update({ title: e.target.value })} /></div>
-      <div className="space-y-2"><Label htmlFor="alert-message">Message</Label><Textarea id="alert-message" value={editing.body} maxLength={4000} rows={4} onChange={e => update({ body: e.target.value })} /></div>
+      <div className="space-y-2"><div className="flex items-center justify-between gap-2"><Label htmlFor="alert-message">Message</Label>
+        <div className="flex gap-1"><Button type="button" size="sm" variant="outline" onClick={() => addListPrefix('bullet')}><List className="mr-1 h-4 w-4" />Bullets</Button><Button type="button" size="sm" variant="outline" onClick={() => addListPrefix('number')}><ListOrdered className="mr-1 h-4 w-4" />Numbers</Button></div></div>
+        <Textarea ref={bodyRef} id="alert-message" value={editing.body} maxLength={4000} rows={6} onChange={e => update({ body: e.target.value })} />
+        <p className="text-xs text-muted-foreground">Start a line with "- " for a bullet or "1. " for a numbered step.</p></div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2"><Label>Button action</Label><Select value={editing.action_kind} onValueChange={action_kind => update({ action_kind, action_value: null })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Acknowledge</SelectItem><SelectItem value="theme">Apply theme</SelectItem><SelectItem value="link">Open page or link</SelectItem></SelectContent></Select></div>
-        <div className="space-y-2"><Label htmlFor="alert-button">Button label</Label><Input id="alert-button" value={editing.action_label} onChange={e => update({ action_label: e.target.value })} /></div>
+        <div className="space-y-2"><Label>Button text</Label><Select value={customLabel || !ALERT_BUTTON_PRESETS.includes(editing.action_label) ? 'custom' : editing.action_label} onValueChange={v => { if (v === 'custom') { setCustomLabel(true); } else { setCustomLabel(false); update({ action_label: v }); } }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{ALERT_BUTTON_PRESETS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}<SelectItem value="custom">Custom…</SelectItem></SelectContent></Select>
+          {(customLabel || !ALERT_BUTTON_PRESETS.includes(editing.action_label)) && <Input id="alert-button" aria-label="Custom button text" placeholder="Type button text" maxLength={40} value={editing.action_label} onChange={e => update({ action_label: e.target.value })} />}</div>
       </div>
       {editing.action_kind === 'theme' && <div className="space-y-2"><Label>Theme</Label><Select value={editing.action_value || ''} onValueChange={action_value => update({ action_value })}><SelectTrigger><SelectValue placeholder="Choose theme" /></SelectTrigger><SelectContent>{ALERT_THEMES.map(theme => <SelectItem key={theme.value} value={theme.value}>{theme.label}</SelectItem>)}</SelectContent></Select></div>}
       {editing.action_kind === 'link' && <div className="space-y-2"><Label htmlFor="alert-link">Page or secure link</Label><Input id="alert-link" placeholder="/settings or https://…" value={editing.action_value || ''} onChange={e => update({ action_value: e.target.value })} /></div>}

@@ -26,3 +26,10 @@ describe('System Alerts safety and actions', () => {
     expect(videoEmbedUrl('https://example.com/embed')).toBeNull();
   });
 });
+import { alertBodyBlocks } from './systemAlerts';
+describe('alertBodyBlocks', () => {
+  it('turns dash and numbered lines into lists', () => {
+    expect(alertBodyBlocks('Hi\n- a\n- b\n1. one\n2. two')).toEqual([
+      { kind: 'p', lines: ['Hi'] }, { kind: 'ul', lines: ['a', 'b'] }, { kind: 'ol', lines: ['one', 'two'] }]);
+  });
+});
