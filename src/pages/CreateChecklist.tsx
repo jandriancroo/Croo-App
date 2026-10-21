@@ -106,7 +106,8 @@ export default function CreateChecklist() {
         dueByTime: parsed.dueByTime ?? '',
         lockUntilTime: savedLockTime,
         lockTimeEnabled: !!savedLockTime,
-        templateType: parsed.templateType ?? 'standard',
+        // Type comes only from the dialog choice (URL), never from an old draft.
+        templateType: initialType,
         selectedRoles: Array.isArray(parsed.selectedRoles) ? parsed.selectedRoles : [],
         selectedUserIds: Array.isArray(parsed.selectedUserIds) ? parsed.selectedUserIds : [],
         visibleDaysBeforeMonthEnd: typeof parsed.visibleDaysBeforeMonthEnd === 'number' ? parsed.visibleDaysBeforeMonthEnd : 7,
