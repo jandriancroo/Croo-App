@@ -7,7 +7,7 @@ import type { PromoBorder, PromoTrackerConfig } from '@/lib/promoTrackers';
 import { PromoBorderOverlay } from './PromoBorderOverlay';
 
 function BorderSample({ border, image, winner = false, closing = false }: { border?: PromoBorder | null; image?: string | null; winner?: boolean; closing?: boolean }) {
-  return <span className="block w-full overflow-visible p-2">
+  return <span className="block w-full overflow-hidden rounded-md p-2">
     <span className="relative block aspect-[370/220] w-full overflow-visible rounded-md bg-muted">
     {image && <img src={image} alt="" loading="lazy" className="absolute inset-0 h-full w-full rounded-[inherit] object-cover" />}
     <PromoBorderOverlay border={border} winner={winner} closing={closing} reducedMotion />
@@ -37,7 +37,7 @@ export function PromoBorderPicker({ config, onChange, image }: { config: PromoTr
           {PROMO_BORDER_STYLES.filter(s => s.group === group).map(s => <Button key={s.style} type="button" variant="ghost"
             aria-label={s.label} aria-pressed={border.style === s.style}
             onClick={() => onChange({ tracker_border: { style: s.style, color: s.style === 'string-lights' ? 'orange,purple' : s.style === 'neon' ? 'pink' : null } })}
-            className="h-auto min-w-0 flex-col justify-start gap-1 whitespace-normal rounded-lg p-1 text-center aria-pressed:bg-primary/10 aria-pressed:ring-2 aria-pressed:ring-primary [&_svg]:size-auto">
+            className="h-auto min-w-0 flex-col justify-start gap-1 whitespace-normal rounded-lg p-1 text-center aria-pressed:bg-primary/10 aria-pressed:ring-2 aria-pressed:ring-primary [&_svg]:size-full">
             <BorderSample border={{ style: s.style, color: s.style === border.style ? border.color : undefined }} image={image} />
             <span className="min-h-8 text-[11px] leading-4">{s.label}</span>
           </Button>)}
