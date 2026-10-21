@@ -121,7 +121,7 @@ export const PageTitle = React.memo(function PageTitle({
       <div className="min-h-10 md:min-h-11 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1 min-w-0">
           {leading && <div className="flex items-center shrink-0 -ml-2">{leading}</div>}
-          <Tag className="font-apple-system text-[22px] md:text-[29px] font-bold leading-none tracking-tight flex items-center gap-0 md:gap-3 min-w-0 my-0">
+          <Tag className="font-apple-system text-[22px] md:text-[29px] font-bold leading-[1.2] tracking-tight flex items-center gap-0 md:gap-3 min-w-0 my-0">
             <span
               aria-hidden
               className="hidden md:inline-block shrink-0 rounded-[2px]"
