@@ -333,17 +333,13 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
   };
   const longPressEnd = () => { if (pressTimer.current) { window.clearTimeout(pressTimer.current); pressTimer.current = null; } };
 
-  const circle = amber ? (
-    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--warning))] text-sm font-bold text-primary-foreground" aria-hidden>!</span>
-  ) : done ? (
-    ctx.canUndo(it.id) ? (
-      <button type="button" onClick={(e) => { e.stopPropagation(); ctx.undo(it.id); }} aria-label={`Undo ${it.question}`} className="-m-2 flex h-11 w-11 items-center justify-center">
-        <span className={cn('flex h-7 w-7 items-center justify-center rounded-full bg-[hsl(var(--success))] text-primary-foreground', flash && 'animate-in zoom-in-50 duration-300')}><Check className="h-4 w-4" strokeWidth={3} /></span>
-      </button>
-    ) : <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--success))] text-primary-foreground', flash && 'animate-in zoom-in-50 duration-300')} aria-hidden><Check className="h-4 w-4" strokeWidth={3} /></span>
-  )) : (
-    <span className="h-7 w-7 shrink-0 rounded-full border-2 border-muted-foreground/40" aria-hidden />
-  );
+  const doneDot = <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--success))] text-primary-foreground', flash && 'animate-in zoom-in-50 duration-300')} aria-hidden><Check className="h-4 w-4" strokeWidth={3} /></span>;
+  let circle: ReactNode;
+  if (amber) circle = <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--warning))] text-sm font-bold text-primary-foreground" aria-hidden>!</span>;
+  else if (done) circle = ctx.canUndo(it.id)
+    ? <button type="button" onClick={(e) => { e.stopPropagation(); ctx.undo(it.id); }} aria-label={`Undo ${it.question}`} className="-m-2 flex h-11 w-11 items-center justify-center">{doneDot}</button>
+    : doneDot;
+  else circle = <span className="h-7 w-7 shrink-0 rounded-full border-2 border-muted-foreground/40" aria-hidden />;
 
   const photos = done && photo ? ctx.photos(it) : [];
   const r = temp ? ctx.reading(it.id) : null;
