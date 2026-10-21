@@ -369,7 +369,7 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
         >
           <span className="flex shrink-0">{circle}</span>
           <span className="min-w-0 flex-1">
-            <Name it={it} ctx={ctx} className="block break-words text-[16px] font-semibold leading-[1.25] text-foreground" />
+            <Name it={it} ctx={ctx} className="block break-words text-[14px] font-semibold leading-[1.25] text-foreground" />
             {photos.length > 0 && (
               <span className="mt-[5px] flex flex-wrap gap-1">
                 {photos.map((u, i) => (
@@ -381,9 +381,9 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
             )}
           </span>
           {readingText && (
-            <span className={cn('shrink-0 text-right text-[16px] font-bold tabular-nums', badTemp ? 'text-destructive' : temp && r && r.temp == null && 'text-[hsl(var(--warning))]')}>{readingText}</span>
+            <span className={cn('shrink-0 text-right text-[15px] font-bold tabular-nums', badTemp ? 'text-destructive' : temp && r && r.temp == null && 'text-[hsl(var(--warning))]')}>{readingText}</span>
           )}
-          {who && <span className="w-[52px] shrink-0 whitespace-nowrap text-right text-[12px] font-medium text-muted-foreground">{timeOf(who.completedAt)}</span>}
+          {who && <span className="w-[52px] shrink-0 whitespace-nowrap text-right text-[11px] font-medium text-muted-foreground">{timeOf(who.completedAt)}</span>}
           {who && (
             <Avatar className="h-10 w-10 shrink-0">
               <AvatarImage src={who.profilePhoto || undefined} />
@@ -413,7 +413,7 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
       >
         <span className="flex shrink-0">{circle}</span>
         <span className="min-w-0 flex-1 pt-[3px]">
-          <Name it={it} ctx={ctx} className="block break-words text-[16px] font-semibold leading-[1.25] text-foreground" />
+          <Name it={it} ctx={ctx} className="block break-words text-[14px] font-semibold leading-[1.25] text-foreground" />
           {amber ? (
             <span className="mt-0.5 block text-sm text-[hsl(var(--warning))]">Photo saved. Type the temperature.</span>
           ) : (
@@ -780,7 +780,7 @@ function CompletedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
             <AvatarFallback className="bg-secondary text-sm font-semibold text-secondary-foreground">{initialsOf(c.fullName)}</AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <div className="break-words text-[15px] font-bold leading-tight">{c.fullName}</div>
+            <div className="break-words text-[15px] font-semibold leading-tight">{c.fullName}</div>
             <div className="text-[12.5px] text-muted-foreground">Completed {completedWhen(c.completedAt)}</div>
           </div>
         </div>
@@ -963,8 +963,8 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
       <section key={s.key} className="space-y-1.5">
         {(s.label || ctx.sections.length > 1) && (
           <div className="flex items-baseline justify-between px-1">
-            <span className="text-[12px] font-bold uppercase tracking-[0.06em] text-muted-foreground">{s.label || 'Tasks'}</span>
-            <span className="text-[12px] font-bold uppercase tracking-[0.06em] text-muted-foreground">{leftHere > 0 ? `${leftHere} left` : `${s.items.filter((x) => walkable(x) && !todo(x)).length} of ${s.items.filter(walkable).length}`}</span>
+            <span className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-muted-foreground">{s.label || 'Tasks'}</span>
+            <span className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-muted-foreground">{leftHere > 0 ? `${leftHere} left` : `${s.items.filter((x) => walkable(x) && !todo(x)).length} of ${s.items.filter(walkable).length}`}</span>
           </div>
         )}
         <div className="overflow-hidden rounded-2xl border bg-card">
@@ -1142,7 +1142,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
       <div className="flex items-center gap-2 pb-2 pt-7">
         <Button variant="ghost" size="icon" className="-ml-2 h-9 w-9 shrink-0" onClick={backToList} aria-label="Back to list"><ArrowLeft className="h-5 w-5" /></Button>
         <div className="min-w-0 flex-1">
-          <Name it={reviewCurrent} ctx={ctx} className="block break-words text-base font-bold leading-tight" />
+          <Name it={reviewCurrent} ctx={ctx} className="block break-words text-[15px] font-semibold leading-[1.25]" />
           <div className="text-xs text-muted-foreground">{sectionOf.get(reviewCurrent.id) || 'Tasks'} · {ctx.title}</div>
         </div>
         {reviewBad && <span className="shrink-0 rounded-full bg-destructive px-2.5 py-1 text-xs font-semibold text-destructive-foreground">Out of range</span>}
