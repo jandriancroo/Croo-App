@@ -559,7 +559,7 @@ export default function Dashboard() {
 
   const quickTasksContent = (
     <>
-    {showNudgeSection && <NudgeSection locationId={currentLocation?.id} className="mb-4" />}
+    {showNudgeSection && <NudgeSection locationId={currentLocation?.id} className="mb-5" />}
     <QuickTasksSection locationSettings={locationSettings} timezone={timezone} />
     </>
   );
@@ -640,7 +640,7 @@ export default function Dashboard() {
         cooldownMs={2 * 60 * 1000}
         onRefresh={handleRefresh}
       >
-          <div className="space-y-1 spookified-dashboard-content">
+          <div className="space-y-4 spookified-dashboard-content">
             <PageTitle
               color="teal"
               subtitle={dashSentence}
@@ -684,7 +684,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-5">
               {quickTasksContent}
               {dashboardContent}
               {!shouldUseRoleCubes && (

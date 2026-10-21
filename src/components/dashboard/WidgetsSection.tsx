@@ -642,7 +642,7 @@ export const WidgetsSection = memo(function WidgetsSection({
       case 'data-cubes': {
         if (dataCubes.length === 0 && trackerCubes.length === 0) return null;
         return (
-          <div key="data-cubes" className="flex flex-col gap-2.5">
+          <div key="data-cubes" className="flex flex-col gap-2">
             {promoBeforeCubes ? (
               <>
                 {renderPromoBlock()}
@@ -686,7 +686,7 @@ export const WidgetsSection = memo(function WidgetsSection({
   };
 
   return (
-    <div className="space-y-2.5 w-full">
+    <div className="space-y-5 w-full">
       {sectionOrder.map(section => renderSection(section))}
 
       {/* Add Data Cube Dialog - only for personal cubes */}
