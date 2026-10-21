@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { calculateCutoffHour } from "@/utils/timezoneUtils";
 import { nextActivationOptions, swapCadence } from "@/utils/checklistVersions";
+import { checklistScorePeriodKind } from "@/lib/taskHistory/schedule";
 
 interface Props {
   open: boolean;
