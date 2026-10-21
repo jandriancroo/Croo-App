@@ -29,7 +29,7 @@ export interface AssignmentInfo {
 export function badgeStyle(color?: string): CSSProperties | undefined {
   if (!color) return undefined;
   return {
-    backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`,
+    backgroundColor: `color-mix(in srgb, ${color} 15%, hsl(var(--card)))`,
     borderColor: `color-mix(in srgb, ${color} 45%, transparent)`,
     color: `color-mix(in srgb, ${color} 45%, hsl(var(--foreground)))`,
   };
