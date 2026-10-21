@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { whenInviteAllowed } from '@/lib/startupSequence';
-import { safeAlertLink, SystemAlert } from '@/lib/systemAlerts';
+import { safeAlertLink, systemAlertIsDeliverable, SystemAlert } from '@/lib/systemAlerts';
 import { syncChromeColor } from '@/utils/syncChrome';
 import { SystemAlertDialog } from './SystemAlertDialog';
 
@@ -34,6 +34,11 @@ export function SystemAlertsPopup() {
     if (!alert || !user || busy) return;
     setBusy(true);
     try {
+      const { data: current, error: readError } = await supabase.from('system_alerts').select('status').eq('id', alert.id).maybeSingle();
+      if (readError) throw readError;
+      if (!current || !systemAlertIsDeliverable(current.status)) {
+        setHandled(true); setOpen(false); return;
+      }
       const { error } = await supabase.from('system_alert_receipts').insert({ alert_id: alert.id, user_id: user.id, outcome });
       if (error && error.code !== '23505') throw error;
       setHandled(true); setOpen(false);

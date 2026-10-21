@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { safeAlertLink, validateSystemAlert, videoEmbedUrl } from './systemAlerts';
+import { safeAlertLink, systemAlertIsDeliverable, validateSystemAlert, videoEmbedUrl } from './systemAlerts';
 
 const alert = { title: 'New feature', body: 'Ready to try.', action_label: 'Got it', action_kind: 'none', action_value: null, video_url: null };
 describe('System Alerts safety and actions', () => {
+  it('delivers published alerts only; drafts and retired announcements never deliver', () => {
+    expect(systemAlertIsDeliverable('published')).toBe(true);
+    expect(systemAlertIsDeliverable('draft')).toBe(false);
+    expect(systemAlertIsDeliverable('retired')).toBe(false);
+  });
   it('supports theme alerts with existing themes only', () => {
     expect(validateSystemAlert({ ...alert, action_kind: 'theme', action_value: 'spookified' })).toBeNull();
     expect(validateSystemAlert({ ...alert, action_kind: 'theme', action_value: 'unknown' })).toBe('Choose a theme.');

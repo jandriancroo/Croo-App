@@ -8,8 +8,13 @@ export const ALERT_THEMES = [
 ];
 
 export function safeAlertLink(value: string): boolean {
+  if (value.includes('\\') || !(/^(https:\/\/|\/)/.test(value))) return false;
   if (/^\/[^/\\]/.test(value) && !value.includes('\\')) return true;
   try { return new URL(value).protocol === 'https:'; } catch { return false; }
+}
+
+export function systemAlertIsDeliverable(status: string): boolean {
+  return status === 'published';
 }
 
 export function validateSystemAlert(alert: Pick<SystemAlert, 'title' | 'body' | 'action_kind' | 'action_value' | 'action_label' | 'video_url'>): string | null {
