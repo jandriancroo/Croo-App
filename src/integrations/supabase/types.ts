@@ -6606,18 +6606,24 @@ export type Database = {
         Row: {
           actual_pct: number | null
           business_date: string
+          checkpoint: string
           closers: Json
           filled_at: string | null
           final_labor_dollars: number | null
           final_sales: number | null
           location_id: string
+          plain_dollars: number | null
           plain_miss: number | null
           plain_pct: number | null
           pos_miss: number | null
           pos_pct: number | null
           sales_pace_at_snapshot: number | null
+          scheduled_dollars: number | null
+          scheduled_miss: number | null
+          scheduled_pct: number | null
           smart_close_enabled: boolean
           smart_close_minutes: number | null
+          smart_dollars: number | null
           smart_miss: number | null
           smart_pct: number | null
           snapshot_at: string
@@ -6625,18 +6631,24 @@ export type Database = {
         Insert: {
           actual_pct?: number | null
           business_date: string
+          checkpoint?: string
           closers?: Json
           filled_at?: string | null
           final_labor_dollars?: number | null
           final_sales?: number | null
           location_id: string
+          plain_dollars?: number | null
           plain_miss?: number | null
           plain_pct?: number | null
           pos_miss?: number | null
           pos_pct?: number | null
           sales_pace_at_snapshot?: number | null
+          scheduled_dollars?: number | null
+          scheduled_miss?: number | null
+          scheduled_pct?: number | null
           smart_close_enabled: boolean
           smart_close_minutes?: number | null
+          smart_dollars?: number | null
           smart_miss?: number | null
           smart_pct?: number | null
           snapshot_at: string
@@ -6644,18 +6656,24 @@ export type Database = {
         Update: {
           actual_pct?: number | null
           business_date?: string
+          checkpoint?: string
           closers?: Json
           filled_at?: string | null
           final_labor_dollars?: number | null
           final_sales?: number | null
           location_id?: string
+          plain_dollars?: number | null
           plain_miss?: number | null
           plain_pct?: number | null
           pos_miss?: number | null
           pos_pct?: number | null
           sales_pace_at_snapshot?: number | null
+          scheduled_dollars?: number | null
+          scheduled_miss?: number | null
+          scheduled_pct?: number | null
           smart_close_enabled?: boolean
           smart_close_minutes?: number | null
+          smart_dollars?: number | null
           smart_miss?: number | null
           smart_pct?: number | null
           snapshot_at?: string
@@ -15748,6 +15766,13 @@ export type Database = {
         Returns: undefined
       }
       _labor_sales_band: { Args: { _pct: number }; Returns: string }
+      _labor_scheduled_labor: {
+        Args: { _date: string; _location_id: string }
+        Returns: {
+          dollars: number
+          pct: number
+        }[]
+      }
       _labor_smart_close_adjust: {
         Args: {
           _now: string
@@ -16410,6 +16435,10 @@ export type Database = {
       }
       get_labor_pace: {
         Args: { _date?: string; _location_id: string }
+        Returns: Json
+      }
+      get_labor_pace_report: {
+        Args: { _from: string; _location_id: string; _to: string }
         Returns: Json
       }
       get_labor_pace_scorecard: {

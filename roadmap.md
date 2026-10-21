@@ -229,3 +229,7 @@
 - [x] Backtest plain vs current vs +position at Hemet/PS/PD incl. <10-close closers: position did NOT win (tied overall, worse for new closers) — kept off behind use_position flag; Hemet stays on 3-layer
 - [x] Scorecard: pos_pct/pos_miss columns added; snapshot skips stores with no punch data that day
 - [x] Habits rebuilt with position rows; all checks pass; Hemet live closers reported per layer
+
+## Labor pace scorecard upgrade — Oct 21 (Jordan)
+- [x] Migration 0053/0054: checkpoint column + new PK, _labor_scheduled_labor, snapshot/fill rewrites, get_labor_pace_report
+- [x] Hourly cron (job 676) unchanged — function snapshots at 11/2/5/7/9 store time; checks pass; Hemet sample verified
