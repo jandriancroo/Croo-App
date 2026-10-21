@@ -395,7 +395,7 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
 function PhotoSlot({ url, label, onTake, uploading, onPreview, active, onRetake }: { url?: string; label: string; onTake: (f: File) => void; uploading?: boolean; onPreview?: () => void; active?: boolean; onRetake?: (f: File) => void }) {
   if (url) {
     return (
-      <div className="relative aspect-square overflow-hidden rounded-xl border">
+      <div className="relative aspect-square max-h-[30vh] w-full overflow-hidden rounded-xl border">
         <button type="button" className="block h-full w-full" onClick={onPreview} aria-label="See photo full size">
           <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
         </button>
@@ -410,14 +410,14 @@ function PhotoSlot({ url, label, onTake, uploading, onPreview, active, onRetake 
   }
   if (uploading && active) {
     return (
-      <div className="flex aspect-square flex-col items-center justify-center rounded-xl border-2 border-dashed border-primary/50 bg-primary/5">
+      <div className="flex aspect-square max-h-[30vh] w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-primary/50 bg-primary/5">
         <div className="mb-1 h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <span className="text-xs text-primary">Uploading…</span>
       </div>
     );
   }
   const body = (
-    <div className={cn('flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed', active ? 'border-primary/50 text-primary' : 'border-muted-foreground/30 text-muted-foreground')}>
+    <div className={cn('flex aspect-square max-h-[30vh] min-h-24 w-full flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed', active ? 'border-primary/50 text-primary' : 'border-muted-foreground/30 text-muted-foreground')}>
       <Camera className="h-6 w-6" />
       <span className="text-sm font-medium">{label}</span>
     </div>
@@ -517,7 +517,7 @@ function GuidedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
             <img src={shot} alt="Your temperature photo" className="max-h-72 w-full object-cover" />
           </button>
         ) : (
-          <div className="[&_.aspect-square]:aspect-[4/3]"><PhotoSlot label="Take photo" active uploading={ctx.uploading(it.id)} onTake={(f) => ctx.upload(it.id, f)} /></div>
+          <div className="[&_.aspect-square]:aspect-[4/3] [&_.aspect-square]:max-h-[22vh]"><PhotoSlot label="Take photo" active uploading={ctx.uploading(it.id)} onTake={(f) => ctx.upload(it.id, f)} /></div>
         )}
         {(shot || has) && (
           <div className={cn('flex items-center justify-between gap-3 rounded-xl p-3',
@@ -933,8 +933,8 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
       ) : (
         <>
           {card}
-          {navRow}
-          <p className="text-center text-sm text-muted-foreground">Skipped tasks stay on your list.</p>
+          <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+88px)] z-20 -mx-1 rounded-2xl border bg-background/95 p-2 backdrop-blur">{navRow}</div>
+          <p className="pb-24 text-center text-sm text-muted-foreground">Skipped tasks stay on your list.</p>
         </>
       )}
     </div>
