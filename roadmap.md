@@ -8,4 +8,5 @@
 - Verified phone/desktop 220px hero, save/reopen and restore, tappable periods, paused/reduced motion, and 13 passing promo tests.
 
 ## Up next
-- Nothing open
+- Phase B correction: move all borders to the outer edge with clear space and unclipped overflow; keep existing settings and motion.
+- Match seven strand/seasonal styles to "borders v2: outside and overlaying" — waiting for Jordan's PDF upload.
