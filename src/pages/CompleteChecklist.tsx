@@ -1666,7 +1666,7 @@ export default function CompleteChecklist() {
                       <TempReadingChip
                         temp={responsesWithCompleters[item.id]?.extractedTemperature}
                         valid={responsesWithCompleters[item.id]?.temperatureValid}
-                        canEdit={!isSubmitted}
+                        canEdit
                         onEdit={() => {
                           const t = responsesWithCompleters[item.id]?.extractedTemperature;
                           setManualTempValue(prev => ({ ...prev, [item.id]: t != null ? String(t) : '' }));
@@ -2017,7 +2017,7 @@ export default function CompleteChecklist() {
                                 Cancel
                               </Button>
                             </div>
-                          ) : !hasResponse && !isSubmitted ? (
+                          ) : !hasResponse ? (
                             <div className="flex items-center gap-2">
                               <span className="text-sm text-muted-foreground">Temperature</span>
                               <TempReadingChip
