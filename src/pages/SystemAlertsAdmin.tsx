@@ -107,5 +107,5 @@ export default function SystemAlertsAdmin() {
     </div>}
     <SystemAlertDialog alert={preview} open={!!preview} onDismiss={() => setPreview(null)} onAction={() => setPreview(null)} />
     <AlertDialog open={!!publishing} onOpenChange={open => { if (!open && !busy) setPublishing(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Ship this system alert?</AlertDialogTitle><AlertDialogDescription>{publishing?.audience === 'all' ? 'Everyone will see this once when they next open Dash.' : 'Only you will see this test alert on Dash.'} Retiring it stops future delivery.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={e => { e.preventDefault(); if (publishing) void changeStatus(publishing, 'published'); }}>Ship alert</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-  </div></Layout>;
+  </div></div></Layout>;
 }
