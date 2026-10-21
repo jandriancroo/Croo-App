@@ -88,7 +88,7 @@ function ItemRow({ item, id, selected, inSection, onSelect, showAmPm }: {
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
         'relative flex items-stretch border-b border-border last:border-b-0',
-        isSection ? 'bg-muted' : selected ? 'bg-accent' : 'bg-card',
+        isSection ? 'bg-muted' : selected ? 'bg-primary/10' : 'bg-card',
         isDragging && 'z-50 opacity-60',
       )}
     >
