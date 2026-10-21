@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { decideTemperature } from './temperatureDecision';
+import { decideTemperature } from '../../supabase/functions/ai-extraction-service/temperatureDecision';
 
 describe('thermometer reading decision', () => {
   it('agreeing reads: averaged, confirmed', () =>
