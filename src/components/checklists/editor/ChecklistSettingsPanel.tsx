@@ -44,7 +44,7 @@ function SettingRow({ label, helper, control, htmlFor, divider }: { label: strin
   );
 }
 
-const TYPE_LABEL: Record<TemplateType, string> = { standard: 'Standard', dynamic: 'Dynamic Calendar', training: 'Training' };
+const TYPE_LABEL: Record<TemplateType, string> = { standard: 'Standard', dynamic: 'Dynamic', training: 'Training' };
 
 export function ChecklistSettingsPanel({ value: s, onChange, templateTypeOptions, locationId, storeToday, availablePositions, singleDayHint, wide }: Props) {
   const isTraining = s.templateType === 'training';
