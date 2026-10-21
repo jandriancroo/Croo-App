@@ -43,6 +43,7 @@ import { ManagerApprovalItem } from '@/components/tasks/ManagerApprovalItem';
 import { ChecklistLinkDialog } from '@/components/tasks/ChecklistLinkDialog';
 import { parseLinkRefs, type ChecklistLinkRef } from '@/lib/checklistLinks';
 import { InlineVideoPlayer } from '@/components/ui/inline-video-player';
+import { ChecklistRunView, type RunCtx, type RunSection } from '@/components/checklists/run/ChecklistRunView';
 
 interface ChecklistItem {
   id: string;
@@ -77,27 +78,6 @@ const shortName = (full?: string | null) => {
   const parts = (full || '').trim().split(/\s+/);
   return parts[0] ? `${parts[0]}${parts[1] ? ` ${parts[1][0]}.` : ''}` : 'Unknown';
 };
-
-/** One control for every reading: the number (or "?" when none) plus the same edit button. */
-function TempReadingChip({ temp, valid, onEdit, canEdit }: { temp: number | null | undefined; valid: boolean | null | undefined; onEdit: () => void; canEdit: boolean }) {
-  const has = temp != null;
-  return (
-    <span className="inline-flex items-center gap-1.5 shrink-0">
-      {!has ? (
-        <Badge variant="secondary" className="text-xs tabular-nums" aria-label="No reading">?°F</Badge>
-      ) : valid === false ? (
-        <Badge variant="destructive" className="text-xs tabular-nums"><ThumbsDown className="h-3 w-3 mr-1" />{Number(temp).toFixed(1)}°F</Badge>
-      ) : (
-        <Badge className="text-xs tabular-nums bg-green-600"><ThumbsUp className="h-3 w-3 mr-1" />{Number(temp).toFixed(1)}°F</Badge>
-      )}
-      {canEdit && (
-        <Button type="button" size="icon-sm" onClick={(e) => { e.stopPropagation(); onEdit(); }} aria-label={has ? 'Edit temperature' : 'Enter temperature'}>
-          <Pencil className="h-3.5 w-3.5" />
-        </Button>
-      )}
-    </span>
-  );
-}
 
 interface ResponseWithCompleter {
   responseId: string;
@@ -214,9 +194,9 @@ export default function CompleteChecklist() {
   const hideCompletedKey = `hideCompleted_${id}`;
   const [hideCompleted, setHideCompleted] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(hideCompletedKey) === 'true';
+      return localStorage.getItem(hideCompletedKey) !== 'false';
     }
-    return false;
+    return true;
   });
 
   // Toggle hide completed and persist to localStorage
@@ -224,9 +204,9 @@ export default function CompleteChecklist() {
     const newValue = !hideCompleted;
     setHideCompleted(newValue);
     if (newValue) {
-      localStorage.setItem(hideCompletedKey, 'true');
-    } else {
       localStorage.removeItem(hideCompletedKey);
+    } else {
+      localStorage.setItem(hideCompletedKey, 'false');
     }
   };
 
@@ -1323,781 +1303,164 @@ export default function CompleteChecklist() {
     );
   }
 
-  return <Layout>
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div>
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold">{checklist.title}</h2>
-            <Badge variant={completionPercentage === 100 ? "default" : "secondary"} className="text-xs px-2 py-0.5">
-              {completionPercentage}%
-            </Badge>
-          </div>
-          {checklist.description && <p className="text-xs text-muted-foreground">{checklist.description}</p>}
-          
-          {/* Toggles */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2">
-            <div className="flex items-center gap-2">
-              <Switch
-                id="hide-completed"
-                checked={hideCompleted}
-                onCheckedChange={toggleHideCompleted}
-              />
-              <Label htmlFor="hide-completed" className="text-sm text-muted-foreground cursor-pointer">
-                Hide completed
-              </Label>
-            </div>
-            
-            {/* Position filter toggle — only show when position filtering is enabled and user has a position */}
-            {checklist?.position_filtering_enabled && hasMatchSource && (
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="position-filter"
-                  checked={showOnlyMyPosition}
-                  onCheckedChange={(checked) => {
-                    setShowOnlyMyPosition(checked);
-                    if (checked) {
-                      localStorage.setItem(posFilterKey, 'true');
-                    } else {
-                      localStorage.setItem(posFilterKey, 'false');
-                    }
-                  }}
-                />
-                <Label htmlFor="position-filter" className="text-sm text-muted-foreground cursor-pointer">
-                  My tasks{myGroupMatch ? ` (${stationMode ? (locationStations.find((x) => x.id === myGroupMatch)?.name ?? 'my station') : formatPositionLabel(myGroupMatch)})` : ''}
-                </Label>
-              </div>
-            )}
-          </div>
-        </div>
+  // ---------- Phase E: list first, guided on tap ----------
+  const isTempItem = (it: ChecklistItem) => it.item_type === 'temperature' || ((it.item_type === 'image' || it.item_type === 'PHOTO') && it.requires_temperature_validation === true);
+  const isItemDone = (item: ChecklistItem): boolean => {
+    if (item.item_type === 'section_header' || item.item_type === 'manager_approval') return false;
+    const isImg = item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature';
+    if (isImg) return isMultiPhotoComplete(item, responses[item.id]);
+    if (item.item_type === 'text' || item.item_type === 'number') {
+      const v = responsesWithCompleters[item.id]?.value;
+      return v !== undefined && v !== '' && v !== null;
+    }
+    if (item.item_type === 'confirmation' || item.item_type === 'CHECKMARK' || item.item_type === 'CHECKBOX') return responses[item.id] === true;
+    return responses[item.id] !== undefined && responses[item.id] !== '' && responses[item.id] !== null;
+  };
+  const photosFor = (it: ChecklistItem) => getPhotosForItem(it.id).filter((p) => typeof p === 'string' && (p.startsWith('http') || p.startsWith('blob:')));
+  const answerable = items.filter((it) => it.item_type !== 'section_header' && it.item_type !== 'manager_approval');
+  const doneCount = answerable.filter(isItemDone).length;
 
-        <div className="space-y-3">
-          {(() => {
-            // Filter items based on hideCompleted
-            let filteredItems = items.filter(item => {
-              if (!hideCompleted) return true;
-              const isImageItem = item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature';
-              const hasResponse = isImageItem 
-                ? isMultiPhotoComplete(item, responses[item.id])
-                : (item.item_type === 'text' || item.item_type === 'number')
-                ? responsesWithCompleters[item.id]?.value !== undefined && responsesWithCompleters[item.id]?.value !== '' && responsesWithCompleters[item.id]?.value !== null
-                : responses[item.id] !== undefined && responses[item.id] !== '' && responses[item.id] !== null;
-              return !hasResponse;
-            });
+  const runSections: RunSection[] = (() => {
+    let list = items;
+    const hasPositionFiltering = !!checklist?.position_filtering_enabled;
+    if (hasPositionFiltering && hasMatchSource && showOnlyMyPosition) list = list.filter(itemMatchesMe);
+    // Groups on: a section header joins the group of the task below it and shows only if one of its tasks shows.
+    const headerPlacement = hasPositionFiltering ? placeSectionHeaders(items) : null;
+    const itemById = new Map(items.map((it) => [it.id, it]));
+    const effGroup = (it: ChecklistItem) => {
+      const anchorId = it.item_type === 'section_header' ? headerPlacement?.get(it.id)?.anchorId : null;
+      const anchor = anchorId ? itemById.get(anchorId) : undefined;
+      return itemGroup(anchor ?? it);
+    };
+    if (headerPlacement) {
+      const shownIds = new Set(list.map((it) => it.id));
+      list = list.filter((it) => {
+        if (it.item_type !== 'section_header') return true;
+        const pl = headerPlacement.get(it.id);
+        if (!pl || !pl.anchorId) return false;
+        return pl.taskIds.length === 0 ? shownIds.has(pl.anchorId) : pl.taskIds.some((tid) => shownIds.has(tid));
+      });
+    }
+    const stationOrder = new Map(locationStations.map((station, index) => [`station:${station.id}`, index]));
+    if (hasPositionFiltering) {
+      list = [...list].sort((a, b) => {
+        const ga = effGroup(a), gb = effGroup(b);
+        if (ga.tier !== gb.tier) return ga.tier - gb.tier;
+        if (ga.key !== gb.key) {
+          const aStation = stationOrder.get(ga.key), bStation = stationOrder.get(gb.key);
+          if (aStation !== undefined && bStation !== undefined && aStation !== bStation) return aStation - bStation;
+          return ga.label.localeCompare(gb.label);
+        }
+        return (a.order_index || 0) - (b.order_index || 0);
+      });
+    }
+    const hasAmPm = !!checklist?.enable_am_pm_division;
+    const hasHeaders = list.some((i) => i.item_type === 'section_header');
+    if (hasAmPm && !hasHeaders) {
+      const order: Record<string, number> = { am: 0, pm: 1 };
+      list = [...list].sort((a, b) => {
+        const ao = order[a.manager_shift ?? ''] ?? 2, bo = order[b.manager_shift ?? ''] ?? 2;
+        return ao !== bo ? ao - bo : (a.order_index || 0) - (b.order_index || 0);
+      });
+    }
+    const out: RunSection[] = [];
+    let cur: RunSection | null = null;
+    let posKey: string | undefined;
+    let shiftKey: string | undefined;
+    let n = 0;
+    const startNew = (label: string) => { cur = { key: `s${n++}`, label, items: [] }; out.push(cur); };
+    for (const it of list) {
+      let posLabel: string | null = null;
+      if (hasPositionFiltering) {
+        const g = effGroup(it);
+        if (g.key !== posKey) { posKey = g.key; posLabel = g.label; }
+      }
+      if (it.item_type === 'section_header') {
+        startNew(it.question || 'Section');
+        continue;
+      }
+      if (hasAmPm && !hasHeaders) {
+        const sk = it.manager_shift === 'am' ? 'AM tasks' : it.manager_shift === 'pm' ? 'PM tasks' : 'Any shift';
+        if (sk !== shiftKey) { shiftKey = sk; startNew(posLabel ? `${posLabel} · ${sk}` : sk); posLabel = null; }
+      }
+      if (posLabel) startNew(posLabel);
+      if (!cur) startNew('');
+      cur!.items.push(it);
+    }
+    return out.filter((s) => s.items.length > 0);
+  })();
 
-            // Position filtering: if enabled and user has position and toggle is on, filter
-            const hasPositionFiltering = checklist?.position_filtering_enabled;
-            if (hasPositionFiltering && hasMatchSource && showOnlyMyPosition) {
-              filteredItems = filteredItems.filter(itemMatchesMe);
-            }
+  const businessDateStr = dateParam || `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}-${String(viewDate.getDate()).padStart(2, '0')}`;
+  const prepEl = (item: ChecklistItem) => (
+    <PrepListComplete
+      itemId={item.id}
+      submissionId={submissionId}
+      locationId={currentLocation?.id || checklist?.location_id || null}
+      businessDate={businessDateStr}
+      userId={user?.id || null}
+      onAllFilledChange={(filled) => {
+        setResponses(prev => {
+          const cur = prev[item.id];
+          const next = filled ? 'prep_list_complete' : undefined;
+          if (cur === next) return prev;
+          const copy = { ...prev };
+          if (filled) copy[item.id] = 'prep_list_complete';
+          else delete copy[item.id];
+          return copy;
+        });
+      }}
+    />
+  );
 
-            // Groups on: a section header joins the group of the task below it and shows only if one of its tasks shows.
-            const headerPlacement = hasPositionFiltering ? placeSectionHeaders(items) : null;
-            const itemById = new Map(items.map((it) => [it.id, it]));
-            const effGroup = (it: ChecklistItem) => {
-              const anchorId = it.item_type === 'section_header' ? headerPlacement?.get(it.id)?.anchorId : null;
-              const anchor = anchorId ? itemById.get(anchorId) : undefined;
-              return itemGroup(anchor ?? it);
-            };
-            if (headerPlacement) {
-              const shownIds = new Set(filteredItems.map((it) => it.id));
-              filteredItems = filteredItems.filter((it) => {
-                if (it.item_type !== 'section_header') return true;
-                const pl = headerPlacement.get(it.id);
-                if (!pl || !pl.anchorId) return false;
-                return pl.taskIds.length === 0 ? shownIds.has(pl.anchorId) : pl.taskIds.some((tid) => shownIds.has(tid));
-              });
-            }
-
-            const groupCounts = new Map<string, number>();
-            for (const item of items) {
-              if (item.item_type === 'section_header') continue;
-              const key = itemGroup(item).key;
-              groupCounts.set(key, (groupCounts.get(key) ?? 0) + 1);
-            }
-            const stationOrder = new Map(locationStations.map((station, index) => [`station:${station.id}`, index]));
-
-            // If position filtering is enabled, sort/group by position
-            if (hasPositionFiltering) {
-              filteredItems = [...filteredItems].sort((a, b) => {
-                const ga = effGroup(a), gb = effGroup(b); // General last
-                if (ga.tier !== gb.tier) return ga.tier - gb.tier;
-                if (ga.key !== gb.key) {
-                  const aStation = stationOrder.get(ga.key), bStation = stationOrder.get(gb.key);
-                  if (aStation !== undefined && bStation !== undefined && aStation !== bStation) return aStation - bStation;
-                  return ga.label.localeCompare(gb.label);
-                }
-                return (a.order_index || 0) - (b.order_index || 0);
-              });
-            }
-
-            // If AM/PM division is enabled, sort and group items
-            // BUT: if the checklist uses section headers, respect the user's manual order
-            // (headers already define the grouping — auto-sort would break it)
-            const hasAmPmDivision = checklist?.enable_am_pm_division;
-            const hasSectionHeaders = filteredItems.some(i => i.item_type === 'section_header');
-            let sortedItems = filteredItems;
-            
-            if (hasAmPmDivision && !hasSectionHeaders) {
-              sortedItems = [...filteredItems].sort((a, b) => {
-                const shiftOrder = { 'am': 0, 'pm': 1, null: 2, undefined: 2 };
-                const aOrder = shiftOrder[a.manager_shift as keyof typeof shiftOrder] ?? 2;
-                const bOrder = shiftOrder[b.manager_shift as keyof typeof shiftOrder] ?? 2;
-                if (aOrder !== bOrder) return aOrder - bOrder;
-                return (a.order_index || 0) - (b.order_index || 0);
-              });
-            }
-
-            // Track position headers for dividers
-            let lastRenderedGroup: string | undefined = undefined;
-            let renderedDivider = false;
-            
-            return sortedItems.map((item, idx) => {
-              const showDivider = hasAmPmDivision && 
-                !hasSectionHeaders &&
-                !renderedDivider && 
-                item.manager_shift === 'pm' && 
-                sortedItems.some(i => i.manager_shift === 'am');
-              
-              if (showDivider) {
-                renderedDivider = true;
-              }
-
-              // Position section headers
-              const group = effGroup(item);
-              const showPositionHeader = hasPositionFiltering && group.key !== lastRenderedGroup;
-              if (showPositionHeader) {
-                lastRenderedGroup = group.key;
-              }
-
-              const c = group.color ?? 'hsl(var(--primary))';
-              const count = groupCounts.get(group.key) ?? 0;
-              const groupHeader = showPositionHeader && (
-                <div className={cn("flex items-center gap-3 mb-4", idx === 0 ? "" : "mt-4")}>
-                  <span className="inline-flex items-center gap-2 rounded-full pl-3 pr-3.5 py-1 text-base leading-6 font-semibold" style={{ backgroundColor: `color-mix(in srgb, ${c} 12%, transparent)`, color: `color-mix(in srgb, ${c} 70%, hsl(var(--foreground)))` }}>
-                    <span className="h-[9px] w-[9px] rounded-full shrink-0" style={{ backgroundColor: c }} />
-                    {group.label}
-                  </span>
-                  <span className="-ml-1 text-[13px] leading-5 font-medium text-muted-foreground whitespace-nowrap">{count} {count === 1 ? "task" : "tasks"}</span>
-                  <span className="flex-1 h-px" style={{ background: `linear-gradient(to right, color-mix(in srgb, ${c} 35%, transparent), transparent)` }} />
-                </div>
-              );
-
-          const completerInfo = responsesWithCompleters[item.id]?.completedBy;
-          const isImageItem = item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature';
-          const isTextEntryItem = item.item_type === 'text' || item.item_type === 'number';
-          const hasResponse = isImageItem 
-            ? isMultiPhotoComplete(item, responses[item.id])
-            : isTextEntryItem
-            ? responsesWithCompleters[item.id]?.value !== undefined && responsesWithCompleters[item.id]?.value !== '' && responsesWithCompleters[item.id]?.value !== null
-            : responses[item.id] !== undefined && responses[item.id] !== '' && responses[item.id] !== null;
-          const currentPhotos = isImageItem ? getPhotosForItem(item.id) : [];
-
-          if (item.item_type === 'section_header') {
-            return (
-              <div key={item.id} className="pt-4 pb-1 first:pt-0">
-                {groupHeader}
-                <h2 className="text-base font-semibold tracking-tight border-b border-border pb-1.5">
-                  {item.question || 'Section'}
-                </h2>
-              </div>
-            );
-          }
-
-          if (item.item_type === 'manager_approval') {
-            return (
-              <div key={item.id} className="pt-1">
-                {groupHeader}
-                <ManagerApprovalItem
-                  question={item.question}
-                  assignmentId={assignmentId}
-                  completionPercent={completionPercentage}
-                  currentUserId={user?.id}
-                  isApproverByRole={isAdmin || isManager || isShiftManager}
-                />
-              </div>
-            );
-          }
-
-
-          if (item.item_type === 'prep_list') {
-            const businessDate = dateParam || (() => {
-              const y = viewDate.getFullYear();
-              const m = String(viewDate.getMonth() + 1).padStart(2, '0');
-              const d = String(viewDate.getDate()).padStart(2, '0');
-              return `${y}-${m}-${d}`;
-            })();
-            return (
-              <div key={item.id} className="space-y-2">
-                {groupHeader}
-                <div className="px-1">
-                  <h3 className="text-sm font-medium">
-                    {item.question}
-                    {item.is_required && <span className="text-destructive ml-1">*</span>}
-                  </h3>
-                </div>
-                <div className="border-t border-border" />
-                <Card>
-                  <CardContent className="p-2">
-                    <PrepListComplete
-                      itemId={item.id}
-                      submissionId={submissionId}
-                      locationId={currentLocation?.id || checklist?.location_id || null}
-                      businessDate={businessDate}
-                      userId={user?.id || null}
-                      onAllFilledChange={(filled) => {
-                        setResponses(prev => {
-                          const cur = prev[item.id];
-                          const next = filled ? 'prep_list_complete' : undefined;
-                          if (cur === next) return prev;
-                          const copy = { ...prev };
-                          if (filled) copy[item.id] = 'prep_list_complete';
-                          else delete copy[item.id];
-                          return copy;
-                        });
-                      }}
-                    />
-                  </CardContent>
-                </Card>
-              </div>
-            );
-          }
-
-          return (
-            <div key={item.id}>
-              {groupHeader}
-              {showDivider && (
-                <div className="flex items-center gap-3 py-4 my-2">
-                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-500 to-transparent" />
-                  <span className="text-sm font-semibold text-blue-600 dark:text-blue-400 px-3 py-1 rounded-full bg-blue-100/50 dark:bg-blue-900/30">
-                    PM Tasks
-                  </span>
-                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-500 to-transparent" />
-                </div>
-              )}
-              
-              {/* Show AM label for first AM item */}
-              {hasAmPmDivision && idx === 0 && item.manager_shift === 'am' && (
-                <div className="flex items-center gap-3 pb-3 mb-2">
-                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
-                  <span className="text-sm font-semibold text-amber-600 dark:text-amber-400 px-3 py-1 rounded-full bg-amber-100/50 dark:bg-amber-900/30">
-                    AM Tasks
-                  </span>
-                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
-                </div>
-              )}
-              
-              <div className="space-y-2">
-              {/* Title above divider - never blurred */}
-              <div className="px-1 flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm font-medium">
-                  {/* Tags render inline, inside the sentence */}
-                  <ChecklistQuestionText
-                    text={item.question || ''}
-                    refs={parseLinkRefs((item as any).link_refs)}
-                    onOpen={(ref) => setActiveLink(ref)}
-                  />
-                  {item.is_required && <span className="text-destructive ml-1">*</span>}
-                </h3>
-                {item.manager_shift === 'am' && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-700">
-                    ☀ AM
-                  </span>
-                )}
-                {item.manager_shift === 'pm' && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border bg-indigo-900 text-indigo-100 border-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
-                    ☾ PM
-                  </span>
-                )}
-              </div>
-
-              
-              {/* Horizontal divider */}
-              <div className="border-t border-border" />
-              
-              {/* Card with content */}
-              <Card
-                className="overflow-hidden relative"
-                style={isImageItem ? { contentVisibility: 'auto', containIntrinsicSize: '1px 320px' } as React.CSSProperties : undefined}
-              >
-              {/* For completed image items — bottom bar with completion info (no blur overlay) */}
-              {hasResponse && isImageItem && (
-                <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-2 bg-background/90 border-t border-border px-3 py-2">
-                  {canUndoItem(item.id) ? (
-                    <button
-                      type="button"
-                      onClick={() => handleUndoClick(item.id)}
-                      aria-label={`Undo completion${completerInfo ? ` by ${completerInfo.fullName}` : ''}`}
-                      className="inline-flex items-center gap-2 min-w-0 max-w-full rounded-full border border-green-600/40 bg-green-50 dark:bg-green-950/40 px-2 py-1 active:scale-95 transition-transform"
-                    >
-                      <div className="shrink-0">
-                        <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      </div>
-                      {completerInfo && (
-                        <>
-                          <Avatar className="h-7 w-7 shrink-0">
-                            <AvatarImage src={completerInfo.profilePhoto || undefined} />
-                            <AvatarFallback className="text-[10px]">
-                              {completerInfo.fullName.split(' ').map(n => n[0]).join('')}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm font-medium truncate">
-                            {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
-                          </span>
-                        </>
-                      )}
-                    </button>
-                  ) : (
-                    <div className="inline-flex items-center gap-2 min-w-0 max-w-full rounded-full border border-green-600/40 bg-green-50 dark:bg-green-950/40 px-2 py-1">
-                      <div className="shrink-0">
-                        <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      </div>
-                      {completerInfo && (
-                        <>
-                          <Avatar className="h-7 w-7 shrink-0">
-                            <AvatarImage src={completerInfo.profilePhoto || undefined} />
-                            <AvatarFallback className="text-[10px]">
-                              {completerInfo.fullName.split(' ').map(n => n[0]).join('')}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm font-medium truncate">
-                            {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  )}
-                  {completerInfo && (
-                    <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-                      {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
-                    </span>
-                  )}
-
-                  {manualTempOpen[item.id] && (
-                    <div className="absolute inset-0 z-20 flex items-center gap-2 bg-background px-3">
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        placeholder="°F"
-                        autoFocus
-                        aria-label="Temperature in °F"
-                        className="h-9 w-24"
-                        value={manualTempValue[item.id] ?? ''}
-                        onChange={(e) => setManualTempValue(prev => ({ ...prev, [item.id]: e.target.value }))}
-                      />
-                      <Button size="sm" onClick={() => saveManualTemperature(item.id, manualTempValue[item.id] ?? '')}>Save</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setManualTempOpen(prev => ({ ...prev, [item.id]: false }))}>Cancel</Button>
-                    </div>
-                  )}
-                  {/* Temperature: same chip + edit button for every reading (or "?" when none) */}
-                  {(item.item_type === 'temperature' || item.requires_temperature_validation === true) && (
-                    <span className="ml-auto flex items-center gap-1.5 shrink-0">
-                      {responsesWithCompleters[item.id]?.tempEditedBy && (
-                        <span className="text-[10px] text-muted-foreground truncate max-w-[7rem]">Edited by {responsesWithCompleters[item.id]?.tempEditedBy}</span>
-                      )}
-                      <TempReadingChip
-                        temp={responsesWithCompleters[item.id]?.extractedTemperature}
-                        valid={responsesWithCompleters[item.id]?.temperatureValid}
-                        canEdit
-                        onEdit={() => {
-                          const t = responsesWithCompleters[item.id]?.extractedTemperature;
-                          setManualTempValue(prev => ({ ...prev, [item.id]: t != null ? String(t) : '' }));
-                          setManualTempOpen(prev => ({ ...prev, [item.id]: true }));
-                        }}
-                      />
-                    </span>
-                  )}
-                </div>
-              )}
-                
-                {/* Option C: For non-image items with response — inline completion row replaces content */}
-                {hasResponse && !isImageItem ? (
-                  <CardContent className="py-2">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        {canUndoItem(item.id) ? (
-                          <button
-                            type="button"
-                            onClick={() => handleUndoClick(item.id)}
-                            aria-label={`Undo completion${completerInfo ? ` by ${completerInfo.fullName}` : ''}`}
-                            className="inline-flex items-center gap-2 min-w-0 max-w-full rounded-full border border-green-600/40 bg-green-50 dark:bg-green-950/40 px-2 py-1 active:scale-95 transition-transform"
-                          >
-                            <div className="shrink-0">
-                              <CheckCircle2 className="h-5 w-5 text-green-600" />
-                            </div>
-                            {completerInfo && (
-                              <>
-                                <Avatar className="h-7 w-7 shrink-0">
-                                  <AvatarImage src={completerInfo.profilePhoto || undefined} />
-                                  <AvatarFallback className="text-[10px]">
-                                    {completerInfo.fullName.split(' ').map(n => n[0]).join('')}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm font-medium truncate">
-                                  {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
-                                </span>
-                              </>
-                            )}
-                          </button>
-                        ) : (
-                          <div className="inline-flex items-center gap-2 min-w-0 max-w-full rounded-full border border-green-600/40 bg-green-50 dark:bg-green-950/40 px-2 py-1">
-                            <div className="shrink-0">
-                              <CheckCircle2 className="h-5 w-5 text-green-600" />
-                            </div>
-                            {completerInfo && (
-                              <>
-                                <Avatar className="h-7 w-7 shrink-0">
-                                  <AvatarImage src={completerInfo.profilePhoto || undefined} />
-                                  <AvatarFallback className="text-[10px]">
-                                    {completerInfo.fullName.split(' ').map(n => n[0]).join('')}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm font-medium truncate">
-                                  {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        )}
-                        {completerInfo && (
-                          <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-                            {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
-                          </span>
-                        )}
-                      </div>
-
-                      {isTextEntryItem && (
-                        <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm whitespace-pre-wrap break-words">
-                          {String(responsesWithCompleters[item.id]?.value ?? responses[item.id] ?? '')}
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                ) : (
-                  <>
-                {/* Show non-image reference material in header (links, video, notes without ref image) */}
-                {!(hasResponse && isImageItem) && !( isImageItem && item.reference_image_url) && (item.reference_notes || item.reference_image_url || item.reference_link || item.reference_video_url) && (
-                <CardHeader className={`pb-3 ${hasResponse ? 'pointer-events-none sm:py-2' : ''}`}>
-                  <div className="space-y-2 bg-muted/30 p-2 rounded text-xs">
-                      {item.reference_notes && (
-                        <p className="text-muted-foreground whitespace-pre-wrap">{item.reference_notes}</p>
-                      )}
-                      
-                      {item.reference_image_url && <div className="space-y-1">
-                          <Badge variant="secondary" className="text-xs h-4 gap-1">
-                            <Eye className="h-2.5 w-2.5" />
-                            Reference Standard
-                          </Badge>
-                          <div 
-                            className="relative cursor-pointer group/ref" 
-                            onClick={() => setPreviewImage(item.reference_image_url!)}
-                          >
-                            <img src={item.reference_image_url} alt="Reference standard" loading="lazy" decoding="async" className="rounded max-h-36 object-cover border border-primary/20 shadow-sm" />
-                            <div className="absolute inset-0 bg-black/0 group-hover/ref:bg-black/10 transition-colors rounded flex items-center justify-center">
-                              <Eye className="h-5 w-5 text-white opacity-0 group-hover/ref:opacity-80 transition-opacity drop-shadow" />
-                            </div>
-                          </div>
-                        </div>}
-                      
-                      {item.reference_link && <div className="space-y-0.5">
-                          <Badge variant="secondary" className="text-xs h-4">Link</Badge>
-                          <a href={item.reference_link} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline block break-all">
-                            {item.reference_link}
-                          </a>
-                        </div>}
-                      
-                      {item.reference_video_url && <div className="space-y-1">
-                          <Badge variant="secondary" className="text-xs h-4">Video</Badge>
-                          <InlineVideoPlayer url={item.reference_video_url} title={item.question} />
-                        </div>}
-
-                    </div>
-                </CardHeader>
-                )}
-                <CardContent className={`${hasResponse && isImageItem ? 'p-0 pb-10' : 'pt-0 pb-2'} ${hasResponse && !isImageItem ? 'pointer-events-none' : ''}`}>
-                  {item.item_type === 'text' && (
-                    <div className="space-y-2">
-                      <Textarea
-                        value={responses[item.id] ?? ''}
-                        onChange={e => setResponses(prev => ({ ...prev, [item.id]: e.target.value }))}
-                        placeholder="Enter your response"
-                        required={item.is_required}
-                        className="min-h-[60px] text-sm"
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={!responses[item.id] || String(responses[item.id]).trim() === ''}
-                        onClick={() => autoSaveResponse(item.id, String(responses[item.id] ?? '').trim(), false)}
-                      >
-                        Submit
-                      </Button>
-                    </div>
-                  )}
-                  {item.item_type === 'number' && (
-                    <div className="space-y-2">
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        value={responses[item.id] ?? ''}
-                        onChange={e => setResponses(prev => ({ ...prev, [item.id]: e.target.value }))}
-                        placeholder="Enter a number"
-                        required={item.is_required}
-                        className="text-sm"
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={responses[item.id] === undefined || responses[item.id] === '' || responses[item.id] === null}
-                        onClick={() => autoSaveResponse(item.id, String(responses[item.id] ?? ''), false)}
-                      >
-                        Submit
-                      </Button>
-                    </div>
-                  )}
-                  {item.item_type === 'multiple_choice' && item.options && <RadioGroup value={responses[item.id] || ''} onValueChange={value => handleResponseChange(item.id, value)} required={item.is_required} className="space-y-1.5">
-                      {item.options.map(option => <div key={option} className="flex items-center space-x-2">
-                          <RadioGroupItem value={option} id={`${item.id}-${option}`} className="h-4 w-4" />
-                          <Label htmlFor={`${item.id}-${option}`} className="text-sm font-normal cursor-pointer">{option}</Label>
-                        </div>)}
-                    </RadioGroup>}
-                  {(item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature') && (() => {
-                    const minPhotos = getMinPhotos(item);
-                    const isMultiPhoto = minPhotos > 1;
-                    const isTempPhotoTask = (item.item_type === 'image' || item.item_type === 'PHOTO') && item.requires_temperature_validation === true;
-                    const showManualTemp = item.item_type === 'temperature';
-                    const currentPhotos = getPhotosForItem(item.id).filter(p => typeof p === 'string' && (p.startsWith('http') || p.startsWith('blob:')));
-                    const photosNeeded = Math.max(minPhotos - currentPhotos.length, 0);
-                    const showTempEntry = showManualTemp || (isTempPhotoTask && currentPhotos.length > 0);
-                    const savedTemp = responsesWithCompleters[item.id]?.extractedTemperature;
-                    const hasManualTemp = showManualTemp && responsesWithCompleters[item.id]?.extractedTemperature != null;
-                    const isComplete = currentPhotos.length >= minPhotos || hasManualTemp;
-
-                    const hasSplitView = !!item.reference_image_url && !isMultiPhoto;
-
-                    const isUploading = !!uploadingItems[item.id];
-
-                    return (
-                      <div className="space-y-3">
-                        {isMultiPhoto && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">
-                              {currentPhotos.length} / {minPhotos} photos uploaded
-                            </span>
-                            {isComplete && <CheckCircle2 className="h-4 w-4 text-green-600" />}
-                            {isUploading && (
-                              <span className="text-xs text-muted-foreground animate-pulse">Uploading…</span>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Split View: Reference on left, Camera/Photo on right */}
-                        {hasSplitView && !hasResponse ? (
-                          <div className="grid grid-cols-2 gap-3">
-                            {/* Left: Reference Standard */}
-                            <div className="space-y-1.5">
-                              <Badge variant="secondary" className="text-xs h-4 gap-1">
-                                <Eye className="h-2.5 w-2.5" />
-                                Standard
-                              </Badge>
-                              <div className="relative rounded-lg overflow-hidden border border-primary/20 bg-muted/20">
-                                <img 
-                                  src={item.reference_image_url} 
-                                  alt="Reference standard" 
-                                  loading="lazy"
-                                  decoding="async"
-                                  className="w-full aspect-square object-cover" 
-                                />
-                                <Button variant="ghost" size="icon-sm"
-                                 
-                                  onClick={() => setPreviewImage(item.reference_image_url!)}
-                                  className="[&_svg]:size-auto absolute top-1.5 right-1.5 bg-background/80 hover:bg-background shadow-sm"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                              </div>
-                              {item.reference_notes && (
-                                <p className="text-[10px] text-muted-foreground italic leading-tight line-clamp-2">📋 {item.reference_notes}</p>
-                              )}
-                            </div>
-
-                            {/* Right: Camera / Uploaded Photo */}
-                            <div className="space-y-1.5">
-                              <Badge variant="outline" className="text-xs h-4 gap-1">
-                                <Camera className="h-2.5 w-2.5" />
-                                Your Photo
-                              </Badge>
-                              {currentPhotos.length > 0 ? (
-                                <div className="relative rounded-lg overflow-hidden border">
-                                  <img
-                                    src={currentPhotos[0]}
-                                    alt="Your photo"
-                                    className="w-full aspect-square object-cover"
-                                    loading="lazy"
-                                    decoding="async"
-                                  />
-                                  <Button variant="ghost" size="icon-sm"
-                                   
-                                    onClick={() => setPreviewImage(currentPhotos[0])}
-                                    className="[&_svg]:size-auto absolute top-1.5 right-1.5 bg-background/80 hover:bg-background shadow-sm"
-                                  >
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              ) : isUploading ? (
-                                <div className="flex flex-col items-center justify-center aspect-square rounded-lg border-2 border-dashed border-primary/40 bg-primary/5">
-                                  <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin mb-1" />
-                                  <span className="text-[10px] text-primary">Uploading…</span>
-                                </div>
-                              ) : (
-                                <PhotoPickerButton
-                                  onFileSelected={(file) => handleImageUpload(item.id, file)}
-                                  className="block w-full"
-                                  disabled={isUploading}
-                                >
-                                  <div className="flex flex-col items-center justify-center aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/10 hover:bg-muted/20 transition-colors cursor-pointer">
-                                    <Camera className="h-8 w-8 text-muted-foreground mb-1" />
-                                    <span className="text-[10px] text-muted-foreground">Tap to snap</span>
-                                  </div>
-                                </PhotoPickerButton>
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                        {/* Display existing photos (non-split view) */}
-                        {currentPhotos.length > 0 && (
-                          <div className={`grid gap-2 ${isMultiPhoto ? 'grid-cols-3 sm:grid-cols-4' : 'grid-cols-1'}`}>
-                            {currentPhotos.map((photoUrl, idx) => (
-                              <div key={idx} className="relative group/photo cursor-pointer" onClick={() => setPreviewImage(photoUrl)}>
-                              <img
-                                  src={photoUrl}
-                                  alt={`Checklist photo ${idx + 1}`}
-                                  className={`object-cover w-full rounded ${isMultiPhoto ? 'border aspect-square' : 'h-32 sm:h-48 max-h-[240px]'}`}
-                                  loading="lazy"
-                                  decoding="async"
-                                />
-                                {isMultiPhoto && (
-                                  <div className="absolute top-1 left-1 bg-background/80 text-xs px-1.5 py-0.5 rounded">
-                                    {idx + 1}
-                                  </div>
-                                )}
-                                <Button variant="ghost" size="icon-sm"
-                                 
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setPreviewImage(photoUrl);
-                                  }}
-                                  className="[&_svg]:size-auto absolute top-2 right-2 bg-background/80 hover:bg-background shadow-sm"
-                                >
-                                  <Eye className="h-5 w-5" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Upload buttons */}
-                        {!isComplete && (
-                          <div className={`grid gap-2 ${isMultiPhoto && photosNeeded > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                            {Array.from({ length: isMultiPhoto ? photosNeeded : 1 }).map((_, idx) => {
-                              return (
-                                <div key={idx}>
-                                  {isUploading && idx === 0 ? (
-                                    <div className="flex items-center justify-center gap-2 min-h-[60px] rounded-lg border-2 border-dashed border-primary/40 bg-primary/5">
-                                      <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                                      <span className="text-xs text-primary">Uploading…</span>
-                                    </div>
-                                  ) : (
-                                    <PhotoPickerButton
-                                      onFileSelected={(file) => handleImageUpload(item.id, file)}
-                                      className="block w-full"
-                                      disabled={isUploading}
-                                    >
-                                      <div className="flex items-center justify-center min-h-[60px] cursor-pointer">
-                                        <Camera className="h-8 w-8 text-muted-foreground" />
-                                      </div>
-                                    </PhotoPickerButton>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                          </>
-                        )}
-
-
-                        {/* Number entry, opened from the temperature edit button */}
-                        {showTempEntry && !isUploading && (
-                          manualTempOpen[item.id] && !hasResponse ? (
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Input
-                                type="number"
-                                inputMode="decimal"
-                                placeholder="°F"
-                                autoFocus
-                                className="h-10 w-28"
-                                value={manualTempValue[item.id] ?? ''}
-                                onChange={(e) => setManualTempValue(prev => ({ ...prev, [item.id]: e.target.value }))}
-                              />
-                              <Button size="sm" onClick={() => saveManualTemperature(item.id, manualTempValue[item.id] ?? '')}>
-                                Save
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => setManualTempOpen(prev => ({ ...prev, [item.id]: false }))}>
-                                Cancel
-                              </Button>
-                            </div>
-                          ) : !hasResponse ? (
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-sm text-muted-foreground">Temperature</span>
-                              <TempReadingChip
-                                temp={savedTemp}
-                                valid={responsesWithCompleters[item.id]?.temperatureValid}
-                                canEdit
-                                onEdit={() => setManualTempOpen(prev => ({ ...prev, [item.id]: true }))}
-                              />
-                            </div>
-                          ) : null
-                        )}
-                      </div>
-                    );
-                  })()}
-                  {(item.item_type === 'confirmation' || item.item_type === 'CHECKMARK' || item.item_type === 'CHECKBOX') && (
-                    <div 
-                      className="flex items-center justify-center min-h-[72px] cursor-pointer group"
-                      onClick={() => handleResponseChange(item.id, !responses[item.id])}
-                    >
-                      <div className={cn(
-                        "flex items-center gap-3 px-6 py-3 rounded-xl transition-all duration-200",
-                        responses[item.id] 
-                          ? "bg-primary/10 text-primary" 
-                          : "bg-muted/50 text-muted-foreground hover:bg-muted group-active:scale-95"
-                      )}>
-                        <div className={cn(
-                          "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 shrink-0",
-                          responses[item.id] 
-                            ? "border-primary bg-primary" 
-                            : "border-muted-foreground/40"
-                        )}>
-                          {responses[item.id] && <Check className="h-3.5 w-3.5 text-primary-foreground" strokeWidth={3} />}
-                        </div>
-                        <span className="text-sm font-medium">
-                          {responses[item.id] ? 'Completed' : 'Tap to Complete'}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-                  </>
-                )}
-              </Card>
-              </div>
-            </div>
-          );
-            });
-          })()}
-
+  const runCtx: RunCtx = {
+    title: checklist.title,
+    description: checklist.description,
+    doneCount,
+    totalCount: answerable.length,
+    hideDone: hideCompleted,
+    setHideDone: (v) => { if (v !== hideCompleted) toggleHideCompleted(); },
+    myTasks: checklist?.position_filtering_enabled && hasMatchSource ? {
+      label: stationMode ? (locationStations.find((x) => x.id === myGroupMatch)?.name ?? 'my station') : formatPositionLabel(myGroupMatch),
+      on: showOnlyMyPosition,
+      set: (v) => { setShowOnlyMyPosition(v); localStorage.setItem(posFilterKey, v ? 'true' : 'false'); },
+    } : null,
+    sections: runSections,
+    isDone: (it) => isItemDone(it as ChecklistItem),
+    needsTemp: (it) => isTempItem(it as ChecklistItem) && photosFor(it as ChecklistItem).length > 0 && !uploadingItems[it.id] && responsesWithCompleters[it.id]?.extractedTemperature == null,
+    photos: (it) => photosFor(it as ChecklistItem),
+    minPhotos: (it) => getMinPhotos(it as ChecklistItem),
+    uploading: (id) => !!uploadingItems[id],
+    value: (id) => responses[id],
+    savedValue: (id) => responsesWithCompleters[id]?.value,
+    setValue: (id, v) => setResponses(prev => ({ ...prev, [id]: v })),
+    check: (id) => { if (responses[id] !== true) handleResponseChange(id, true); },
+    choose: (id, v) => { setResponses(prev => ({ ...prev, [id]: v })); autoSaveResponse(id, v, false); },
+    submit: (id, v) => autoSaveResponse(id, v, false),
+    upload: (id, file, index) => handleImageUpload(id, file, index),
+    reading: (id) => ({ temp: responsesWithCompleters[id]?.extractedTemperature, valid: responsesWithCompleters[id]?.temperatureValid, editedBy: responsesWithCompleters[id]?.tempEditedBy }),
+    tempOpen: (id) => !!manualTempOpen[id],
+    setTempOpen: (id, open) => setManualTempOpen(prev => ({ ...prev, [id]: open })),
+    tempValue: (id) => manualTempValue[id] ?? '',
+    setTempValue: (id, v) => setManualTempValue(prev => ({ ...prev, [id]: v })),
+    saveTemp: (id) => saveManualTemperature(id, manualTempValue[id] ?? ''),
+    completer: (id) => responsesWithCompleters[id]?.completedBy,
+    canUndo: (id) => !!responsesWithCompleters[id]?.responseId && canUndoItem(id),
+    undo: (id) => handleUndoClick(id),
+    preview: (url) => setPreviewImage(url),
+    openLink: (ref) => setActiveLink(ref),
+    renderPrep: (it) => prepEl(it as ChecklistItem),
+    renderApproval: (it) => (
+      <ManagerApprovalItem
+        question={it.question}
+        assignmentId={assignmentId}
+        completionPercent={completionPercentage}
+        currentUserId={user?.id}
+        isApproverByRole={isAdmin || isManager || isShiftManager}
+      />
+    ),
+    prepStatus: (it, skip) => (skip ? null : prepEl(it as ChecklistItem)),
+    footer: (
+      <div className="space-y-3 pt-2">
           {showNotes && (
             <Card>
               <CardHeader className="pb-3">
@@ -2123,7 +1486,14 @@ export default function CompleteChecklist() {
               </Button>
             </div>
           )}
-        </div>
+      </div>
+    ),
+    onBack: () => navigate(-1),
+  };
+
+  return <Layout>
+      <div className="-mx-1 md:mx-auto max-w-[1200px]">
+        <ChecklistRunView ctx={runCtx} />
 
         <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
           <DialogContent className="max-w-2xl">
