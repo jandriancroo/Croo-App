@@ -13,6 +13,8 @@ import { blankItem, duplicateItem, moveChecklistItems, type EditorItem } from '@
 import { ChecklistItemInspector, typeMeta } from './ChecklistItemInspector';
 import { ChecklistSettingsPanel } from './ChecklistSettingsPanel';
 import { useAssignmentLabeler } from '@/components/tasks/TaskAssigneePicker';
+import { AssignmentBadge } from '@/components/tasks/AssignmentBadge';
+import type { AssignmentInfo } from '@/lib/assignmentBadge';
 import type { ChecklistEditorSettings, TemplateType } from './types';
 
 export type EditorTab = 'items' | 'settings';
@@ -66,7 +68,7 @@ function useIsWide(ref: React.RefObject<HTMLElement>, min = 720) {
 function ItemRow({ item, id, selected, inSection, onSelect, showAmPm, assignText, wide }: {
   item: EditorItem; id: string; selected: boolean; inSection: boolean; onSelect: () => void; showAmPm: boolean;
   /** undefined = assignments off; null = unassigned ("Anyone"). */
-  assignText?: string | null; wide: boolean;
+  assignText?: AssignmentInfo; wide: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const isSection = item.item_type === 'section_header';
@@ -115,17 +117,14 @@ function ItemRow({ item, id, selected, inSection, onSelect, showAmPm, assignText
                 <span className={cn('block break-words line-clamp-2 text-[15px] leading-snug', selected ? 'font-bold' : 'font-semibold', !name && 'italic font-normal text-muted-foreground')}>
                   {name || 'Untitled task'}
                 </span>
-                {!wide && (assignText !== undefined || (showAmPm && item.manager_shift)) && (
-                  <span className={cn('mt-0.5 block break-words text-xs', assignText ? 'text-muted-foreground' : 'text-muted-foreground/60')}>
-                    {[assignText !== undefined ? (assignText ?? 'Anyone') : null, showAmPm && item.manager_shift ? item.manager_shift.toUpperCase() : null].filter(Boolean).join(' · ')}
+                {!wide && (assignText || (showAmPm && item.manager_shift)) && (
+                  <span className="mt-1 flex flex-wrap items-center gap-1.5">
+                    {assignText && <AssignmentBadge info={assignText} />}
+                    {showAmPm && item.manager_shift && <span className="text-xs font-medium text-muted-foreground">{item.manager_shift.toUpperCase()}</span>}
                   </span>
                 )}
               </span>
-              {wide && assignText !== undefined && (
-                <span className={cn('max-w-[40%] shrink-0 truncate rounded-full bg-muted px-2.5 py-1 text-xs font-medium', assignText ? 'text-muted-foreground' : 'text-muted-foreground/60')}>
-                  {assignText ?? 'Anyone'}
-                </span>
-              )}
+              {wide && assignText && <AssignmentBadge info={assignText} className="max-w-[40%] shrink-0" />}
               {wide && showAmPm && item.manager_shift && (
                 <span className="shrink-0 text-xs font-medium text-muted-foreground">{item.manager_shift.toUpperCase()}</span>
               )}

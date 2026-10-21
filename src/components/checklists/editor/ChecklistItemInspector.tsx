@@ -101,7 +101,7 @@ export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, o
   const assignRow = !isSection && showPosition && (
     <div>
       {label('Assigned to')}
-      <TaskAssigneePicker locationId={locationId} value={item} availablePositions={availablePositions} noneLabel="Anyone" className="h-11 w-full max-w-none border-solid px-3 text-sm" onChange={(next) => set(next as Partial<EditorItem>)} />
+      <TaskAssigneePicker locationId={locationId} value={item} availablePositions={availablePositions} noneLabel="Anyone" badges className="h-11 w-full max-w-none border-solid px-3 text-sm" onChange={(next) => set(next as Partial<EditorItem>)} />
     </div>
   );
 
