@@ -7,9 +7,11 @@ import type { PromoBorder, PromoTrackerConfig } from '@/lib/promoTrackers';
 import { PromoBorderOverlay } from './PromoBorderOverlay';
 
 function BorderSample({ border, image, winner = false, closing = false }: { border?: PromoBorder | null; image?: string | null; winner?: boolean; closing?: boolean }) {
-  return <span className="relative block aspect-[370/220] w-full overflow-hidden rounded-md bg-muted">
-    {image && <img src={image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />}
+  return <span className="block w-full overflow-visible p-2">
+    <span className="relative block aspect-[370/220] w-full overflow-visible rounded-md bg-muted">
+    {image && <img src={image} alt="" loading="lazy" className="absolute inset-0 h-full w-full rounded-[inherit] object-cover" />}
     <PromoBorderOverlay border={border} winner={winner} closing={closing} reducedMotion />
+    </span>
   </span>;
 }
 

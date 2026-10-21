@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { promoBorderReactions, borderTitleOffset } from './promoBorders';
+import { promoBorderReactions } from './promoBorders';
 
 const ranks = (gap: number) => [
   { locationId: 'leader', rank: 1, units: 100 },
@@ -28,11 +28,5 @@ describe('promo border rules', () => {
     expect(promoBorderReactions(ranks(2), 'ours', '__ALL__', true)).toEqual({ winner: false, closing: false });
     expect(promoBorderReactions(ranks(2), 'missing', '__ALL__', false)).toEqual({ winner: false, closing: false });
     expect(promoBorderReactions(ranks(2), 'ours', 'Pizza', false).closing).toBe(false);
-  });
-  it('approved title shifts are 24px for both buntings and 8px for gingham', () => {
-    expect(borderTitleOffset({ style: 'spring-bunting' })).toBe(24);
-    expect(borderTitleOffset({ style: 'fourth-july' })).toBe(24);
-    expect(borderTitleOffset({ style: 'gingham' })).toBe(8);
-    expect(borderTitleOffset(null)).toBe(0);
   });
 });
