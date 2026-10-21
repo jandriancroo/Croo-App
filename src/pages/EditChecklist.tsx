@@ -548,14 +548,9 @@ export default function EditChecklist() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-4 max-w-5xl [&>*:not(:first-child):not(:nth-child(2))]:mt-4">
-        <PageTitle color="teal" leading={
-          <Button variant="ghost" size="icon" onClick={leaveEditor} aria-label="Back">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        }>Edit Checklist</PageTitle>
-
+      <div className="-mx-1 md:mx-auto max-w-[1200px] pt-1 pb-4">
         <ChecklistEditor
+          fallbackTitle="Edit checklist"
           initialTab="items"
           settings={settings}
           onSettingsChange={patchSettings}
@@ -566,18 +561,16 @@ export default function EditChecklist() {
           storeToday={storeToday}
           availablePositions={availablePositions}
           uploadReference={uploadReference}
-          addPosition="top"
           minItems={0}
           singleDayHint="Shows only on this date, then moves to history."
           onCancel={leaveEditor}
           onSave={handleSave}
           saving={saving}
           saveLabel="Save"
+          saveLabelWide="Save changes"
           savingLabel="Saving..."
           notice={isDirty ? (
-            <div role="status" className="rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-medium text-foreground">
-              Unsaved changes — tap Save
-            </div>
+            <span role="status">Unsaved changes</span>
           ) : null}
         />
       </div>
