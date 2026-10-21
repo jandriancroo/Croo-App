@@ -317,7 +317,8 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
   };
   const longPressEnd = () => { if (pressTimer.current) { window.clearTimeout(pressTimer.current); pressTimer.current = null; } };
 
-  const doneDot = <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--success))] text-primary-foreground', flash && 'animate-in zoom-in-50 duration-300')} aria-hidden><Check className="h-3.5 w-3.5" strokeWidth={3} /></span>;
+  const badTemp = done && temp && !amber && ctx.reading(it.id).valid === false;
+  const doneDot = <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-primary-foreground', badTemp ? 'bg-destructive' : 'bg-[hsl(var(--success))]', flash && 'animate-in zoom-in-50 duration-300')} aria-hidden><Check className="h-3.5 w-3.5" strokeWidth={3} /></span>;
   let circle: ReactNode;
   if (amber) circle = <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--warning))] text-sm font-bold text-primary-foreground" aria-hidden>!</span>;
   else if (done) circle = ctx.canUndo(it.id)
@@ -327,7 +328,8 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
 
   const photos = done && photo && !temp ? ctx.photos(it) : [];
   const r = temp ? ctx.reading(it.id) : null;
-  const savedText = done && (it.item_type === 'text' || it.item_type === 'number' || it.item_type === 'multiple_choice') ? String(ctx.savedValue(it.id) ?? ctx.value(it.id) ?? '') : '';
+  const savedNum = done && it.item_type === 'number' ? String(ctx.savedValue(it.id) ?? ctx.value(it.id) ?? '') : '';
+  const who = done && !amber ? ctx.completer(it.id) : undefined;
 
   // Right side when not done.
   let right: ReactNode = null;
