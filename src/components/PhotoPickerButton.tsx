@@ -9,6 +9,8 @@ interface PhotoPickerButtonProps {
   disabled?: boolean;
   className?: string;
   libraryOnly?: boolean;
+  /** Skip the menu and open the camera or the library straight away. */
+  direct?: 'camera' | 'library';
 }
 
 /**
@@ -22,6 +24,7 @@ export function PhotoPickerButton({
   disabled,
   className,
   libraryOnly,
+  direct,
 }: PhotoPickerButtonProps) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number; placeAbove: boolean } | null>(null);
@@ -72,6 +75,8 @@ export function PhotoPickerButton({
     if (disabled) return;
     e.preventDefault();
     e.stopPropagation();
+    if (direct === 'camera') { cameraInputRef.current?.click(); return; }
+    if (direct === 'library') { libraryInputRef.current?.click(); return; }
     setOpen((o) => !o);
   };
 
