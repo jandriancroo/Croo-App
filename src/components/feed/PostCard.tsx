@@ -164,18 +164,18 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
               </span>
             </div>
             {/* Second row: badges */}
-            <div className="flex items-center gap-1.5 mt-1 min-w-0">
+            <div className="flex items-center gap-1 mt-1 min-w-0">
               {post.is_announcement && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-background text-foreground shadow-sm min-w-0"><span className="truncate">Announcement</span></span>
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-background text-foreground shadow-sm min-w-0"><span className="truncate">Announcement</span></span>
               )}
               {post.badge && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-background text-foreground shadow-sm min-w-0">
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-background text-foreground shadow-sm min-w-0">
                   <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: post.badge.color ?? 'hsl(var(--primary))' }} />
                   <span className="truncate">{post.badge.label}</span>
                 </span>
               )}
               {post.channel && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-background text-foreground shadow-sm min-w-0">
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-background text-foreground shadow-sm min-w-0">
                   <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: post.channel.color ?? 'hsl(var(--primary))' }} />
                   <span className="truncate">{post.channel.name}</span>
                 </span>
