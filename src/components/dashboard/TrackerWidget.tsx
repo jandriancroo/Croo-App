@@ -290,11 +290,14 @@ export function TrackerWidget({ promo }: TrackerWidgetProps) {
               <div className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <span className="w-6">Rank</span>
                 <span className="min-w-0 flex-1">Location</span>
-                <button type="button" onClick={() => setSortMetric('units')} className="flex w-16 items-center justify-end gap-0.5">
+                <button type="button" onClick={() => setSortMetric('units')} className="flex w-12 items-center justify-end gap-0.5">
                   Units {sortMetric === 'units' && <ArrowDown className="h-2.5 w-2.5" />}
                 </button>
-                <button type="button" onClick={() => setSortMetric('sales')} className="flex w-16 items-center justify-end gap-0.5">
+                <button type="button" onClick={() => setSortMetric('sales')} className="flex w-14 items-center justify-end gap-0.5">
                   Sales {sortMetric === 'sales' && <ArrowDown className="h-2.5 w-2.5" />}
+                </button>
+                <button type="button" onClick={() => setSortMetric('pmix')} className="flex w-12 items-center justify-end gap-0.5">
+                  PMIX {sortMetric === 'pmix' && <ArrowDown className="h-2.5 w-2.5" />}
                 </button>
               </div>
               {sortedRanking.slice(0, 20).map((store, idx, arr) => (
@@ -310,8 +313,9 @@ export function TrackerWidget({ promo }: TrackerWidgetProps) {
                 >
                   <span className="w-6 font-bold tabular-nums">#{store.rank}</span>
                   <span className="min-w-0 flex-1 truncate">{store.locationName}</span>
-                  <span className="w-16 text-right tabular-nums">{number(getMetricValue(store, 'units'))}</span>
-                  <span className="w-16 text-right tabular-nums">{money(getMetricValue(store, 'sales'))}</span>
+                  <span className="w-12 text-right tabular-nums">{number(getMetricValue(store, 'units'))}</span>
+                  <span className="w-14 text-right tabular-nums">{money(getMetricValue(store, 'sales'))}</span>
+                  <span className="w-12 text-right tabular-nums">{percent(getMetricValue(store, 'pmix'))}</span>
                 </div>
               ))}
             </div>
