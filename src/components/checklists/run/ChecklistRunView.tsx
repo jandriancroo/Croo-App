@@ -885,6 +885,17 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
 
   // Completed tasks in list order, for the read-only review card.
   const doneWalk = useMemo(() => walk.filter((it) => counted(it) && ctx.isDone(it) && !ctx.needsTemp(it)), [walk, ctx]);
+  // "Worked on by" — everyone who completed at least one item, most items first.
+  const workedOnBy = useMemo(() => {
+    const counts = new Map<string, { name: string; n: number }>();
+    for (const it of doneWalk) {
+      const c = ctx.completer(it.id);
+      if (!c) continue;
+      const cur = counts.get(c.userId);
+      if (cur) cur.n += 1; else counts.set(c.userId, { name: shortName(c.fullName), n: 1 });
+    }
+    return [...counts.values()].sort((a, b) => b.n - a.n).map((x) => x.name);
+  }, [doneWalk, ctx]);
   const rIdx = reviewId ? doneWalk.findIndex((w) => w.id === reviewId) : -1;
   const reviewCurrent = rIdx >= 0 ? doneWalk[rIdx] : null;
 
