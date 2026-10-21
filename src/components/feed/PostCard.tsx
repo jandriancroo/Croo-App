@@ -1,7 +1,7 @@
 import { memo, useState, useEffect, useRef, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Eye, Pin, PinOff, Paperclip, ThumbsUp, ThumbsDown, MoreHorizontal } from 'lucide-react';
+import { MessageCircle, Eye, Pin, Paperclip, ThumbsUp, ThumbsDown, MoreHorizontal } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { FeedPost } from '@/hooks/useAnnouncementFeed';
 import { cn } from '@/lib/utils';
@@ -166,46 +166,23 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
             {/* Second row: badges */}
             <div className="flex items-center gap-1.5 flex-wrap mt-1">
               {post.is_announcement && (
-                <span className={cn('text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded', post.pinned ? 'bg-accent-foreground/15 text-accent-foreground' : 'bg-primary/15 text-primary')}>
-                  Announcement
-                </span>
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-background text-foreground shadow-sm">Announcement</span>
               )}
               {post.badge && (
-                <span
-                  className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded"
-                  style={{ backgroundColor: `${post.badge.color ?? '#3B82F6'}22`, color: post.badge.color ?? '#3B82F6' }}
-                >
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-background text-foreground shadow-sm">
+                  <span aria-hidden className="h-2 w-2 rounded-full" style={{ backgroundColor: post.badge.color ?? 'hsl(var(--primary))' }} />
                   {post.badge.label}
                 </span>
               )}
               {post.channel && (
-                <span
-                  className="text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded"
-                  style={{ backgroundColor: `${post.channel.color ?? '#3B82F6'}22`, color: post.channel.color ?? '#3B82F6' }}
-                >
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-background text-foreground shadow-sm">
+                  <span aria-hidden className="h-2 w-2 rounded-full" style={{ backgroundColor: post.channel.color ?? 'hsl(var(--primary))' }} />
                   {post.channel.name}
                 </span>
               )}
-              {canManage && onTogglePin ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={post.pinned ? 'Unpin post' : 'Pin post'}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onTogglePin(post.id, !post.pinned);
-                  }}
-                  className={cn('h-6 w-6 rounded', post.pinned ? 'bg-accent-foreground/15 text-accent-foreground hover:bg-accent-foreground/25 hover:text-accent-foreground' : 'text-primary hover:bg-primary/15')}
-                >
-                  {post.pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
-                </Button>
-              ) : post.pinned ? (
-                <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-accent-foreground/15 text-accent-foreground" aria-label="Pinned">
-                  <Pin className="h-3 w-3" />
-                </span>
-              ) : null}
+              {post.pinned && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-background text-foreground shadow-sm" aria-label="Pinned"><Pin className="h-3 w-3" />Pinned</span>
+              )}
             </div>
           </div>
           {canManage && (
@@ -238,6 +215,8 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
             setEditOpen(true);
           }}
           onDelete={() => setConfirmDeleteOpen(true)}
+          pinned={post.pinned}
+          onTogglePin={onTogglePin ? () => void onTogglePin(post.id, !post.pinned) : undefined}
         />
       )}
 
