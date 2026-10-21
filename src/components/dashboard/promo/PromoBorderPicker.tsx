@@ -12,6 +12,7 @@ function BorderSample({ border, image, winner = false, closing = false }: { bord
   return <span className="block w-full overflow-hidden rounded-md p-2">
     <span className="relative block aspect-[370/220] w-full overflow-visible rounded-md bg-muted">
     {image && <img src={image} alt="" loading="lazy" className="absolute inset-0 h-full w-full rounded-[inherit] object-cover" />}
+    <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[inherit] border-2 border-[hsl(var(--promo-frame))]" />
     <PromoBorderOverlay border={border} winner={winner} closing={closing} reducedMotion />
     </span>
   </span>;
