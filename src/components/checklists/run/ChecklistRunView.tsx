@@ -157,7 +157,7 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const full = total > 0 && done >= total;
   return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={total} aria-label={`${done} of ${total} done`}>
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={total} aria-label={`${done} of ${total} done`}>
       <div className={cn('h-full rounded-full transition-[width] duration-300', full ? 'bg-[hsl(var(--success))]' : 'bg-primary')} style={{ width: `${pct}%` }} />
     </div>
   );
@@ -929,13 +929,13 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
   const tempsNeeded = walk.filter((it) => ctx.needsTemp(it)).length;
 
   const switches = (
-    <div className={cn('flex flex-wrap items-center gap-x-5 gap-y-2', wideList && 'justify-end')}>
-      <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium">
-        <Switch checked={ctx.hideDone} onCheckedChange={ctx.setHideDone} aria-label="Hide done" />Hide done
+    <div className={cn('my-1 flex flex-wrap items-center gap-x-5 gap-y-1', wideList && 'justify-end')}>
+      <label className="flex h-8 cursor-pointer items-center gap-2 text-sm font-medium">
+        <Switch small checked={ctx.hideDone} onCheckedChange={ctx.setHideDone} aria-label="Hide done" />Hide done
       </label>
       {ctx.myTasks && (
-        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium">
-          <Switch checked={ctx.myTasks.on} onCheckedChange={ctx.myTasks.set} aria-label="My tasks" />My tasks ({ctx.myTasks.label})
+        <label className="flex h-8 cursor-pointer items-center gap-2 text-sm font-medium">
+          <Switch small checked={ctx.myTasks.on} onCheckedChange={ctx.myTasks.set} aria-label="My tasks" />My tasks ({ctx.myTasks.label})
         </label>
       )}
     </div>
@@ -958,7 +958,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
     return (
       <section key={s.key} className="space-y-1.5">
         {(s.label || ctx.sections.length > 1) && (
-          <div className="flex items-baseline justify-between px-1 pt-2">
+          <div className="flex items-baseline justify-between px-1">
             <span className={capLabel}>{s.label || 'Tasks'}</span>
             <span className={capLabel}>{leftHere > 0 ? `${leftHere} left` : `${s.items.filter((x) => walkable(x) && !todo(x)).length} of ${s.items.filter(walkable).length}`}</span>
           </div>
@@ -971,26 +971,26 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
   });
 
   const listView = (
-    <div className="space-y-3 pb-24">
+    <div className="space-y-3 px-3 pb-24">
       {wideList ? (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-3 pt-3">
             <Button variant="ghost" size="icon" className="h-11 w-11" onClick={ctx.onBack} aria-label="Back"><ArrowLeft className="h-5 w-5" /></Button>
             <h1 className="min-w-0 flex-1 break-words text-2xl font-bold">{ctx.title}</h1>
             {tempsNeeded > 0 && <span className="rounded-full bg-[hsl(var(--warning)/0.14)] px-3 py-1 text-sm font-semibold text-[hsl(var(--warning))]">{tempsNeeded} {tempsNeeded === 1 ? 'needs' : 'need'} a temp</span>}
             {switches}
           </div>
           {ctx.description && <p className="px-1 text-sm text-muted-foreground">{ctx.description}</p>}
-          <div className="flex items-center gap-3"><div className="flex-1"><ProgressBar done={ctx.doneCount} total={ctx.totalCount} /></div><span className="shrink-0 text-sm font-bold">{ctx.doneCount} of {ctx.totalCount}</span></div>
+          <div className="my-2 flex items-center gap-3"><div className="flex-1"><ProgressBar done={ctx.doneCount} total={ctx.totalCount} /></div><span className="shrink-0 text-sm font-bold">{ctx.doneCount} of {ctx.totalCount}</span></div>
         </div>
       ) : (
-        <div className="space-y-2">
-          <div className="flex items-start justify-between gap-3 px-1">
+        <div>
+          <div className="flex items-baseline justify-between gap-3 px-1 pt-3">
             <h1 className="min-w-0 break-words text-xl font-bold">{ctx.title}</h1>
-            <span className="shrink-0 pt-0.5 text-base font-bold">{ctx.doneCount} of {ctx.totalCount}</span>
+            <span className="shrink-0 text-base font-bold">{ctx.doneCount} of {ctx.totalCount}</span>
           </div>
           {ctx.description && <p className="px-1 text-sm text-muted-foreground">{ctx.description}</p>}
-          <ProgressBar done={ctx.doneCount} total={ctx.totalCount} />
+          <div className="mb-2 mt-1.5"><ProgressBar done={ctx.doneCount} total={ctx.totalCount} /></div>
           {switches}
         </div>
       )}
