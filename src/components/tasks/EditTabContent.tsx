@@ -10,7 +10,6 @@ import { SortableChecklistItem } from './SortableChecklistItem';
 import { CopyChecklistDialog } from './CopyChecklistDialog';
 import { TemporaryTasksSection } from './TemporaryTasksSection';
 import { supabase } from "@/integrations/supabase/client";
-import { TemplateTypeDialog } from "@/components/TemplateTypeDialog";
 import { AssignTrainingDialog } from "./AssignTrainingDialog";
 import { TrainingAssignmentSummary } from "./TrainingAssignmentSummary";
 import { getDayOfWeekInTimezone } from '@/utils/dateUtils';
@@ -33,7 +32,6 @@ export default function EditTabContent({
   const navigate = useNavigate();
   const { timezone } = useLocationTimezone();
   const queryClient = useQueryClient();
-  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copyChecklistIds, setCopyChecklistIds] = useState<string[]>([]);
@@ -216,7 +214,7 @@ export default function EditTabContent({
                 {isAdmin && (
                   <Button
                     size="icon"
-                    onClick={() => setShowTemplateDialog(true)}
+                    onClick={() => navigate('/create-checklist')}
                     title="New Checklist"
                   >
                     <Plus className="h-4 w-4" />
@@ -346,7 +344,6 @@ export default function EditTabContent({
           </div>
         )}
 
-      <TemplateTypeDialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog} />
       <CopyChecklistDialog
         open={copyDialogOpen}
         onOpenChange={setCopyDialogOpen}

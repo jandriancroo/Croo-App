@@ -2069,6 +2069,45 @@ export type Database = {
           },
         ]
       }
+      checklist_bulk_read_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          file_bytes: number | null
+          file_kind: string
+          id: string
+          location_id: string | null
+          mime_type: string | null
+          success: boolean
+          task_count: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          file_bytes?: number | null
+          file_kind: string
+          id?: string
+          location_id?: string | null
+          mime_type?: string | null
+          success?: boolean
+          task_count?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          file_bytes?: number | null
+          file_kind?: string
+          id?: string
+          location_id?: string | null
+          mime_type?: string | null
+          success?: boolean
+          task_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       checklist_items: {
         Row: {
           assigned_role: Database["public"]["Enums"]["app_role"] | null

@@ -1047,6 +1047,70 @@ async function handleBatchAnalyzeApplications(payload: any) {
   });
 }
 
+
+// Bulk Upload: read checklist task lines from a PDF or photo. Preview only; nothing is saved here.
+const BULK_READS_PER_HOUR = 20;
+async function handleExtractChecklistTasks(req: Request, payload: any) {
+  const { fileBase64, mimeType, kind, locationId } = payload ?? {};
+  const allowed = ['image/jpeg', 'image/png', 'image/heic', 'image/heif', 'application/pdf'];
+  if (typeof fileBase64 !== 'string' || !fileBase64) return errorResponse('No file was sent', 400);
+  if (!allowed.includes(mimeType)) return errorResponse('Use a PDF, JPG, PNG or HEIC file', 400);
+  const bytes = Math.floor(fileBase64.length * 3 / 4);
+  if (bytes > 10 * 1024 * 1024) return errorResponse('That file is over 10 MB', 400);
+
+  const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+  const supabase = getSupabaseClient();
+  const { data: auth } = await supabase.auth.getUser(token);
+  const userId = auth?.user?.id;
+  if (!userId) return errorResponse('Please sign in again', 401);
+
+  const since = new Date(Date.now() - 3600_000).toISOString();
+  const { count } = await supabase.from('checklist_bulk_read_log').select('id', { count: 'exact', head: true })
+    .eq('user_id', userId).gte('created_at', since);
+  if ((count ?? 0) >= BULK_READS_PER_HOUR) {
+    return errorResponse('You have read 20 files in the last hour. Please wait a bit, or paste the list instead.', 429);
+  }
+
+  const log = async (success: boolean, taskCount: number, error?: string) => {
+    await supabase.from('checklist_bulk_read_log').insert({
+      user_id: userId, location_id: typeof locationId === 'string' ? locationId : null,
+      file_kind: kind === 'pdf' ? 'pdf' : 'photo', mime_type: mimeType, file_bytes: bytes,
+      task_count: taskCount, success, error: error ?? null,
+    });
+  };
+
+  try {
+    const data = await callAI(
+      [
+        { role: 'system', content: 'You read printed or handwritten restaurant checklists and return each task line exactly as written (fix only obvious OCR spacing). Keep the original order. Headings that group tasks are sections. Do not invent tasks. Skip titles, dates, signatures, column labels and checkbox marks. type is "photo" only if the line clearly asks for a photo or picture, "temperature" only if it clearly asks to take or log a temperature; otherwise "check".' },
+        { role: 'user', content: [
+          { type: 'text', text: 'List every task in this checklist.' },
+          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${fileBase64}` } },
+        ] },
+      ],
+      [{ type: 'function', function: {
+        name: 'return_tasks',
+        description: 'Checklist tasks in order',
+        parameters: { type: 'object', properties: { tasks: { type: 'array', items: { type: 'object', properties: {
+          name: { type: 'string' }, type: { type: 'string', enum: ['check', 'photo', 'temperature'] }, section: { type: 'boolean' },
+        }, required: ['name', 'type', 'section'] } } }, required: ['tasks'] },
+      } }],
+      { type: 'function', function: { name: 'return_tasks' } },
+    );
+    const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    let tasks: any[] = [];
+    try { tasks = (JSON.parse(args ?? '{}').tasks ?? []).slice(0, 500); } catch { tasks = []; }
+    tasks = tasks.filter((t) => t && typeof t.name === 'string' && t.name.trim()).map((t) => ({
+      name: String(t.name).trim().slice(0, 500), type: ['photo', 'temperature'].includes(t.type) ? t.type : 'check', section: !!t.section,
+    }));
+    await log(true, tasks.filter((t) => !t.section).length);
+    return jsonResponse({ tasks });
+  } catch (e: any) {
+    await log(false, 0, e?.message ?? 'error');
+    throw e;
+  }
+}
+
 // ============================================================================
 // MAIN ROUTER
 // ============================================================================
@@ -1076,6 +1140,8 @@ serve(async (req) => {
         return await handleExtractAuditSummary(payload);
       case 'extract-certification-date':
         return await handleExtractCertificationDate(payload);
+      case 'extract-checklist-tasks':
+        return await handleExtractChecklistTasks(req, payload);
       case 'parse-catering-order':
         return await handleParseCateringOrder(payload);
       case 'parse-inventory-audio':
