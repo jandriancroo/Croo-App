@@ -27,6 +27,8 @@ export interface AssigneePickerProps {
   label?: string;
   helperText?: string;
   roleOptions?: { value: string; label: string }[];
+  /** Card-section look: uppercase "LABEL · N PEOPLE" header, "Role · N" chips. Other screens keep the default. */
+  sectionHeader?: boolean;
 }
 
 /**
@@ -43,6 +45,7 @@ export function AssigneePicker({
   label = 'Assigned To',
   helperText,
   roleOptions = DEFAULT_ROLE_OPTIONS,
+  sectionHeader = false,
 }: AssigneePickerProps) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [showIndividuals, setShowIndividuals] = useState(false);
@@ -130,6 +133,16 @@ export function AssigneePicker({
 
   return (
     <div className="space-y-2">
+      {sectionHeader ? (
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            {label}{totalRecipients > 0 && ` · ${totalRecipients} ${totalRecipients === 1 ? 'person' : 'people'}`}
+          </h3>
+          {(selectedRoles.length > 0 || selectedUserIds.length > 0) && (
+            <button type="button" className="min-h-11 px-2 -mr-2 text-sm font-medium text-primary" onClick={clear}>Clear</button>
+          )}
+        </div>
+      ) : (
       <div className="flex items-center justify-between">
         <Label className="text-xs">
           {label}
@@ -147,6 +160,7 @@ export function AssigneePicker({
           </button>
         )}
       </div>
+      )}
 
       {/* Role chips */}
       <div className="flex flex-wrap gap-1.5">
@@ -157,11 +171,11 @@ export function AssigneePicker({
             <Badge
               key={role.value}
               variant={selected ? 'default' : 'outline'}
-              className="cursor-pointer text-xs"
+              className={sectionHeader ? 'cursor-pointer text-sm min-h-9 px-3 rounded-full font-medium' : 'cursor-pointer text-xs'}
               onClick={() => toggleRole(role.value)}
             >
               {role.label}
-              {count > 0 && <span className="ml-1 opacity-75">({count})</span>}
+              {count > 0 && (sectionHeader ? <span className="ml-1 opacity-75">· {count}</span> : <span className="ml-1 opacity-75">({count})</span>)}
             </Badge>
           );
         })}
@@ -182,8 +196,8 @@ export function AssigneePicker({
       {/* Collapsible individual picker */}
       <Collapsible open={showIndividuals} onOpenChange={setShowIndividuals}>
         <CollapsibleTrigger asChild>
-          <Button size="xs" type="button" variant="ghost" className="w-full justify-between">
-            <span className="text-xs">Add specific people</span>
+          <Button size={sectionHeader ? 'default' : 'xs'} type="button" variant={sectionHeader ? 'outline' : 'ghost'} className={sectionHeader ? 'w-full justify-between min-h-11' : 'w-full justify-between'}>
+            <span className={sectionHeader ? 'text-sm' : 'text-xs'}>Add specific people</span>
             {showIndividuals ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </Button>
         </CollapsibleTrigger>
@@ -228,7 +242,7 @@ export function AssigneePicker({
         </CollapsibleContent>
       </Collapsible>
 
-      {helperText && <p className="text-[10px] text-muted-foreground">{helperText}</p>}
+      {helperText && <p className={sectionHeader ? 'text-sm text-muted-foreground' : 'text-[10px] text-muted-foreground'}>{helperText}</p>}
     </div>
   );
 }

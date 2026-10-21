@@ -1,4 +1,3 @@
-import { PageTitle } from '@/components/PageTitle';
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,7 +7,7 @@ import { useLocation } from '@/hooks/useLocation';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Loader2, FileInput, ArrowLeft } from 'lucide-react';
+import { Plus, Loader2, FileInput } from 'lucide-react';
 import { toast } from 'sonner';
 import { compressImage } from '@/utils/imageCompression';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -424,14 +423,9 @@ export default function CreateChecklist() {
 
   return (
     <Layout>
-      <div className="max-w-5xl mx-auto [&>*:not(:first-child):not(:nth-child(2))]:mt-4 p-4">
-        <PageTitle color="teal" leading={
-          <Button variant="ghost" size="icon" onClick={() => navigate('/tasks')} aria-label="Back">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        }>Create Checklist</PageTitle>
-
+      <div className="-mx-1 md:mx-auto max-w-[1200px] pt-1 pb-4">
         <ChecklistEditor
+          fallbackTitle="New checklist"
           initialTab="settings"
           settings={settings}
           onSettingsChange={patchSettings}
@@ -442,13 +436,13 @@ export default function CreateChecklist() {
           storeToday={storeToday}
           availablePositions={availablePositions}
           uploadReference={uploadReference}
-          addPosition="end"
           minItems={1}
           singleDayHint="Shows only on this date, then moves to history. Leave blank for today."
           onCancel={() => navigate('/tasks')}
           onSave={handleSubmit}
           saving={loading}
           saveLabel="Create"
+          saveLabelWide="Create checklist"
           savingLabel="Creating..."
           itemsFooter={bulkAdd}
         />
