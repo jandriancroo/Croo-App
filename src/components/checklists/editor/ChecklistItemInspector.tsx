@@ -247,12 +247,12 @@ export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, o
   );
 
   const duplicateBtn = (
-    <Button type="button" variant="outline" className="h-11 flex-1" onClick={onDuplicate}>
+    <Button type="button" variant="outline" className="h-11 flex-1 border border-border bg-card" onClick={onDuplicate}>
       <Copy className="mr-2 h-4 w-4" /> Duplicate
     </Button>
   );
   const deleteBtn = onRemove && (
-    <Button type="button" variant="outline" className="h-11 flex-1 border-destructive/40 text-destructive hover:text-destructive" onClick={onRemove}>
+    <Button type="button" variant="outline" className="h-11 flex-1 border border-destructive/40 bg-card text-destructive hover:text-destructive" onClick={onRemove}>
       <Trash2 className="mr-2 h-4 w-4" /> Delete
     </Button>
   );
@@ -273,7 +273,7 @@ export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, o
         {extras}
         <div className="flex gap-2">
           {!isSection ? (
-            <Button type="button" variant="outline" className="h-11 flex-[2]" onClick={() => setPage('notes')}>Notes and reference</Button>
+            <Button type="button" variant="outline" className="h-11 flex-[2] border border-border bg-card" onClick={() => setPage('notes')}>Notes and reference</Button>
           ) : duplicateBtn}
           {deleteBtn}
         </div>
