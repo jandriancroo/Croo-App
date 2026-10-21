@@ -352,56 +352,82 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
     else right = <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />;
   }
 
+  // Done row: one line — check, title, reading (temp/number), time, avatar, chevron.
+  if (done && !amber) {
+    const readingText = temp ? (r && r.temp != null ? `${Number(r.temp).toFixed(1)}°F` : '?°F') : savedNum;
+    return (
+      <div className={cn('border-b border-border last:border-b-0', badTemp ? 'bg-destructive/[0.06]' : 'bg-card')}>
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={`${it.question}, done`}
+          onClick={tap}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(); } }}
+          className="flex w-full cursor-pointer items-center gap-1.5 py-3 pl-3 pr-[10px] text-left"
+        >
+          <span className="flex shrink-0">{circle}</span>
+          <span className="min-w-0 flex-1">
+            <Name it={it} ctx={ctx} className="block break-words text-base font-bold leading-snug" />
+            {photos.length > 0 && (
+              <span className="mt-[5px] flex flex-wrap gap-1">
+                {photos.map((u, i) => (
+                  <button key={i} type="button" onClick={(e) => { e.stopPropagation(); ctx.previewMany ? ctx.previewMany(photos, i) : ctx.preview(u); }} aria-label={`See photo ${i + 1}`} className="h-[34px] w-[34px] overflow-hidden rounded-md border">
+                    <img src={u} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </span>
+            )}
+          </span>
+          {readingText && (
+            <span className={cn('shrink-0 text-right text-base font-bold tabular-nums', badTemp ? 'text-destructive' : temp && r && r.temp == null && 'text-[hsl(var(--warning))]')}>{readingText}</span>
+          )}
+          {who && <span className="w-[52px] shrink-0 whitespace-nowrap text-right text-[11.5px] text-muted-foreground">{timeOf(who.completedAt)}</span>}
+          {who && (
+            <Avatar className="h-10 w-10 shrink-0">
+              <AvatarImage src={who.profilePhoto || undefined} />
+              <AvatarFallback className="bg-secondary text-xs font-semibold text-secondary-foreground">{initialsOf(who.fullName)}</AvatarFallback>
+            </Avatar>
+          )}
+          <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
-      className={cn('border-b border-border last:border-b-0', amber ? 'bg-[hsl(var(--warning)/0.08)]' : done && temp && ctx.reading(it.id).valid === false ? 'bg-destructive/[0.06]' : 'bg-card')}
+      className={cn('border-b border-border last:border-b-0', amber ? 'bg-[hsl(var(--warning)/0.08)]' : 'bg-card')}
     >
       <div
         role="button"
         tabIndex={0}
-        aria-label={`${it.question}${done ? ', done' : ''}`}
+        aria-label={it.question}
         onClick={tap}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(); } }}
-        onPointerDown={!oneTap || done ? undefined : longPressStart}
+        onPointerDown={!oneTap ? longPressStart : undefined}
         onPointerUp={longPressEnd}
         onPointerLeave={longPressEnd}
-        className={cn('flex w-full cursor-pointer items-start px-3 text-left', done ? 'gap-x-2.5 py-[7px]' : 'flex-wrap gap-x-3 py-2.5')}
+        className="flex w-full cursor-pointer flex-wrap items-start gap-x-3 px-3 py-2.5 text-left"
       >
         <span className="flex shrink-0">{circle}</span>
-        <span className={cn('min-w-0 flex-1', !done && 'pt-[3px]')}>
-          <Name it={it} ctx={ctx} className={cn('block break-words font-semibold', done ? 'text-[13.5px] leading-[1.25]' : 'text-[15px] leading-snug', done && !amber && 'text-muted-foreground')} />
+        <span className="min-w-0 flex-1 pt-[3px]">
+          <Name it={it} ctx={ctx} className="block break-words text-[15px] font-semibold leading-snug" />
           {amber ? (
             <span className="mt-0.5 block text-sm text-[hsl(var(--warning))]">Photo saved. Type the temperature.</span>
-          ) : !done ? (
+          ) : (
             <>
               {(subText(it, ctx) || it.manager_shift === 'am' || it.manager_shift === 'pm') && (
                 <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">{subText(it, ctx) && <span>{subText(it, ctx)}</span>}<ShiftTag it={it} /></span>
               )}
               <Markers it={it} />
             </>
-          ) : null}
-          {!done && ctx.tempOpen(it.id) && temp && (
+          )}
+          {ctx.tempOpen(it.id) && temp && !amber && (
             <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></span>
           )}
           {amber && <span className="mt-2 flex items-center gap-3"><TempInput ctx={ctx} id={it.id} /><PhotoIcon ctx={ctx} it={it} /></span>}
-          {done && temp && !amber && <DoneReading ctx={ctx} it={it} />}
-          {done && temp && !amber && ctx.tempOpen(it.id) && (
-            <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></span>
-          )}
-          {photos.length > 0 && (
-            <span className="mt-[5px] flex flex-wrap gap-1">
-              {photos.map((u, i) => (
-                <button key={i} type="button" onClick={(e) => { e.stopPropagation(); ctx.previewMany ? ctx.previewMany(photos, i) : ctx.preview(u); }} aria-label={`See photo ${i + 1}`} className="h-[34px] w-[34px] overflow-hidden rounded-md border">
-                  <img src={u} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
-                </button>
-              ))}
-            </span>
-          )}
-          {savedText && it.item_type === 'number' && <span className="mt-0.5 block text-base font-bold tabular-nums">{savedText}</span>}
-          {savedText && it.item_type !== 'number' && <span className="mt-0.5 block whitespace-pre-wrap break-words text-sm line-clamp-3">{savedText}</span>}
         </span>
         {right && <span className="flex min-h-7 items-center self-center">{right}</span>}
-        {done && !amber && <DoneWho ctx={ctx} id={it.id} />}
       </div>
     </div>
   );
