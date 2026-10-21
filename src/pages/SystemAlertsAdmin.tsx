@@ -40,7 +40,7 @@ export default function SystemAlertsAdmin() {
     if (file.size > (type === 'video' ? 50 : 10) * 1024 * 1024) { toast.error(type === 'video' ? 'Videos must be under 50 MB.' : 'Photos must be under 10 MB.'); return; }
     setUploading(true);
     try {
-      const ext = (file.name.split('.').pop() || type === 'video' ? 'mp4' : 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const ext = (file.name.split('.').pop() || (type === 'video' ? 'mp4' : 'jpg')).toLowerCase().replace(/[^a-z0-9]/g, '');
       const path = `${crypto.randomUUID()}.${ext}`;
       const { error } = await supabase.storage.from('system-alert-media').upload(path, file, { contentType: file.type });
       if (error) throw error;

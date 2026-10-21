@@ -35,8 +35,11 @@ export function SeenByDialog({ post, canRemind, onOpenChange }: Props) {
     (async () => {
       setLoading(true);
       try {
+        // Use the same channel audience as announcement delivery, not everyone at the store.
         const audienceRes = post.location_id
-          ? await supabase.from('user_locations').select('user_id').eq('location_id', post.location_id)
+          ? await supabase.rpc('feed_channel_audience_recipients', {
+              _location_id: post.location_id, _channel_id: post.channel_id,
+            })
           : await supabase.from('brand_members').select('user_id').eq('brand_id', post.brand_id!);
         if (audienceRes.error) throw audienceRes.error;
         const userIds = Array.from(new Set((audienceRes.data ?? []).map((r: any) => r.user_id)));
@@ -111,7 +114,7 @@ export function SeenByDialog({ post, canRemind, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md p-0 gap-0">
         <DialogHeader className="px-4 pt-4 pb-2">
-          <DialogTitle className="text-base">Post views</DialogTitle>
+          <DialogTitle className="text-base">Who's read it</DialogTitle>
         </DialogHeader>
 
         {loading ? (
@@ -121,11 +124,11 @@ export function SeenByDialog({ post, canRemind, onOpenChange }: Props) {
             <TabsList className="grid grid-cols-2 w-full rounded-none border-b h-10">
               <TabsTrigger value="seen">
                 <CheckCircle2 className="h-3.5 w-3.5 mr-1.5 text-emerald-500" />
-                Seen ({seenMembers.length})
+                Read ({seenMembers.length})
               </TabsTrigger>
               <TabsTrigger value="unseen">
                 <Circle className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-                Not seen ({unseenMembers.length})
+                Not yet ({unseenMembers.length})
               </TabsTrigger>
             </TabsList>
             <TabsContent value="seen" className="mt-0 max-h-[50vh] overflow-y-auto">
