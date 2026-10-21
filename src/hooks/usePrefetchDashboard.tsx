@@ -57,13 +57,7 @@ export function usePrefetchDashboard(userId: string | undefined, locationId: str
             );
             return todayItems && todayItems.length > 0;
           }
-          if (checklist.frequency === 'monthly' && checklist.visible_days_before_month_end) {
-            const today = new Date();
-            const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-            const daysUntilMonthEnd = lastDayOfMonth.getDate() - today.getDate();
-            return daysUntilMonthEnd < checklist.visible_days_before_month_end;
-          }
-          return true;
+          return checklistShowsOn(checklist, getTodayInTimezone(timezone));
         });
 
         return { checklists: filtered };

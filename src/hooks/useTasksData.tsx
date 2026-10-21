@@ -87,13 +87,9 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
           return todayItems && todayItems.length > 0;
         }
 
-        if (checklist.frequency === 'monthly' && checklist.visible_days_before_month_end) {
-          const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-          const daysUntilMonthEnd = lastDayOfMonth.getDate() - today.getDate();
-          return daysUntilMonthEnd < checklist.visible_days_before_month_end;
-        }
-
-        return true;
+        // Training is assigned per person; Standard follows the shared schedule rule.
+        if (checklist.template_type === 'training') return true;
+        return checklistShowsOn(checklist as any, getTodayInTimezone(timezone));
       });
     },
     // Only the Edit tab (or managers/admins who can act on templates) need this

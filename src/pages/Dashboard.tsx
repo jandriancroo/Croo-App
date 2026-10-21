@@ -522,14 +522,8 @@ export default function Dashboard() {
           return todayItems && todayItems.length > 0;
         }
         
-        if (checklist.frequency === 'monthly' && checklist.visible_days_before_month_end) {
-          const today = new Date();
-          const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-          const daysUntilMonthEnd = lastDayOfMonth.getDate() - today.getDate();
-          return daysUntilMonthEnd < checklist.visible_days_before_month_end;
-        }
-        
-        return true;
+        // Standard lists: one shared schedule rule (weekdays, monthly/quarterly days, last-N windows, one date).
+        return checklistShowsOn(checklist as any, getTodayInTimezone(timezone));
       });
 
       return { checklists: filteredChecklists as Checklist[] };
