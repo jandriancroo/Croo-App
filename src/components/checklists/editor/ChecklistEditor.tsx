@@ -114,7 +114,7 @@ function ItemRow({ item, id, selected, inSection, onSelect, showAmPm, assignText
             <>
               <meta.Icon className="h-5 w-5 shrink-0 text-primary" aria-label={meta.label} />
               <span className="min-w-0 flex-1">
-                <span className={cn('block break-words line-clamp-2 text-[15px] leading-snug', selected ? 'font-bold' : 'font-semibold', !name && 'italic font-normal text-muted-foreground')}>
+                <span className={cn('block break-words text-[15px] leading-snug', selected ? 'font-bold' : 'font-semibold', !name && 'italic font-normal text-muted-foreground')}>
                   {name || 'Untitled task'}
                 </span>
                 {!wide && (assignText || (showAmPm && item.manager_shift)) && (
