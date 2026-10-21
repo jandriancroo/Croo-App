@@ -30,6 +30,8 @@ import { setChecklistLock } from '@/utils/deferrableReload';
 import { checklistDraftKeys, saveChecklistDraftValue, clearChecklistDraftValue, loadChecklistDraft, pruneOldChecklistDrafts } from '@/utils/checklistDraft';
 import { useUserShiftContext } from '@/hooks/useUserShiftContext';
 import { useScheduleStations } from '@/hooks/useLocationStations';
+import { sharedCopyWindow } from '@/lib/checklistSharedCopy';
+import { checklistScorePeriodKind } from '@/lib/taskHistory/schedule';
 import { useLocationPeople } from '@/components/tasks/TaskAssigneePicker';
 import { ROLE_DISPLAY_NAMES, type AppRole } from '@/hooks/useUserRole';
 import { PrepListComplete } from '@/components/checklists/PrepListComplete';
@@ -372,7 +374,6 @@ export default function CompleteChecklist() {
   useEffect(() => {
     // Get location_id from currentLocation or fall back to checklist's location_id
     const locationId = currentLocation?.id || checklist?.location_id;
-    const isMonthly = checklist?.frequency === 'monthly';
     
     console.log('Submission effect triggered:', { id, userId: user?.id, locationId, checklistLocationId: checklist?.location_id, submissionId, frequency: checklist?.frequency });
     if (!id || !user?.id || !locationId || submissionId || !checklist) return;
@@ -383,25 +384,21 @@ export default function CompleteChecklist() {
         let periodStart: Date;
         let periodEnd: Date;
         
-        if (isMonthly) {
-          // Start of current month
-          periodStart = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1, 0, 0, 0, 0);
-          // End of current month
-          periodEnd = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0, 23, 59, 59, 999);
-        } else {
-          // Daily/weekly: use the specific day
-          periodStart = new Date(viewDate);
-          periodStart.setHours(0, 0, 0, 0);
-          periodEnd = new Date(viewDate);
-          periodEnd.setHours(23, 59, 59, 999);
-        }
+        // Lists scored over a whole week / month / quarter share one copy for
+        // that period (same rule the Dash and scores use); others: one per day.
+        const viewDateStr = `${viewDate.getFullYear()}-${String(viewDate.getMonth() + 1).padStart(2, '0')}-${String(viewDate.getDate()).padStart(2, '0')}`;
+        const window = sharedCopyWindow(checklist as any, viewDateStr);
+        const [sy, sm, sd] = window.start.split('-').map(Number);
+        const [ey, em, ed] = window.end.split('-').map(Number);
+        periodStart = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+        periodEnd = new Date(ey, em - 1, ed, 23, 59, 59, 999);
 
         console.log('Querying for existing submission:', { 
           checklistId: id, 
           locationId,
           periodStart: periodStart.toISOString(),
           periodEnd: periodEnd.toISOString(),
-          isMonthly
+          periodKind: checklistScorePeriodKind(checklist as any)
         });
 
         // Check if there's already ANY submission for this period (shared by all users)
