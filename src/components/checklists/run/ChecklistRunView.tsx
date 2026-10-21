@@ -299,14 +299,16 @@ function DoneReading({ ctx, it }: { ctx: RunCtx; it: RunItem }) {
   return (
     <span className="mt-1 block text-center" onClick={(e) => e.stopPropagation()}>
       <span className="flex flex-nowrap items-center justify-center gap-2">
-        <span className={cn('text-xl font-bold tabular-nums', color)}>{has ? `${Number(r.temp).toFixed(1)}°F` : '?°F'}</span>
+        <span className="flex items-center gap-[3px]">
+          <span className={cn('text-xl font-bold tabular-nums', color)}>{has ? `${Number(r.temp).toFixed(1)}°F` : '?°F'}</span>
+          <button type="button" aria-label={has ? 'Edit temperature' : 'Enter temperature'} className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center"
+            onClick={() => { ctx.setTempValue(it.id, has ? String(r.temp) : ''); ctx.setTempOpen(it.id, true); }}>
+            <span className={cn('flex h-7 w-7 items-center justify-center rounded-full',
+              tone === 'good' ? 'bg-[hsl(var(--success)/0.14)]' : tone === 'bad' ? 'bg-destructive/10' : 'bg-[hsl(var(--warning)/0.16)]', color)}><Pencil className="h-3.5 w-3.5" /></span>
+          </button>
+        </span>
         <span className={cn('whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold',
           chip === 'Safe' ? 'bg-[hsl(var(--success)/0.12)] text-[hsl(var(--success))]' : chip === 'Out of range' ? 'bg-destructive/10 text-destructive' : 'bg-[hsl(var(--warning)/0.14)] text-[hsl(var(--warning))]')}>{chip}</span>
-        <button type="button" aria-label={has ? 'Edit temperature' : 'Enter temperature'} className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center"
-          onClick={() => { ctx.setTempValue(it.id, has ? String(r.temp) : ''); ctx.setTempOpen(it.id, true); }}>
-          <span className={cn('flex h-7 w-7 items-center justify-center rounded-full',
-            tone === 'good' ? 'bg-[hsl(var(--success)/0.14)]' : tone === 'bad' ? 'bg-destructive/10' : 'bg-[hsl(var(--warning)/0.16)]', color)}><Pencil className="h-3.5 w-3.5" /></span>
-        </button>
         <PhotoIcon ctx={ctx} it={it} />
       </span>
       {r.editedBy && <span className="block text-xs text-muted-foreground">Edited by {r.editedBy}</span>}
