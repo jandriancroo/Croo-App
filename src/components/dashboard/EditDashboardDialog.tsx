@@ -46,10 +46,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { createDashboardWidget, updateDashboardWidget, deleteDashboardWidget, buildWidgetConfigJson, toggleWidgetHiddenForSelf, toggleTrackerHiddenForLocation, endPromoTrackerByTitle } from "@/lib/dashboardWidgetsClient";
 import { AudienceSelector, type AudienceRole } from "./AudienceSelector";
 import { ScopeBadge } from "./ScopeBadge";
+import { PromoTrackerEditor } from "./promo/PromoTrackerEditor";
+import { useActivePromoTracker } from "@/hooks/useActivePromoTracker";
 
-export type SectionKey = 'data-cubes' | 'sales-chart' | 'checklists';
+export type SectionKey = 'data-cubes' | 'promo-tracker' | 'sales-chart' | 'checklists';
 
-export const DEFAULT_SECTION_ORDER: SectionKey[] = ['data-cubes', 'checklists', 'sales-chart'];
+export const DEFAULT_SECTION_ORDER: SectionKey[] = ['data-cubes', 'promo-tracker', 'checklists', 'sales-chart'];
 
 export function getSectionOrder(locationId: string): SectionKey[] {
   const key = `dashboard-section-order-${locationId}`;
@@ -58,8 +60,13 @@ export function getSectionOrder(locationId: string): SectionKey[] {
     try {
       const parsed = JSON.parse(saved) as SectionKey[];
       // Ensure all sections are present
-      const allSections: SectionKey[] = ['data-cubes', 'sales-chart', 'checklists'];
+      const allSections: SectionKey[] = ['data-cubes', 'promo-tracker', 'sales-chart', 'checklists'];
       const valid = parsed.filter(s => allSections.includes(s));
+      // Saved orders from before the Promo Tracker section get it right after Data Cubes.
+      if (!valid.includes('promo-tracker')) {
+        const at = valid.indexOf('data-cubes');
+        valid.splice(at === -1 ? 0 : at + 1, 0, 'promo-tracker');
+      }
       allSections.forEach(s => { if (!valid.includes(s)) valid.push(s); });
       return valid;
     } catch { return DEFAULT_SECTION_ORDER; }
@@ -272,7 +279,9 @@ export function EditDashboardDialog({
   const [promoImageToCrop, setPromoImageToCrop] = useState('');
   const [promoCropDialogOpen, setPromoCropDialogOpen] = useState(false);
   const [isPromoImageUploading, setIsPromoImageUploading] = useState(false);
+  const [promoEditorOpen, setPromoEditorOpen] = useState(false);
   const { currentLocation } = useAppLocation();
+  const { data: activePromo } = useActivePromoTracker(currentLocation?.id);
   const { user } = useAuth();
   const { isAdmin, isOrgAdmin, isBrandAdmin, isSuperAdmin } = useUserRole();
   const canPublish = isAdmin;
@@ -449,7 +458,7 @@ export function EditDashboardDialog({
   useEffect(() => { setLocalCubes(cubes); }, [cubes]);
 
   // Drag-and-drop reorder for data cubes within data-cubes section
-  const dataCubes = localCubes.filter(c => c.cubeType === 'data' || c.cubeType === 'data-3d' || c.cubeType === 'tracker');
+  const dataCubes = localCubes.filter(c => c.cubeType === 'data' || c.cubeType === 'data-3d');
   const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
 
   // Lookup creator display names for "Created by" attribution on each row.
@@ -770,6 +779,7 @@ export function EditDashboardDialog({
     if (s === 'data-cubes') return dataCubes.length > 0;
     if (s === 'sales-chart') return !!salesChart;
     if (s === 'checklists') return true; // always show
+    if (s === 'promo-tracker') return true;
     return false;
   });
 
@@ -798,13 +808,32 @@ export function EditDashboardDialog({
                   onEdit={handleEditCube}
                   onDelete={(id) => setDeleteId(id)}
                   onToggleHidden={canHideForSelf ? handleToggleHiddenForSelf : undefined}
-                  onToggleTrackerLocationHidden={canPublish ? handleToggleTrackerLocationHidden : undefined}
                   isOwn={!!user?.id && cube.createdBy === user.id}
                   creatorName={cube.createdBy ? creatorNamesMap[cube.createdBy] : undefined}
                 />
               ))}
             </div>
           </div>
+        );
+      case 'promo-tracker':
+        return (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-lg border p-3 text-left transition-colors hover:bg-accent/50"
+            onClick={() => setPromoEditorOpen(true)}
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/20">
+              <Trophy className="h-4 w-4 text-primary" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">Promo Tracker</p>
+              <p className="truncate text-[11px] text-muted-foreground">
+                {activePromo
+                  ? `${activePromo.title} · ${activePromo.config?.tracker_display_mode === 'expandable' ? 'Expandable' : 'My rank'}`
+                  : 'No promo running'}
+              </p>
+            </div>
+          </button>
         );
       case 'sales-chart':
         if (!salesChart) return null;
@@ -851,6 +880,7 @@ export function EditDashboardDialog({
 
   return (
     <>
+      <PromoTrackerEditor open={promoEditorOpen} onOpenChange={setPromoEditorOpen} />
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-md flex-col overflow-hidden p-0 sm:max-h-[calc(100dvh-2rem)]">
           <DialogHeader className="shrink-0 border-b px-4 py-3">

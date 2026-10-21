@@ -2568,3 +2568,9 @@ html[data-theme="spookified"] .spookified-orb-lightning { display: block; positi
   .page-title-action .size-11 { width: 2.5rem; height: 2.5rem; }
   .page-title-action .min-h-11 { min-height: 2.5rem; }
 }
+
+/* Promo tracker hero: text and shade sit on a photo, so they stay the same in every theme. */
+:root {
+  --promo-ink: 0 0% 100%;
+  --promo-shade: 0 0% 0%;
+}

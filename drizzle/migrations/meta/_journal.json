@@ -386,6 +386,13 @@
       "when": 1792552595935,
       "tag": "0054_labor_pace_report_summary_order_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1792558816739,
+      "tag": "0055_promo_trackers_one_record",
+      "breakpoints": true
     }
   ]
 }

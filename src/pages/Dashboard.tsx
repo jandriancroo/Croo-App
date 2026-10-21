@@ -38,7 +38,8 @@ import { useChecklistCompletion } from '@/hooks/useChecklistCompletion';
 import { useTrainingAssignments } from '@/hooks/useTrainingAssignments';
 import { groupTrainingAssignments } from '@/components/dashboard/TrainingAssignmentsSection';
 import type { CubeConfig, SectionKey } from '@/components/dashboard/EditDashboardDialog';
-import { getSectionOrder } from '@/components/dashboard/EditDashboardDialog';
+import { getSectionOrder, DEFAULT_SECTION_ORDER } from '@/components/dashboard/EditDashboardDialog';
+import { useActivePromoTracker } from '@/hooks/useActivePromoTracker';
 import { BillingActivationBanner } from '@/components/billing/BillingActivationBanner';
 import { PageTitle } from '@/components/PageTitle';
 import { SpookifiedEffects } from '@/components/dashboard/SpookifiedEffects';
@@ -95,10 +96,11 @@ export default function Dashboard() {
   const { currentLocation, organizationId } = useAppLocation();
   const { getTodayInTimezone, timezone } = useLocationTimezone();
   const { isSectionVisible } = useDashboardSections();
+  const { data: activePromo } = useActivePromoTracker(currentLocation?.id);
   const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
   const [showEditDashboard, setShowEditDashboard] = useState(false);
   const [dashboardSectionOrder, setDashboardSectionOrder] = useState<SectionKey[]>(() => 
-    currentLocation?.id ? getSectionOrder(currentLocation.id) : ['data-cubes', 'checklists', 'sales-chart']
+    currentLocation?.id ? getSectionOrder(currentLocation.id) : DEFAULT_SECTION_ORDER
   );
   const queryClient = useQueryClient();
 
@@ -608,7 +610,7 @@ export default function Dashboard() {
   // When sales are hidden but the user still has trackers published to them
   // (promo rank widgets), render WidgetsSection in trackers-only mode so the
   // tracker still shows alongside checklists.
-  const hasVisibleTracker = dashboardCubes.some(c => c.cubeType === 'tracker' && !(c as any).hiddenForSelf && !(c as any).hiddenForLocation);
+  const hasVisibleTracker = !!activePromo;
   const showTrackersOnly = !showWidgets && hasVisibleTracker;
 
   const dashboardContent = (showWidgets || showTrackersOnly) ? (

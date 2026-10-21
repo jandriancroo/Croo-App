@@ -36,7 +36,8 @@ import { DataCube3D } from './DataCube3D';
 // cache), but its JS loads in parallel instead of blocking cubes/checklists.
 const SalesSummary = lazyWithRetry(() => import('./SalesSummary').then(m => ({ default: m.SalesSummary })));
 
-import { TrackerWidget } from './TrackerWidget';
+import { PromoTrackerSection } from './promo/PromoTrackerSection';
+import { DEFAULT_SECTION_ORDER, getSectionOrder } from './EditDashboardDialog';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { GripVertical } from 'lucide-react';
@@ -102,23 +103,6 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
     transform: CSS.Translate.toString(transform),
     transition,
   };
-
-  if (cube.cubeType === 'tracker') {
-    return (
-      <div ref={setNodeRef} style={style} className={`col-span-2 ${isDragging ? 'opacity-50' : ''} relative`} {...(isReorderMode ? { ...attributes, ...listeners } : {})}>
-        {isReorderMode && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/40 rounded-lg">
-            <div className="p-3 rounded-full bg-primary/20">
-              <GripVertical className="h-6 w-6 text-primary" />
-            </div>
-          </div>
-        )}
-        <div className={isReorderMode ? 'opacity-85 cursor-grab active:cursor-grabbing' : ''}>
-          <TrackerWidget tracker={cube} />
-        </div>
-      </div>
-    );
-  }
 
   // For sales-chart type, render the SalesOverview component with matching cube style
   if (cube.cubeType === 'sales-chart') {
@@ -509,7 +493,6 @@ export const WidgetsSection = memo(function WidgetsSection({
   };
 
   // Separate cubes, trackers (promo), checklists, and sales chart for stacked layout
-  const trackerCubes = localCubes.filter(c => c.cubeType === 'tracker');
   const dataCubes = localCubes.filter(c =>
     trackersOnly
       ? false
@@ -518,15 +501,10 @@ export const WidgetsSection = memo(function WidgetsSection({
   const salesChart = trackersOnly ? undefined : localCubes.find(c => c.cubeType === 'sales-chart');
 
   // Section order: use prop if provided, else read from localStorage
-  const sectionOrder = useMemo(() => {
+  const sectionOrder = useMemo<string[]>(() => {
     if (sectionOrderProp) return sectionOrderProp;
-    if (!currentLocation?.id) return ['data-cubes', 'checklists', 'sales-chart'];
-    const key = `dashboard-section-order-${currentLocation.id}`;
-    const saved = localStorage.getItem(key);
-    if (saved) {
-      try { return JSON.parse(saved) as string[]; } catch { /* fallback */ }
-    }
-    return ['data-cubes', 'checklists', 'sales-chart'];
+    if (!currentLocation?.id) return DEFAULT_SECTION_ORDER;
+    return getSectionOrder(currentLocation.id);
   }, [currentLocation?.id, sectionOrderProp]);
 
   // If using role cubes and no cubes configured, show empty state (no add dialogs)
@@ -563,14 +541,6 @@ export const WidgetsSection = memo(function WidgetsSection({
     );
   }
 
-  // Decide whether Promo renders before or after the Cubes section, based on
-  // the user's order in Edit Dashboard (localCubes is sorted by display_order).
-  const firstTrackerIdx = localCubes.findIndex(c => c.cubeType === 'tracker');
-  const firstDataIdx = localCubes.findIndex(c => c.cubeType === 'data' || c.cubeType === 'data-3d');
-  const promoBeforeCubes =
-    trackerCubes.length > 0 &&
-    (firstDataIdx === -1 || (firstTrackerIdx !== -1 && firstTrackerIdx < firstDataIdx));
-
   const renderCubesBlock = () => {
     if (dataCubes.length === 0) return null;
     return (
@@ -604,59 +574,14 @@ export const WidgetsSection = memo(function WidgetsSection({
     );
   };
 
-  const renderPromoBlock = () => {
-    if (trackerCubes.length === 0) return null;
-    return (
-      <div key="promo-block" className="flex flex-col gap-2">
-        <DashSectionTitle>Promo</DashSectionTitle>
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={trackerCubes.map(cube => cube.id)}
-            strategy={rectSortingStrategy}
-          >
-            <div className="grid grid-cols-2 gap-3" data-tour="dashboard-promo">
-              {trackerCubes.map(cube => (
-                <SortableDataCube
-                  key={cube.id}
-                  cube={cube}
-                  salesData={salesData}
-                  isLoading={isLoadingSales}
-                  locationSettings={locationSettings}
-                  isReorderMode={isReorderMode}
-                  onSalesDataChange={onSalesDataChange}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
-      </div>
-    );
-  };
-
   const renderSection = (section: string) => {
     switch (section) {
-      case 'data-cubes': {
-        if (dataCubes.length === 0 && trackerCubes.length === 0) return null;
-        return (
-          <div key="data-cubes" className="flex flex-col gap-2">
-            {promoBeforeCubes ? (
-              <>
-                {renderPromoBlock()}
-                {renderCubesBlock()}
-              </>
-            ) : (
-              <>
-                {renderCubesBlock()}
-                {renderPromoBlock()}
-              </>
-            )}
-          </div>
-        );
-      }
+      case 'data-cubes':
+        if (dataCubes.length === 0) return null;
+        return <div key="data-cubes">{renderCubesBlock()}</div>;
+
+      case 'promo-tracker':
+        return <PromoTrackerSection key="promo-tracker" />;
 
       case 'checklists':
         if (!checklistsContent) return null;
