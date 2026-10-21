@@ -24,7 +24,7 @@ export interface PromoTrackerConfig {
   tracker_item_images?: Record<string, string>;
   tracker_start_on_campaign?: boolean;
   tracker_autoplay?: boolean;
-  // Phase B (reserved; not rendered yet)
+  // Decorative border settings stored in the existing promo config.
   tracker_border?: PromoBorder | null;
   tracker_border_winner?: boolean;
   tracker_border_closing?: boolean;

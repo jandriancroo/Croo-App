@@ -2,7 +2,9 @@ import { useEffect, useRef } from 'react';
 import { ChevronDown, ChevronUp, Pause, Trophy } from 'lucide-react';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { cn } from '@/lib/utils';
-import { ALL_ITEMS_REF, type PromoSlide } from '@/lib/promoTrackers';
+import { ALL_ITEMS_REF, type PromoSlide, type PromoBorder } from '@/lib/promoTrackers';
+import { borderTitleOffset } from '@/lib/promoBorders';
+import { PromoBorderOverlay } from './PromoBorderOverlay';
 
 export type PromoPeriodKey = 'day' | 'yday' | 'wtd' | 'promo';
 export const PROMO_PERIOD_OPTIONS: { value: PromoPeriodKey; label: string }[] = [
@@ -12,8 +14,8 @@ export const PROMO_PERIOD_OPTIONS: { value: PromoPeriodKey; label: string }[] = 
   { value: 'promo', label: 'Campaign' },
 ];
 
-/** Hero card height rule: 220px on phones, 250px from md up. */
-export const PROMO_HERO_HEIGHT_CLASS = 'h-[220px] md:h-[250px]';
+/** Fixed hero height at every viewport. */
+export const PROMO_HERO_HEIGHT_CLASS = 'h-[220px]';
 
 interface PromoHeroViewProps {
   title: string;
@@ -34,6 +36,10 @@ interface PromoHeroViewProps {
   onLongPress?: () => void;
   onSwipe?: (dir: 'next' | 'prev') => void;
   interactive?: boolean;
+  border?: PromoBorder | null;
+  borderWinner?: boolean;
+  borderClosing?: boolean;
+  borderPaused?: boolean;
 }
 
 const INK = 'text-[hsl(var(--promo-ink))]';
@@ -41,7 +47,7 @@ const INK = 'text-[hsl(var(--promo-ink))]';
 export function PromoHeroView({
   title, slides, activeRef, subtitle, dayLabel, rankLabel, canExpand, expanded, paused,
   reducedMotion, period, campaignImageUrl, onPeriodChange, onSelectSlide, onRankTap,
-  onLongPress, onSwipe, interactive = true,
+  onLongPress, onSwipe, interactive = true, border, borderWinner = false, borderClosing = false, borderPaused,
 }: PromoHeroViewProps) {
   const activeSlide = slides.find(s => s.ref === activeRef) ?? slides[0];
   const activeImage = activeSlide?.imageUrl ?? campaignImageUrl;
@@ -66,6 +72,7 @@ export function PromoHeroView({
   }, [activeRef, reducedMotion]);
 
   const manyDots = slides.length > 5;
+  const titleOffset = borderTitleOffset(border);
 
   return (
     <div data-promo-hero className={cn('relative w-full overflow-hidden rounded-3xl shadow-md', !activeImage && 'bg-primary', PROMO_HERO_HEIGHT_CLASS)}>
@@ -76,8 +83,7 @@ export function PromoHeroView({
       ))}
       {/* Shade: dark from the top, light at the very bottom */}
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,hsl(var(--promo-shade)/0.6)_0%,hsl(var(--promo-shade)/0)_50%,hsl(var(--promo-shade)/0)_70%,hsl(var(--promo-shade)/0.25)_100%)]" />
-      {/* Border layer (Phase B) sits here, under the content */}
-      <div aria-hidden data-promo-border-layer className="pointer-events-none absolute inset-0" />
+      <PromoBorderOverlay border={border} winner={borderWinner} closing={borderClosing} paused={borderPaused ?? paused} reducedMotion={reducedMotion} />
 
       {/* Photo gesture layer */}
       {interactive && (
@@ -105,7 +111,7 @@ export function PromoHeroView({
 
       {/* Top: title (left) + LIVE chip (right). The item line sits below and
           spans the full card width, so it never borrows the chip's column. */}
-      <div className="pointer-events-none absolute inset-x-3 top-3 flex flex-col">
+      <div className={cn('pointer-events-none absolute inset-x-3 flex flex-col', titleOffset === 24 ? 'top-9' : titleOffset === 8 ? 'top-5' : 'top-3')}>
         <div className="flex items-start gap-2">
           <div key={activeRef} className={cn('min-w-0 flex-1', !reducedMotion && 'animate-in fade-in duration-500')}>
             <p className={cn('line-clamp-2 break-words text-[25px] font-black uppercase leading-[0.92] tracking-[-0.02em] [text-shadow:0_1px_6px_hsl(var(--promo-shade)/0.35)]', INK)}>

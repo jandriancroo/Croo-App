@@ -28,6 +28,7 @@ import {
 } from '@/lib/promoTrackers';
 import { TrackerPosItemPicker } from '../TrackerPosItemPicker';
 import { PromoHeroView } from './PromoHeroView';
+import { PromoBorderPicker } from './PromoBorderPicker';
 
 /** Crop shape for every promo photo (hero card is ~5:3 on phones). One upload serves hero + dot. */
 export const PROMO_PHOTO_ASPECT = 5 / 3;
@@ -277,6 +278,9 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
                     rankLabel="#1 of 1" canExpand={form.config.tracker_display_mode === 'expandable'} expanded={false}
                     paused={false} reducedMotion period="day" campaignImageUrl={form.config.tracker_promo_image_url ?? null}
                     onPeriodChange={() => {}} interactive={false}
+                    border={form.config.tracker_border}
+                    borderWinner={!!form.config.tracker_border_winner}
+                    borderClosing={!!form.config.tracker_border_closing && !form.config.tracker_border_winner}
                   />
 
                   <p className="text-xs font-medium text-muted-foreground">{form.owner_type === 'brand' ? 'Brand promo · every store in the brand sees it' : 'Org contest · only the stores you pick'}</p>
@@ -352,10 +356,7 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
                     <Switch checked={form.config.tracker_autoplay !== false} onCheckedChange={v => setCfg({ tracker_autoplay: v })} />
                   </label>
 
-                  <label className="flex items-center justify-between gap-3 rounded-xl border p-3 opacity-60">
-                    <span><span className="block text-sm font-medium">Border</span><span className="block text-xs text-muted-foreground">Decorative borders are coming soon</span></span>
-                    <Switch checked={false} disabled />
-                  </label>
+                  <PromoBorderPicker config={form.config} onChange={setCfg} image={previewSlides[0]?.imageUrl ?? form.config.tracker_promo_image_url} />
 
                   <div className="space-y-2">
                     <Label>Ranking view</Label>

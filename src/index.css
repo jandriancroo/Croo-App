@@ -2573,4 +2573,59 @@ html[data-theme="spookified"] .spookified-orb-lightning { display: block; positi
 :root {
   --promo-ink: 0 0% 100%;
   --promo-shade: 0 0% 0%;
+  --promo-border-white: 0 0% 100%;
+  --promo-border-ivory: 46 100% 92%;
+  --promo-border-red: 4 63% 48%;
+  --promo-border-gold: 42 86% 63%;
+  --promo-border-blue: 192 36% 45%;
+  --promo-border-green: 142 40% 58%;
+  --promo-border-purple: 267 72% 63%;
+  --promo-border-orange: 28 100% 56%;
+  --promo-border-pink: 343 78% 58%;
+  --promo-border-pine: 140 49% 24%;
+  --promo-border-pine-light: 139 48% 32%;
+  --promo-border-wire: 0 0% 16%;
+  --promo-border-ink: 0 0% 0%;
+  --promo-border-bat: 263 52% 5%;
+  --promo-border-rust: 22 73% 41%;
+  --promo-border-rope: 36 41% 52%;
+  --promo-border-rope-light: 39 60% 72%;
+  --promo-border-lime: 86 52% 57%;
+  --promo-border-flame: 22 89% 53%;
+  --promo-border-flame-core: 43 100% 71%;
+  --promo-border-patriot: 225 54% 40%;
+  --promo-border-pastel-pink: 344 81% 83%;
+  --promo-border-pastel-green: 158 39% 80%;
+  --promo-border-pastel-gold: 45 93% 79%;
+  --promo-border-pastel-blue: 211 66% 85%;
+  --promo-border-pastel-purple: 270 60% 85%;
 }
+
+/* SVG-only promo motion. No timers or animated filters. */
+@keyframes promoBorderTwinkle { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+@keyframes promoBorderTwinkleAlt { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
+@keyframes promoBorderPulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+@keyframes promoBorderFlame { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(1.12); } }
+@keyframes promoBorderChase { 0%,24%,100% { opacity: 1; } 25%,99% { opacity: .35; } }
+.promo-border-overlay .promo-border-twinkle { animation: promoBorderTwinkle 2.4s ease-in-out infinite; }
+.promo-border-overlay .promo-border-twinkle-alt { animation: promoBorderTwinkleAlt 2.4s ease-in-out infinite; }
+.promo-border-overlay .promo-border-pulse { animation: promoBorderPulse 2s ease-in-out infinite; }
+.promo-border-overlay .promo-border-flame { transform-box: fill-box; transform-origin: 50% 100%; animation: promoBorderFlame 1.6s ease-in-out infinite; }
+.promo-border-overlay .promo-border-chase { animation: promoBorderChase 4s linear infinite; }
+.promo-border-overlay .promo-border-phase-1 { animation-delay: -.6s; }
+.promo-border-overlay .promo-border-phase-2 { animation-delay: -1.2s; }
+.promo-border-overlay .promo-border-phase-3 { animation-delay: -1.8s; }
+.promo-border-overlay .promo-border-chase.promo-border-phase-1 { animation-delay: -1s; }
+.promo-border-overlay .promo-border-chase.promo-border-phase-2 { animation-delay: -2s; }
+.promo-border-overlay .promo-border-chase.promo-border-phase-3 { animation-delay: -3s; }
+.promo-border-overlay[data-motion="paused"] * { animation-play-state: paused; }
+.promo-border-overlay[data-motion="off"] * { animation: none; }
+@media (prefers-reduced-motion: reduce) { .promo-border-overlay * { animation: none !important; } }
+.promo-border-swatch-ivory { background: hsl(var(--promo-border-ivory)); }
+.promo-border-swatch-red { background: hsl(var(--promo-border-red)); }
+.promo-border-swatch-gold { background: hsl(var(--promo-border-gold)); }
+.promo-border-swatch-blue { background: hsl(var(--promo-border-blue)); }
+.promo-border-swatch-green { background: hsl(var(--promo-border-green)); }
+.promo-border-swatch-purple { background: hsl(var(--promo-border-purple)); }
+.promo-border-swatch-orange { background: hsl(var(--promo-border-orange)); }
+.promo-border-swatch-pink { background: hsl(var(--promo-border-pink)); }
