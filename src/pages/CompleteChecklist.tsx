@@ -1,3 +1,4 @@
+import { placeSectionHeaders } from '@/lib/checklistSectionGroups';
 import { referencePhotoFields, getPrimaryReferencePhoto } from '@/lib/checklistReferencePhotos';
 import { canUndoChecklistItem } from '@/lib/checklistUndo';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
@@ -1373,7 +1374,6 @@ export default function CompleteChecklist() {
           {(() => {
             // Filter items based on hideCompleted
             let filteredItems = items.filter(item => {
-              if (checklist?.position_filtering_enabled && stationMode && item.item_type === 'section_header' && !item.station_id) return false;
               if (!hideCompleted) return true;
               const isImageItem = item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature';
               const hasResponse = isImageItem 
@@ -1390,6 +1390,24 @@ export default function CompleteChecklist() {
               filteredItems = filteredItems.filter(itemMatchesMe);
             }
 
+            // Groups on: a section header joins the group of the task below it and shows only if one of its tasks shows.
+            const headerPlacement = hasPositionFiltering ? placeSectionHeaders(items) : null;
+            const itemById = new Map(items.map((it) => [it.id, it]));
+            const effGroup = (it: ChecklistItem) => {
+              const anchorId = it.item_type === 'section_header' ? headerPlacement?.get(it.id)?.anchorId : null;
+              const anchor = anchorId ? itemById.get(anchorId) : undefined;
+              return itemGroup(anchor ?? it);
+            };
+            if (headerPlacement) {
+              const shownIds = new Set(filteredItems.map((it) => it.id));
+              filteredItems = filteredItems.filter((it) => {
+                if (it.item_type !== 'section_header') return true;
+                const pl = headerPlacement.get(it.id);
+                if (!pl || !pl.anchorId) return false;
+                return pl.taskIds.length === 0 ? shownIds.has(pl.anchorId) : pl.taskIds.some((tid) => shownIds.has(tid));
+              });
+            }
+
             const groupCounts = new Map<string, number>();
             for (const item of items) {
               if (item.item_type === 'section_header') continue;
@@ -1401,7 +1419,7 @@ export default function CompleteChecklist() {
             // If position filtering is enabled, sort/group by position
             if (hasPositionFiltering) {
               filteredItems = [...filteredItems].sort((a, b) => {
-                const ga = itemGroup(a), gb = itemGroup(b); // General last
+                const ga = effGroup(a), gb = effGroup(b); // General last
                 if (ga.tier !== gb.tier) return ga.tier - gb.tier;
                 if (ga.key !== gb.key) {
                   const aStation = stationOrder.get(ga.key), bStation = stationOrder.get(gb.key);
@@ -1445,7 +1463,7 @@ export default function CompleteChecklist() {
               }
 
               // Position section headers
-              const group = itemGroup(item);
+              const group = effGroup(item);
               const showPositionHeader = hasPositionFiltering && group.key !== lastRenderedGroup;
               if (showPositionHeader) {
                 lastRenderedGroup = group.key;
