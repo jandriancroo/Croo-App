@@ -1838,7 +1838,6 @@ export default function CompleteChecklist() {
                     const photosNeeded = Math.max(minPhotos - currentPhotos.length, 0);
                     const showTempEntry = showManualTemp || (isTempPhotoTask && currentPhotos.length > 0);
                     const savedTemp = responsesWithCompleters[item.id]?.extractedTemperature;
-                    const needsTempConfirm = !!responsesWithCompleters[item.id]?.temperatureUnconfirmed && savedTemp != null;
                     const hasManualTemp = showManualTemp && responsesWithCompleters[item.id]?.extractedTemperature != null;
                     const isComplete = currentPhotos.length >= minPhotos || hasManualTemp;
 
