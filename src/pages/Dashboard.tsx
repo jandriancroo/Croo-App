@@ -684,7 +684,7 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-5">
               {quickTasksContent}
               {dashboardContent}
               {!shouldUseRoleCubes && (
