@@ -576,6 +576,7 @@ export default function DynamicChecklistCalendar() {
 
   return (
     <Layout>
+      {/* headerButtons defined just below via IIFE-free const above return is not possible here; see headerButtonsEl */}
       <div className="container mx-auto p-4 sm:p-6 max-w-7xl [&>*:not(:first-child):not(:nth-child(2))]:mt-4">
         {/* Header */}
         <PageTitle
@@ -638,6 +639,16 @@ export default function DynamicChecklistCalendar() {
               </span>
             )}
         </PageTitle>
+        {/* Phone: buttons get their own row so the name has the full width. */}
+        <div className="flex items-center gap-2 sm:hidden [&>*:last-child]:flex-1">{headerButtons}</div>
+        <Sheet open={libraryOpen} onOpenChange={setLibraryOpen}>
+          <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+            <SheetHeader className="mb-3">
+              <SheetTitle>Library</SheetTitle>
+            </SheetHeader>
+            {libraryPanel}
+          </SheetContent>
+        </Sheet>
 
         <Card className="p-4">
           <AssigneePicker
