@@ -1816,11 +1816,11 @@ export default function CompleteChecklist() {
                     const isMultiPhoto = minPhotos > 1;
                     const isTempPhotoTask = (item.item_type === 'image' || item.item_type === 'PHOTO') && item.requires_temperature_validation === true;
                     const showManualTemp = item.item_type === 'temperature';
+                    const currentPhotos = getPhotosForItem(item.id).filter(p => typeof p === 'string' && (p.startsWith('http') || p.startsWith('blob:')));
+                    const photosNeeded = Math.max(minPhotos - currentPhotos.length, 0);
                     const showTempEntry = showManualTemp || (isTempPhotoTask && currentPhotos.length > 0);
                     const savedTemp = responsesWithCompleters[item.id]?.extractedTemperature;
                     const needsTempConfirm = !!responsesWithCompleters[item.id]?.temperatureUnconfirmed && savedTemp != null;
-                    const currentPhotos = getPhotosForItem(item.id).filter(p => typeof p === 'string' && (p.startsWith('http') || p.startsWith('blob:')));
-                    const photosNeeded = Math.max(minPhotos - currentPhotos.length, 0);
                     const hasManualTemp = showManualTemp && responsesWithCompleters[item.id]?.extractedTemperature != null;
                     const isComplete = currentPhotos.length >= minPhotos || hasManualTemp;
 
