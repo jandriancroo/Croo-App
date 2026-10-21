@@ -830,7 +830,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
       {groups}
       {ctx.footer}
       {firstTodo && (
-        <div className="fixed inset-x-0 z-30 px-3" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 88px)' }}>
+        <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+88px)] z-30 px-3 md:bottom-4 md:px-6">
           <Button type="button" className="mx-auto flex h-12 w-full max-w-[1176px] bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90" onClick={() => open(firstTodo.id)}>
             Go one by one · {left} left<ChevronRight className="ml-1 h-5 w-5" />
           </Button>
