@@ -1371,6 +1371,7 @@ export default function CompleteChecklist() {
         </div>
 
         <div className="space-y-3">
+            if (typeof window !== 'undefined' && (window as any).__dbgHdr) console.log('DBG', JSON.stringify(items.map((i) => [i.item_type, i.question?.slice(0, 12)])));
           {(() => {
             // Filter items based on hideCompleted
             let filteredItems = items.filter(item => {
