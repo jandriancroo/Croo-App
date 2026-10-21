@@ -96,7 +96,7 @@ export function FrequencyPicker({ value: v, onChange, todayStr }: FrequencyPicke
   );
 
   return (
-    <div className="space-y-3 rounded-lg border p-3">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <Label className="text-xs">Repeating</Label>
         <Switch checked={v.repeats} onCheckedChange={(repeats) => set({ repeats })} aria-label="Repeating" />
@@ -113,6 +113,7 @@ export function FrequencyPicker({ value: v, onChange, todayStr }: FrequencyPicke
           <SegmentedControl
             fullWidth
             aria-label="Repeats"
+            itemClassName="px-2"
             value={v.period}
             onValueChange={setPeriod}
             options={[
