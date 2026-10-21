@@ -166,7 +166,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
             {/* Second row: badges */}
             <div className="flex items-center gap-1 mt-1 min-w-0">
               {post.is_announcement && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-background text-foreground shadow-sm min-w-0"><span className="truncate">Announcement</span></span>
+                <span className="inline-flex items-center justify-center text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-background text-foreground shadow-sm" aria-label="Announcement" title="Announcement"><Megaphone className="h-3.5 w-3.5" /></span>
               )}
               {post.badge && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-background text-foreground shadow-sm min-w-0">
