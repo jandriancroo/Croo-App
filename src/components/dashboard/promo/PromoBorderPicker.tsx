@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,7 +17,17 @@ function BorderSample({ border, image, winner = false, closing = false }: { bord
   </span>;
 }
 
-export function PromoBorderPicker({ config, onChange, image }: { config: PromoTrackerConfig; onChange: (patch: Partial<PromoTrackerConfig>) => void; image?: string | null }) {
+export function PromoBorderPicker({ config, onChange, image, onListVisible }: { config: PromoTrackerConfig; onChange: (patch: Partial<PromoTrackerConfig>) => void; image?: string | null; onListVisible?: (visible: boolean) => void }) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const hasList = !!config.tracker_border;
+  useEffect(() => {
+    const el = listRef.current;
+    if (!onListVisible) return;
+    if (!el || !hasList) { onListVisible(false); return; }
+    const io = new IntersectionObserver(([e]) => onListVisible(e.isIntersecting));
+    io.observe(el);
+    return () => { io.disconnect(); onListVisible(false); };
+  }, [hasList, onListVisible]);
   const border = config.tracker_border;
   const picked = border?.style === 'string-lights';
   const pickable = picked || border?.style === 'neon';
@@ -30,20 +42,21 @@ export function PromoBorderPicker({ config, onChange, image }: { config: PromoTr
       <Label htmlFor="promo-border-switch" className="text-sm">Border</Label>
       <Switch id="promo-border-switch" checked={!!border} onCheckedChange={v => onChange({ tracker_border: v ? { style: 'christmas-garland', color: null } : null })} />
     </div>
-    {border && <>
+    {border && <div ref={listRef} className="space-y-3">
       {(['Seasonal', 'Event', 'Brand'] as const).map(group => <div key={group} className="space-y-2">
         <p className="text-xs font-medium text-muted-foreground">{group}</p>
-        <div className="grid grid-cols-3 items-start gap-2">
-          {PROMO_BORDER_STYLES.filter(s => s.group === group).map(s => <Button key={s.style} type="button" variant="ghost"
-            aria-label={s.label} aria-pressed={border.style === s.style}
-            onClick={() => onChange({ tracker_border: { style: s.style, color: s.style === 'string-lights' ? 'orange,purple' : s.style === 'neon' ? 'pink' : null } })}
-            className="h-auto min-w-0 flex-col justify-start gap-1 whitespace-normal rounded-lg p-1 text-center aria-pressed:bg-primary/10 aria-pressed:ring-2 aria-pressed:ring-primary [&_svg]:size-full">
-            <BorderSample border={{ style: s.style, color: s.style === border.style ? border.color : undefined }} image={image} />
-            <span className="min-h-8 text-[11px] leading-4">{s.label}</span>
-          </Button>)}
-        </div>
-      </div>)}
-      {pickable && <div className="space-y-3">
+        <div className="space-y-1" role="radiogroup" aria-label={`${group} borders`}>
+          {PROMO_BORDER_STYLES.filter(s => s.group === group).map(s => {
+            const selected = border.style === s.style;
+            return <div key={s.style} className="space-y-2">
+              <Button type="button" variant="ghost" role="radio" aria-checked={selected}
+                onClick={() => onChange({ tracker_border: { style: s.style, color: s.style === 'string-lights' ? 'orange,purple' : s.style === 'neon' ? 'pink' : null } })}
+                className="h-auto min-h-11 w-full justify-between gap-3 whitespace-normal rounded-lg px-3 py-2 text-left text-sm font-medium aria-checked:bg-primary/10 aria-checked:ring-2 aria-checked:ring-primary">
+                <span className="min-w-0 flex-1 break-words">{s.label}</span>
+                {selected && <Check className="h-4 w-4 shrink-0 text-primary" aria-hidden />}
+              </Button>
+              {selected && pickable && <div className="px-1 pb-1">
+                <div className="space-y-3">
         {Array.from({ length: picked ? 2 : 1 }, (_, index) => <div key={index} className="space-y-2">
           <Label htmlFor={`promo-border-color-${index}`} className="text-xs">{picked ? `Light color ${index + 1}` : 'Tube color'}</Label>
           <div className="flex flex-wrap items-center gap-2">
@@ -54,8 +67,13 @@ export function PromoBorderPicker({ config, onChange, image }: { config: PromoTr
               className="h-8 w-9 cursor-pointer p-0.5" value={palette[index]?.startsWith('#') ? palette[index] : '#ff8a1f'} onChange={e => setColor(e.target.value, index)} />
           </div>
         </div>)}
-      </div>}
-    </>}
+      </div>
+              </div>}
+            </div>;
+          })}
+        </div>
+      </div>)}
+    </div>}
     <div className="space-y-2">
       <p className="text-xs font-medium text-muted-foreground">React to the numbers</p>
       {([{ key: 'tracker_border_winner', label: 'Winner glow', winner: true }, { key: 'tracker_border_closing', label: 'Closing in', winner: false }] as const).map(effect => <div key={effect.key} className="flex items-center gap-3 rounded-lg border p-3">
