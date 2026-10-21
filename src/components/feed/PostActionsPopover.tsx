@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Pin, PinOff, Trash2 } from 'lucide-react';
 
 interface PostActionsPopoverProps {
   open: boolean;
@@ -9,6 +9,8 @@ interface PostActionsPopoverProps {
   onEdit: () => void;
   onDelete: () => void;
   canEdit: boolean;
+  pinned?: boolean;
+  onTogglePin?: () => void;
 }
 
 export function PostActionsPopover({
@@ -18,6 +20,8 @@ export function PostActionsPopover({
   onEdit,
   onDelete,
   canEdit,
+  pinned,
+  onTogglePin,
 }: PostActionsPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number; placeAbove: boolean } | null>(null);
@@ -105,6 +109,17 @@ export function PostActionsPopover({
             >
               <Pencil className="h-4 w-4" />
               Edit post
+            </button>
+          )}
+          {onTogglePin && (
+            <button
+              type="button"
+              onClick={() => { onOpenChange(false); onTogglePin(); }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent active:bg-accent cursor-pointer text-sm text-popover-foreground select-none text-left"
+              role="menuitem"
+            >
+              {pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+              {pinned ? 'Unpin post' : 'Pin to top'}
             </button>
           )}
           <button
