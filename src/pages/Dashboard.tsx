@@ -640,7 +640,7 @@ export default function Dashboard() {
         cooldownMs={2 * 60 * 1000}
         onRefresh={handleRefresh}
       >
-          <div className="space-y-1 spookified-dashboard-content">
+          <div className="space-y-4 spookified-dashboard-content">
             <PageTitle
               color="teal"
               subtitle={dashSentence}
