@@ -7,7 +7,7 @@ import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, sta
 import { CompletedTaskDetailsDialog } from '@/components/tasks/CompletedTaskDetailsDialog';
 import { TasksHistoryTimeline } from '@/components/history/TasksHistoryTimeline';
 import { useTasksData } from '@/hooks/useTasksData';
-import { Layers, Grid3x3, Check } from 'lucide-react';
+import { Layers, Grid3x3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { lazyWithRetry } from '@/utils/lazyWithRetry';
