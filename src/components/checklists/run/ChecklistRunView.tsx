@@ -978,18 +978,18 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
     <div className="space-y-3 pb-24">
       {wideList ? (
         <div>
-          <div className="flex flex-wrap items-center gap-3 pt-3">
+          <div className="flex flex-wrap items-center gap-3 pt-7">
             <Button variant="ghost" size="icon" className="-ml-2 h-9 w-9 shrink-0" onClick={goDash} aria-label="Back to dashboard"><ArrowLeft className="h-5 w-5" /></Button>
             <h1 className="min-w-0 flex-1 break-words text-2xl font-bold">{ctx.title}</h1>
             {tempsNeeded > 0 && <span className="rounded-full bg-[hsl(var(--warning)/0.14)] px-3 py-1 text-sm font-semibold text-[hsl(var(--warning))]">{tempsNeeded} {tempsNeeded === 1 ? 'needs' : 'need'} a temp</span>}
             {switches}
           </div>
           {ctx.description && <p className="px-1 text-sm text-muted-foreground">{ctx.description}</p>}
-          <div className="my-2 flex items-center gap-3"><div className="flex-1"><ProgressBar done={ctx.doneCount} total={ctx.totalCount} /></div><span className="shrink-0 text-sm font-bold">{ctx.doneCount} of {ctx.totalCount}</span></div>
+          <div className="my-2 flex items-start gap-3"><div className="flex-1"><ProgressBar done={ctx.doneCount} total={ctx.totalCount} /></div><span className="shrink-0 text-sm font-bold leading-none">{ctx.doneCount} of {ctx.totalCount}</span></div>
         </div>
       ) : (
         <div>
-          <div className="flex items-center gap-1 px-1 pt-3">
+          <div className="flex items-center gap-1 px-1 pt-7">
             <Button variant="ghost" size="icon" className="-mx-1 -my-1.5 h-9 w-9 shrink-0" onClick={goDash} aria-label="Back to dashboard"><ArrowLeft className="h-5 w-5" /></Button>
             <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
               <h1 className="min-w-0 break-words text-xl font-bold">{ctx.title}</h1>
@@ -997,7 +997,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
             </div>
           </div>
           {ctx.description && <p className="px-1 text-sm text-muted-foreground">{ctx.description}</p>}
-          <div className="mb-2 mt-1.5"><ProgressBar done={ctx.doneCount} total={ctx.totalCount} /></div>
+          <div className="my-2"><ProgressBar done={ctx.doneCount} total={ctx.totalCount} /></div>
           {switches}
         </div>
       )}
@@ -1138,7 +1138,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
   const reviewBad = !!reviewCurrent && isTempTask(reviewCurrent) && ctx.reading(reviewCurrent.id).valid === false;
   const reviewView = reviewCurrent && (
     <div className="space-y-2.5 pb-6">
-      <div className="flex items-center gap-2 py-2">
+      <div className="flex items-center gap-2 pb-2 pt-7">
         <Button variant="ghost" size="icon" className="-ml-2 h-9 w-9 shrink-0" onClick={backToList} aria-label="Back to list"><ArrowLeft className="h-5 w-5" /></Button>
         <div className="min-w-0 flex-1">
           <Name it={reviewCurrent} ctx={ctx} className="block break-words text-base font-bold leading-tight" />
