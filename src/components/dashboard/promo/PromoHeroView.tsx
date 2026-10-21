@@ -103,27 +103,33 @@ export function PromoHeroView({
         />
       )}
 
-      {/* Top: title + subtitle (left), LIVE chip (right) */}
-      <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start gap-2">
-        <div key={activeRef} className={cn('min-w-0 flex-1', !reducedMotion && 'animate-in fade-in duration-500')}>
-          <p className={cn('line-clamp-2 break-words text-[25px] font-black uppercase leading-[0.92] tracking-[-0.02em] [text-shadow:0_1px_6px_hsl(var(--promo-shade)/0.35)]', INK)}>
-            {title}
-          </p>
-          {subtitle && (
-            <p className={cn('mt-1.5 truncate text-[13px] font-semibold [text-shadow:0_1px_4px_hsl(var(--promo-shade)/0.4)]', INK)}>{subtitle}</p>
-          )}
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-[hsl(var(--success-soft))] px-2.5 text-[11px] font-bold uppercase tracking-wide text-[hsl(var(--success))] shadow-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--success))]" />
-            LIVE{dayLabel ? ` · ${dayLabel}` : ''}
-          </span>
-          {paused && (
-            <span aria-label="Autoplay paused" className="flex h-6 w-6 items-center justify-center rounded-full bg-card/90 text-foreground shadow-sm">
-              <Pause className="h-3 w-3" />
+      {/* Top: title (left) + LIVE chip (right). The item line sits below and
+          spans the full card width, so it never borrows the chip's column. */}
+      <div className="pointer-events-none absolute inset-x-3 top-3 flex flex-col">
+        <div className="flex items-start gap-2">
+          <div key={activeRef} className={cn('min-w-0 flex-1', !reducedMotion && 'animate-in fade-in duration-500')}>
+            <p className={cn('line-clamp-2 break-words text-[25px] font-black uppercase leading-[0.92] tracking-[-0.02em] [text-shadow:0_1px_6px_hsl(var(--promo-shade)/0.35)]', INK)}>
+              {title}
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-[hsl(var(--success-soft))] px-2.5 text-[11px] font-bold uppercase tracking-wide text-[hsl(var(--success))] shadow-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--success))]" />
+              LIVE{dayLabel ? ` · ${dayLabel}` : ''}
             </span>
-          )}
+            {paused && (
+              <span aria-label="Autoplay paused" className="flex h-6 w-6 items-center justify-center rounded-full bg-card/90 text-foreground shadow-sm">
+                <Pause className="h-3 w-3" />
+              </span>
+            )}
+          </div>
         </div>
+        {subtitle && (
+          <p
+            key={`sub-${activeRef}`}
+            className={cn('mt-1.5 line-clamp-2 text-[13px] font-semibold [text-shadow:0_1px_4px_hsl(var(--promo-shade)/0.4)]', INK, !reducedMotion && 'animate-in fade-in duration-500')}
+          >{subtitle}</p>
+        )}
       </div>
 
       {/* Bottom: dots + rank chip, then period selector */}
