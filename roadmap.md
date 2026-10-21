@@ -9,4 +9,4 @@
 
 ## Up next
 - Phase B correction: move all borders to the outer edge with clear space and unclipped overflow; keep existing settings and motion.
-- Match seven strand/seasonal styles to "borders v2: outside and overlaying" — waiting for Jordan's PDF upload.
+- Match seven strand/seasonal styles to uploaded promo-borders-v2-outside.pdf and verify phone/desktop placement, taps and motion.
