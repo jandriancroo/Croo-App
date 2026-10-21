@@ -63,7 +63,6 @@ export function useTasksData(options: UseTasksDataOptions = {}) {
       if (error) throw error;
 
       const currentDay = getDayOfWeekInTimezone(timezone);
-      const today = new Date();
 
       return data.filter(checklist => {
         // Admins see everything (including inactive for edit tab)
