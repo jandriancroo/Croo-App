@@ -6,6 +6,29 @@
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>CrooHQ</string>
+	<key>CFBundleSpokenName</key>
+	<string>Crew HQ</string>
+	<key>INAlternativeAppNames</key>
+	<array>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Theo</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>Theo</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Crew HQ</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>crew H Q</string>
+		</dict>
+		<dict>
+			<key>INAlternativeAppName</key>
+			<string>Croo HQ</string>
+			<key>INAlternativeAppNamePronunciationHint</key>
+			<string>crew H Q</string>
+		</dict>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

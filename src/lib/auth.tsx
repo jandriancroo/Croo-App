@@ -1,3 +1,4 @@
+import { syncNativeSession, clearNativeSession } from './nativeHandoff';
 import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -127,6 +128,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false);
         setDebugWatchUser(session?.user?.id ?? null);
         debugWatchLog('auth_event', { event });
+
+        // iPhone app: let Siri, the Theo button and widgets act as this person (managers+, server-checked).
+        if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && !isDeviceSession(session)) {
+          void syncNativeSession(session);
+        }
+        if (event === 'SIGNED_OUT') void clearNativeSession();
 
 
         // Update last_login_at on sign in (not token refresh)

@@ -17,9 +17,10 @@ import { DateTime } from "https://esm.sh/luxon@3.4.4";
 import { METRIC_CONFIGS, formatWatchValue, resolveAccentHex } from "./metricConfigs.ts";
 import { computePace, laborPct, resolveGoal, storeNow } from "../_shared/cubeMetrics.ts";
 import { clockedInUserIds } from "../_shared/onClock.ts";
+import { roleForUser } from "../_shared/theoActions.ts";
 
 // Bump on every change so a deploy can be confirmed: POST {"action":"version"}.
-const WATCH_SERVICE_VERSION = "2026-10-17.2";
+const WATCH_SERVICE_VERSION = "2026-10-21.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -63,6 +64,20 @@ async function getAuthedUser(req: Request): Promise<string | null> {
   const { data, error } = await client.auth.getUser();
   if (error || !data.user) return null;
   return data.user.id;
+}
+
+// Siri, Theo voice and the self-serve widget token are for shift managers and up (they read out sales and labor).
+const NATIVE_ROLES = ["shift_manager", "shift_manager_in_training", "manager", "general_manager", "admin", "org_admin", "fbc", "brand_admin", "super_admin"];
+async function isManagerUp(sb: any, userId: string): Promise<boolean> {
+  const { role } = await roleForUser(sb, userId);
+  return !!role && NATIVE_ROLES.includes(role);
+}
+
+async function userLocationIds(sb: any, userId: string): Promise<string[]> {
+  const { data } = await sb.rpc('get_user_location_ids', { _user_id: userId });
+  return (data || [])
+    .map((r: any) => (typeof r === 'string' ? r : r?.get_user_location_ids || r?.id))
+    .filter(Boolean);
 }
 
 async function assertOrgAdmin(sb: any, userId: string, orgId: string) {
@@ -916,6 +931,64 @@ serve(async (req) => {
       if (error) throw error;
 
       return json({ token, device, locationId, locationName: loc.name, locations: allowedLocations || [] });
+    }
+
+    // -------------------------------------------------- issue_self (signed-in manager+, iPhone app)
+    // The iPhone app asks for this right after sign-in so widgets and Siri work without the
+    // Apple Watch pairing screen. Same read-only device token as a watch, scoped to the
+    // person's own stores, listed under Apple Watch Devices where it can be revoked.
+    if (action === 'issue_self') {
+      const userId = await getAuthedUser(req);
+      if (!userId) return json({ error: 'Unauthorized' }, 401);
+      if (!(await isManagerUp(sb, userId))) return json({ error: 'Widgets and Siri are for shift managers and up' }, 403);
+
+      const allowedIds = await userLocationIds(sb, userId);
+      if (!allowedIds.length) return json({ error: 'No stores on this account' }, 403);
+      const preferred = typeof body.locationId === 'string' && allowedIds.includes(body.locationId) ? body.locationId : null;
+      const { data: allowedLocations } = await sb.from('locations').select('id, name, organization_id').in('id', allowedIds).order('name');
+      const home = (allowedLocations || []).find((l: any) => l.id === preferred) || (allowedLocations || [])[0];
+      if (!home) return json({ error: 'No stores on this account' }, 403);
+
+      const label = ((body.label || '') as string).trim().slice(0, 40) || 'iPhone';
+      // One live token per person per device label: revoke the old one so rows don't pile up.
+      await sb.from('watch_devices')
+        .update({ revoked_at: new Date().toISOString(), revoked_by: userId })
+        .eq('created_by', userId).eq('label', label).is('revoked_at', null);
+
+      const token = randomToken();
+      const { data: device, error } = await sb.from('watch_devices').insert({
+        location_id: home.id,
+        organization_id: home.organization_id,
+        label,
+        token_hash: await sha256(token),
+        token_hint: token.slice(-6),
+        allowed_location_ids: allowedIds,
+        created_by: userId,
+      }).select('id, label, location_id, created_at').single();
+      if (error) throw error;
+
+      return json({
+        token, device, locationId: home.id, locationName: home.name,
+        locations: (allowedLocations || []).map((l: any) => ({ id: l.id, name: l.name })),
+      });
+    }
+
+    // -------------------------------------------------- native_session (signed-in manager+, iPhone app)
+    // Gives the native side of the iPhone app its OWN sign-in session for the same person (a
+    // one-time token it trades at /auth/v1/verify), so Siri can ask Theo as them without
+    // sharing, and rotating away, the web view's refresh token.
+    if (action === 'native_session') {
+      const userId = await getAuthedUser(req);
+      if (!userId) return json({ error: 'Unauthorized' }, 401);
+      if (!(await isManagerUp(sb, userId))) return json({ error: 'Siri and Theo voice are for shift managers and up' }, 403);
+      const { data: u } = await sb.auth.admin.getUserById(userId);
+      const email = u?.user?.email;
+      if (!email) return json({ error: 'No email on this account' }, 400);
+      const { data: link, error } = await sb.auth.admin.generateLink({ type: 'magiclink', email });
+      if (error) throw error;
+      const tokenHash = (link as any)?.properties?.hashed_token;
+      if (!tokenHash) return json({ error: 'Could not start a native session' }, 500);
+      return json({ token_hash: tokenHash, type: 'magiclink', user_id: userId });
     }
 
     // -------------------------------------------------- list (authed admin)

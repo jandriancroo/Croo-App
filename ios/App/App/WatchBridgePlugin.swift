@@ -13,7 +13,9 @@ public class WatchBridgePlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "sendSnapshot", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "isPaired", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "pairWatch", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "pairWatch", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "nativeHandoff", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "nativeSignOut", returnType: CAPPluginReturnPromise)
     ]
 
     private let session = WatchSessionManager.shared
@@ -53,6 +55,24 @@ public class WatchBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         }
         let delivered = session.sendPairing(payload)
         call.resolve(["delivered": delivered])
+    }
+
+    /// Sign-in handoff for Siri, the Theo button and widgets (see NativeAuth.swift).
+    @objc func nativeHandoff(_ call: CAPPluginCall) {
+        guard let token = call.getString("accessToken"), let userId = call.getString("userId") else {
+            call.reject("Missing accessToken or userId")
+            return
+        }
+        Task {
+            let reason = await NativeAuth.handoff(webAccessToken: token, userId: userId)
+            print("[NativeAuth] handoff: \(reason)")
+            call.resolve(["ok": reason == "ok" || reason == "already set up", "reason": reason])
+        }
+    }
+
+    @objc func nativeSignOut(_ call: CAPPluginCall) {
+        NativeAuth.signOut()
+        call.resolve(["ok": true])
     }
 
     @objc func isPaired(_ call: CAPPluginCall) {
@@ -222,6 +242,33 @@ enum CrooSharedGroup {
         }
         defaults.set(meta, forKey: pairingKey)
         if let json = pairing["locations"], !json.isEmpty { defaults.set(json, forKey: locationsKey) }
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    static var hasPairing: Bool {
+        guard let d = defaults?.dictionary(forKey: pairingKey) as? [String: String] else { return false }
+        return !(d["token"] ?? "").isEmpty
+    }
+
+    /// Store list for Siri's store picker: [(id, name)].
+    static func locations() -> [(id: String, name: String)] {
+        guard let json = defaults?.string(forKey: locationsKey), let data = json.data(using: .utf8),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            if let d = defaults?.dictionary(forKey: pairingKey) as? [String: String], let id = d["locationId"] {
+                return [(id, d["locationName"] ?? "My store")]
+            }
+            return []
+        }
+        return arr.compactMap { i in
+            guard let id = i["id"] as? String, let name = i["name"] as? String else { return nil }
+            return (id, name)
+        }
+    }
+
+    static func pairing() -> [String: String]? { defaults?.dictionary(forKey: pairingKey) as? [String: String] }
+
+    static func clearPairing() {
+        defaults?.removeObject(forKey: pairingKey)
         WidgetCenter.shared.reloadAllTimelines()
     }
 

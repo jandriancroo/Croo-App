@@ -37,6 +37,8 @@
 		A1C0FFEE0000000000000109 /* CrooWatchWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1C0FFEE00000000000000E4 /* CrooWatchWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A1C0FFEE0000000000000171 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE0000000000000170 /* Assets.xcassets */; };
 		A20000000000000000000002 /* WatchBridgePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* WatchBridgePlugin.swift */; };
+		A2000000000000000000000D /* CrooIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* CrooIntents.swift */; };
+		A2000000000000000000000B /* NativeAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* NativeAuth.swift */; };
 		C1DB58957DBA464EBD777E36 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13F8767856034FCAB5EF7E84 /* Assets.xcassets */; };
 		F0353A8E87E34AFA834B6BB9 /* ScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92AB601A6AA5442A96F14E01 /* ScheduleView.swift */; };
 /* End PBXBuildFile section */
@@ -136,6 +138,8 @@
 		A1C0FFEE00000000000000FB /* CrooWatchWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CrooWatchWidgets.entitlements; sourceTree = "<group>"; };
 		A1C0FFEE0000000000000170 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A20000000000000000000001 /* WatchBridgePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchBridgePlugin.swift; sourceTree = "<group>"; };
+		A2000000000000000000000C /* CrooIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrooIntents.swift; sourceTree = "<group>"; };
+		A2000000000000000000000A /* NativeAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAuth.swift; sourceTree = "<group>"; };
 		AEE55AC830848FD700D2B85F /* CrooVision.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CrooVision.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_App.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF51FD2D460BCFE21FA515B2 /* Pods-App.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.release.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.release.xcconfig"; sourceTree = "<group>"; };
@@ -238,6 +242,8 @@
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				A20000000000000000000001 /* WatchBridgePlugin.swift */,
+				A2000000000000000000000C /* CrooIntents.swift */,
+				A2000000000000000000000A /* NativeAuth.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				A1C0FFEE00000000000000D1 /* PrivacyInfo.xcprivacy */,
@@ -567,6 +573,8 @@
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				A20000000000000000000002 /* WatchBridgePlugin.swift in Sources */,
+				A2000000000000000000000D /* CrooIntents.swift in Sources */,
+				A2000000000000000000000B /* NativeAuth.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

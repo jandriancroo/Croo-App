@@ -247,10 +247,27 @@ struct AskTheoMediumWidget: Widget {
     }
 }
 
+// MARK: - Control Center / Lock Screen button: Theo
+
+/// One tap opens Crew HQ straight into Theo voice (same link as the Ask Theo widget).
+@available(iOS 18.0, *)
+struct TheoControl: ControlWidget {
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: "CrooTheoControl") {
+            ControlWidgetButton(action: OpenURLIntent(URL(string: "croohq://theo")!)) {
+                Label("Talk to Theo", systemImage: "waveform")
+            }
+        }
+        .displayName("Talk to Theo")
+        .description("Opens Crew HQ straight into Theo voice.")
+    }
+}
+
 @main
 struct CrooWidgetBundle: WidgetBundle {
     var body: some Widget {
         AskTheoSmallWidget()
+        if #available(iOS 18.0, *) { TheoControl() }
         AskTheoMediumWidget()
         SalesSmallWidget()
         OnNowSmallWidget()
