@@ -17,6 +17,7 @@ import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { isPendingDraft } from "@/utils/checklistVersions";
 import { DuplicateChecklistDialog } from "./DuplicateChecklistDialog";
+import { ChecklistTypeDialog } from "@/components/checklists/ChecklistTypeDialog";
 
 
 interface EditTabContentProps {
@@ -38,6 +39,7 @@ export default function EditTabContent({
   const [copyChecklistTitles, setCopyChecklistTitles] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState("quick-tasks");
   const [assignChecklist, setAssignChecklist] = useState<{ id: string; title: string } | null>(null);
+  const [typeDialogOpen, setTypeDialogOpen] = useState(false);
   const [duplicateChecklist, setDuplicateChecklist] = useState<any | null>(null);
   const [scheduleDraft, setScheduleDraft] = useState<any | null>(null);
 
@@ -214,7 +216,7 @@ export default function EditTabContent({
                 {isAdmin && (
                   <Button
                     size="icon"
-                    onClick={() => navigate('/create-checklist')}
+                    onClick={() => setTypeDialogOpen(true)}
                     title="New Checklist"
                   >
                     <Plus className="h-4 w-4" />
