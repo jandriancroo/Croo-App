@@ -561,6 +561,7 @@ export default function EditChecklist() {
           availablePositions={availablePositions}
           uploadReference={uploadReference}
           minItems={0}
+          bulkUpload={templateType !== 'dynamic'}
           singleDayHint="Shows only on this date, then moves to history."
           onCancel={leaveEditor}
           onSave={handleSave}
