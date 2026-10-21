@@ -1,4 +1,3 @@
-import { PageTitle } from '@/components/PageTitle';
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,7 +7,7 @@ import { useLocation } from '@/hooks/useLocation';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Loader2, FileInput, ArrowLeft } from 'lucide-react';
+import { Plus, Loader2, FileInput } from 'lucide-react';
 import { toast } from 'sonner';
 import { compressImage } from '@/utils/imageCompression';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
