@@ -344,6 +344,13 @@
       "when": 1792547752067,
       "tag": "0048_labor_pace_scorecard",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1792551836029,
+      "tag": "0049_smart_close_position_layer",
+      "breakpoints": true
     }
   ]
 }

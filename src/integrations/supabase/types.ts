@@ -7199,18 +7199,21 @@ export type Database = {
           location_id: string
           note: string | null
           updated_at: string
+          use_position: boolean
         }
         Insert: {
           enabled?: boolean
           location_id: string
           note?: string | null
           updated_at?: string
+          use_position?: boolean
         }
         Update: {
           enabled?: boolean
           location_id?: string
           note?: string | null
           updated_at?: string
+          use_position?: boolean
         }
         Relationships: []
       }
@@ -15574,16 +15577,29 @@ export type Database = {
           trust: number
         }[]
       }
-      _labor_close_predict_min: {
-        Args: {
-          _as_of?: string
-          _band: string
-          _dow: number
-          _location_id: string
-          _user_id: string
-        }
-        Returns: number
-      }
+      _labor_close_predict_min:
+        | {
+            Args: {
+              _as_of?: string
+              _band: string
+              _dow: number
+              _location_id: string
+              _user_id: string
+            }
+            Returns: number
+          }
+        | {
+            Args: {
+              _as_of?: string
+              _band: string
+              _dow: number
+              _location_id: string
+              _position?: string
+              _use_position?: boolean
+              _user_id: string
+            }
+            Returns: number
+          }
       _labor_closer_rule: {
         Args: { _close_at: string; _latest_end: string; _s_end: string }
         Returns: string
