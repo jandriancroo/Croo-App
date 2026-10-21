@@ -86,7 +86,7 @@ export function PromoHeroView({
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,hsl(var(--promo-shade)/0.6)_0%,hsl(var(--promo-shade)/0)_50%,hsl(var(--promo-shade)/0)_70%,hsl(var(--promo-shade)/0.25)_100%)]" />
       </div>
       {/* Black picture frame: decorative borders hang off this outer edge */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 z-10 rounded-[inherit] border-[6px] border-[hsl(var(--promo-frame))]" />
+      <div aria-hidden className="pointer-events-none absolute inset-0 rounded-[inherit] border-[6px] border-[hsl(var(--promo-frame))]" />
       <PromoBorderOverlay border={border} winner={borderWinner} closing={borderClosing} paused={borderPaused ?? paused} reducedMotion={reducedMotion} />
 
       {/* Photo gesture layer */}
