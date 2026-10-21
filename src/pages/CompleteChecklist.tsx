@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
-import { CheckCircle2, Eye, Lock, ThumbsUp, ThumbsDown, Camera, Check, Pencil } from 'lucide-react';
+import { CheckCircle2, Eye, Lock, ThumbsUp, ThumbsDown, Camera, Check, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -119,7 +119,8 @@ export default function CompleteChecklist() {
   const [submitting, setSubmitting] = useState(false);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [completionPercentage, setCompletionPercentage] = useState(0);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ urls: string[]; index: number } | null>(null);
+  const previewTouchX = useRef<number | null>(null);
   const [showNotes, setShowNotes] = useState(false);
   const [manualTempOpen, setManualTempOpen] = useState<Record<string, boolean>>({});
   const [manualTempValue, setManualTempValue] = useState<Record<string, string>>({});
@@ -1446,7 +1447,8 @@ export default function CompleteChecklist() {
     completer: (id) => responsesWithCompleters[id]?.completedBy,
     canUndo: (id) => !!responsesWithCompleters[id]?.responseId && canUndoItem(id),
     undo: (id) => handleUndoClick(id),
-    preview: (url) => setPreviewImage(url),
+    preview: (url) => setPreviewImage({ urls: [url], index: 0 }),
+    previewMany: (urls, index) => setPreviewImage({ urls, index }),
     openLink: (ref) => setActiveLink(ref),
     renderPrep: (it) => prepEl(it as ChecklistItem),
     renderApproval: (it) => (
@@ -1497,7 +1499,27 @@ export default function CompleteChecklist() {
 
         <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
           <DialogContent className="max-w-2xl">
-            <img src={previewImage || ''} alt="Photo preview" className="w-full max-h-[70vh] object-contain rounded" />
+            <div
+              className="relative"
+              onTouchStart={(e) => { previewTouchX.current = e.touches[0].clientX; }}
+              onTouchEnd={(e) => {
+                if (previewTouchX.current == null || !previewImage || previewImage.urls.length < 2) return;
+                const dx = e.changedTouches[0].clientX - previewTouchX.current;
+                previewTouchX.current = null;
+                if (Math.abs(dx) > 40) setPreviewImage((p) => p && { urls: p.urls, index: (p.index + (dx < 0 ? 1 : -1) + p.urls.length) % p.urls.length });
+              }}
+            >
+              <img src={previewImage?.urls[previewImage.index] || ''} alt="Photo preview" className="w-full max-h-[70vh] object-contain rounded" />
+              {previewImage && previewImage.urls.length > 1 && (
+                <>
+                  <button type="button" aria-label="Previous photo" className="absolute left-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 shadow"
+                    onClick={() => setPreviewImage((p) => p && { urls: p.urls, index: (p.index - 1 + p.urls.length) % p.urls.length })}><ChevronLeft className="h-5 w-5" /></button>
+                  <button type="button" aria-label="Next photo" className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 shadow"
+                    onClick={() => setPreviewImage((p) => p && { urls: p.urls, index: (p.index + 1) % p.urls.length })}><ChevronRight className="h-5 w-5" /></button>
+                  <span className="absolute bottom-2 right-2 rounded-full bg-background/80 px-2 py-0.5 text-xs font-medium">{previewImage.index + 1} of {previewImage.urls.length}</span>
+                </>
+              )}
+            </div>
           </DialogContent>
         </Dialog>
 

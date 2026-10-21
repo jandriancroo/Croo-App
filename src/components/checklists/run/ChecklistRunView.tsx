@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { DateTime } from 'luxon';
 import { PhotoPickerButton } from '@/components/PhotoPickerButton';
 import { ChecklistQuestionText } from '@/components/tasks/ChecklistQuestionText';
 import { InlineVideoPlayer } from '@/components/ui/inline-video-player';
@@ -65,6 +67,8 @@ export interface RunCtx {
   canUndo: (id: string) => boolean;
   undo: (id: string) => void;
   preview: (url: string) => void;
+  /** Full-size viewer stepped through a set of photos (falls back to preview when absent). */
+  previewMany?: (urls: string[], index: number) => void;
   openLink: (ref: ChecklistLinkRef) => void;
   renderPrep: (it: RunItem) => ReactNode;
   renderApproval: (it: RunItem) => ReactNode;
@@ -276,17 +280,41 @@ function Name({ it, ctx, className }: { it: RunItem; ctx: RunCtx; className?: st
   );
 }
 
+const initialsOf = (full: string) => full.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+const fullWhen = (iso: string) => {
+  const d = DateTime.fromISO(iso);
+  return d.isValid ? `${d.toFormat('ccc LLL d')} · ${timeOf(iso)}` : timeOf(iso);
+};
+
+/** Right column of a done row: 26px avatar + time; tap the avatar for who/when. */
 function DoneWho({ ctx, id }: { ctx: RunCtx; id: string }) {
   const c = ctx.completer(id);
   if (!c) return null;
   return (
-    <span className="flex w-[72px] shrink-0 flex-col items-center text-center">
-      <Avatar className="h-8 w-8">
-        <AvatarImage src={c.profilePhoto || undefined} />
-        <AvatarFallback className="bg-secondary text-[11px] font-semibold text-secondary-foreground">{c.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}</AvatarFallback>
-      </Avatar>
-      <span className="mt-0.5 w-full truncate text-[12px] font-bold leading-[1.15]">{shortName(c.fullName)}</span>
-    </span>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" aria-label={`Completed by ${c.fullName}`} onClick={(e) => e.stopPropagation()}
+          className="flex w-11 shrink-0 flex-col items-center self-start">
+          <Avatar className="h-[26px] w-[26px]">
+            <AvatarImage src={c.profilePhoto || undefined} />
+            <AvatarFallback className="bg-secondary text-[10px] font-semibold text-secondary-foreground">{initialsOf(c.fullName)}</AvatarFallback>
+          </Avatar>
+          <span className="mt-0.5 whitespace-nowrap text-[10px] leading-none text-muted-foreground">{timeOf(c.completedAt)}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-3" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5">
+          <Avatar className="h-9 w-9">
+            <AvatarImage src={c.profilePhoto || undefined} />
+            <AvatarFallback className="bg-secondary text-xs font-semibold text-secondary-foreground">{initialsOf(c.fullName)}</AvatarFallback>
+          </Avatar>
+          <div>
+            <div className="text-sm font-semibold">{c.fullName}</div>
+            <div className="text-xs text-muted-foreground">{fullWhen(c.completedAt)}</div>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -295,20 +323,22 @@ function DoneReading({ ctx, it }: { ctx: RunCtx; it: RunItem }) {
   const has = r.temp != null;
   const tone = !has ? 'warn' : r.valid === false ? 'bad' : 'good';
   const color = tone === 'good' ? 'text-[hsl(var(--success))]' : tone === 'bad' ? 'text-destructive' : 'text-[hsl(var(--warning))]';
-  const chip = !has || r.unconfirmed ? 'Unconfirmed' : r.valid === false ? 'Out of range' : 'Safe';
+  const chip = !has || r.unconfirmed ? 'Unconfirmed' : r.valid === false ? 'Out of range' : null;
   return (
-    <span className="mt-1 block text-center" onClick={(e) => e.stopPropagation()}>
-      <span className="flex flex-nowrap items-center justify-center gap-2">
+    <span className="mt-0.5 block">
+      <span className="flex flex-nowrap items-center gap-1.5">
         <span className="flex items-center gap-[3px]">
-          <span className={cn('text-xl font-bold tabular-nums', color)}>{has ? `${Number(r.temp).toFixed(1)}°F` : '?°F'}</span>
+          <span className={cn('text-base font-bold tabular-nums', color)}>{has ? `${Number(r.temp).toFixed(1)}°F` : '?°F'}</span>
           <button type="button" aria-label={has ? 'Edit temperature' : 'Enter temperature'} className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center"
-            onClick={() => { ctx.setTempValue(it.id, has ? String(r.temp) : ''); ctx.setTempOpen(it.id, true); }}>
-            <span className={cn('flex h-7 w-7 items-center justify-center rounded-full',
-              tone === 'good' ? 'bg-[hsl(var(--success)/0.14)]' : tone === 'bad' ? 'bg-destructive/10' : 'bg-[hsl(var(--warning)/0.16)]', color)}><Pencil className="h-3.5 w-3.5" /></span>
+            onClick={(e) => { e.stopPropagation(); ctx.setTempValue(it.id, has ? String(r.temp) : ''); ctx.setTempOpen(it.id, true); }}>
+            <span className={cn('flex h-[22px] w-[22px] items-center justify-center rounded-full',
+              tone === 'good' ? 'bg-[hsl(var(--success)/0.14)]' : tone === 'bad' ? 'bg-destructive/10' : 'bg-[hsl(var(--warning)/0.16)]', color)}><Pencil className="h-3 w-3" /></span>
           </button>
         </span>
-        <span className={cn('whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold',
-          chip === 'Safe' ? 'bg-[hsl(var(--success)/0.12)] text-[hsl(var(--success))]' : chip === 'Out of range' ? 'bg-destructive/10 text-destructive' : 'bg-[hsl(var(--warning)/0.14)] text-[hsl(var(--warning))]')}>{chip}</span>
+        {chip && (
+          <span className={cn('whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold',
+            chip === 'Out of range' ? 'bg-destructive/10 text-destructive' : 'bg-[hsl(var(--warning)/0.14)] text-[hsl(var(--warning))]')}>{chip}</span>
+        )}
         <PhotoIcon ctx={ctx} it={it} />
       </span>
       {r.editedBy && <span className="block text-xs text-muted-foreground">Edited by {r.editedBy}</span>}
@@ -321,8 +351,8 @@ function PhotoIcon({ ctx, it }: { ctx: RunCtx; it: RunItem }) {
   if (!ph.length) return null;
   return (
     <button type="button" aria-label={ph.length > 1 ? `See ${ph.length} photos` : 'See photo'} className="relative -m-2 flex h-11 w-11 shrink-0 items-center justify-center"
-      onClick={(e) => { e.stopPropagation(); ctx.preview(ph[0]); }}>
-      <span className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-muted-foreground"><ImageIcon className="h-3.5 w-3.5" /></span>
+      onClick={(e) => { e.stopPropagation(); ctx.previewMany ? ctx.previewMany(ph, 0) : ctx.preview(ph[0]); }}>
+      <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full border border-border bg-card text-muted-foreground"><ImageIcon className="h-3 w-3" /></span>
       {ph.length > 1 && <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] font-bold leading-4 text-primary-foreground">{ph.length}</span>}
     </button>
   );
@@ -338,7 +368,7 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
   const pressTimer = useRef<number | null>(null);
 
   const tap = () => {
-    if (done) { if (!oneTap) onOpen(); return; }
+    if (done) { onOpen(); return; }
     if (oneTap) ctx.check(it.id); else onOpen();
   };
   const longPressStart = () => {
@@ -347,11 +377,11 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
   };
   const longPressEnd = () => { if (pressTimer.current) { window.clearTimeout(pressTimer.current); pressTimer.current = null; } };
 
-  const doneDot = <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--success))] text-primary-foreground', flash && 'animate-in zoom-in-50 duration-300')} aria-hidden><Check className="h-4 w-4" strokeWidth={3} /></span>;
+  const doneDot = <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--success))] text-primary-foreground', flash && 'animate-in zoom-in-50 duration-300')} aria-hidden><Check className="h-3.5 w-3.5" strokeWidth={3} /></span>;
   let circle: ReactNode;
   if (amber) circle = <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--warning))] text-sm font-bold text-primary-foreground" aria-hidden>!</span>;
   else if (done) circle = ctx.canUndo(it.id)
-    ? <button type="button" onClick={(e) => { e.stopPropagation(); ctx.undo(it.id); }} aria-label={`Undo ${it.question}`} className="-m-2 flex h-11 w-11 items-center justify-center">{doneDot}</button>
+    ? <button type="button" onClick={(e) => { e.stopPropagation(); ctx.undo(it.id); }} aria-label={`Undo ${it.question}`} className="-m-2.5 flex h-11 w-11 items-center justify-center">{doneDot}</button>
     : doneDot;
   else circle = <span className="h-7 w-7 shrink-0 rounded-full border-2 border-muted-foreground/40" aria-hidden />;
 
@@ -393,12 +423,11 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
         onPointerDown={!oneTap || done ? undefined : longPressStart}
         onPointerUp={longPressEnd}
         onPointerLeave={longPressEnd}
-        className="flex w-full cursor-pointer flex-wrap items-start gap-x-3 px-3 py-2.5 text-left"
+        className={cn('flex w-full cursor-pointer items-start px-3 text-left', done ? 'gap-x-2.5 py-[7px]' : 'flex-wrap gap-x-3 py-2.5')}
       >
         <span className="flex shrink-0">{circle}</span>
-        <span className="min-w-0 flex-1 pt-[3px]">
-          <Name it={it} ctx={ctx} className={cn('block break-words text-[15px] font-semibold leading-snug', done && !amber && 'text-muted-foreground')} />
-          {done && !amber && ctx.completer(it.id) && <span className="block text-xs leading-tight text-muted-foreground">{timeOf(ctx.completer(it.id)!.completedAt)}</span>}
+        <span className={cn('min-w-0 flex-1', !done && 'pt-[3px]')}>
+          <Name it={it} ctx={ctx} className={cn('block break-words font-semibold', done ? 'text-[13.5px] leading-[1.25]' : 'text-[15px] leading-snug', done && !amber && 'text-muted-foreground')} />
           {amber ? (
             <span className="mt-0.5 block text-sm text-[hsl(var(--warning))]">Photo saved. Type the temperature.</span>
           ) : !done ? (
@@ -413,24 +442,24 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
             <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></span>
           )}
           {amber && <span className="mt-2 flex items-center gap-3"><TempInput ctx={ctx} id={it.id} /><PhotoIcon ctx={ctx} it={it} /></span>}
+          {done && temp && !amber && <DoneReading ctx={ctx} it={it} />}
           {done && temp && !amber && ctx.tempOpen(it.id) && (
             <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></span>
           )}
           {photos.length > 0 && (
-            <span className="mt-2 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+            <span className="mt-[5px] flex flex-wrap gap-1">
               {photos.map((u, i) => (
-                <button key={i} type="button" onClick={() => ctx.preview(u)} aria-label={`See photo ${i + 1}`} className="h-14 w-14 overflow-hidden rounded-lg border">
+                <button key={i} type="button" onClick={(e) => { e.stopPropagation(); ctx.previewMany ? ctx.previewMany(photos, i) : ctx.preview(u); }} aria-label={`See photo ${i + 1}`} className="h-[34px] w-[34px] overflow-hidden rounded-md border">
                   <img src={u} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 </button>
               ))}
             </span>
           )}
-          {savedText && it.item_type !== 'number' && <span className="mt-0.5 block whitespace-pre-wrap break-words text-[15px] line-clamp-3">{savedText}</span>}
+          {savedText && it.item_type === 'number' && <span className="mt-0.5 block text-base font-bold tabular-nums">{savedText}</span>}
+          {savedText && it.item_type !== 'number' && <span className="mt-0.5 block whitespace-pre-wrap break-words text-sm line-clamp-3">{savedText}</span>}
         </span>
         {right && <span className="flex min-h-7 items-center self-center">{right}</span>}
         {done && !amber && <DoneWho ctx={ctx} id={it.id} />}
-        {done && temp && !amber && <span className="flex basis-full justify-center"><DoneReading ctx={ctx} it={it} /></span>}
-        {savedText && it.item_type === 'number' && <span className="basis-full pt-1 text-center text-xl font-bold tabular-nums">{savedText}</span>}
       </div>
     </div>
   );
@@ -760,6 +789,85 @@ function GuidedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
   );
 }
 
+// ---------- read-only completed card ----------
+function CompletedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
+  const c = ctx.completer(it.id);
+  const temp = isTempTask(it);
+  const photos = ctx.photos(it);
+  const r = temp ? ctx.reading(it.id) : null;
+  const saved = ctx.savedValue(it.id) ?? ctx.value(it.id);
+  const openPhoto = (i: number) => { if (ctx.previewMany) ctx.previewMany(photos, i); else ctx.preview(photos[i]); };
+  const tone = !r ? null : r.temp == null ? 'warn' : r.valid === false ? 'bad' : 'good';
+  return (
+    <div className="space-y-3">
+      {c && (
+        <div className="flex items-center gap-3 rounded-xl bg-muted/60 p-3">
+          <Avatar className="h-10 w-10 shrink-0">
+            <AvatarImage src={c.profilePhoto || undefined} />
+            <AvatarFallback className="bg-secondary text-sm font-semibold text-secondary-foreground">{initialsOf(c.fullName)}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <div className={capLabel}>Completed by</div>
+            <div className="break-words text-[15px] font-bold">{c.fullName}</div>
+            <div className="text-xs text-muted-foreground">{fullWhen(c.completedAt)}</div>
+          </div>
+        </div>
+      )}
+      {temp && r && (
+        <div className={cn('flex items-center justify-between gap-3 rounded-xl p-3',
+          tone === 'good' && 'bg-[hsl(var(--success)/0.1)]', tone === 'bad' && 'bg-destructive/10', tone === 'warn' && 'bg-[hsl(var(--warning)/0.12)]')}>
+          <div className="min-w-0">
+            <div className="text-sm text-muted-foreground">{r.temp != null ? 'Reading' : 'No reading'}</div>
+            <div className={cn('text-3xl font-bold tabular-nums', tone === 'good' && 'text-[hsl(var(--success))]', tone === 'bad' && 'text-destructive', tone === 'warn' && 'text-[hsl(var(--warning))]')}>
+              {r.temp != null ? `${Number(r.temp).toFixed(1)}°F` : '?°F'}
+            </div>
+            {r.editedBy && <div className="text-xs text-muted-foreground">Edited by {r.editedBy}</div>}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold',
+              tone === 'good' && 'bg-[hsl(var(--success))] text-primary-foreground', tone === 'bad' && 'bg-destructive text-destructive-foreground', tone === 'warn' && 'bg-[hsl(var(--warning))] text-primary-foreground')}>
+              {tone === 'good' ? 'Safe' : tone === 'bad' ? 'Out of range' : 'Unconfirmed'}
+            </span>
+            <button type="button" aria-label={r.temp != null ? 'Edit temperature' : 'Enter temperature'}
+              onClick={() => { ctx.setTempValue(it.id, r.temp != null ? String(r.temp) : ''); ctx.setTempOpen(it.id, true); }}
+              className={cn('flex h-11 w-11 items-center justify-center rounded-full',
+                tone === 'good' && 'bg-[hsl(var(--success))] text-primary-foreground', tone === 'bad' && 'bg-destructive text-destructive-foreground', tone === 'warn' && 'bg-[hsl(var(--warning))] text-primary-foreground')}>
+              <Pencil className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+      {temp && ctx.tempOpen(it.id) && <TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} />}
+      {photos.length > 0 && (
+        <div className={cn('grid gap-2', photos.length > 1 ? 'grid-cols-2' : 'grid-cols-1')}>
+          {photos.map((u, i) => (
+            <button key={i} type="button" onClick={() => openPhoto(i)} className="block overflow-hidden rounded-xl border" aria-label={`See photo ${i + 1} full size`}>
+              <img src={u} alt="" className="max-h-72 w-full object-cover" loading="lazy" decoding="async" />
+            </button>
+          ))}
+        </div>
+      )}
+      {it.item_type === 'number' && saved != null && saved !== '' && <div className="text-3xl font-bold tabular-nums">{String(saved)}</div>}
+      {it.item_type === 'text' && !!saved && <div className="whitespace-pre-wrap break-words rounded-xl bg-muted p-3 text-[15px] leading-relaxed">{String(saved)}</div>}
+      {it.item_type === 'multiple_choice' && (
+        <div className="space-y-2">
+          {(Array.isArray(it.options) ? it.options : []).map((o: string) => {
+            const sel = o === saved;
+            return (
+              <div key={o} className={cn('flex min-h-12 items-center gap-3 rounded-xl border px-3 py-2 text-[15px]', sel ? 'border-primary bg-primary/10 font-semibold' : 'border-border bg-card text-muted-foreground')}>
+                <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2', sel ? 'border-primary' : 'border-muted-foreground/40')}>{sel && <span className="h-2.5 w-2.5 rounded-full bg-primary" />}</span>
+                <span className="min-w-0 break-words">{o}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <NotesPanel it={it} />
+      <ReferenceRows it={it} ctx={ctx} showPhotos />
+    </div>
+  );
+}
+
 // ---------- main view ----------
 export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -767,6 +875,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
   const wideList = width >= 640;
   const twoPane = width >= 900;
   const [guidedId, setGuidedId] = useState<string | null>(null);
+  const [reviewId, setReviewId] = useState<string | null>(null);
   const [atEnd, setAtEnd] = useState(false);
   const [flashId, setFlashId] = useState<string | null>(null);
 
@@ -784,12 +893,26 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
   const current = idx >= 0 ? walk[idx] : null;
   const nextTodo = idx >= 0 ? walk.slice(idx + 1).find(todo) : undefined;
 
-  useEffect(() => { window.scrollTo({ top: 0 }); }, [guidedId, atEnd]);
+  // Completed tasks in list order, for the read-only review card.
+  const doneWalk = useMemo(() => walk.filter((it) => counted(it) && ctx.isDone(it) && !ctx.needsTemp(it)), [walk, ctx]);
+  const rIdx = reviewId ? doneWalk.findIndex((w) => w.id === reviewId) : -1;
+  const reviewCurrent = rIdx >= 0 ? doneWalk[rIdx] : null;
 
-  const open = (id: string) => { setAtEnd(false); setGuidedId(id); };
+  useEffect(() => { window.scrollTo({ top: 0 }); }, [guidedId, reviewId, atEnd]);
+  // If the reviewed item gets undone (or data reloads), fall back to the list.
+  useEffect(() => { if (reviewId && rIdx < 0) setReviewId(null); }, [reviewId, rIdx]);
+
+  const open = (id: string) => { setAtEnd(false); setReviewId(null); setGuidedId(id); };
+  const openReview = (id: string) => { setAtEnd(false); setGuidedId(null); setReviewId(id); };
   const goNext = () => { if (nextTodo) open(nextTodo.id); else setAtEnd(true); };
   const goPrev = () => { if (idx > 0) open(walk[idx - 1].id); };
-  const backToList = () => { setGuidedId(null); setAtEnd(false); };
+  const backToList = () => { setGuidedId(null); setReviewId(null); setAtEnd(false); };
+
+  /** Done rows open the read-only card; prep/approval keep their own screens. */
+  const openRow = (it: RunItem) => {
+    if (ctx.isDone(it) && !ctx.needsTemp(it) && it.item_type !== 'prep_list' && it.item_type !== 'manager_approval') openReview(it.id);
+    else open(it.id);
+  };
 
   const ctxWithFlash: RunCtx = {
     ...ctx,
@@ -841,7 +964,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
           </div>
         )}
         <div className="overflow-hidden rounded-2xl border bg-card">
-          {rows.map((it) => <Row key={it.id} it={it} ctx={ctxWithFlash} wide={wideList} onOpen={() => open(it.id)} flash={flashId === it.id} />)}
+          {rows.map((it) => <Row key={it.id} it={it} ctx={ctxWithFlash} wide={wideList} onOpen={() => openRow(it)} flash={flashId === it.id} />)}
         </div>
       </section>
     );
@@ -986,9 +1109,46 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
     </div>
   );
 
+  // ----- read-only completed card -----
+  const reviewNav = reviewCurrent && (
+    <div className="flex items-center gap-3">
+      <button type="button" aria-label="Previous completed task" disabled={rIdx <= 0} onClick={() => openReview(doneWalk[rIdx - 1].id)} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border bg-card disabled:opacity-40"><ChevronLeft className="h-5 w-5" /></button>
+      <div className="min-w-0 flex-1">
+        <div className="text-xs text-muted-foreground">{rIdx + 1} of {doneWalk.length} done</div>
+        <div className="break-words text-sm font-bold">{doneWalk[rIdx + 1]?.question ?? 'Back to the list after this'}</div>
+      </div>
+      {rIdx < doneWalk.length - 1 ? (
+        <Button type="button" variant="outline" className="h-12 shrink-0 border border-border bg-card px-4" onClick={() => openReview(doneWalk[rIdx + 1].id)}>Next<ChevronRight className="ml-1 h-4 w-4" /></Button>
+      ) : (
+        <Button type="button" variant="outline" className="h-12 shrink-0 border border-border bg-card px-4" onClick={backToList}>List</Button>
+      )}
+    </div>
+  );
+
+  const reviewView = reviewCurrent && (
+    <div className="space-y-3 pb-6">
+      {topBar}
+      <div key={reviewCurrent.id} className="space-y-3 rounded-2xl border bg-card p-4">
+        <div className={capLabel}>{(sectionOf.get(reviewCurrent.id) || 'Tasks')} · {typeLabel(reviewCurrent, ctx.minPhotos(reviewCurrent))} · Done</div>
+        <Name it={reviewCurrent} ctx={ctx} className="block break-words text-2xl font-bold leading-tight" />
+        <ShiftTag it={reviewCurrent} />
+        <CompletedBody it={reviewCurrent} ctx={ctx} />
+        {ctx.canUndo(reviewCurrent.id) && (
+          <Button type="button" variant="outline" className="h-12 w-full border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => { ctx.undo(reviewCurrent.id); backToList(); }}>
+            <RotateCcw className="mr-2 h-4 w-4" />Undo
+          </Button>
+        )}
+      </div>
+      {twoPane ? reviewNav : (
+        <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+88px)] z-20 -mx-1 rounded-2xl border bg-background/95 p-2 backdrop-blur">{reviewNav}</div>
+      )}
+    </div>
+  );
+
   return (
     <div ref={rootRef}>
-      {guidedId ? guidedView : listView}
+      {guidedId ? guidedView : reviewId && reviewView ? reviewView : listView}
       {prepHidden}
     </div>
   );
