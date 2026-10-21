@@ -37,6 +37,12 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>CrooHQ uses the microphone so Theo can hear your voice updates and questions.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>CrooHQ uses the camera so you can take photos for checklists, your profile, and team updates.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>CrooHQ uses your photo library so you can attach photos.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>CrooHQ saves photos you take to your library when needed.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
