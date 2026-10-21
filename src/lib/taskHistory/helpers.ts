@@ -8,6 +8,8 @@
  *  - src/utils/checklistArchivePeriod.ts (getScorePeriodStart, isItemExpectedInPeriod)
  */
 
+import { checklistScorePeriod, type ChecklistScheduleFields } from './schedule.ts';
+
 export const DEFAULT_TIMEZONE = 'America/Los_Angeles';
 const DEFAULT_CUTOFF_HOUR = 5;
 const HOURS_AFTER_CLOSE = 3;
