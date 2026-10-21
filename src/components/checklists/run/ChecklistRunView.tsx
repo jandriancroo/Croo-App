@@ -155,9 +155,10 @@ function useContentWidth(ref: React.RefObject<HTMLElement>) {
 
 function ProgressBar({ done, total }: { done: number; total: number }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const full = total > 0 && done >= total;
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={total} aria-label={`${done} of ${total} done`}>
-      <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${pct}%` }} />
+      <div className={cn('h-full rounded-full transition-[width] duration-300', full ? 'bg-[hsl(var(--success))]' : 'bg-primary')} style={{ width: `${pct}%` }} />
     </div>
   );
 }
@@ -985,6 +986,9 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
       )}
       {hiddenLine}
       {groups}
+      {workedOnBy.length > 0 && (
+        <p className="px-1 text-[12.5px] text-muted-foreground"><span className="font-bold text-foreground">Worked on by</span> {workedOnBy.join(', ')}</p>
+      )}
       {ctx.footer}
       {firstTodo && (
         <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+88px)] z-30 px-3 md:bottom-4 md:px-6">
@@ -1114,20 +1118,19 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
     </div>
   );
 
+  const reviewBad = !!reviewCurrent && isTempTask(reviewCurrent) && ctx.reading(reviewCurrent.id).valid === false;
   const reviewView = reviewCurrent && (
     <div className="space-y-3 pb-6">
-      {topBar}
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={backToList} aria-label="Back to list"><ArrowLeft className="h-5 w-5" /></Button>
+        <div className="min-w-0 flex-1">
+          <Name it={reviewCurrent} ctx={ctx} className="block break-words text-base font-bold leading-tight" />
+          <div className="text-xs text-muted-foreground">{sectionOf.get(reviewCurrent.id) || 'Tasks'} · {ctx.title}</div>
+        </div>
+        {reviewBad && <span className="shrink-0 rounded-full bg-destructive px-2.5 py-1 text-xs font-semibold text-destructive-foreground">Out of range</span>}
+      </div>
       <div key={reviewCurrent.id} className="space-y-3 rounded-2xl border bg-card p-4">
-        <div className={capLabel}>{(sectionOf.get(reviewCurrent.id) || 'Tasks')} · {typeLabel(reviewCurrent, ctx.minPhotos(reviewCurrent))} · Done</div>
-        <Name it={reviewCurrent} ctx={ctx} className="block break-words text-2xl font-bold leading-tight" />
-        <ShiftTag it={reviewCurrent} />
         <CompletedBody it={reviewCurrent} ctx={ctx} />
-        {ctx.canUndo(reviewCurrent.id) && (
-          <Button type="button" variant="outline" className="h-12 w-full border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
-            onClick={() => { ctx.undo(reviewCurrent.id); backToList(); }}>
-            <RotateCcw className="mr-2 h-4 w-4" />Undo
-          </Button>
-        )}
       </div>
       {twoPane ? reviewNav : (
         <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+88px)] z-20 -mx-1 rounded-2xl border bg-background/95 p-2 backdrop-blur">{reviewNav}</div>
