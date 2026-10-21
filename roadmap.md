@@ -14,3 +14,7 @@
 
 ## Up next
 - Remaining border mockups — waiting for Jordan's references; current styles already use outer-edge placement.
+
+## In progress
+- Finished rows final spec (one-line rows, read-only completed view, Worked on by line) — rebuilding ChecklistRunView.
+- Progress bar + "N of N" count turn success green at 100%, teal while in progress (Jordan, Oct 21).
