@@ -14,6 +14,8 @@ interface Props {
   value: ChecklistEditorSettings;
   onChange: (patch: Partial<ChecklistEditorSettings>) => void;
   templateTypeOptions: TemplateType[];
+  /** Type shown read-only (set once the list has tasks). */
+  typeLocked?: boolean;
   locationId?: string | null;
   storeToday: string;
   availablePositions: string[];
@@ -44,9 +46,14 @@ function SettingRow({ label, helper, control, htmlFor, divider }: { label: strin
   );
 }
 
-const TYPE_LABEL: Record<TemplateType, string> = { standard: 'Standard', dynamic: 'Dynamic', training: 'Training' };
+const TYPE_LABEL: Record<TemplateType, string> = { standard: 'Standard', dynamic: 'Dynamic Weekly', training: 'Training' };
+const TYPE_HELP: Record<TemplateType, string> = {
+  standard: 'Runs on a schedule you choose.',
+  dynamic: 'Different tasks on different days of the week.',
+  training: 'Assigned to a trainee, scored per assignment.',
+};
 
-export function ChecklistSettingsPanel({ value: s, onChange, templateTypeOptions, locationId, storeToday, availablePositions, singleDayHint, wide }: Props) {
+export function ChecklistSettingsPanel({ value: s, onChange, templateTypeOptions, locationId, storeToday, availablePositions, singleDayHint, wide, typeLocked }: Props) {
   const isTraining = s.templateType === 'training';
   const isDynamic = s.templateType === 'dynamic';
   const showTypePicker = templateTypeOptions.includes(s.templateType) && templateTypeOptions.length > 1;
@@ -95,19 +102,16 @@ export function ChecklistSettingsPanel({ value: s, onChange, templateTypeOptions
       <Label>Type</Label>
       <SegmentedControl<TemplateType>
         value={s.templateType}
-        onValueChange={(templateType) => onChange({ templateType })}
+        onValueChange={(templateType) => { if (!typeLocked) onChange({ templateType }); }}
         aria-label="Checklist type"
         fullWidth
         className="h-11"
-        options={templateTypeOptions.map((t) => ({ value: t, label: TYPE_LABEL[t] }))}
+        options={templateTypeOptions
+          .filter((t) => !typeLocked || t === s.templateType)
+          .map((t) => ({ value: t, label: TYPE_LABEL[t] }))}
       />
-      <p className="text-sm text-muted-foreground">
-        {isTraining
-          ? 'Reusable training list. It only appears once you assign it to a team member for a date.'
-          : isDynamic
-            ? 'After creating, assign tasks to days on calendar.'
-            : 'Switch to Training to assign this list per person and per date.'}
-      </p>
+      <p className="text-sm text-muted-foreground">{TYPE_HELP[s.templateType]}</p>
+      {typeLocked && <p className="text-xs text-muted-foreground">Type is set when you create a list</p>}
     </div>
   );
 

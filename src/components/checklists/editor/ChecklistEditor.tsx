@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
-import { ArrowLeft, ChevronRight, GripVertical, Loader2, Plus } from 'lucide-react';
+import { ArrowLeft, ChevronRight, GripVertical, Loader2, Plus, Upload } from 'lucide-react';
+import { BulkUploadPanel } from './BulkUploadPanel';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -9,7 +10,7 @@ import { PageTitle } from '@/components/PageTitle';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
-import { blankItem, duplicateItem, moveChecklistItems, type EditorItem } from '@/lib/checklistEditorItems';
+import { blankItem, duplicateItem, moveChecklistItems, withKey, type EditorItem } from '@/lib/checklistEditorItems';
 import { ChecklistItemInspector, typeMeta } from './ChecklistItemInspector';
 import { ChecklistSettingsPanel } from './ChecklistSettingsPanel';
 import { useAssignmentLabeler } from '@/components/tasks/TaskAssigneePicker';
@@ -46,6 +47,15 @@ interface Props {
   notice?: ReactNode;
   /** Extra content under the task list (Create: bulk add). */
   itemsFooter?: ReactNode;
+  /** Offer Bulk Upload (Standard and Training lists). */
+  bulkUpload?: boolean;
+  /** Create: show the "How do you want to build this list?" cards while empty. */
+  emptyStart?: boolean;
+  /** Settings: type shown but not changeable. */
+  typeLocked?: boolean;
+  saveDisabled?: boolean;
+  /** Replaces the Items tab (Create with Dynamic Weekly chosen). */
+  itemsOverride?: ReactNode;
 }
 
 const keyOf = (it: EditorItem, i: number) => it._key ?? `idx-${i}`;
@@ -144,6 +154,8 @@ export function ChecklistEditor(p: Props) {
   const [focusNameKey, setFocusNameKey] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
   const addInputRef = useRef<HTMLInputElement>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [startedNew, setStartedNew] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const wide = useIsWide(rootRef);
   const roomy = useIsWide(rootRef, 1100);
@@ -227,6 +239,39 @@ export function ChecklistEditor(p: Props) {
   };
 
   const canRemove = items.length > p.minItems;
+  const showStart = !!p.emptyStart && items.length === 0 && !startedNew && !bulkOpen;
+
+  const startNew = () => {
+    setBulkOpen(false);
+    setStartedNew(true);
+    requestAnimationFrame(() => requestAnimationFrame(() => addInputRef.current?.focus()));
+  };
+
+  const addBulk = (added: EditorItem[]) => {
+    setItems((prev) => [...prev, ...added.map(withKey)].map((it, i) => ({ ...it, order_index: i })));
+    setBulkOpen(false);
+    setStartedNew(true);
+  };
+
+  const startCards = (
+    <div className="space-y-3">
+      <h2 className="px-1 text-lg font-semibold">How do you want to build this list?</h2>
+      <div className={cn('gap-3', wide ? 'grid grid-cols-2' : 'space-y-3')}>
+        {[
+          { key: 'new', Icon: Plus, title: 'Start New Checklist', sub: 'Build it here. Type a task, add it, type the next.', on: startNew },
+          { key: 'bulk', Icon: Upload, title: 'Bulk Upload', sub: 'Bring in a list you already have. Paste the text, or upload a CSV, a PDF or a photo.', on: () => setBulkOpen(true) },
+        ].map(({ key, Icon, title, sub, on }) => (
+          <button key={key} type="button" onClick={on} className="flex w-full min-h-28 items-start gap-3 rounded-2xl border bg-card p-4 text-left transition-colors hover:border-primary">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icon className="h-5 w-5" /></span>
+            <span className="min-w-0">
+              <span className="block text-base font-semibold">{title}</span>
+              <span className="mt-1 block text-sm text-muted-foreground">{sub}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
   const inspector = selected && (
     <ChecklistItemInspector
@@ -285,7 +330,7 @@ export function ChecklistEditor(p: Props) {
   );
 
   const saveButton = (
-    <Button type="button" className="h-11 px-4" onClick={p.onSave} disabled={p.saving}>
+    <Button type="button" className="h-11 px-4" onClick={p.onSave} disabled={p.saving || !!p.saveDisabled}>
       {p.saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{p.savingLabel}</> : (wide ? p.saveLabelWide : p.saveLabel)}
     </Button>
   );
@@ -315,7 +360,7 @@ export function ChecklistEditor(p: Props) {
           <div>{rows}</div>
         </SortableContext>
       </DndContext>
-      {items.length === 0 && <p className="px-3 py-6 text-center text-sm text-muted-foreground">No tasks yet. Type one below.</p>}
+      {items.length === 0 && <p className="px-3 py-6 text-center text-sm text-muted-foreground">Type a task below and press Enter</p>}
       {wide && <div className="sticky bottom-0 border-t bg-card p-3">{addBar}</div>}
     </div>
   );
@@ -347,10 +392,30 @@ export function ChecklistEditor(p: Props) {
           availablePositions={p.availablePositions}
           singleDayHint={p.singleDayHint}
           wide={wide}
+          typeLocked={p.typeLocked}
         />
+      ) : p.itemsOverride ? (
+        p.itemsOverride
+      ) : bulkOpen ? (
+        <BulkUploadPanel
+          wide={wide}
+          locationId={p.locationId}
+          onStartNewInstead={items.length === 0 ? startNew : undefined}
+          onCancel={() => setBulkOpen(false)}
+          onAdd={addBulk}
+        />
+      ) : showStart ? (
+        startCards
       ) : (
         <div className={cn(!wide ? undefined : roomy ? 'grid grid-cols-[minmax(0,1fr)_330px] items-start gap-4' : 'grid grid-cols-[minmax(0,48fr)_minmax(0,52fr)] items-start gap-4')}>
           <div className="space-y-3">
+            {p.bulkUpload && items.length > 0 && (
+              <div className="-mb-1 flex justify-end">
+                <Button type="button" variant="ghost" className="h-11 px-2 text-primary" onClick={() => setBulkOpen(true)}>
+                  <Upload className="mr-1.5 h-4 w-4" />Bulk Upload
+                </Button>
+              </div>
+            )}
             {list}
             {p.itemsFooter}
           </div>
@@ -363,7 +428,7 @@ export function ChecklistEditor(p: Props) {
         </div>
       )}
 
-      {!wide && tab === 'items' && (
+      {!wide && tab === 'items' && !p.itemsOverride && !bulkOpen && !showStart && (
         <div className="sticky z-20 mt-3 bg-background py-2" style={{ bottom: 'calc(var(--app-dock-h, 6rem) + 0.25rem)' }}>
           {addBar}
         </div>
