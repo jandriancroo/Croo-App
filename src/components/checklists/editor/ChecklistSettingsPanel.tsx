@@ -122,7 +122,7 @@ export function ChecklistSettingsPanel({ value: s, onChange, templateTypeOptions
           {typePicker}
           <div className="space-y-1">
             <Label htmlFor="checklist-title">Title</Label>
-            <Input id="checklist-title" value={s.title} onChange={(e) => onChange({ title: e.target.value })} placeholder="e.g., Morning Kitchen Check" className="h-11" />
+            <Input id="checklist-title" value={s.title} onChange={(e) => onChange({ title: e.target.value })} placeholder="e.g., Morning Kitchen Check" className="h-11" autoFocus={!s.title} />
           </div>
           {frequency}
           <div className="space-y-1">

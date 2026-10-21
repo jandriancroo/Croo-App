@@ -6,15 +6,13 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation } from '@/hooks/useLocation';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Plus, Loader2, FileInput } from 'lucide-react';
+import { Loader2, CalendarDays } from 'lucide-react';
 import { toast } from 'sonner';
 import { compressImage } from '@/utils/imageCompression';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { defaultScheduleForm, scheduleFormError, scheduleFormToRow } from '@/lib/checklistScheduleForm';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getTodayInTimezone } from '@/utils/timezoneUtils';
-import { blankItem, toItemRow, withKey, newItemKey, type EditorItem } from '@/lib/checklistEditorItems';
+import { toItemRow, withKey, type EditorItem } from '@/lib/checklistEditorItems';
 import { ChecklistEditor } from '@/components/checklists/editor/ChecklistEditor';
 import type { ChecklistEditorSettings } from '@/components/checklists/editor/types';
 
@@ -37,7 +35,8 @@ export default function CreateChecklist() {
   } = settings;
   const { timezone: storeTimezone } = useLocationTimezone();
   const storeToday = getTodayInTimezone(storeTimezone);
-  const [items, setItems] = useState<ChecklistItem[]>(() => [blankItem()]);
+  const [items, setItems] = useState<ChecklistItem[]>([]);
+  const [triedCreate, setTriedCreate] = useState(false);
   const [loading, setLoading] = useState(false);
   const [bulkText, setBulkText] = useState('');
   const [didLoadDraft, setDidLoadDraft] = useState(false);
@@ -115,7 +114,9 @@ export default function CreateChecklist() {
         enableAmPmDivision: !!parsed.enableAmPmDivision,
         positionFilteringEnabled: !!parsed.positionFilteringEnabled,
       }));
-      setItems(Array.isArray(parsed.items) && parsed.items.length > 0 ? parsed.items.map(withKey) : [blankItem()]);
+      // A draft holding only blank rows counts as empty (start screen shows).
+      const draftItems = Array.isArray(parsed.items) ? parsed.items : [];
+      setItems(draftItems.some((it: any) => String(it?.question ?? '').trim()) ? draftItems.map(withKey) : []);
       setBulkText(parsed.bulkText ?? '');
     } catch {
       // If draft is corrupted, ignore it
@@ -169,68 +170,8 @@ export default function CreateChecklist() {
     return data.publicUrl;
   };
 
-  const parseBulkText = () => {
-    if (!bulkText.trim()) {
-      toast.error('Please enter some text to parse');
-      return;
-    }
-
-    const lines = bulkText.split('\n').filter(line => line.trim());
-    const newItems: ChecklistItem[] = [];
-
-    lines.forEach(line => {
-      const trimmedLine = line.trim();
-      let item: ChecklistItem = {
-        _key: newItemKey(),
-        question: trimmedLine,
-        item_type: 'confirmation',
-        is_required: true
-      };
-
-      if (trimmedLine.toLowerCase().startsWith('photo:')) {
-        item.question = trimmedLine.substring(6).trim();
-        item.item_type = 'image';
-      } else if (trimmedLine.toLowerCase().startsWith('temp:')) {
-        item.question = trimmedLine.substring(5).trim();
-        item.item_type = 'temperature';
-      } else if (trimmedLine.toLowerCase().startsWith('text:')) {
-        item.question = trimmedLine.substring(5).trim();
-        item.item_type = 'text';
-      } else if (trimmedLine.toLowerCase().startsWith('confirm:') || trimmedLine.toLowerCase().startsWith('check:')) {
-        const colonIndex = trimmedLine.indexOf(':');
-        item.question = trimmedLine.substring(colonIndex + 1).trim();
-        item.item_type = 'confirmation';
-      } else if (trimmedLine.toLowerCase().startsWith('mc:') || trimmedLine.toLowerCase().startsWith('choice:')) {
-        const colonIndex = trimmedLine.indexOf(':');
-        const rest = trimmedLine.substring(colonIndex + 1).trim();
-        const pipeIndex = rest.indexOf('|');
-        
-        if (pipeIndex > -1) {
-          item.question = rest.substring(0, pipeIndex).trim();
-          item.options = rest.substring(pipeIndex + 1).split(',').map(opt => opt.trim()).filter(opt => opt);
-          item.item_type = 'multiple_choice';
-        } else {
-          item.question = rest;
-          item.item_type = 'multiple_choice';
-          item.options = ['Yes', 'No', 'N/A'];
-        }
-      }
-
-      if (item.question) {
-        newItems.push(item);
-      }
-    });
-
-    if (newItems.length > 0) {
-      setItems([...items, ...newItems]);
-      setBulkText('');
-      toast.success(`Added ${newItems.length} item${newItems.length > 1 ? 's' : ''}`);
-    } else {
-      toast.error('No valid items found');
-    }
-  };
-
   const handleSubmit = async () => {
+    setTriedCreate(true);
     if (!title.trim() || items.filter((i) => i.question.trim() !== '').length === 0) {
       toast.error('Please provide a title and at least one checklist item.');
       return;
@@ -394,31 +335,16 @@ export default function CreateChecklist() {
     navigate(`/dynamic-checklist/${checklist.id}`);
   };
 
-  const bulkAdd = (
-    <Collapsible>
-      <CollapsibleTrigger asChild>
-        <Button type="button" variant="ghost" className="h-11 w-full text-sm text-muted-foreground">
-          <FileInput className="h-4 w-4 mr-2" />
-          Bulk Add Items
-        </Button>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="pt-2 space-y-3">
-        <p className="text-sm text-muted-foreground">
-          One per line. Prefixes: <code>Photo:</code> <code>Temp:</code> <code>Text:</code> <code>Confirm:</code> <code>MC: question | opt1, opt2</code>
-        </p>
-        <Textarea
-          value={bulkText}
-          onChange={(e) => setBulkText(e.target.value)}
-          placeholder="Photo: Take picture of prep station&#10;Confirm: All surfaces sanitized&#10;Temp: Walk-in cooler"
-          rows={5}
-          className="font-mono text-sm"
-        />
-        <Button type="button" onClick={parseBulkText} variant="secondary" className="h-11 w-full">
-          <Plus className="h-4 w-4 mr-2" />
-          Parse & Add Items
-        </Button>
-      </CollapsibleContent>
-    </Collapsible>
+  const hasNamedTask = items.some((i) => i.item_type !== 'section_header' && i.question.trim() !== '');
+  const typeLocked = items.length > 0 || triedCreate;
+
+  const dynamicHandoff = (
+    <div className="rounded-2xl border bg-card p-4 text-center space-y-3">
+      <CalendarDays className="mx-auto h-8 w-8 text-primary" />
+      <p className="font-semibold">Dynamic Weekly lists are built on the weekly calendar.</p>
+      <p className="text-sm text-muted-foreground">Different tasks go on different days of the week.</p>
+      <Button type="button" className="h-11" onClick={() => { clearDraft(); navigate('/dynamic-checklist/new'); }}>Open the weekly calendar</Button>
+    </div>
   );
 
   return (
@@ -436,7 +362,7 @@ export default function CreateChecklist() {
           storeToday={storeToday}
           availablePositions={availablePositions}
           uploadReference={uploadReference}
-          minItems={1}
+          minItems={0}
           singleDayHint="Shows only on this date, then moves to history. Leave blank for today."
           onCancel={() => navigate('/tasks')}
           onSave={handleSubmit}
@@ -444,7 +370,11 @@ export default function CreateChecklist() {
           saveLabel="Create"
           saveLabelWide="Create checklist"
           savingLabel="Creating..."
-          itemsFooter={bulkAdd}
+          bulkUpload={templateType !== 'dynamic'}
+          emptyStart
+          typeLocked={typeLocked}
+          saveDisabled={!title.trim() || !hasNamedTask}
+          itemsOverride={templateType === 'dynamic' ? dynamicHandoff : undefined}
         />
       </div>
     </Layout>
