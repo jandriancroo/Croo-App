@@ -137,7 +137,7 @@ export function FrequencyPicker({ value: v, onChange, todayStr }: FrequencyPicke
               />
               {v.mode === 'last_n' ? lastNField : (
                 <div className="space-y-2">
-                  <DayToggleRow value={v.weekdays} onToggle={toggleDay} days={WEEKDAYS} />
+                  <DayToggleRow className="[&>button]:h-9 [&>button]:w-9" value={v.weekdays} onToggle={toggleDay} days={WEEKDAYS} />
                   <Chip on={everyDay} onClick={() => set({ weekdays: everyDay ? [] : [...ALL_WEEKDAYS] })}>Every day</Chip>
                 </div>
               )}
