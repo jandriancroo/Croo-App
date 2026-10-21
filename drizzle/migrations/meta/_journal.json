@@ -470,6 +470,13 @@
       "when": 1792625298697,
       "tag": "0066_system_alert_hero_media",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1792625400634,
+      "tag": "0067_announcement_require_confirm",
+      "breakpoints": true
     }
   ]
 }
