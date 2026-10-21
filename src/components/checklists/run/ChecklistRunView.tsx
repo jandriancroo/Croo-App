@@ -308,9 +308,22 @@ function DoneReading({ ctx, it }: { ctx: RunCtx; it: RunItem }) {
           <span className={cn('flex h-7 w-7 items-center justify-center rounded-full',
             tone === 'good' ? 'bg-[hsl(var(--success)/0.14)]' : tone === 'bad' ? 'bg-destructive/10' : 'bg-[hsl(var(--warning)/0.16)]', color)}><Pencil className="h-3.5 w-3.5" /></span>
         </button>
+        <PhotoIcon ctx={ctx} it={it} />
       </span>
       {r.editedBy && <span className="block text-xs text-muted-foreground">Edited by {r.editedBy}</span>}
     </span>
+  );
+}
+
+function PhotoIcon({ ctx, it }: { ctx: RunCtx; it: RunItem }) {
+  const ph = ctx.photos(it);
+  if (!ph.length) return null;
+  return (
+    <button type="button" aria-label={ph.length > 1 ? `See ${ph.length} photos` : 'See photo'} className="relative -m-2 flex h-11 w-11 shrink-0 items-center justify-center"
+      onClick={(e) => { e.stopPropagation(); ctx.preview(ph[0]); }}>
+      <span className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-muted-foreground"><ImageIcon className="h-3.5 w-3.5" /></span>
+      {ph.length > 1 && <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] font-bold leading-4 text-primary-foreground">{ph.length}</span>}
+    </button>
   );
 }
 
@@ -341,7 +354,7 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
     : doneDot;
   else circle = <span className="h-7 w-7 shrink-0 rounded-full border-2 border-muted-foreground/40" aria-hidden />;
 
-  const photos = done && photo ? ctx.photos(it) : [];
+  const photos = done && photo && !temp ? ctx.photos(it) : [];
   const r = temp ? ctx.reading(it.id) : null;
   const savedText = done && (it.item_type === 'text' || it.item_type === 'number' || it.item_type === 'multiple_choice') ? String(ctx.savedValue(it.id) ?? ctx.value(it.id) ?? '') : '';
 
@@ -397,7 +410,7 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
           {!done && ctx.tempOpen(it.id) && temp && (
             <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></span>
           )}
-          {amber && <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} /></span>}
+          {amber && <span className="mt-2 flex items-center gap-3"><TempInput ctx={ctx} id={it.id} /><PhotoIcon ctx={ctx} it={it} /></span>}
           {done && temp && !amber && <DoneReading ctx={ctx} it={it} />}
           {done && temp && !amber && ctx.tempOpen(it.id) && (
             <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></span>
