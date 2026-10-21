@@ -13378,6 +13378,83 @@ export type Database = {
         }
         Relationships: []
       }
+      system_alert_receipts: {
+        Row: {
+          alert_id: string
+          outcome: string
+          seen_at: string
+          user_id: string
+        }
+        Insert: {
+          alert_id: string
+          outcome?: string
+          seen_at?: string
+          user_id?: string
+        }
+        Update: {
+          alert_id?: string
+          outcome?: string
+          seen_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_alert_receipts_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "system_alerts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_alerts: {
+        Row: {
+          action_kind: string
+          action_label: string
+          action_value: string | null
+          audience: string
+          body: string
+          created_at: string
+          created_by: string
+          id: string
+          kind: string
+          published_at: string | null
+          status: string
+          title: string
+          video_url: string | null
+        }
+        Insert: {
+          action_kind?: string
+          action_label?: string
+          action_value?: string | null
+          audience?: string
+          body?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string
+          published_at?: string | null
+          status?: string
+          title: string
+          video_url?: string | null
+        }
+        Update: {
+          action_kind?: string
+          action_label?: string
+          action_value?: string | null
+          audience?: string
+          body?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string
+          published_at?: string | null
+          status?: string
+          title?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       task_subtask_completions: {
         Row: {
           completed_at: string
@@ -16775,6 +16852,30 @@ export type Database = {
           cost: number
           hours: number
         }[]
+      }
+      get_next_system_alert: {
+        Args: never
+        Returns: {
+          action_kind: string
+          action_label: string
+          action_value: string | null
+          audience: string
+          body: string
+          created_at: string
+          created_by: string
+          id: string
+          kind: string
+          published_at: string | null
+          status: string
+          title: string
+          video_url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "system_alerts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_pin_migration_health: {
         Args: never
