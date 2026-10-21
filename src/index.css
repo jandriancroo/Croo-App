@@ -2573,6 +2573,7 @@ html[data-theme="spookified"] .spookified-orb-lightning { display: block; positi
 :root {
   --promo-ink: 0 0% 100%;
   --promo-shade: 0 0% 0%;
+  --promo-frame: 0 0% 0%;
   --promo-border-white: 0 0% 100%;
   --promo-border-ivory: 46 100% 92%;
   --promo-border-red: 4 63% 48%;
