@@ -447,9 +447,9 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
             <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></span>
           )}
           {photos.length > 0 && (
-            <span className="mt-[5px] flex flex-wrap gap-1" onClick={(e) => e.stopPropagation()}>
+            <span className="mt-[5px] flex flex-wrap gap-1">
               {photos.map((u, i) => (
-                <button key={i} type="button" onClick={() => (ctx.previewMany ? ctx.previewMany(photos, i) : ctx.preview(u))} aria-label={`See photo ${i + 1}`} className="h-[34px] w-[34px] overflow-hidden rounded-md border">
+                <button key={i} type="button" onClick={(e) => { e.stopPropagation(); ctx.previewMany ? ctx.previewMany(photos, i) : ctx.preview(u); }} aria-label={`See photo ${i + 1}`} className="h-[34px] w-[34px] overflow-hidden rounded-md border">
                   <img src={u} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 </button>
               ))}
