@@ -1,16 +1,11 @@
-import { memo, useId } from 'react';
+import { memo, useId, useLayoutEffect, useRef, useState } from 'react';
+import { roundedEdge, waveEdge, edgePath, type EdgePoint } from '@/lib/promoBorderGeometry';
 import type { PromoBorder } from '@/lib/promoTrackers';
 import { borderColor } from '@/lib/promoBorders';
 
 const c = (name: string) => `hsl(var(--promo-border-${name}))`;
-const frame = 'M32 8H338A24 24 0 0 1 362 32V188A24 24 0 0 1 338 212H32A24 24 0 0 1 8 188V32A24 24 0 0 1 32 8Z';
-const points = (n: number) => Array.from({ length: n }, (_, i) => {
-  const d = i / n * 1080;
-  if (d < 330) return [20 + d, 8];
-  if (d < 540) return [362, 8 + d - 330];
-  if (d < 870) return [350 - (d - 540), 212];
-  return [8, 212 - (d - 870)];
-});
+const frame = 'M24 0H346A24 24 0 0 1 370 24V196A24 24 0 0 1 346 220H24A24 24 0 0 1 0 196V24A24 24 0 0 1 24 0Z';
+const points = (n: number) => roundedEdge(370, 220, 24, n).map(p => [p.x, p.y]);
 const lampPoints = points(28);
 const edgePoints = points(20);
 const colors = ['pink', 'gold', 'blue', 'green', 'orange'];
@@ -62,37 +57,14 @@ function Citrus({ x, y, color, r = 11 }: { x: number; y: number; color: string; 
 
 function Decorative({ border, glow, gingham, flame }: { border: PromoBorder; glow: string; gingham: string; flame: string }) {
   switch (border.style) {
-    case 'christmas-garland': return <>
-      <path d={frame} fill="none" stroke={c('pine')} strokeWidth="12" opacity=".95" />
-      <path d={frame} fill="none" stroke={c('pine-light')} strokeWidth="7" strokeDasharray="10 5" opacity=".7" />
-      {[0, 6, 11, 17, 23].map(i => <circle key={i} cx={lampPoints[i][0]} cy={lampPoints[i][1]} r="3" fill={c('red')} />)}
-      <Bulbs palette={[c('ivory')]} glow={glow} count={32} small />
-    </>;
-    case 'string-lights-multi':
-    case 'string-lights': return <>
-      <path d={frame} fill="none" stroke={c('wire')} strokeWidth="1.6" opacity=".8" />
-      <Bulbs glow={glow} palette={border.style === 'string-lights-multi' ? colors.map(c) : (border.color || 'orange,purple').split(',').slice(0, 2).map(v => borderColor(v, 'orange'))} />
-    </>;
     case 'halloween': return <>
       <Web transform="scale(1.15)" /><Web transform="translate(370 0) scale(-1.15 1.15)" />
       <Web transform="translate(0 220) scale(1 -.7)" /><Web transform="translate(370 220) scale(-1 -.7)" />
       {[[255, 52, 1], [80, 170, .8], [318, 148, .7]].map(([x, y, s], i) => <path key={i} transform={`translate(${x} ${y}) scale(${s})`} fill={c('bat')} d="M0 0C-3 -6 -10 -8 -16 -4C-12 -4 -11 0 -9 2C-8 0 -5 0 -3 3C-2 1 -1 1 0 5C1 2 2 1 3 3C5 0 8 0 9 2C11 0 12 -4 16 -4C10 -8 3 -6 0 0Z" />)}
       {[150, 190, 230].map((x, i) => <g key={x} className={`promo-border-twinkle promo-border-phase-${i}`}><circle cx={x} cy="9" r="8" fill={c(i % 2 ? 'purple' : 'orange')} filter={`url(#${glow})`} opacity=".55" /><circle cx={x} cy="9" r="3.6" fill={c(i % 2 ? 'purple' : 'orange')} /></g>)}
     </>;
-    case 'fall-leaves': return <>{points(16).map(([x, y], i) => <g key={i} transform={`translate(${x} ${y}) rotate(${(i * 79 + 12) % 360}) scale(${i % 3 === 0 ? 1.3 : 1})`}>
-      <path d="M0 -9C7 -7 9 3 0 10C-9 3 -7 -7 0 -9Z" fill={c(['orange', 'red', 'gold', 'rust'][i % 4])} /><path d="M0 -6V13" stroke={c('ink')} strokeOpacity=".25" />
-    </g>)}</>;
-    case 'hearts': return <>{edgePoints.map(([x, y], i) => <path key={i} transform={`translate(${x} ${y + (y === 8 ? 3 : 0)}) rotate(${i % 2 ? 13 : -8}) scale(${i % 3 === 0 ? 1.2 : .9})`} d="M0 6C-11 -2 -7 -10 0 -4C7 -10 11 -2 0 6Z" fill={c(i % 2 ? 'pastel-pink' : 'pink')} />)}</>;
-    case 'st-patricks': return <>
-      <path d={frame} fill="none" stroke={c('pine-light')} strokeWidth="3" />
-      {points(14).map(([x, y], i) => i % 3 === 2 ? <g key={i}><circle cx={x} cy={y} r="5" fill={c('gold')} /><circle cx={x} cy={y} r="3" fill="none" stroke={c('rust')} /></g> : <g key={i} transform={`translate(${x} ${y})`} fill={c('green')}><circle cy="-5" r="4.6" /><circle cx="-5" cy="2" r="4.6" /><circle cx="5" cy="2" r="4.6" /><path d="M0 3Q2 9 5 11" fill="none" stroke={c('pine')} strokeWidth="1.6" /></g>)}
-    </>;
-    case 'spring-bunting': return <Bunting july={false} />;
-    case 'fourth-july': return <Bunting july />;
-    case 'summer-rope': return <>
-      <path d={frame} fill="none" stroke={c('rope')} strokeWidth="8" /><path d={frame} fill="none" stroke={c('rope-light')} strokeWidth="8" strokeDasharray="3 5" />
-      <Citrus x={206} y={15} color="red" r={9} /><Citrus x={346} y={198} color="gold" /><Citrus x={24} y={198} color="lime" /><Citrus x={24} y={110} color="orange" r={8} />
-    </>;
+    case 'spring-bunting': return <g transform="translate(0 -36)"><Bunting july={false} /></g>;
+    case 'fourth-july': return <g transform="translate(0 -36)"><Bunting july /></g>;
     case 'new-year': return <><path d={frame} fill="none" stroke={c('gold')} strokeWidth="1.5" opacity=".8" /><Sparkles gold /></>;
     case 'marquee': return <><path d={frame} fill="none" stroke={c('wire')} strokeWidth="12" opacity=".75" /><Bulbs palette={[c('ivory')]} glow={glow} count={36} marquee /></>;
     case 'confetti': return <>{[[0, 0], [370, 0], [0, 220], [370, 220]].map(([x, y], k) => <g key={k} transform={`translate(${x} ${y}) scale(${x ? -1 : 1} ${y ? -1 : 1})`}>
@@ -101,33 +73,102 @@ function Decorative({ border, glow, gingham, flame }: { border: PromoBorder; glo
     case 'game-day': return <g fill="none" stroke={c('white')}><path d={frame} strokeWidth="2.2" strokeDasharray="14 3 6 3" opacity=".9" />
       {Array.from({ length: 9 }, (_, i) => <path key={i} d={`M${40 + i * 34} 8v8M${40 + i * 34} 204v8`} strokeWidth="2" opacity=".8" />)}
       {[40, 74, 108, 142, 176].map(y => <path key={y} d={`M8 ${y}h8M354 ${y}h8`} strokeWidth="2" opacity=".8" />)}
-      <circle cx="185" cy="110" r="62" strokeWidth="1.8" strokeDasharray="10 5" opacity=".35" />
+      
     </g>;
     case 'flame': return <>
       <rect y="206" width="370" height="14" fill={c('orange')} opacity=".55" filter={`url(#${glow})`} />
       {Array.from({ length: 17 }, (_, i) => { const x = i * 23 - 6, h = 31 + (i * 13) % 18; return <g key={i} className={`promo-border-flame promo-border-phase-${i % 4}`}><path d={`M${x} 220C${x + 3} ${220 - h / 2} ${x + 9} ${220 - h / 2} ${x + 14} ${220 - h}C${x + 17} ${220 - h / 2} ${x + 26} ${220 - h / 2} ${x + 29} 220Z`} fill={`url(#${flame})`} /><path d={`M${x + 6} 220Q${x + 10} ${220 - h * .45} ${x + 14} ${220 - h * .65}Q${x + 19} ${220 - h * .35} ${x + 23} 220Z`} fill={c('flame-core')} /></g>; })}
     </>;
     case 'neon': return <g className="promo-border-pulse" fill="none" stroke={borderColor(border.color || 'pink', 'pink')}><path d={frame} strokeWidth="8" opacity=".6" filter={`url(#${glow})`} /><path d={frame} strokeWidth="2.4" /><path d={frame} stroke={c('white')} strokeWidth=".7" opacity=".7" /></g>;
-    case 'gingham': return <><rect width="370" height="12" fill={`url(#${gingham})`} /><rect y="198" width="370" height="22" fill={`url(#${gingham})`} /><path d="M0 198H370M0 12H370" stroke={c('ink')} strokeOpacity=".15" /></>;
+    case 'gingham': return <><path d={frame} fill="none" stroke={`url(#${gingham})`} strokeWidth="14" /></>;
     default: return null;
   }
+}
+
+const STRANDS = new Set(['christmas-garland', 'string-lights-multi', 'string-lights', 'fall-leaves', 'hearts', 'st-patricks', 'summer-rope']);
+function StrandBorder({ border, width, glow }: { border: PromoBorder; width: number; glow: string }) {
+  const edge = roundedEdge(width, 220);
+  const rope = border.style === 'summer-rope', garland = border.style === 'christmas-garland';
+  const woven = rope || garland;
+  const { points: A, cycles } = waveEdge(edge, woven ? (rope ? 4 : 6) : 4, rope ? 26 : garland ? 76 : 84);
+  const B = waveEdge(edge, rope ? 4 : 6, rope ? 26 : 76, Math.PI).points;
+  const first = c(rope ? 'rope-light' : garland ? 'pine-light' : border.style === 'hearts' ? 'pink' : border.style === 'fall-leaves' ? 'rust' : 'pine');
+  const second = c(rope ? 'rope' : 'pine');
+  const strokeWidth = rope ? 6 : garland ? 8 : 2.2;
+  const lights = border.style.startsWith('string-lights');
+  const palette = border.style === 'string-lights-multi' ? colors.map(c) : (border.color || 'orange,purple').split(',').slice(0, 2).map(v => borderColor(v, 'orange'));
+  const step = lights ? 15 : garland ? 24 : border.style === 'hearts' ? 26 : 22;
+  return <>
+    {woven && <path d={edgePath(B)} fill="none" stroke={second} strokeWidth={strokeWidth} />}
+    <path d={edgePath(A)} fill="none" stroke={lights ? c('wire') : first} strokeWidth={lights ? 1.8 : strokeWidth} strokeLinecap="round" />
+    {woven && Array.from({ length: cycles }, (_, j) => {
+      const start = Math.round(j * A.length / cycles), end = Math.round((j + .5) * A.length / cycles);
+      return <path key={j} d={edgePath(B.slice(start, end + 1), false)} fill="none" stroke={second} strokeWidth={strokeWidth} strokeLinecap="round" />;
+    })}
+    {garland && <path d={edgePath(A)} fill="none" stroke={c('green')} strokeWidth="1.8" strokeDasharray="1 5" strokeLinecap="round" />}
+    {!rope && A.filter((_, i) => i % step === 0).map((p, j) => {
+      const side = j % 2 ? 3 : -3;
+      const x = p.x + p.nx * side, y = p.y + p.ny * side;
+      if (lights || garland) {
+        const q: EdgePoint = garland && j % 2 ? B[j * step] ?? p : p;
+        const bx = garland ? q.x : x, by = garland ? q.y : y;
+        const color = garland ? c('ivory') : palette[j % palette.length];
+        return <g key={j}>
+          {lights && <line x1={p.x} y1={p.y} x2={bx} y2={by} stroke={c('wire')} strokeWidth="1.4" />}
+          <g className={`promo-border-twinkle${j % 2 ? '-alt' : ''} promo-border-phase-${j % 4}`}>
+            <circle cx={bx} cy={by} r={garland ? 5 : 6} fill={color} opacity=".55" filter={`url(#${glow})`} />
+            <circle cx={bx} cy={by} r={garland ? 2.4 : 3.1} fill={color} />
+            <circle cx={bx - .6} cy={by - .6} r=".8" fill={c('white')} />
+          </g>
+          {garland && j % 2 === 0 && <circle cx={p.x} cy={p.y} r="2.8" fill={c('red')} />}
+        </g>;
+      }
+      const angle = Math.atan2(p.ny, p.nx) * 180 / Math.PI + 90 + (j % 2 ? 28 : -28);
+      if (border.style === 'fall-leaves') return <g key={j} transform={`translate(${x} ${y}) rotate(${angle})`}>
+        <path d="M0 -5C5 -4 6 2 0 5C-6 2 -5 -4 0 -5Z" fill={c(['orange', 'gold', 'red', 'rust'][j % 4])} />
+        <path d="M0 -4V5" stroke={c('ink')} strokeOpacity=".25" strokeWidth=".7" />
+      </g>;
+      if (border.style === 'hearts') return <path key={j} transform={`translate(${x} ${y}) rotate(${(j % 3 - 1) * 14})`} d="M0 5C-8 -1 -5 -7 0 -3C5 -7 8 -1 0 5Z" fill={c(j % 2 ? 'pink' : 'pastel-pink')} />;
+      return <g key={j} transform={`translate(${x} ${y})`} fill={c('pine-light')}>
+        {j % 4 === 2 ? <><circle r="3.8" fill={c('gold')} /><circle r="2.4" fill="none" stroke={c('rust')} strokeWidth=".7" /></> : <><circle cy="-2.8" r="2.6" /><circle cx="-2.8" cy="1" r="2.6" /><circle cx="2.8" cy="1" r="2.6" /><path d="M0 2Q1 5 3 6" fill="none" stroke={c('pine')} strokeWidth="1.2" /></>}
+      </g>;
+    })}
+  </>;
 }
 
 export const PromoBorderOverlay = memo(function PromoBorderOverlay({ border, winner = false, closing = false, paused = false, reducedMotion = false }: {
   border?: PromoBorder | null; winner?: boolean; closing?: boolean; paused?: boolean; reducedMotion?: boolean;
 }) {
   const id = useId().replace(/:/g, '');
-  const glow = `${id}-glow`, gingham = `${id}-gingham`, flame = `${id}-flame`;
-  return <svg aria-hidden="true" focusable="false" data-promo-border-layer data-border-style={border?.style || 'none'} data-winner={winner} data-closing={closing}
-    data-motion={reducedMotion ? 'off' : paused ? 'paused' : 'running'} className="promo-border-overlay pointer-events-none absolute inset-0 h-full w-full"
-    viewBox="0 0 370 220" preserveAspectRatio="none">
+  const ref = useRef<SVGSVGElement>(null);
+  const [width, setWidth] = useState(370);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setWidth(el.getBoundingClientRect().width || 370);
+    update();
+    const observer = new ResizeObserver(update); observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const glow = `${id}-glow`, gingham = `${id}-gingham`, flame = `${id}-flame`, ring = `${id}-ring`;
+  const outer = `M-16 -16H${width + 16}V236H-16Z`;
+  const inner = `M34 10H${width - 34}Q${width - 10} 10 ${width - 10} 34V186Q${width - 10} 210 ${width - 34} 210H34Q10 210 10 186V34Q10 10 34 10Z`;
+  return <svg ref={ref} aria-hidden="true" focusable="false" data-promo-border-layer data-border-style={border?.style || 'none'} data-winner={winner} data-closing={closing}
+    data-motion={reducedMotion ? 'off' : paused ? 'paused' : 'running'} className="promo-border-overlay pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+    viewBox={`0 0 ${width} 220`} preserveAspectRatio="none">
     <defs>
-      <filter id={glow} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" /></filter>
+      <clipPath id={ring}><path d={`${outer} ${inner}`} clipRule="evenodd" fillRule="evenodd" /></clipPath>
+      <filter id={glow} x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2" /></filter>
       <linearGradient id={flame} x1="0" y1="1" x2="0" y2="0"><stop stopColor={c('flame')} /><stop offset="1" stopColor={c('orange')} /></linearGradient>
       <pattern id={gingham} width="16" height="16" patternUnits="userSpaceOnUse"><rect width="16" height="16" fill={c('white')} /><rect width="8" height="16" fill={c('red')} opacity=".55" /><rect width="16" height="8" fill={c('red')} opacity=".55" /></pattern>
     </defs>
-    {border && <Decorative border={border} glow={glow} gingham={gingham} flame={flame} />}
-    {winner && <g data-border-effect="winner" fill="none"><path d={frame} stroke={c('gold')} strokeWidth="9" opacity=".55" filter={`url(#${glow})`} /><path d={frame} stroke={c('ivory')} strokeWidth="1.2" /><Sparkles gold /></g>}
-    {closing && <g data-border-effect="closing" className="promo-border-pulse" fill="none" stroke={c('orange')}><path d={frame} strokeWidth="10" opacity=".7" filter={`url(#${glow})`} /><path d={frame} strokeWidth="3" /></g>}
+    <g clipPath={`url(#${ring})`}>
+      {border && STRANDS.has(border.style) && <StrandBorder border={border} width={width} glow={glow} />}
+      <g transform={`scale(${width / 370} 1)`}>
+        {border && !STRANDS.has(border.style) && <Decorative border={border} glow={glow} gingham={gingham} flame={flame} />}
+        {winner && <g data-border-effect="winner" fill="none"><path d={frame} stroke={c('gold')} strokeWidth="9" opacity=".55" filter={`url(#${glow})`} /><path d={frame} stroke={c('ivory')} strokeWidth="1.2" /><Sparkles gold /></g>}
+        {closing && <g data-border-effect="closing" className="promo-border-pulse" fill="none" stroke={c('orange')}><path d={frame} strokeWidth="10" opacity=".7" filter={`url(#${glow})`} /><path d={frame} strokeWidth="3" /></g>}
+      </g>
+    </g>
   </svg>;
 });
