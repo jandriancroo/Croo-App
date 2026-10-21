@@ -4,18 +4,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SegmentedControl } from '@/components/ui/segmented-control';
 import { FrequencyPicker } from '@/components/tasks/FrequencyPicker';
 import { AssigneePicker } from '@/components/shared/AssigneePicker';
 import { cn } from '@/lib/utils';
-import type { ChecklistEditorSettings, TemplateType } from './types';
+import type { ChecklistEditorSettings } from './types';
 
 interface Props {
   value: ChecklistEditorSettings;
   onChange: (patch: Partial<ChecklistEditorSettings>) => void;
-  templateTypeOptions: TemplateType[];
-  /** Type shown read-only (set once the list has tasks). */
-  typeLocked?: boolean;
   locationId?: string | null;
   storeToday: string;
   availablePositions: string[];
@@ -46,17 +42,10 @@ function SettingRow({ label, helper, control, htmlFor, divider }: { label: strin
   );
 }
 
-const TYPE_LABEL: Record<TemplateType, string> = { standard: 'Standard', dynamic: 'Dynamic Weekly', training: 'Training' };
-const TYPE_HELP: Record<TemplateType, string> = {
-  standard: 'Runs on a schedule you choose.',
-  dynamic: 'Different tasks on different days of the week.',
-  training: 'Assigned to a trainee, scored per assignment.',
-};
-
-export function ChecklistSettingsPanel({ value: s, onChange, templateTypeOptions, locationId, storeToday, availablePositions, singleDayHint, wide, typeLocked }: Props) {
+/** Type is picked once in the new-checklist dialog; never shown as a choice here. */
+export function ChecklistSettingsPanel({ value: s, onChange, locationId, storeToday, availablePositions, singleDayHint }: Props) {
   const isTraining = s.templateType === 'training';
   const isDynamic = s.templateType === 'dynamic';
-  const showTypePicker = templateTypeOptions.includes(s.templateType) && templateTypeOptions.length > 1;
 
   const frequency = (
     <div className="space-y-1">
@@ -97,29 +86,10 @@ export function ChecklistSettingsPanel({ value: s, onChange, templateTypeOptions
     </div>
   );
 
-  const typePicker = showTypePicker && (
-    <div className="space-y-1">
-      <Label>Type</Label>
-      <SegmentedControl<TemplateType>
-        value={s.templateType}
-        onValueChange={(templateType) => { if (!typeLocked) onChange({ templateType }); }}
-        aria-label="Checklist type"
-        fullWidth
-        className="h-11"
-        options={templateTypeOptions
-          .filter((t) => !typeLocked || t === s.templateType)
-          .map((t) => ({ value: t, label: !wide && t === 'dynamic' ? 'Dynamic' : TYPE_LABEL[t] }))}
-      />
-      <p className="text-sm text-muted-foreground">{TYPE_HELP[s.templateType]}</p>
-      {typeLocked && <p className="text-xs text-muted-foreground">Type is set when you create a list</p>}
-    </div>
-  );
-
   return (
     <div className="space-y-3">
       <SectionCard label="Basics">
         <div className="space-y-3">
-          {typePicker}
           <div className="space-y-1">
             <Label htmlFor="checklist-title">Title</Label>
             <Input id="checklist-title" value={s.title} onChange={(e) => onChange({ title: e.target.value })} placeholder="e.g., Morning Kitchen Check" className="h-11" autoFocus={!s.title} />

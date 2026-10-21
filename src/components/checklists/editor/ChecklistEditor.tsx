@@ -28,7 +28,8 @@ interface Props {
   onSettingsChange: (patch: Partial<ChecklistEditorSettings>) => void;
   items: EditorItem[];
   setItems: Dispatch<SetStateAction<EditorItem[]>>;
-  templateTypeOptions: TemplateType[];
+  /** Unused: type is fixed at creation (kept so callers compile). */
+  templateTypeOptions?: TemplateType[];
   locationId?: string | null;
   storeToday: string;
   availablePositions: string[];
@@ -335,7 +336,9 @@ export function ChecklistEditor(p: Props) {
     </Button>
   );
 
+  const showBulkBtn = !!p.bulkUpload && items.length > 0;
   const addBar = (
+    <div className="space-y-2">
     <div className="flex items-center gap-2">
       <Input
         ref={addInputRef}
@@ -351,6 +354,16 @@ export function ChecklistEditor(p: Props) {
         <Plus className="h-5 w-5" />
       </Button>
     </div>
+    {showBulkBtn && (
+      <button
+        type="button"
+        onClick={() => setBulkOpen(true)}
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-card text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <Upload className="h-4 w-4" />Bulk Upload
+      </button>
+    )}
+    </div>
   );
 
   const list = (
@@ -365,6 +378,13 @@ export function ChecklistEditor(p: Props) {
     </div>
   );
 
+  const typeTag = settings.templateType !== 'dynamic' && (
+    <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+      {settings.templateType === 'training' ? 'Training' : 'Standard'}
+    </span>
+  );
+  const subtitle = typeTag || p.notice ? <span className="flex flex-wrap items-center gap-2">{typeTag}{p.notice}</span> : undefined;
+
   return (
     <div ref={rootRef}>
       <PageTitle
@@ -376,7 +396,7 @@ export function ChecklistEditor(p: Props) {
           </Button>
         }
         action={wide ? <>{tabs}{saveButton}</> : saveButton}
-        subtitle={p.notice}
+        subtitle={subtitle}
       >
         {settings.title.trim() || p.fallbackTitle}
       </PageTitle>
@@ -386,13 +406,11 @@ export function ChecklistEditor(p: Props) {
         <ChecklistSettingsPanel
           value={settings}
           onChange={p.onSettingsChange}
-          templateTypeOptions={p.templateTypeOptions}
           locationId={p.locationId}
           storeToday={p.storeToday}
           availablePositions={p.availablePositions}
           singleDayHint={p.singleDayHint}
           wide={wide}
-          typeLocked={p.typeLocked}
         />
       ) : p.itemsOverride ? (
         p.itemsOverride
@@ -409,13 +427,6 @@ export function ChecklistEditor(p: Props) {
       ) : (
         <div className={cn(!wide ? undefined : roomy ? 'grid grid-cols-[minmax(0,1fr)_330px] items-start gap-4' : 'grid grid-cols-[minmax(0,48fr)_minmax(0,52fr)] items-start gap-4')}>
           <div className="space-y-3">
-            {p.bulkUpload && items.length > 0 && (
-              <div className="-mb-1 flex justify-end">
-                <Button type="button" variant="ghost" className="h-11 px-2 text-primary" onClick={() => setBulkOpen(true)}>
-                  <Upload className="mr-1.5 h-4 w-4" />Bulk Upload
-                </Button>
-              </div>
-            )}
             {list}
             {p.itemsFooter}
           </div>

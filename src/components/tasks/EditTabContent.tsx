@@ -346,6 +346,7 @@ export default function EditTabContent({
           </div>
         )}
 
+      <ChecklistTypeDialog open={typeDialogOpen} onOpenChange={setTypeDialogOpen} />
       <CopyChecklistDialog
         open={copyDialogOpen}
         onOpenChange={setCopyDialogOpen}
