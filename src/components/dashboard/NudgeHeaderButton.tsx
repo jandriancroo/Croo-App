@@ -13,10 +13,11 @@ export function NudgeHeaderButton({ locationId }: { locationId: string | null | 
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="relative flex items-center justify-center px-3.5 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 transition-all duration-200"
+        className="relative flex h-8 items-center justify-center gap-2 whitespace-nowrap px-3.5 rounded-lg md:min-w-[7.5rem] bg-white/15 hover:bg-white/25 active:scale-95 transition-all duration-200"
         aria-label={late > 0 ? `Nudge, ${late} late` : 'Nudge'}
       >
         <span className="flex h-5 w-5 items-center justify-center"><NudgeTapIcon size={20} /></span>
+        <span className="text-sm font-bold text-white tracking-tight hidden md:inline">Nudge</span>
         {late > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[hsl(var(--status-overdue))] text-[11px] font-extrabold leading-[18px] text-center text-primary-foreground tabular-nums">
             {late > 99 ? '99+' : late}
