@@ -1038,15 +1038,5 @@ function ItemSheet({
       </SheetContent>
     </Sheet>
 
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-2xl">
-          <img
-            src={item.reference_image_url || ""}
-            alt="Reference preview"
-            className="w-full max-h-[70vh] object-contain rounded"
-          />
-        </DialogContent>
-      </Dialog>
-    </>
   );
 }
