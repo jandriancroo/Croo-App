@@ -3,6 +3,9 @@
 ## Held
 (none)
 
+## In progress
+- Replace Spookified invite with reusable System Alerts, add super-admin draft/publish/retire controls and optional training video, stop the old announcement, and verify delivery and permissions.
+
 ## Done
 - Corrected clearance beneath the teal header on run list and completed review; phone and iPad verified, with 8px before the progress bar.
 - Review-screen spacing tightening (Oct 21): flat separate cards (no nested wrapper), compact header (~52px), completed-by card without uppercase label, 4-across photo tiles, 48px buttons; verified temp/photo/check at phone + iPad, test data deleted.
