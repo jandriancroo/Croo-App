@@ -7,7 +7,7 @@ import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, sta
 import { CompletedTaskDetailsDialog } from '@/components/tasks/CompletedTaskDetailsDialog';
 import { TasksHistoryTimeline } from '@/components/history/TasksHistoryTimeline';
 import { useTasksData } from '@/hooks/useTasksData';
-import { Layers, Grid3x3, Check } from 'lucide-react';
+import { Layers, Grid3x3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { lazyWithRetry } from '@/utils/lazyWithRetry';
@@ -72,32 +72,27 @@ export default function Tasks() {
           <PageTitle color="blue" status={{ text: tasksStatusText }} action={
               <div
                 className="relative size-10 md:size-11 shrink-0"
+                role="img"
                 aria-label={`${completionPercent}% done`}
               >
                 <svg
                   aria-hidden
-                  viewBox="0 0 40 40"
-                  className="absolute inset-0 size-full -rotate-90"
+                  viewBox="0 0 28 28"
+                  className="absolute inset-0 size-full"
                   fill="none"
                 >
-                  <circle cx="20" cy="20" r="18" strokeWidth="4" className="stroke-[hsl(var(--muted))]" />
+                  <circle cx="14" cy="14" r="13" className="fill-[hsl(var(--muted))]" />
                   {completionPercent > 0 && (
                     <circle
-                      cx="20" cy="20" r="18" strokeWidth="4" strokeLinecap="round"
-                      strokeDasharray={`${(completionPercent / 100) * 2 * Math.PI * 18} ${2 * Math.PI * 18}`}
-                      className={completionPercent >= 100 ? 'stroke-[hsl(var(--status-on-track))]' : 'stroke-[hsl(var(--primary))]'}
+                      cx="14" cy="14" r="6.5"
+                      stroke="currentColor"
+                      strokeWidth="13"
+                      strokeDasharray={`${(Math.min(100, Math.max(0, completionPercent)) / 100) * 2 * Math.PI * 6.5} ${2 * Math.PI * 6.5}`}
+                      transform="rotate(-90 14 14)"
+                      className="text-[hsl(var(--primary))]"
                     />
                   )}
                 </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  {completionPercent >= 100 ? (
-                    <Check aria-hidden className="h-4 w-4 text-[hsl(var(--status-on-track))]" strokeWidth={3} />
-                  ) : (
-                    <span aria-hidden className="text-xs font-bold tabular-nums tracking-tight leading-none text-foreground">
-                      {completionPercent}%
-                    </span>
-                  )}
-                </div>
               </div>
           }>Tasks</PageTitle>
           <div>
