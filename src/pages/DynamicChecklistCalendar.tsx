@@ -586,27 +586,7 @@ export default function DynamicChecklistCalendar() {
             </Button>
           }
           subtitle="Tap a day to place items from your library"
-          action={<>
-              {/* Library sheet — mobile */}
-              <Sheet open={libraryOpen} onOpenChange={setLibraryOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="outline" className="lg:hidden h-11 w-11 shrink-0 px-0 sm:w-auto sm:px-4" aria-label="Library">
-                    <Library className="h-4 w-4 sm:mr-1.5" />
-                    <span className="hidden sm:inline">Library</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
-                  <SheetHeader className="mb-3">
-                    <SheetTitle>Library</SheetTitle>
-                  </SheetHeader>
-                  {libraryPanel}
-                </SheetContent>
-              </Sheet>
-              <Button onClick={handleSave} disabled={saving} className="h-11 shrink-0 px-4">
-                <Save className="hidden sm:block mr-2 h-4 w-4" />
-                {saving ? "Saving..." : "Save"}
-              </Button>
-          </>}
+          action={<div className="hidden sm:flex items-center gap-2">{headerButtons}</div>}
         >
             {editingTitle ? (
               <span className="inline-flex items-center gap-1.5 min-w-0">
