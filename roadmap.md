@@ -223,3 +223,9 @@
 
 ## Phase 4 one page title — Oct 20
 - [x] PageTitle min-h-11 row, built-in mt-3.5/mb-3, subtitle + leading props; convert 16 places + section-2 pages; Inventory title row only.
+
+## Smart Close position layer — Oct 21
+- [ ] Migration: position habit scope (8wk, store-relative), person layer relative to position, predict fn update, settings flag
+- [ ] Backtest plain vs current vs +position at Hemet/PS/PD incl. <10-close closers; decide Hemet live version
+- [ ] Scorecard: add 4-layer pct/miss columns; skip stores with no punch data that day
+- [ ] Rebuild habits, verify checks, report Hemet closers per layer
