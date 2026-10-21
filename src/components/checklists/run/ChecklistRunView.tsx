@@ -985,7 +985,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
             {switches}
           </div>
           {ctx.description && <p className="px-1 text-sm text-muted-foreground">{ctx.description}</p>}
-          <div className="my-2 flex items-center gap-3"><div className="flex-1"><ProgressBar done={ctx.doneCount} total={ctx.totalCount} /></div><span className="shrink-0 text-sm font-bold">{ctx.doneCount} of {ctx.totalCount}</span></div>
+          <div className="my-2 flex items-start gap-3"><div className="flex-1"><ProgressBar done={ctx.doneCount} total={ctx.totalCount} /></div><span className="shrink-0 text-sm font-bold leading-none">{ctx.doneCount} of {ctx.totalCount}</span></div>
         </div>
       ) : (
         <div>
