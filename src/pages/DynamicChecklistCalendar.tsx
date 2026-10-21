@@ -1,5 +1,8 @@
 import { referencePhotoFields, getPrimaryReferencePhoto } from '@/lib/checklistReferencePhotos';
 import { PageTitle } from '@/components/PageTitle';
+import { ChecklistItemInspector } from '@/components/checklists/editor/ChecklistItemInspector';
+import { DayToggleRow } from '@/components/ui/day-toggle-row';
+import type { EditorItem } from '@/lib/checklistEditorItems';
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
@@ -589,7 +592,7 @@ export default function DynamicChecklistCalendar() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-4 sm:p-6 max-w-7xl [&>*:not(:first-child):not(:nth-child(2))]:mt-4">
+      <div className="-mx-1 md:mx-auto max-w-[1200px] pt-1 pb-4 [&>*:not(:first-child):not(:nth-child(2))]:mt-4">
         {/* Header */}
         <PageTitle
           color="teal"
@@ -929,6 +932,11 @@ function LibraryPanel({
 /* Item sheet                                                          */
 /* ------------------------------------------------------------------ */
 
+const DYNAMIC_TYPES = EDITOR_TYPES.map((t) => t.value as string);
+const SAVE_KEYS = ["question", "item_type", "options", "manager_shift", "reference_image_url", "reference_image_urls", "reference_link", "reference_video_url", "reference_notes", "temperature_alert_enabled"] as const;
+const DAY_PILLS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((label, value) => ({ value, label }));
+
+/** Same task editor as standard lists, plus the days row. Saves quietly as you go. */
 function ItemSheet({
   item,
   onClose,
@@ -942,269 +950,93 @@ function ItemSheet({
   onPatch: (patch: Record<string, any>) => void;
   onArchive: () => void;
 }) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [notes, setNotes] = useState("");
-  const [choicesText, setChoicesText] = useState("");
+  const [draft, setDraft] = useState<EditorItem | null>(null);
+  const saved = useRef<Record<string, any>>({});
+  const timer = useRef<number | null>(null);
+  const draftRef = useRef<EditorItem | null>(null);
+  draftRef.current = draft;
 
   useEffect(() => {
-    if (!item) return;
-    setName(item.question);
-    setNotes(item.reference_notes ?? "");
-    setChoicesText(getOptionsArray(item.options).join("\n"));
+    if (!item) { setDraft(null); return; }
+    const d = { ...(item as any), _key: item.id } as EditorItem;
+    saved.current = Object.fromEntries(SAVE_KEYS.map((k) => [k, (d as any)[k] ?? null]));
+    setDraft(d);
   }, [item?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!item) return null;
+  const flush = () => {
+    if (timer.current) { window.clearTimeout(timer.current); timer.current = null; }
+    const d = draftRef.current;
+    if (!d) return;
+    const patch: Record<string, any> = {};
+    for (const k of SAVE_KEYS) {
+      let v = (d as any)[k] ?? null;
+      if (k === "question" && typeof v === "string") { v = v.trim(); if (!v) continue; }
+      if (k === "options" && Array.isArray(v)) v = v.filter((o: string) => o.trim() !== "");
+      if (JSON.stringify(v) !== JSON.stringify(saved.current[k])) patch[k] = v;
+    }
+    if (Object.keys(patch).length) { Object.assign(saved.current, patch); onPatch(patch); }
+  };
+
+  const change = (next: EditorItem) => {
+    if (next.item_type === "multiple_choice" && !Array.isArray(next.options)) next = { ...next, options: ["Yes", "No"] };
+    if (next.item_type !== "multiple_choice" && Array.isArray(next.options)) next = { ...next, options: next.item_type === "image" ? { minPhotos: 1 } : null };
+    setDraft(next);
+    draftRef.current = next;
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(flush, 600);
+  };
+
+  const close = () => { flush(); onClose(); };
+
+  const uploadReference = async (file: File) => {
+    const fileName = `checklist-refs/${item?.id}-${Date.now()}.${file.name.split(".").pop()}`;
+    const { error } = await supabase.storage.from("checklist-images").upload(fileName, file);
+    if (error) throw error;
+    return supabase.storage.from("checklist-images").getPublicUrl(fileName).data.publicUrl;
+  };
+
+  if (!item || !draft) return null;
 
   const dayCount = item.days_of_week.length;
   const appliesLine =
     dayCount === 0
-      ? "Not on any day yet — it stays in the library"
+      ? "Not on any day yet. It stays in the library."
       : dayCount === 1
-      ? `Applies to ${DAY_NAMES[item.days_of_week[0]]} only`
-      : `Applies to ${dayCount} days`;
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const fileName = `checklist-refs/${item.id}-${Date.now()}.${file.name.split(".").pop()}`;
-      const { error } = await supabase.storage.from("checklist-images").upload(fileName, file);
-      if (error) throw error;
-      const { data } = supabase.storage.from("checklist-images").getPublicUrl(fileName);
-      onPatch({ reference_image_url: data.publicUrl });
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to upload photo");
-    }
-    setUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
+      ? `Shows on ${DAY_NAMES[item.days_of_week[0]]} only`
+      : `Shows on ${dayCount} days`;
 
   return (
-    <>
-      <Sheet open={!!item} onOpenChange={(o) => !o && onClose()}>
-        <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
-          <SheetHeader className="mb-4 text-left">
-            <SheetTitle className="text-base pr-8 truncate">{item.question}</SheetTitle>
-            <p className="text-xs text-muted-foreground">{appliesLine}</p>
-          </SheetHeader>
-
-          <div className="space-y-5 pb-8">
-            {/* Days first */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Days</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {DAY_SHORT.map((d, idx) => {
-                  const active = item.days_of_week.includes(idx);
-                  return (
-                    <Button
-                      key={idx}
-                      type="button"
-                      size="sm"
-                      variant={active ? "default" : "outline"}
-                      className="rounded-full px-3"
-                      onClick={() => onToggleDay(idx)}
-                    >
-                      {d}
-                    </Button>
-                  );
-                })}
+    <Sheet open={!!item} onOpenChange={(o) => !o && close()}>
+      <SheetContent side="bottom" aria-describedby={undefined} className="max-h-[85vh] overflow-y-auto rounded-t-2xl px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-2 [&>button.absolute]:hidden">
+        <div className="mx-auto mb-1 h-1.5 w-10 rounded-full bg-muted-foreground/30" aria-hidden />
+        <SheetTitle className="sr-only">Edit task</SheetTitle>
+        <div className="mx-auto max-w-xl">
+          <ChecklistItemInspector
+            item={draft}
+            onChange={change}
+            onEnter={() => (document.activeElement as HTMLElement | null)?.blur()}
+            onRemove={() => { flush(); onArchive(); }}
+            removeLabel="Archive"
+            RemoveIcon={Archive}
+            showAmPm
+            showPosition={false}
+            availablePositions={[]}
+            uploadReference={uploadReference}
+            compact
+            hideNav
+            onDone={close}
+            allowedTypes={DYNAMIC_TYPES}
+            afterName={
+              <div>
+                <div className="mb-1.5 text-sm font-semibold">Days</div>
+                <DayToggleRow value={item.days_of_week} onToggle={onToggleDay} days={DAY_PILLS} />
+                <p className="mt-1.5 text-sm text-muted-foreground">{appliesLine}. Task settings apply on every day it shows.</p>
               </div>
-              <p className="text-[11px] text-muted-foreground">
-                Settings below apply to every day this item is tagged on.
-
-              </p>
-            </div>
-
-            {/* Shift */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Shift</Label>
-              <div className="grid grid-cols-3 gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={item.manager_shift === null ? "default" : "outline"}
-                  onClick={() => onPatch({ manager_shift: null })}
-                >
-                  Any
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={item.manager_shift === "am" ? "default" : "outline"}
-                  onClick={() => onPatch({ manager_shift: "am" })}
-                >
-                  <Sun className="h-3.5 w-3.5 mr-1" /> AM
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={item.manager_shift === "pm" ? "default" : "outline"}
-                  onClick={() => onPatch({ manager_shift: "pm" })}
-                >
-                  <Moon className="h-3.5 w-3.5 mr-1" /> PM
-                </Button>
-              </div>
-            </div>
-
-            {/* Name */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Name</Label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onBlur={() => name.trim() && name !== item.question && onPatch({ question: name.trim() })}
-              />
-            </div>
-
-            {/* Type */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Type</Label>
-              <Select
-                value={item.item_type}
-                onValueChange={(v) =>
-                  onPatch({
-                    item_type: v,
-                    options:
-                      v === "multiple_choice"
-                        ? getOptionsArray(item.options).length
-                          ? getOptionsArray(item.options)
-                          : ["Yes", "No"]
-                        : v === "image"
-                        ? { minPhotos: getMinPhotos(item.options) }
-                        : null,
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {EDITOR_TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {item.item_type === "image" && (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Photos required</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={getMinPhotos(item.options)}
-                  onChange={(e) =>
-                    onPatch({ options: { minPhotos: Math.max(1, parseInt(e.target.value || "1", 10)) } })
-                  }
-                  className="w-24"
-                />
-              </div>
-            )}
-
-            {item.item_type === "multiple_choice" && (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Choices (one per line)</Label>
-                <Textarea
-                  value={choicesText}
-                  onChange={(e) => setChoicesText(e.target.value)}
-                  onBlur={() =>
-                    onPatch({
-                      options: choicesText
-                        .split("\n")
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                  className="min-h-[90px] text-sm"
-                />
-              </div>
-            )}
-
-            {/* Reference standard */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Reference standard</Label>
-              {item.reference_image_url ? (
-                <div className="relative">
-                  <img
-                    src={item.reference_image_url}
-                    alt="Reference"
-                    className="rounded-lg w-full max-h-48 object-cover border"
-                  />
-                  <div className="absolute top-2 right-2 flex gap-1">
-                    <Button size="icon-sm"
-                      variant="secondary"
-                      className="bg-background/80"
-                      onClick={() => setPreviewOpen(true)}
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button size="icon-sm"
-                      variant="destructive"
-                      className=""
-                      onClick={() => onPatch({ reference_image_url: null })}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleUpload}
-                  />
-                  <Button
-                    variant="outline"
-                    className="w-full h-20 border-dashed flex flex-col gap-1"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                  >
-                    {uploading ? (
-                      <span className="text-sm text-muted-foreground">Uploading...</span>
-                    ) : (
-                      <>
-                        <Camera className="h-5 w-5 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Tap to add photo</span>
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                onBlur={() => onPatch({ reference_notes: notes.trim() || null })}
-                placeholder="Describe what done looks like..."
-                className="min-h-[70px] text-sm"
-              />
-            </div>
-
-            <Button variant="outline" className="w-full text-destructive" onClick={onArchive}>
-              <Archive className="h-4 w-4 mr-2" /> Archive item
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-2xl">
-          <img
-            src={item.reference_image_url || ""}
-            alt="Reference preview"
-            className="w-full max-h-[70vh] object-contain rounded"
+            }
           />
-        </DialogContent>
-      </Dialog>
-    </>
+        </div>
+      </SheetContent>
+    </Sheet>
+
   );
 }
