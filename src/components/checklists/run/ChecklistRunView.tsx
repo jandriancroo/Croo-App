@@ -281,12 +281,12 @@ function DoneWho({ ctx, id }: { ctx: RunCtx; id: string }) {
   if (!c) return null;
   return (
     <span className="flex w-[72px] shrink-0 flex-col items-end text-right">
-      <Avatar className="h-10 w-10">
+      <Avatar className="h-8 w-8">
         <AvatarImage src={c.profilePhoto || undefined} />
         <AvatarFallback className="bg-secondary text-xs font-semibold text-secondary-foreground">{c.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}</AvatarFallback>
       </Avatar>
-      <span className="mt-1 w-full truncate text-[12px] font-bold leading-tight" style={{ fontSize: 'clamp(10px, 3vw, 12px)' }}>{shortName(c.fullName)}</span>
-      <span className="text-[11px] leading-tight text-muted-foreground">{timeOf(c.completedAt)}</span>
+      <span className="mt-0.5 w-full truncate text-[12px] font-bold leading-[1.15]">{shortName(c.fullName)}</span>
+      <span className="text-[11px] leading-[1.15] text-muted-foreground">{timeOf(c.completedAt)}</span>
     </span>
   );
 }
@@ -392,7 +392,7 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
         onPointerDown={!oneTap || done ? undefined : longPressStart}
         onPointerUp={longPressEnd}
         onPointerLeave={longPressEnd}
-        className="flex min-h-14 w-full cursor-pointer items-start gap-3 px-3 py-3 text-left"
+        className="flex w-full cursor-pointer items-start gap-3 px-3 py-2.5 text-left"
       >
         <span className="flex shrink-0">{circle}</span>
         <span className="min-w-0 flex-1 pt-[3px]">
@@ -416,9 +416,9 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
             <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></span>
           )}
           {photos.length > 0 && (
-            <span className="mt-2 flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
+            <span className="mt-2 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
               {photos.map((u, i) => (
-                <button key={i} type="button" onClick={() => ctx.preview(u)} aria-label={`See photo ${i + 1}`} className="h-16 w-16 overflow-hidden rounded-lg border">
+                <button key={i} type="button" onClick={() => ctx.preview(u)} aria-label={`See photo ${i + 1}`} className="h-14 w-14 overflow-hidden rounded-lg border">
                   <img src={u} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 </button>
               ))}
