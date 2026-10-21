@@ -225,7 +225,7 @@
 - [x] PageTitle min-h-11 row, built-in mt-3.5/mb-3, subtitle + leading props; convert 16 places + section-2 pages; Inventory title row only.
 
 ## Smart Close position layer — Oct 21
-- [ ] Migration: position habit scope (8wk, store-relative), person layer relative to position, predict fn update, settings flag
-- [ ] Backtest plain vs current vs +position at Hemet/PS/PD incl. <10-close closers; decide Hemet live version
-- [ ] Scorecard: add 4-layer pct/miss columns; skip stores with no punch data that day
-- [ ] Rebuild habits, verify checks, report Hemet closers per layer
+- [x] Migration: position habit scope (8wk, store-relative), person layer relative to position, predict fn update, settings flag (0049-0052)
+- [x] Backtest plain vs current vs +position at Hemet/PS/PD incl. <10-close closers: position did NOT win (tied overall, worse for new closers) — kept off behind use_position flag; Hemet stays on 3-layer
+- [x] Scorecard: pos_pct/pos_miss columns added; snapshot skips stores with no punch data that day
+- [x] Habits rebuilt with position rows; all checks pass; Hemet live closers reported per layer
