@@ -75,21 +75,22 @@ export default function Tasks() {
                 role="img"
                 aria-label={`${completionPercent}% done`}
               >
+                {/* Same glyph as the dash checklist cards: thin ring, 3px gap,
+                    pie wedge from the centre (r=4.5 + 9px stroke = r=9). */}
                 <svg
                   aria-hidden
                   viewBox="0 0 28 28"
                   className="absolute inset-0 size-full"
                   fill="none"
                 >
-                  <circle cx="14" cy="14" r="13" className="fill-[hsl(var(--muted))]" />
+                  <circle cx="14" cy="14" r="13" strokeWidth="2" className="stroke-[hsl(var(--muted))]" />
                   {completionPercent > 0 && (
                     <circle
-                      cx="14" cy="14" r="6.5"
-                      stroke="currentColor"
-                      strokeWidth="13"
-                      strokeDasharray={`${(Math.min(100, Math.max(0, completionPercent)) / 100) * 2 * Math.PI * 6.5} ${2 * Math.PI * 6.5}`}
+                      cx="14" cy="14" r="4.5"
+                      strokeWidth="9"
+                      strokeDasharray={`${(Math.min(100, Math.max(0, completionPercent)) / 100) * 2 * Math.PI * 4.5} ${2 * Math.PI * 4.5}`}
                       transform="rotate(-90 14 14)"
-                      className="text-[hsl(var(--primary))]"
+                      className="stroke-[hsl(var(--primary))]"
                     />
                   )}
                 </svg>
