@@ -810,6 +810,21 @@ export default function CompleteChecklist() {
     return tempF <= 41 || tempF >= 135;
   };
 
+  // Crew says the unconfirmed AI reading is right.
+  const confirmTemperature = async (itemId: string) => {
+    const resp = responsesWithCompleters[itemId];
+    if (!resp?.responseId) return;
+    const { error } = await supabase
+      .from('checklist_responses')
+      .update({ temperature_unconfirmed: false, temperature_validated_at: new Date().toISOString() })
+      .eq('id', resp.responseId);
+    if (error) {
+      toast.error("Couldn't confirm the reading", { description: error.message });
+      return;
+    }
+    setResponsesWithCompleters(prev => ({ ...prev, [itemId]: { ...prev[itemId], temperatureUnconfirmed: false } }));
+  };
+
   const saveManualTemperature = async (itemId: string, tempText: string) => {
     const trimmed = tempText?.trim();
     if (!trimmed || trimmed === '') {
@@ -1218,8 +1233,9 @@ export default function CompleteChecklist() {
               responseId: responseId || '',
               value: swapped,
               isImage: true,
-              extractedTemperature: extractedTemp,
-              temperatureValid: tempValid,
+              extractedTemperature: hasNewReading ? extractedTemp : (prev[itemId]?.extractedTemperature ?? null),
+              temperatureValid: hasNewReading ? tempValid : (prev[itemId]?.temperatureValid ?? null),
+              temperatureUnconfirmed: hasNewReading ? tempUnconfirmed : !!prev[itemId]?.temperatureUnconfirmed,
               completedBy: profile ? {
                 userId: user.id,
                 fullName: profile.full_name || 'Unknown',
@@ -1798,7 +1814,11 @@ export default function CompleteChecklist() {
                   {(item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature') && (() => {
                     const minPhotos = getMinPhotos(item);
                     const isMultiPhoto = minPhotos > 1;
+                    const isTempPhotoTask = (item.item_type === 'image' || item.item_type === 'PHOTO') && item.requires_temperature_validation === true;
                     const showManualTemp = item.item_type === 'temperature';
+                    const showTempEntry = showManualTemp || (isTempPhotoTask && currentPhotos.length > 0);
+                    const savedTemp = responsesWithCompleters[item.id]?.extractedTemperature;
+                    const needsTempConfirm = !!responsesWithCompleters[item.id]?.temperatureUnconfirmed && savedTemp != null;
                     const currentPhotos = getPhotosForItem(item.id).filter(p => typeof p === 'string' && (p.startsWith('http') || p.startsWith('blob:')));
                     const photosNeeded = Math.max(minPhotos - currentPhotos.length, 0);
                     const hasManualTemp = showManualTemp && responsesWithCompleters[item.id]?.extractedTemperature != null;
@@ -1961,7 +1981,16 @@ export default function CompleteChecklist() {
 
 
                         {/* Type the temperature in when the photo can't be read */}
-                        {showManualTemp && !isUploading && (
+                        {showTempEntry && !isUploading && needsTempConfirm && !manualTempOpen[item.id] && (
+                          <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+                            <span className="text-sm">We read {Number(savedTemp).toFixed(1)}°F. Looks right?</span>
+                            <Button size="sm" onClick={() => confirmTemperature(item.id)}>Yes</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setManualTempOpen(prev => ({ ...prev, [item.id]: true }))}>
+                              Type it
+                            </Button>
+                          </div>
+                        )}
+                        {showTempEntry && !isUploading && !(needsTempConfirm && !manualTempOpen[item.id]) && (
                           manualTempOpen[item.id] ? (
                             <div className="flex items-center gap-2">
                               <Input
@@ -1986,7 +2015,7 @@ export default function CompleteChecklist() {
                               className="text-xs text-muted-foreground underline underline-offset-2"
                               onClick={() => setManualTempOpen(prev => ({ ...prev, [item.id]: true }))}
                             >
-                              {hasManualTemp ? 'Wrong reading? Type the temperature' : 'Type the temperature instead'}
+                              {savedTemp != null ? 'Wrong reading? Type the temperature' : 'Type the temperature instead'}
                             </button>
                           )
                         )}
