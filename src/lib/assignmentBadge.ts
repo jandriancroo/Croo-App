@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 /**
  * Colors for assignment badges. Positions/stations use their stored schedule color;
  * roles use theme tokens from this one map (change here only).
@@ -25,7 +26,7 @@ export interface AssignmentInfo {
  * Badge style: 15% tint, matching border, text mixed toward the theme's foreground
  * so very light or very dark stored colors stay readable on every theme.
  */
-export function badgeStyle(color?: string): React.CSSProperties | undefined {
+export function badgeStyle(color?: string): CSSProperties | undefined {
   if (!color) return undefined;
   return {
     backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`,
