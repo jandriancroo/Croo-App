@@ -1,4 +1,4 @@
-// The one place managers nudge from on the Dash (swipe-up manager dash on phones, top of the Dash on iPad/desktop).
+// Where managers nudge from: swipe-up manager dash on phones; header button sheet (NudgeHeaderButton) on iPad/desktop.
 // The list comes from the server (same rules as send); sending still goes through QuickNudgeSheet.
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -88,10 +88,45 @@ function Row({ item, onNudge }: { item: NudgeListItem; onNudge: () => void }) {
   );
 }
 
-export function NudgeSection({ locationId, className }: { locationId: string | null | undefined; className?: string }) {
-  const [open, setOpen] = useState(false); // collapsed every time the dash opens
+/** The Nudge list (late first) plus the QuickNudgeSheet wizard. Shared by the Dash section and the header sheet. */
+export function NudgeListPanel({ locationId, items, isLoading }: { locationId: string | null | undefined; items: NudgeListItem[]; isLoading: boolean }) {
   const [target, setTarget] = useState<{ type: TargetType; id: string; title: string } | null>(null);
   const queryClient = useQueryClient();
+  const overdue = items.filter((i) => i.group === 'overdue');
+  const coming = items.filter((i) => i.group === 'coming_up');
+  const group = (label: string, list: NudgeListItem[]) =>
+    list.length > 0 && (
+      <div className="space-y-1.5">
+        <p className="px-1 text-[11px] font-extrabold uppercase tracking-[0.08em] opacity-70 tabular-nums">{label} · {list.length}</p>
+        {list.map((i) => (
+          <Row key={`${i.type}:${i.id}`} item={i} onNudge={() => setTarget({ type: i.type, id: i.id, title: i.title })} />
+        ))}
+      </div>
+    );
+  return (
+    <>
+      <div className="space-y-3">
+        {items.length === 0 && !isLoading && <p className="py-3 text-center text-[14px] font-medium opacity-75">Nothing to nudge right now.</p>}
+        {group('Overdue', overdue)}
+        {group('Coming up', coming)}
+      </div>
+      <QuickNudgeSheet
+        targetType={target?.type ?? null}
+        targetId={target?.id ?? null}
+        title={target?.title ?? ''}
+        preferTemplateName={target?.type === 'event' ? 'Heads-up' : undefined}
+        onClose={() => setTarget(null)}
+        onSent={() => {
+          queryClient.invalidateQueries({ queryKey: ['quick-nudges-recent', locationId] });
+          queryClient.invalidateQueries({ queryKey: nudgeListKey(locationId) });
+        }}
+      />
+    </>
+  );
+}
+
+export function NudgeSection({ locationId, className }: { locationId: string | null | undefined; className?: string }) {
+  const [open, setOpen] = useState(false); // collapsed every time the dash opens
   const { data: items = [], isLoading } = useNudgeList(locationId, true);
   const overdue = items.filter((i) => i.group === 'overdue');
   const coming = items.filter((i) => i.group === 'coming_up');
@@ -104,16 +139,6 @@ export function NudgeSection({ locationId, className }: { locationId: string | n
       {coming.length > 0 && <Chip>{coming.length} coming up</Chip>}
     </>
   );
-
-  const group = (label: string, list: NudgeListItem[]) =>
-    list.length > 0 && (
-      <div className="space-y-1.5">
-        <p className="px-1 text-[11px] font-extrabold uppercase tracking-[0.08em] opacity-70 tabular-nums">{label} · {list.length}</p>
-        {list.map((i) => (
-          <Row key={`${i.type}:${i.id}`} item={i} onNudge={() => setTarget({ type: i.type, id: i.id, title: i.title })} />
-        ))}
-      </div>
-    );
 
   return (
     <div className={className}>
@@ -128,24 +153,9 @@ export function NudgeSection({ locationId, className }: { locationId: string | n
           </span>
         }
       />
-      {open && (
-        <div className="mt-2 space-y-3">
-          {items.length === 0 && !isLoading && <p className="py-3 text-center text-[14px] font-medium opacity-75">Nothing to nudge right now.</p>}
-          {group('Overdue', overdue)}
-          {group('Coming up', coming)}
-        </div>
-      )}
-      <QuickNudgeSheet
-        targetType={target?.type ?? null}
-        targetId={target?.id ?? null}
-        title={target?.title ?? ''}
-        preferTemplateName={target?.type === 'event' ? 'Heads-up' : undefined}
-        onClose={() => setTarget(null)}
-        onSent={() => {
-          queryClient.invalidateQueries({ queryKey: ['quick-nudges-recent', locationId] });
-          queryClient.invalidateQueries({ queryKey: nudgeListKey(locationId) });
-        }}
-      />
+      <div className={open ? 'mt-2' : 'hidden'}>
+        <NudgeListPanel locationId={locationId} items={items} isLoading={isLoading} />
+      </div>
     </div>
   );
 }
