@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import { checklistShowsOn, isPeriodScored } from "@/lib/taskHistory/schedule";
 import { 
   getTodayInTimezone, 
   getDayOfWeekInTimezone, 
