@@ -238,7 +238,7 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-md flex-col overflow-hidden p-0">
+        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-md flex-col overflow-hidden p-0 [&>button]:top-[6px]">
           <DialogHeader className="shrink-0 border-b px-4 py-3">
             <DialogTitle>{form ? (form.id ? 'Edit Promo Tracker' : 'New Promo Tracker') : 'Promo Tracker'}</DialogTitle>
           </DialogHeader>
