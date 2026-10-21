@@ -523,3 +523,64 @@ export default function EditChecklist() {
       setSaving(false);
     }
   };
+  const uploadReference = async (file: File): Promise<string> => {
+    // Errors propagate so the photo slot shows its inline message.
+    const compressedFile = await compressImage(file, 1200, 1200, 0.8);
+    const fileName = `references/${id || 'new'}/ref-${Date.now()}.jpg`;
+    const { error: uploadError } = await supabase.storage.from('checklist-images').upload(fileName, compressedFile);
+    if (uploadError) throw uploadError;
+    const { data } = supabase.storage.from('checklist-images').getPublicUrl(fileName);
+    toast({ title: 'Photo added', description: 'Tap Save to keep it.' });
+    return data.publicUrl;
+  };
+
+  if (roleLoading || loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!isAdmin) return null;
+
+  return (
+    <Layout>
+      <div className="container mx-auto p-4 max-w-5xl [&>*:not(:first-child):not(:nth-child(2))]:mt-4">
+        <PageTitle color="teal" leading={
+          <Button variant="ghost" size="icon" onClick={leaveEditor} aria-label="Back">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        }>Edit Checklist</PageTitle>
+
+        <ChecklistEditor
+          initialTab="items"
+          settings={settings}
+          onSettingsChange={patchSettings}
+          items={items}
+          setItems={setItems}
+          templateTypeOptions={templateType === 'dynamic' ? ['dynamic'] : ['standard', 'training']}
+          locationId={checklistLocationId}
+          storeToday={storeToday}
+          availablePositions={availablePositions}
+          uploadReference={uploadReference}
+          addPosition="top"
+          minItems={0}
+          singleDayHint="Shows only on this date, then moves to history."
+          onCancel={leaveEditor}
+          onSave={handleSave}
+          saving={saving}
+          saveLabel="Save"
+          savingLabel="Saving..."
+          notice={isDirty ? (
+            <div role="status" className="rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-medium text-foreground">
+              Unsaved changes — tap Save
+            </div>
+          ) : null}
+        />
+      </div>
+    </Layout>
+  );
+}
