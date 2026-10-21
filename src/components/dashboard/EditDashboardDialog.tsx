@@ -48,6 +48,7 @@ import { AudienceSelector, type AudienceRole } from "./AudienceSelector";
 import { ScopeBadge } from "./ScopeBadge";
 import { PromoTrackerEditor } from "./promo/PromoTrackerEditor";
 import { useActivePromoTracker } from "@/hooks/useActivePromoTracker";
+import { persistSectionOrder } from "@/hooks/useSectionOrder";
 
 export type SectionKey = 'data-cubes' | 'promo-tracker' | 'sales-chart' | 'checklists';
 
@@ -532,7 +533,7 @@ export function EditDashboardDialog({
     const newOrder = arrayMove(sectionOrder, oldIndex, newIndex);
     setSectionOrder(newOrder);
     if (currentLocation?.id) {
-      saveSectionOrder(currentLocation.id, newOrder);
+      persistSectionOrder(currentLocation.id, newOrder);
     }
     onSectionOrderChange?.(newOrder);
   };
