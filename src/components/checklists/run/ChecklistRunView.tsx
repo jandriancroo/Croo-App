@@ -764,49 +764,53 @@ function CompletedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
   const photos = ctx.photos(it);
   const r = temp ? ctx.reading(it.id) : null;
   const saved = ctx.savedValue(it.id) ?? ctx.value(it.id);
+  const can = ctx.canUndo(it.id);
   const openPhoto = (i: number) => { if (ctx.previewMany) ctx.previewMany(photos, i); else ctx.preview(photos[i]); };
   const tone = !r ? null : r.temp == null ? 'warn' : r.valid === false ? 'bad' : 'good';
+  const isNum = it.item_type === 'number';
+  const hasReading = (temp && r != null) || (isNum && saved != null && saved !== '');
   return (
     <div className="space-y-3">
       {c && (
         <div className="flex items-center gap-3 rounded-xl bg-muted/60 p-3">
-          <Avatar className="h-10 w-10 shrink-0">
+          <Avatar className="h-11 w-11 shrink-0">
             <AvatarImage src={c.profilePhoto || undefined} />
             <AvatarFallback className="bg-secondary text-sm font-semibold text-secondary-foreground">{initialsOf(c.fullName)}</AvatarFallback>
           </Avatar>
           <div className="min-w-0">
             <div className={capLabel}>Completed by</div>
             <div className="break-words text-[15px] font-bold">{c.fullName}</div>
-            <div className="text-xs text-muted-foreground">{fullWhen(c.completedAt)}</div>
+            <div className="text-xs text-muted-foreground">Completed {completedWhen(c.completedAt)}</div>
           </div>
         </div>
       )}
-      {temp && r && (
-        <div className={cn('flex items-center justify-between gap-3 rounded-xl p-3',
-          tone === 'good' && 'bg-[hsl(var(--success)/0.1)]', tone === 'bad' && 'bg-destructive/10', tone === 'warn' && 'bg-[hsl(var(--warning)/0.12)]')}>
-          <div className="min-w-0">
-            <div className="text-sm text-muted-foreground">{r.temp != null ? 'Reading' : 'No reading'}</div>
-            <div className={cn('text-3xl font-bold tabular-nums', tone === 'good' && 'text-[hsl(var(--success))]', tone === 'bad' && 'text-destructive', tone === 'warn' && 'text-[hsl(var(--warning))]')}>
-              {r.temp != null ? `${Number(r.temp).toFixed(1)}°F` : '?°F'}
+      {hasReading && (
+        <div className={cn('rounded-xl p-3', temp && (tone === 'good' ? 'bg-[hsl(var(--success)/0.1)]' : tone === 'bad' ? 'bg-destructive/10' : 'bg-[hsl(var(--warning)/0.12)]'))}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className={capLabel}>Reading</div>
+              <div className={cn('text-3xl font-bold tabular-nums', temp && tone === 'bad' && 'text-destructive', temp && tone === 'warn' && 'text-[hsl(var(--warning))]')}>
+                {temp ? (r!.temp != null ? `${Number(r!.temp).toFixed(1)}°F` : '?°F') : String(saved)}
+              </div>
+              {temp && r!.editedBy && <div className="text-xs text-muted-foreground">Edited by {r!.editedBy}</div>}
             </div>
-            {r.editedBy && <div className="text-xs text-muted-foreground">Edited by {r.editedBy}</div>}
+            {temp && can && (
+              <Button type="button" variant="outline" className="h-11 shrink-0 border-border bg-card"
+                onClick={() => { ctx.setTempValue(it.id, r!.temp != null ? String(r!.temp) : ''); ctx.setTempOpen(it.id, true); }}>
+                <Pencil className="mr-1.5 h-4 w-4" />Edit reading
+              </Button>
+            )}
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold',
-              tone === 'good' && 'bg-[hsl(var(--success))] text-primary-foreground', tone === 'bad' && 'bg-destructive text-destructive-foreground', tone === 'warn' && 'bg-[hsl(var(--warning))] text-primary-foreground')}>
-              {tone === 'good' ? 'Safe' : tone === 'bad' ? 'Out of range' : 'Unconfirmed'}
-            </span>
-            <button type="button" aria-label={r.temp != null ? 'Edit temperature' : 'Enter temperature'}
-              onClick={() => { ctx.setTempValue(it.id, r.temp != null ? String(r.temp) : ''); ctx.setTempOpen(it.id, true); }}
-              className={cn('flex h-11 w-11 items-center justify-center rounded-full',
-                tone === 'good' && 'bg-[hsl(var(--success))] text-primary-foreground', tone === 'bad' && 'bg-destructive text-destructive-foreground', tone === 'warn' && 'bg-[hsl(var(--warning))] text-primary-foreground')}>
-              <Pencil className="h-4 w-4" />
+          {temp && ctx.tempOpen(it.id) && <div className="mt-2"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></div>}
+          {temp && photos[0] && (
+            <button type="button" onClick={() => openPhoto(0)} className="mt-3 flex items-center gap-3 text-left" aria-label="See temp photo full size">
+              <img src={photos[0]} alt="Temp photo" className="h-24 w-24 rounded-xl border object-cover" loading="lazy" decoding="async" />
+              <span><span className="block text-sm font-medium">Temp photo</span><span className="block text-sm text-muted-foreground">Tap to enlarge</span></span>
             </button>
-          </div>
+          )}
         </div>
       )}
-      {temp && ctx.tempOpen(it.id) && <TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} />}
-      {photos.length > 0 && (
+      {!temp && photos.length > 0 && (
         <div className={cn('grid gap-2', photos.length > 1 ? 'grid-cols-2' : 'grid-cols-1')}>
           {photos.map((u, i) => (
             <button key={i} type="button" onClick={() => openPhoto(i)} className="block overflow-hidden rounded-xl border" aria-label={`See photo ${i + 1} full size`}>
@@ -815,7 +819,6 @@ function CompletedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
           ))}
         </div>
       )}
-      {it.item_type === 'number' && saved != null && saved !== '' && <div className="text-3xl font-bold tabular-nums">{String(saved)}</div>}
       {it.item_type === 'text' && !!saved && <div className="whitespace-pre-wrap break-words rounded-xl bg-muted p-3 text-[15px] leading-relaxed">{String(saved)}</div>}
       {it.item_type === 'multiple_choice' && (
         <div className="space-y-2">
