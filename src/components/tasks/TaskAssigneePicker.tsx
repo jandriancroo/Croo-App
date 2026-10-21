@@ -64,6 +64,27 @@ export function useLocationPeople(locationId?: string | null) {
   });
 }
 
+/** Short display text for a task's assignment (today's names); null when unassigned. */
+export function useAssignmentLabeler(locationId?: string | null) {
+  const { stations } = useScheduleStations(locationId);
+  const { data: people = [] } = useLocationPeople(locationId);
+  return (a: TaskAssignment): string | null => {
+    if (a.assigned_user_id) {
+      const n = people.find((p) => p.id === a.assigned_user_id)?.name;
+      if (!n) return 'Person';
+      const parts = n.trim().split(/\s+/);
+      return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0]}.` : parts[0];
+    }
+    if (a.assigned_role) {
+      if (a.assigned_role === 'admin') return 'Admin / GM';
+      return ASSIGNABLE_ROLE_OPTIONS.find((r) => r.value === a.assigned_role)?.label ?? ROLE_DISPLAY_NAMES[a.assigned_role as AppRole] ?? String(a.assigned_role);
+    }
+    if (a.station_id) return stations.find((s) => s.id === a.station_id)?.name ?? 'Station';
+    if (a.position) return a.position;
+    return null;
+  };
+}
+
 interface Props {
   locationId?: string | null;
   value: TaskAssignment;
@@ -71,10 +92,12 @@ interface Props {
   onChange: (next: Required<TaskAssignment>) => void;
   availablePositions: string[];
   className?: string;
+  /** Text for no assignment (default "Everyone"). */
+  noneLabel?: string;
 }
 
 /** ONE per-task "Assigned to" picker, shared by every checklist editor. */
-export function TaskAssigneePicker({ locationId, value, onChange, availablePositions, className }: Props) {
+export function TaskAssigneePicker({ locationId, value, onChange, availablePositions, className, noneLabel = 'Everyone' }: Props) {
   const { stations, enabled: stationMode } = useScheduleStations(locationId);
   const { data: people = [] } = useLocationPeople(locationId);
   const current = encode(value);
@@ -87,10 +110,10 @@ export function TaskAssigneePicker({ locationId, value, onChange, availablePosit
   return (
     <Select value={current} onValueChange={(v) => onChange(decode(v))}>
       <SelectTrigger className={cn('w-auto min-w-0 h-7 px-2 text-[11px] border-dashed shrink-0 max-w-[160px]', className)}>
-        <SelectValue placeholder="Everyone" />
+        <SelectValue placeholder={noneLabel} />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="none">Everyone</SelectItem>
+        <SelectItem value="none">{noneLabel}</SelectItem>
         {stationMode ? (
           <SelectGroup>
             <SelectLabel>Stations</SelectLabel>
