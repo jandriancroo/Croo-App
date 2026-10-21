@@ -6522,6 +6522,36 @@ export type Database = {
           },
         ]
       }
+      labor_close_habits: {
+        Row: {
+          avg_minutes: number
+          computed_at: string
+          key: string
+          location_id: string
+          n: number
+          scope: string
+          trust: number
+        }
+        Insert: {
+          avg_minutes: number
+          computed_at?: string
+          key: string
+          location_id: string
+          n: number
+          scope: string
+          trust: number
+        }
+        Update: {
+          avg_minutes?: number
+          computed_at?: string
+          key?: string
+          location_id?: string
+          n?: number
+          scope?: string
+          trust?: number
+        }
+        Relationships: []
+      }
       labor_insights: {
         Row: {
           analysis: Json
@@ -6956,6 +6986,108 @@ export type Database = {
           },
         ]
       }
+      labor_shift_outcomes: {
+        Row: {
+          actual_in: string | null
+          actual_out: string | null
+          auto_closed: boolean
+          business_date: string
+          close_crew: string[]
+          closer_by: string | null
+          computed_at: string
+          crew_size_at_out: number | null
+          day_of_week: number
+          edited_out: boolean
+          exclude_reason: string | null
+          final_sales: number | null
+          final_sales_pct: number | null
+          goal: number | null
+          id: string
+          is_closer: boolean
+          location_id: string
+          minutes_vs_schedule: number | null
+          out_hour: number | null
+          pace_pct_at_out: number | null
+          position: string | null
+          role: string | null
+          sales_at_out: number | null
+          sales_band: string | null
+          scheduled_end: string
+          scheduled_shift_id: string
+          scheduled_start: string
+          source: string
+          station_id: string | null
+          template_id: string | null
+          user_id: string
+        }
+        Insert: {
+          actual_in?: string | null
+          actual_out?: string | null
+          auto_closed?: boolean
+          business_date: string
+          close_crew?: string[]
+          closer_by?: string | null
+          computed_at?: string
+          crew_size_at_out?: number | null
+          day_of_week: number
+          edited_out?: boolean
+          exclude_reason?: string | null
+          final_sales?: number | null
+          final_sales_pct?: number | null
+          goal?: number | null
+          id?: string
+          is_closer?: boolean
+          location_id: string
+          minutes_vs_schedule?: number | null
+          out_hour?: number | null
+          pace_pct_at_out?: number | null
+          position?: string | null
+          role?: string | null
+          sales_at_out?: number | null
+          sales_band?: string | null
+          scheduled_end: string
+          scheduled_shift_id: string
+          scheduled_start: string
+          source: string
+          station_id?: string | null
+          template_id?: string | null
+          user_id: string
+        }
+        Update: {
+          actual_in?: string | null
+          actual_out?: string | null
+          auto_closed?: boolean
+          business_date?: string
+          close_crew?: string[]
+          closer_by?: string | null
+          computed_at?: string
+          crew_size_at_out?: number | null
+          day_of_week?: number
+          edited_out?: boolean
+          exclude_reason?: string | null
+          final_sales?: number | null
+          final_sales_pct?: number | null
+          goal?: number | null
+          id?: string
+          is_closer?: boolean
+          location_id?: string
+          minutes_vs_schedule?: number | null
+          out_hour?: number | null
+          pace_pct_at_out?: number | null
+          position?: string | null
+          role?: string | null
+          sales_at_out?: number | null
+          sales_band?: string | null
+          scheduled_end?: string
+          scheduled_shift_id?: string
+          scheduled_start?: string
+          source?: string
+          station_id?: string | null
+          template_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       labor_shift_resolutions: {
         Row: {
           clock_in_punch_id: string
@@ -7006,6 +7138,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      labor_smart_close_settings: {
+        Row: {
+          enabled: boolean
+          location_id: string
+          note: string | null
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          location_id: string
+          note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          location_id?: string
+          note?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       library_document_versions: {
         Row: {
@@ -15343,6 +15496,44 @@ export type Database = {
         Args: { _from: string; _location_id: string }
         Returns: undefined
       }
+      _labor_close_at: {
+        Args: { _date: string; _location_id: string; _tz: string }
+        Returns: string
+      }
+      _labor_close_at_from: {
+        Args: {
+          _close: string
+          _date: string
+          _is_closed: boolean
+          _open: string
+          _tz: string
+        }
+        Returns: string
+      }
+      _labor_close_habits_compute: {
+        Args: { _as_of: string; _location_id: string }
+        Returns: {
+          avg_minutes: number
+          key: string
+          n: number
+          scope: string
+          trust: number
+        }[]
+      }
+      _labor_close_predict_min: {
+        Args: {
+          _as_of?: string
+          _band: string
+          _dow: number
+          _location_id: string
+          _user_id: string
+        }
+        Returns: number
+      }
+      _labor_closer_rule: {
+        Args: { _close_at: string; _latest_end: string; _s_end: string }
+        Returns: string
+      }
       _labor_estimate_detail: {
         Args: { _clock_in_punch_id: string }
         Returns: {
@@ -15381,9 +15572,26 @@ export type Database = {
           ot: number
         }[]
       }
+      _labor_outcome_exclude: {
+        Args: {
+          _actual_out: string
+          _auto: boolean
+          _edited: boolean
+          _minutes: number
+        }
+        Returns: string
+      }
+      _labor_pace_baseline: {
+        Args: { _date?: string; _location_id: string }
+        Returns: Json
+      }
       _labor_pace_break_owed_sec: {
         Args: { _gross: number; _location_id: string }
         Returns: number
+      }
+      _labor_pace_core: {
+        Args: { _date: string; _location_id: string; _smart: boolean }
+        Returns: Json
       }
       _labor_pace_meal_sec: {
         Args: {
@@ -15468,6 +15676,17 @@ export type Database = {
       _labor_rules_validate: {
         Args: { _row: Database["public"]["Tables"]["labor_rules"]["Row"] }
         Returns: undefined
+      }
+      _labor_sales_band: { Args: { _pct: number }; Returns: string }
+      _labor_smart_close_adjust: {
+        Args: {
+          _now: string
+          _pred_min: number
+          _remaining_sec: number
+          _s_end: string
+          _state: string
+        }
+        Returns: Record<string, unknown>
       }
       _labor_totals_authorized: {
         Args: { _location_id: string }
@@ -16080,6 +16299,16 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_cut_history: {
+        Args: {
+          _day_of_week?: number
+          _days?: number
+          _hour?: number
+          _location_id: string
+          _sales_band?: string
+        }
+        Returns: Json
+      }
       get_cut_savings_estimate: {
         Args: { _cuts: Json; _location_id: string }
         Returns: {
@@ -16386,6 +16615,14 @@ export type Database = {
         Args: { _kind: string; _location_id: string }
         Returns: Json
       }
+      labor_shift_outcomes_backfill: {
+        Args: { _from: string; _location_id: string; _to: string }
+        Returns: number
+      }
+      labor_shift_outcomes_build: {
+        Args: { _date: string; _location_id: string }
+        Returns: number
+      }
       labor_shifts: {
         Args: { _end: string; _location_id: string; _start: string }
         Returns: {
@@ -16417,6 +16654,10 @@ export type Database = {
           wage: number
           wage_missing: boolean
         }[]
+      }
+      labor_smart_close_backtest: {
+        Args: { _at?: string; _days?: number; _location_id: string }
+        Returns: Json
       }
       labor_source_for: { Args: { _location_id: string }; Returns: string }
       labor_week_pay: { Args: { _rules: Json; _shifts: Json }; Returns: Json }
@@ -16624,6 +16865,7 @@ export type Database = {
         }[]
       }
       refresh_all_pfg_tokens: { Args: never; Returns: undefined }
+      refresh_labor_close_habits: { Args: never; Returns: Json }
       resolve_goal: {
         Args: { _date: string; _location_id: string }
         Returns: number

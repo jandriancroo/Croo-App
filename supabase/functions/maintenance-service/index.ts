@@ -336,6 +336,13 @@ async function handleNightlyMaintenance(
     return { thumbnailed: result.thumbnailed || 0, deleted: result.deleted || 0, savedMB: result.savedMB || 0 };
   }));
 
+  // Task 11: Smart Close learning — last 3 days of shift outcomes + rebuild closing habits (SQL only)
+  results.push(await runResumableTask(supabase, runDate, completedSet, "labor-close-habits", async () => {
+    const { data, error } = await supabase.rpc("refresh_labor_close_habits");
+    if (error) throw new Error(error.message);
+    return data ?? {};
+  }));
+
   const completedCount = results.filter(r => r.status === "success").length;
   const skippedCount = results.filter(r => r.status === "skipped_already_done").length;
   const errorCount = results.filter(r => r.status === "error").length;
