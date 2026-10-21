@@ -1,5 +1,9 @@
 # Roadmap
 
 ## Done
-- Fix promo tracker editor: right side cut off + no vertical scroll after photo upload (verified at phone + desktop sizes)
-- Dash layout saved per user: section order now stored on the user's profile and follows them across devices (build passes; not yet exercised end-to-end on screen)
+- Promo tracker editor: right side no longer cut off, page scrolls after a photo is added
+- Promo item rows: photo description reads fully, camera icon instead of "Add photo" text
+- Dash layout saved per person (follows you across devices)
+
+## Up next
+- Nothing open

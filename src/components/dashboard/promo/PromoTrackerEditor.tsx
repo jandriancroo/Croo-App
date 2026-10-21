@@ -73,20 +73,23 @@ function SortableItemRow({ id, image, onAddPhoto, onRemovePhoto, onRemoveItem, u
         className="relative flex h-8 w-6 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground after:absolute after:-inset-x-2 after:-inset-y-1.5 active:cursor-grabbing">
         <GripVertical className="h-4 w-4" />
       </button>
-      <div className="h-[52px] w-[52px] shrink-0 overflow-hidden rounded-lg bg-muted">
+      <button type="button" onClick={onAddPhoto} aria-label={`${image ? 'Replace' : 'Add'} photo for ${id}`}
+        className="relative h-[52px] w-[52px] shrink-0 overflow-hidden rounded-lg bg-muted">
         {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : null}
-      </div>
+        {uploading ? (
+          <span className="absolute inset-0 grid place-items-center bg-card/70"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></span>
+        ) : image ? (
+          <span className="absolute bottom-0 right-0 grid h-5 w-5 place-items-center rounded-tl-lg bg-foreground/55 text-card"><Camera className="h-3 w-3" /></span>
+        ) : (
+          <span className="absolute inset-0 grid place-items-center text-muted-foreground"><Camera className="h-5 w-5" /></span>
+        )}
+      </button>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold">{id}</p>
         <p className="truncate text-xs text-muted-foreground">{image ? 'Photo added' : 'No photo · uses campaign hero'}</p>
       </div>
-      {uploading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : image ? (
-        <>
-          <Button type="button" variant="outline" size="xs" onClick={onAddPhoto}><Camera className="mr-1 h-3.5 w-3.5" />Replace</Button>
-          <Button type="button" variant="ghost" size="icon-sm" aria-label="Remove photo" onClick={onRemovePhoto}><X className="h-4 w-4" /></Button>
-        </>
-      ) : (
-        <Button type="button" variant="outline" size="xs" onClick={onAddPhoto}>Add photo</Button>
+      {image && (
+        <Button type="button" variant="ghost" size="icon-sm" aria-label="Remove photo" onClick={onRemovePhoto}><X className="h-4 w-4" /></Button>
       )}
       <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove ${id}`} onClick={onRemoveItem}>
         <Trash2 className="h-4 w-4" />
