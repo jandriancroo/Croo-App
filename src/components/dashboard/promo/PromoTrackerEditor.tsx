@@ -232,6 +232,8 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
     finally { setConfirmEnd(false); }
   };
 
+  // Pin the live preview while the border list is on screen so every tap shows its result.
+  const [pinPreview, setPinPreview] = useState(false);
   const previewSlides = useMemo(() => form ? buildPromoSlides(form.config) : [], [form]);
   const previewDay = form ? campaignDay(form.starts_on, form.ends_on, timezone || 'America/Los_Angeles') : null;
   const canCreate = perms.brand || perms.org;
@@ -271,6 +273,7 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
             <>
               <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
                 <div className="min-w-0 space-y-5 p-4">
+                  <div data-promo-preview-pinned={pinPreview} className={pinPreview ? 'sticky top-0 z-20 -mx-4 -mt-4 bg-background px-4 pt-1 pb-1 shadow-sm' : undefined}>
                   <PromoHeroView
                     title={form.title || 'Campaign name'} slides={previewSlides} activeRef={previewSlides[0]?.ref ?? ''}
                     subtitle={previewSlides[0] ? `${previewSlides[0].label} · 0\u00A0sold` : ''}
@@ -282,6 +285,7 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
                     borderWinner={!!form.config.tracker_border_winner}
                     borderClosing={!!form.config.tracker_border_closing && !form.config.tracker_border_winner}
                   />
+                  </div>
 
                   <p className="text-xs font-medium text-muted-foreground">{form.owner_type === 'brand' ? 'Brand promo · every store in the brand sees it' : 'Org contest · only the stores you pick'}</p>
 
@@ -356,7 +360,7 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
                     <Switch checked={form.config.tracker_autoplay !== false} onCheckedChange={v => setCfg({ tracker_autoplay: v })} />
                   </label>
 
-                  <PromoBorderPicker config={form.config} onChange={setCfg} image={previewSlides[0]?.imageUrl ?? form.config.tracker_promo_image_url} />
+                  <PromoBorderPicker config={form.config} onChange={setCfg} onListVisible={setPinPreview} image={previewSlides[0]?.imageUrl ?? form.config.tracker_promo_image_url} />
 
                   <div className="space-y-2">
                     <Label>Ranking view</Label>
