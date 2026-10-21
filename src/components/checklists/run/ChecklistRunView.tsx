@@ -280,15 +280,12 @@ function DoneWho({ ctx, id }: { ctx: RunCtx; id: string }) {
   const c = ctx.completer(id);
   if (!c) return null;
   return (
-    <span className="flex max-w-[118px] shrink-0 flex-col items-end text-right">
+    <span className="flex w-[72px] shrink-0 flex-col items-center text-center">
       <Avatar className="h-8 w-8">
         <AvatarImage src={c.profilePhoto || undefined} />
         <AvatarFallback className="bg-secondary text-[11px] font-semibold text-secondary-foreground">{c.fullName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}</AvatarFallback>
       </Avatar>
-      <span className="mt-0.5 flex max-w-full items-baseline gap-1 whitespace-nowrap leading-[1.15]">
-        <span className="truncate text-[12px] font-bold">{shortName(c.fullName)}</span>
-        <span className="shrink-0 text-[11px] text-muted-foreground">{timeOf(c.completedAt)}</span>
-      </span>
+      <span className="mt-0.5 w-full truncate text-[12px] font-bold leading-[1.15]">{shortName(c.fullName)}</span>
     </span>
   );
 }
@@ -300,8 +297,8 @@ function DoneReading({ ctx, it }: { ctx: RunCtx; it: RunItem }) {
   const color = tone === 'good' ? 'text-[hsl(var(--success))]' : tone === 'bad' ? 'text-destructive' : 'text-[hsl(var(--warning))]';
   const chip = !has || r.unconfirmed ? 'Unconfirmed' : r.valid === false ? 'Out of range' : 'Safe';
   return (
-    <span className="mt-1 block" onClick={(e) => e.stopPropagation()}>
-      <span className="flex flex-nowrap items-center gap-2">
+    <span className="mt-1 block text-center" onClick={(e) => e.stopPropagation()}>
+      <span className="flex flex-nowrap items-center justify-center gap-2">
         <span className={cn('text-xl font-bold tabular-nums', color)}>{has ? `${Number(r.temp).toFixed(1)}°F` : '?°F'}</span>
         <span className={cn('whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold',
           chip === 'Safe' ? 'bg-[hsl(var(--success)/0.12)] text-[hsl(var(--success))]' : chip === 'Out of range' ? 'bg-destructive/10 text-destructive' : 'bg-[hsl(var(--warning)/0.14)] text-[hsl(var(--warning))]')}>{chip}</span>
@@ -394,11 +391,12 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
         onPointerDown={!oneTap || done ? undefined : longPressStart}
         onPointerUp={longPressEnd}
         onPointerLeave={longPressEnd}
-        className="flex w-full cursor-pointer items-start gap-3 px-3 py-2.5 text-left"
+        className="flex w-full cursor-pointer flex-wrap items-start gap-x-3 px-3 py-2.5 text-left"
       >
         <span className="flex shrink-0">{circle}</span>
         <span className="min-w-0 flex-1 pt-[3px]">
           <Name it={it} ctx={ctx} className={cn('block break-words text-[15px] font-semibold leading-snug', done && !amber && 'text-muted-foreground')} />
+          {done && !amber && ctx.completer(it.id) && <span className="block text-xs leading-tight text-muted-foreground">{timeOf(ctx.completer(it.id)!.completedAt)}</span>}
           {amber ? (
             <span className="mt-0.5 block text-sm text-[hsl(var(--warning))]">Photo saved. Type the temperature.</span>
           ) : !done ? (
@@ -413,7 +411,6 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
             <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></span>
           )}
           {amber && <span className="mt-2 flex items-center gap-3"><TempInput ctx={ctx} id={it.id} /><PhotoIcon ctx={ctx} it={it} /></span>}
-          {done && temp && !amber && <DoneReading ctx={ctx} it={it} />}
           {done && temp && !amber && ctx.tempOpen(it.id) && (
             <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></span>
           )}
@@ -426,10 +423,12 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
               ))}
             </span>
           )}
-          {savedText && <span className={cn('mt-0.5 block break-words text-[15px]', it.item_type === 'text' ? 'line-clamp-3 whitespace-pre-wrap' : 'font-bold')}>{savedText}</span>}
+          {savedText && it.item_type !== 'number' && <span className="mt-0.5 block whitespace-pre-wrap break-words text-[15px] line-clamp-3">{savedText}</span>}
         </span>
         {right && <span className="flex min-h-7 items-center self-center">{right}</span>}
         {done && !amber && <DoneWho ctx={ctx} id={it.id} />}
+        {done && temp && !amber && <span className="flex basis-full justify-center"><DoneReading ctx={ctx} it={it} /></span>}
+        {savedText && it.item_type === 'number' && <span className="basis-full pt-1 text-center text-xl font-bold tabular-nums">{savedText}</span>}
       </div>
     </div>
   );
