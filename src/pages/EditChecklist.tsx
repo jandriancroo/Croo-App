@@ -1,3 +1,4 @@
+import { referencePhotoFields, getPrimaryReferencePhoto } from '@/lib/checklistReferencePhotos';
 import { PageTitle } from '@/components/PageTitle';
 import { TaskAssigneePicker } from '@/components/tasks/TaskAssigneePicker';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -36,6 +37,7 @@ interface ChecklistItem {
   temperature_alert_enabled?: boolean;
   options?: string[] | { minPhotos?: number };
   reference_image_url?: string | null;
+  reference_image_urls?: string[];
   reference_link?: string;
   reference_video_url?: string;
   reference_notes?: string;
@@ -295,7 +297,7 @@ function toItemRow(item: ChecklistItem, orderIndex: number, amPm: boolean, posFi
     requires_temperature_validation: dbItemType === 'temperature',
     temperature_alert_enabled: dbItemType === 'temperature' ? (item.temperature_alert_enabled || false) : false,
     options: item.item_type === 'multiple_choice' ? item.options : (item.item_type === 'image' || item.item_type === 'temperature') ? item.options : null,
-    reference_image_url: item.reference_image_url || null,
+    ...referencePhotoFields(item),
     reference_link: item.reference_link || null,
     reference_video_url: item.reference_video_url || null,
     reference_notes: item.reference_notes || null,
@@ -556,7 +558,8 @@ export default function EditChecklist() {
           is_required: item.is_required,
           temperature_alert_enabled: (item as any).temperature_alert_enabled || false,
           options: item.options as string[] | undefined,
-          reference_image_url: item.reference_image_url || undefined,
+          reference_image_url: getPrimaryReferencePhoto(item as any) || undefined,
+          reference_image_urls: ((item as any).reference_image_urls as string[] | null) ?? [],
           reference_link: item.reference_link || undefined,
           reference_video_url: item.reference_video_url || undefined,
           reference_notes: item.reference_notes || undefined,

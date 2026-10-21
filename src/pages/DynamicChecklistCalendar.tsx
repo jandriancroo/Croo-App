@@ -1,3 +1,4 @@
+import { referencePhotoFields, getPrimaryReferencePhoto } from '@/lib/checklistReferencePhotos';
 import { PageTitle } from '@/components/PageTitle';
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -48,6 +49,7 @@ interface ChecklistItem {
   order_index: number;
   days_of_week: number[];
   reference_image_url: string | null;
+  reference_image_urls: string[];
   reference_notes: string | null;
   manager_shift: "am" | "pm" | null;
   options: any;
@@ -60,7 +62,8 @@ const normalizeItem = (row: any): ChecklistItem => ({
   item_type: row.item_type,
   order_index: row.order_index ?? 0,
   days_of_week: Array.isArray(row.days_of_week) ? row.days_of_week : [],
-  reference_image_url: row.reference_image_url ?? null,
+  reference_image_url: getPrimaryReferencePhoto(row),
+  reference_image_urls: Array.isArray(row.reference_image_urls) ? row.reference_image_urls : [],
   reference_notes: row.reference_notes ?? null,
   manager_shift: row.manager_shift === "am" || row.manager_shift === "pm" ? row.manager_shift : null,
   options: row.options ?? null,
@@ -460,7 +463,7 @@ export default function DynamicChecklistCalendar() {
         days_of_week: [day],
         options: item.options,
         manager_shift: item.manager_shift,
-        reference_image_url: item.reference_image_url,
+        ...referencePhotoFields(item),
         reference_notes: item.reference_notes,
         forked_from_item_id: item.id,
       })

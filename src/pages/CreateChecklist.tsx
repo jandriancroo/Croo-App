@@ -1,3 +1,4 @@
+import { referencePhotoFields } from '@/lib/checklistReferencePhotos';
 import { PageTitle } from '@/components/PageTitle';
 import { TaskAssigneePicker } from '@/components/tasks/TaskAssigneePicker';
 import { ReferencePhotoField } from '@/components/tasks/ReferencePhotoField';
@@ -32,6 +33,7 @@ interface ChecklistItem {
   is_required: boolean;
   temperature_alert_enabled?: boolean;
   reference_image_url?: string | null;
+  reference_image_urls?: string[];
   reference_link?: string;
   reference_video_url?: string;
   reference_notes?: string;
@@ -316,7 +318,7 @@ export default function CreateChecklist() {
       is_required: item.is_required,
       requires_temperature_validation: item.item_type === 'temperature',
       temperature_alert_enabled: item.item_type === 'temperature' ? (item.temperature_alert_enabled || false) : false,
-      reference_image_url: item.reference_image_url || null,
+      ...referencePhotoFields(item),
       reference_link: item.reference_link || null,
       reference_video_url: item.reference_video_url || null,
       reference_notes: item.reference_notes || null,

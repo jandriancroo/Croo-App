@@ -1,3 +1,4 @@
+import { referencePhotoFields } from '@/lib/checklistReferencePhotos';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -182,7 +183,7 @@ export function CopyChecklistDialog({
               is_required: item.is_required,
               options: item.options,
               days_of_week: item.days_of_week,
-              reference_image_url: item.reference_image_url,
+              ...referencePhotoFields(item),
               reference_link: item.reference_link,
               reference_notes: item.reference_notes,
               reference_video_url: item.reference_video_url,
