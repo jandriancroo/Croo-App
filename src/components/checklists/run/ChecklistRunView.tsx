@@ -158,7 +158,7 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const full = total > 0 && done >= total;
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted ring-1 ring-inset ring-[hsl(var(--border))]" role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={total} aria-label={`${done} of ${total} done`}>
+    <div className="mx-auto my-2 h-2 w-3/4 overflow-hidden rounded-full border border-border bg-card" role="progressbar" aria-valuenow={done} aria-valuemin={0} aria-valuemax={total} aria-label={`${done} of ${total} done`}>
       <div className={cn('h-full rounded-full transition-[width] duration-300', full ? 'bg-[hsl(var(--success)/0.65)]' : 'bg-primary')} style={{ width: `${pct}%` }} />
     </div>
   );
@@ -983,9 +983,10 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
             <h1 className="min-w-0 flex-1 break-words text-[20px] font-extrabold">{ctx.title}</h1>
             {tempsNeeded > 0 && <span className="rounded-full bg-[hsl(var(--warning)/0.14)] px-3 py-1 text-sm font-semibold text-[hsl(var(--warning))]">{tempsNeeded} {tempsNeeded === 1 ? 'needs' : 'need'} a temp</span>}
             {switches}
+            <span className="shrink-0 text-[14px] font-extrabold">{ctx.doneCount} of {ctx.totalCount}</span>
           </div>
           {ctx.description && <p className="px-1 text-sm text-muted-foreground">{ctx.description}</p>}
-          <div className="my-2 flex items-start gap-3"><div className="w-[85%]"><ProgressBar done={ctx.doneCount} total={ctx.totalCount} /></div><span className="shrink-0 text-[14px] font-extrabold leading-none">{ctx.doneCount} of {ctx.totalCount}</span></div>
+          <ProgressBar done={ctx.doneCount} total={ctx.totalCount} />
         </div>
       ) : (
         <div>
@@ -997,7 +998,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
             </div>
           </div>
           {ctx.description && <p className="px-1 text-sm text-muted-foreground">{ctx.description}</p>}
-          <div className="my-2 w-[85%]"><ProgressBar done={ctx.doneCount} total={ctx.totalCount} /></div>
+          <ProgressBar done={ctx.doneCount} total={ctx.totalCount} />
           {switches}
         </div>
       )}
