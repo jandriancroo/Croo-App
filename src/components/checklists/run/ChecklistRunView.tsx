@@ -835,6 +835,24 @@ function CompletedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
       )}
       <NotesPanel it={it} />
       <ReferenceRows it={it} ctx={ctx} showPhotos />
+      {can && (
+        <div className="space-y-2 pt-1">
+          {temp && (
+            ctx.uploading(it.id) ? (
+              <span className="flex h-12 items-center justify-center text-sm text-primary">Uploading…</span>
+            ) : (
+              <PhotoPickerButton direct="camera" onFileSelected={(f) => ctx.upload(it.id, f)} className="block w-full">
+                <span className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-card text-base font-medium"><RotateCcw className="h-4 w-4" />Retake temp photo</span>
+              </PhotoPickerButton>
+            )
+          )}
+          <Button type="button" variant="outline" className="h-12 w-full border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => ctx.undo(it.id)}>
+            Undo this item
+          </Button>
+          <p className="text-center text-xs text-muted-foreground">Only {c ? c.fullName.split(' ')[0] : 'the person who did this'} or a Shift Manager and above can undo or edit.</p>
+        </div>
+      )}
     </div>
   );
 }
