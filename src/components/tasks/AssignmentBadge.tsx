@@ -9,7 +9,7 @@ export function AssignmentBadge({ info, className }: { info: AssignmentInfo; cla
     <span
       className={cn(
         'inline-flex max-w-full min-w-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium leading-4',
-        none && 'border-border bg-transparent text-muted-foreground',
+        none && 'border-border bg-card text-muted-foreground',
         person && 'border-border bg-muted text-foreground/80',
         className,
       )}
