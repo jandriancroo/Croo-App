@@ -280,7 +280,8 @@ export const Layout = ({
     canViewTimecards,
     isSuperAdmin,
     isBrandAdmin,
-    loading: roleLoading
+    loading: roleLoading,
+    role
   } = useUserRole();
   const isMobile = useIsMobile();
   const mobileHeaderRef = useRef<HTMLElement>(null);
