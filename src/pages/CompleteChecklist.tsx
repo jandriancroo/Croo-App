@@ -285,8 +285,9 @@ export default function CompleteChecklist() {
     return currentMinutes < lockMinutes;
   }, [checklist?.lock_until_time, viewDate, locationTimezone]);
   
-  // Permission check: shift managers and above can undo
-  const canUndoItems = isShiftManager;
+  // Permission check: the person who checked it, or Shift Manager in Training and above
+  const canUndoItem = (itemId: string) =>
+    isShiftManager || (!!user?.id && responsesWithCompleters[itemId]?.completedBy?.userId === user.id);
   // currentLocation already declared above
   const navigate = useNavigate();
   const autoSaveTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -742,9 +743,15 @@ export default function CompleteChecklist() {
     if (!responseData?.responseId) return;
     try {
       const {
+        data: deleted,
         error
-      } = await supabase.from('checklist_responses').delete().eq('id', responseData.responseId);
+      } = await supabase.from('checklist_responses').delete().eq('id', responseData.responseId).select('id');
       if (error) throw error;
+      if (!deleted || deleted.length === 0) {
+        toast.error('Only the person who checked this or a shift manager can uncheck it.');
+        setUndoConfirmItemId(null);
+        return;
+      }
 
       // Remove from state
       const newResponses = {
@@ -1525,7 +1532,7 @@ export default function CompleteChecklist() {
               {/* For completed image items — bottom bar with completion info (no blur overlay) */}
               {hasResponse && isImageItem && (
                 <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-2 bg-background/90 border-t border-border px-3 py-2">
-                  {canUndoItems ? (
+                  {canUndoItem(item.id) ? (
                     <button
                       type="button"
                       onClick={() => handleUndoClick(item.id)}
@@ -1596,7 +1603,7 @@ export default function CompleteChecklist() {
                   <CardContent className="py-2">
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        {canUndoItems ? (
+                        {canUndoItem(item.id) ? (
                           <button
                             type="button"
                             onClick={() => handleUndoClick(item.id)}

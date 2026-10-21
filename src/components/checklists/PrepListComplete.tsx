@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import { ALL_CONTAINERS } from '@/components/inventory/PanSizesSection';
 
 interface RowMeta {
@@ -284,7 +285,14 @@ export function PrepListComplete({
           });
         }
       } else if (existing?.id) {
-        await supabase.from('checklist_responses').delete().eq('id', existing.id);
+        const { data: deleted, error } = await supabase
+          .from('checklist_responses')
+          .delete()
+          .eq('id', existing.id)
+          .select('id');
+        if (error || !deleted || deleted.length === 0) {
+          toast.error('Only the person who checked this or a shift manager can uncheck it.');
+        }
       }
     }, 400);
     return () => clearTimeout(handle);
