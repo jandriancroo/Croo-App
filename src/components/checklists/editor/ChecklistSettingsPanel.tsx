@@ -108,7 +108,7 @@ export function ChecklistSettingsPanel({ value: s, onChange, templateTypeOptions
         className="h-11"
         options={templateTypeOptions
           .filter((t) => !typeLocked || t === s.templateType)
-          .map((t) => ({ value: t, label: TYPE_LABEL[t] }))}
+          .map((t) => ({ value: t, label: !wide && t === 'dynamic' ? 'Dynamic' : TYPE_LABEL[t] }))}
       />
       <p className="text-sm text-muted-foreground">{TYPE_HELP[s.templateType]}</p>
       {typeLocked && <p className="text-xs text-muted-foreground">Type is set when you create a list</p>}
