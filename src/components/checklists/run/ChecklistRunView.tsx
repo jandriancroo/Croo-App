@@ -990,7 +990,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
       ) : (
         <div>
           <div className="flex items-center gap-1 px-1 pt-3">
-            <Button variant="ghost" size="icon" className="-ml-2 h-9 w-9 shrink-0" onClick={goDash} aria-label="Back to dashboard"><ArrowLeft className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" className="-mx-1 -my-1.5 h-9 w-9 shrink-0" onClick={goDash} aria-label="Back to dashboard"><ArrowLeft className="h-5 w-5" /></Button>
             <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
               <h1 className="min-w-0 break-words text-xl font-bold">{ctx.title}</h1>
               <span className="shrink-0 text-base font-bold">{ctx.doneCount} of {ctx.totalCount}</span>
