@@ -971,7 +971,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
   });
 
   const listView = (
-    <div className="space-y-3 px-3 pb-24">
+    <div className="space-y-3 pb-24">
       {wideList ? (
         <div>
           <div className="flex flex-wrap items-center gap-3 pt-3">
