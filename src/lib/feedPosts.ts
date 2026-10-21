@@ -12,6 +12,7 @@ export interface CreateFeedPostInput {
   pinned?: boolean;
   badgeId?: string | null;
   isAnnouncement?: boolean;
+  requireConfirm?: boolean;
 }
 
 /** Returns the inserted post and how many people the push went to. */
@@ -25,6 +26,7 @@ export async function createFeedPost(i: CreateFeedPostInput): Promise<{ post: an
     channel_id: channelId,
     badge_id: i.badgeId ?? null,
     is_announcement: !!isAnnouncement,
+    require_confirm: !!isAnnouncement && !!i.requireConfirm,
     subject: isAnnouncement ? subject?.trim() || null : null,
     body,
     media: (i.media ?? []) as any,

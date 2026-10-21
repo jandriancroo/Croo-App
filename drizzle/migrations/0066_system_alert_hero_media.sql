@@ -1,0 +1,6 @@
+ALTER TABLE public.system_alerts ADD COLUMN hero_media_path text, ADD COLUMN hero_media_type text CHECK (hero_media_type IS NULL OR hero_media_type IN ('image','video'));
+ALTER TABLE public.system_alerts ADD CONSTRAINT system_alert_hero_pair CHECK ((hero_media_path IS NULL) = (hero_media_type IS NULL));
+CREATE POLICY system_alert_media_read ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'system-alert-media');
+CREATE POLICY system_alert_media_insert ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'system-alert-media' AND public.has_role_or_higher(auth.uid(), 'super_admin'));
+CREATE POLICY system_alert_media_update ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'system-alert-media' AND public.has_role_or_higher(auth.uid(), 'super_admin')) WITH CHECK (bucket_id = 'system-alert-media' AND public.has_role_or_higher(auth.uid(), 'super_admin'));
+CREATE POLICY system_alert_media_delete ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'system-alert-media' AND public.has_role_or_higher(auth.uid(), 'super_admin'));

@@ -1,0 +1,1 @@
+ALTER TABLE public.announcement_posts ADD COLUMN IF NOT EXISTS require_confirm boolean NOT NULL DEFAULT false;

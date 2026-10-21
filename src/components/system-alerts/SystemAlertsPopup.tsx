@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { whenInviteAllowed } from '@/lib/startupSequence';
 import { safeAlertLink, systemAlertIsDeliverable, SystemAlert } from '@/lib/systemAlerts';
 import { syncChromeColor } from '@/utils/syncChrome';
+import { AnnouncementsPopup } from '@/components/feed/AnnouncementsPopup';
 import { SystemAlertDialog } from './SystemAlertDialog';
 
 export function SystemAlertsPopup() {
@@ -15,7 +16,7 @@ export function SystemAlertsPopup() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [handled, setHandled] = useState(false);
-  const { data: alert } = useQuery({
+  const { data: alert, isSuccess } = useQuery({
     queryKey: ['next-system-alert', user?.id], enabled: !!user?.id && !handled,
     staleTime: 60_000, refetchInterval: handled ? false : 60_000,
     queryFn: async (): Promise<SystemAlert | null> => {
@@ -54,5 +55,8 @@ export function SystemAlertsPopup() {
     } catch { toast.error('Could not save your response. Please try again.'); }
     finally { setBusy(false); }
   };
-  return <SystemAlertDialog alert={alert ?? null} open={open} busy={busy} onDismiss={() => void finish('dismissed')} onAction={() => void finish('action')} />;
+  return <>
+    <SystemAlertDialog alert={alert ?? null} open={open} busy={busy} onDismiss={() => void finish('dismissed')} onAction={() => void finish('action')} />
+    <AnnouncementsPopup enabled={handled || (isSuccess && !alert)} />
+  </>;
 }

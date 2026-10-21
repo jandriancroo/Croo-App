@@ -86,6 +86,7 @@ export interface FeedPost {
   channel_id: string | null;
   badge_id: string | null;
   is_announcement: boolean;
+  require_confirm?: boolean;
   subject: string | null;
   body: string;
   media: FeedMedia[];
@@ -169,7 +170,7 @@ export function useAnnouncementFeed(
     queryFn: async (): Promise<FeedPost[]> => {
       let q = supabase
         .from('announcement_posts')
-        .select('id, author_id, brand_id, location_id, channel_id, badge_id, is_announcement, subject, body, media, pinned, allow_comments, created_at, edited_at')
+        .select('id, author_id, brand_id, location_id, channel_id, badge_id, is_announcement, require_confirm, subject, body, media, pinned, allow_comments, created_at, edited_at')
         .is('deleted_at', null)
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false })
@@ -313,13 +314,13 @@ export function useAnnouncementFeed(
 
   const createPost = useMutation({
     mutationFn: async ({
-      body, subject, media, channelId, pinned, badgeId, isAnnouncement,
+      body, subject, media, channelId, pinned, badgeId, isAnnouncement, requireConfirm,
     }: {
       body: string; subject?: string | null; media: FeedMedia[]; channelId: string | null; pinned?: boolean;
-      badgeId?: string | null; isAnnouncement?: boolean;
+      badgeId?: string | null; isAnnouncement?: boolean; requireConfirm?: boolean;
     }) => {
       if (!user || !locationId) throw new Error('Missing context');
-      const { post } = await createFeedPost({ user, locationId, body, subject, media, channelId, pinned, badgeId, isAnnouncement });
+      const { post } = await createFeedPost({ user, locationId, body, subject, media, channelId, pinned, badgeId, isAnnouncement, requireConfirm });
       return post;
     },
     onSuccess: () => {

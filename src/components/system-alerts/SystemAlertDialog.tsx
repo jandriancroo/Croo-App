@@ -1,3 +1,6 @@
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 import { Bell, Palette, Play, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -11,6 +14,19 @@ interface Props {
   onAction: () => void;
 }
 
+export function SystemAlertHeroMedia({ path, type, className }: { path: string; type: string | null; className?: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true; setUrl(null);
+    void supabase.storage.from('system-alert-media').createSignedUrl(path, 3600).then(({ data }) => { if (live) setUrl(data?.signedUrl ?? null); });
+    return () => { live = false; };
+  }, [path]);
+  const box = cn('w-full overflow-hidden rounded-lg bg-muted object-cover', className);
+  if (!url) return <div className={cn(box, 'aspect-video')} aria-hidden />;
+  if (type === 'video') return <video src={url} controls muted playsInline preload="metadata" className={cn(box, !className && 'aspect-video')} />;
+  return <img src={url} alt="" className={cn(box, !className && 'aspect-video')} />;
+}
+
 export function SystemAlertDialog({ alert, open, busy, onDismiss, onAction }: Props) {
   if (!alert) return null;
   const Icon = alert.kind === 'theme' ? Palette : alert.kind === 'feature' ? Sparkles : Bell;
@@ -18,8 +34,9 @@ export function SystemAlertDialog({ alert, open, busy, onDismiss, onAction }: Pr
   const directVideo = alert.video_url && /\.(mp4|webm)(\?|$)/i.test(alert.video_url);
   return <Dialog open={open} onOpenChange={value => { if (!value && !busy) onDismiss(); }}>
     <DialogContent className="max-w-md max-h-[85dvh] overflow-y-auto rounded-lg">
+      {alert.hero_media_path && <SystemAlertHeroMedia path={alert.hero_media_path} type={alert.hero_media_type} />}
       <DialogHeader className="pr-8">
-        <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary"><Icon className="h-6 w-6" /></div>
+        {!alert.hero_media_path && <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary"><Icon className="h-6 w-6" /></div>}
         <p className="text-xs font-semibold uppercase text-muted-foreground">{alert.kind === 'theme' ? 'New theme' : alert.kind === 'feature' ? 'New feature' : 'System alert'}</p>
         <DialogTitle className="text-xl leading-tight">{alert.title}</DialogTitle>
         <DialogDescription className="whitespace-pre-wrap leading-relaxed">{alert.body}</DialogDescription>
