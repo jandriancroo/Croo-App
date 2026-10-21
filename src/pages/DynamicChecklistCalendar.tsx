@@ -574,9 +574,21 @@ export default function DynamicChecklistCalendar() {
     />
   );
 
+  const headerButtons = (
+    <>
+      <Button variant="outline" className="lg:hidden h-11 shrink-0 px-4" onClick={() => setLibraryOpen(true)}>
+        <Library className="h-4 w-4 mr-1.5" />
+        Library
+      </Button>
+      <Button onClick={handleSave} disabled={saving} className="h-11 shrink-0 px-4">
+        <Save className="mr-2 h-4 w-4" />
+        {saving ? "Saving..." : "Save"}
+      </Button>
+    </>
+  );
+
   return (
     <Layout>
-      {/* headerButtons defined just below via IIFE-free const above return is not possible here; see headerButtonsEl */}
       <div className="container mx-auto p-4 sm:p-6 max-w-7xl [&>*:not(:first-child):not(:nth-child(2))]:mt-4">
         {/* Header */}
         <PageTitle
