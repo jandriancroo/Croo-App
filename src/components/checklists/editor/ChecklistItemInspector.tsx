@@ -35,7 +35,7 @@ interface Props {
   item: EditorItem;
   onChange: (next: EditorItem) => void;
   onEnter: () => void;
-  onDuplicate: () => void;
+  onDuplicate?: () => void;
   onRemove?: () => void;
   locationId?: string | null;
   showAmPm: boolean;
@@ -51,9 +51,17 @@ interface Props {
   itemTotal?: number;
   onPrev?: () => void;
   onNext?: () => void;
+  /** Extra rows shown right under the task name (Dynamic: days). */
+  afterName?: ReactNode;
+  /** Limit the type choices (Dynamic lists support fewer types). */
+  allowedTypes?: string[];
+  /** Hide the previous/next buttons. */
+  hideNav?: boolean;
+  removeLabel?: string;
+  RemoveIcon?: any;
 }
 
-export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, onRemove, locationId, showAmPm, showPosition, availablePositions, uploadReference, autoFocusName, itemNumber, compact, onDone, itemTotal, onPrev, onNext }: Props) {
+export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, onRemove, locationId, showAmPm, showPosition, availablePositions, uploadReference, autoFocusName, itemNumber, compact, onDone, itemTotal, onPrev, onNext, afterName, allowedTypes, hideNav, removeLabel, RemoveIcon }: Props) {
   const [pending, setPending] = useState<{ next: EditorItem; drop: number } | null>(null);
   const isSection = item.item_type === 'section_header';
   const set = (patch: Partial<EditorItem>) => onChange({ ...item, ...patch });
@@ -91,8 +99,10 @@ export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, o
         </span>
       </div>
       <div className="flex shrink-0 items-center gap-2">
+        {!hideNav && <>
         <button type="button" aria-label="Previous task" className={navBtn} disabled={!onPrev} onClick={onPrev}><ChevronLeft className="h-4 w-4" /></button>
         <button type="button" aria-label="Next task" className={navBtn} disabled={!onNext} onClick={onNext}><ChevronRight className="h-4 w-4" /></button>
+        </>}
         {compact && onDone && <Button type="button" className="h-11 px-4" onClick={onDone}>Done</Button>}
       </div>
     </div>
@@ -120,21 +130,24 @@ export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, o
     </button>
   );
 
+  const okType = (v: string) => !allowedTypes || allowedTypes.includes(v) || v === shownType;
+  const primary = PRIMARY_TYPES.filter(okType);
+  const moreTypes = ITEM_TYPES.filter((t) => !PRIMARY_TYPES.includes(t.value as any) && okType(t.value));
   const moreSelected = !PRIMARY_TYPES.includes(shownType as any);
   const typeGrid = (
     <div>
       {label('Type')}
       <div className={cn('grid gap-2', compact ? 'grid-cols-3' : 'grid-cols-2')}>
-        {PRIMARY_TYPES.map((v) => {
+        {primary.map((v) => {
           const t = ITEM_TYPES.find((x) => x.value === v)!;
           const text = compact && v === 'temperature' ? 'Temp' : v === 'temperature' ? 'Temp photo' : t.label;
           return typeBtn(v, text, t.Icon, shownType === v, () => pickType(v));
         })}
-        {typeBtn('more', compact ? 'More' : 'More types', MoreHorizontal, moreSelected, () => setMoreOpen((o) => !o))}
+        {moreTypes.length > 0 && typeBtn('more', compact ? 'More' : 'More types', MoreHorizontal, moreSelected, () => setMoreOpen((o) => !o))}
       </div>
       {moreOpen && (
         <div className={cn('mt-2 grid gap-2', compact ? 'grid-cols-2' : 'grid-cols-2')}>
-          {ITEM_TYPES.filter((t) => !PRIMARY_TYPES.includes(t.value as any)).map((t) => typeBtn(t.value, t.label, t.Icon, shownType === t.value, () => pickType(t.value)))}
+          {moreTypes.map((t) => typeBtn(t.value, t.label, t.Icon, shownType === t.value, () => pickType(t.value)))}
         </div>
       )}
     </div>
@@ -255,14 +268,14 @@ export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, o
     </div>
   );
 
-  const duplicateBtn = (
+  const duplicateBtn = onDuplicate && (
     <Button type="button" variant="outline" className="h-11 flex-1 border border-border bg-card" onClick={onDuplicate}>
       <Copy className="mr-2 h-4 w-4" /> Duplicate
     </Button>
   );
   const deleteBtn = onRemove && (
     <Button type="button" variant="outline" className="h-11 flex-1 border border-destructive/40 bg-card text-destructive hover:text-destructive" onClick={onRemove}>
-      <Trash2 className="mr-2 h-4 w-4" /> Delete
+      {RemoveIcon ? <RemoveIcon className="mr-2 h-4 w-4" /> : <Trash2 className="mr-2 h-4 w-4" />} {removeLabel ?? 'Delete'}
     </Button>
   );
 
@@ -271,13 +284,14 @@ export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, o
       <div className="space-y-4">
         {header(<Button type="button" variant="ghost" size="icon" className="-ml-2 h-11 w-11" aria-label="Back to task" onClick={() => setPage('main')}><ChevronLeft className="h-5 w-5" /></Button>)}
         {notesAndRef}
-        <div className="flex gap-2 border-t pt-4">{duplicateBtn}</div>
+        {duplicateBtn && <div className="flex gap-2 border-t pt-4">{duplicateBtn}</div>}
       </div>
     ) : (
       <div className="space-y-4">
         {header()}
         {assignRow}
         {nameField}
+        {afterName}
         {typeGrid}
         {photoStepper}
         {extras}
@@ -294,6 +308,7 @@ export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, o
       {header()}
       {assignRow}
       {nameField}
+      {afterName}
       {typeGrid}
       {photoStepper}
       {extras}
