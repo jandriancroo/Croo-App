@@ -271,7 +271,7 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
                 <div className="min-w-0 space-y-5 p-4">
                   <PromoHeroView
                     title={form.title || 'Campaign name'} slides={previewSlides} activeRef={previewSlides[0]?.ref ?? ''}
-                    subtitle={previewSlides[0] ? `${previewSlides[0].label} · 0 sold` : ''}
+                    subtitle={previewSlides[0] ? `${previewSlides[0].label} · 0\u00A0sold` : ''}
                     dayLabel={previewDay ? `DAY ${previewDay.day}/${previewDay.total}` : null}
                     rankLabel="#1 of 1" canExpand={form.config.tracker_display_mode === 'expandable'} expanded={false}
                     paused={false} reducedMotion period="day" campaignImageUrl={form.config.tracker_promo_image_url ?? null}

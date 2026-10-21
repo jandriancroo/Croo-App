@@ -226,7 +226,9 @@ export function TrackerWidget({ promo }: TrackerWidgetProps) {
   const heroRank = isPending ? '#– of –' : `#${myStore?.rank ?? '–'} of ${totalLocationCount || '–'}`;
   const heroSubtitle = trackedItemRefs.length === 0
     ? ''
-    : `${isAllItems ? 'All items' : activeItemLabel} · ${isPending ? '–' : number(myVisibleStats.units)} sold`;
+    : isPending
+      ? `${isAllItems ? 'All items' : activeItemLabel} · –`
+      : `${isAllItems ? 'All items' : activeItemLabel} · ${number(myVisibleStats.units)}\u00A0sold`;
 
   return (
     <Card className="overflow-hidden rounded-3xl border-transparent bg-transparent shadow-none">
