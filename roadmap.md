@@ -4,10 +4,11 @@
 (none)
 
 ## In progress
-- Announcements delivered as Dash popups (read via Chat or popup, optional "I've read this", who's-read list, removed from Quick Tasks) — background task running.
+(none)
 
 ## Done (Oct 21 late)
 - System alert top photo/video upload; System Alerts page title matches other pages; Settings tab bar spacing.
+- Announcements pop up on Dash after system alerts (read via Chat or popup, optional required "I've read this", who's-read list, out of Quick Tasks). Not yet tried live with test data.
 
 ## Done
 - System Alerts: reusable theme/feature/system popups with optional training video; super-admin draft/preview/ship/retire screen in Settings. Private live delivery/dismissal/reload/retirement verified, test alert deleted, eight tests passed, build clean. Old Spookify invite no longer mounted; public rollout of app changes not requested.
