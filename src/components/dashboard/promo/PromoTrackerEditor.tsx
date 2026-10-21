@@ -17,7 +17,6 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SegmentedControl } from '@/components/ui/segmented-control';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
@@ -260,7 +259,7 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
                 {perms.org && <Button variant={perms.brand ? 'outline' : 'default'} className="w-full" onClick={() => setForm(emptyForm('org'))}><Plus className="mr-1 h-4 w-4" />New org contest</Button>}
                 {!canCreate && <p className="text-center text-xs text-muted-foreground">Only brand admins and org admins can create promos.</p>}
               </div>
-            </ScrollArea>
+            </div>
           )}
 
           {form && (
@@ -381,7 +380,7 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
                     <Button type="button" variant="outline" className="w-full text-destructive" onClick={() => setConfirmEnd(true)}>End promo now</Button>
                   )}
                 </div>
-              </ScrollArea>
+              </div>
               <div className="flex shrink-0 gap-2 border-t px-4 py-3">
                 <Button variant="outline" className="flex-1" onClick={() => setForm(null)}>Back</Button>
                 <Button className="flex-1" disabled={saving || !form.title.trim() || !form.starts_on || !form.ends_on || refs.length === 0} onClick={save}>
