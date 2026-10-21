@@ -243,7 +243,7 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
 
           {!form && (
-            <ScrollArea className="flex-1">
+            <ScrollArea className="min-h-0 min-w-0 flex-1 [&_[data-radix-scroll-area-viewport]>div]:!block">
               <div className="space-y-3 p-4">
                 {promos.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">No promo running or scheduled.</p>}
                 {promos.map(p => (
@@ -265,8 +265,8 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
 
           {form && (
             <>
-              <ScrollArea className="flex-1">
-                <div className="space-y-5 p-4">
+              <ScrollArea className="min-h-0 min-w-0 flex-1 [&_[data-radix-scroll-area-viewport]>div]:!block">
+                <div className="min-w-0 space-y-5 p-4">
                   <PromoHeroView
                     title={form.title || 'Campaign name'} slides={previewSlides} activeRef={previewSlides[0]?.ref ?? ''}
                     subtitle={previewSlides[0] ? `${previewSlides[0].label} · 0 sold` : ''}
