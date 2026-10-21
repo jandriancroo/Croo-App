@@ -1187,8 +1187,8 @@ header.bg-primary .ovation-readable-panel .ovation-status-bad,
     align-items: baseline;
     justify-content: space-between;
     gap: 0.5rem;
-    padding: 0.25rem 0.125rem 0;
-    margin-top: 0.5rem;
+    padding: 0 0.125rem;
+    margin-top: 0;
   }
 
   .dash-section-title__label {
