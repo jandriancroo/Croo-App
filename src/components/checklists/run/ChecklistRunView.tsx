@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DateTime } from 'luxon';
 import { PhotoPickerButton } from '@/components/PhotoPickerButton';
 import { ChecklistQuestionText } from '@/components/tasks/ChecklistQuestionText';
@@ -281,70 +280,11 @@ function Name({ it, ctx, className }: { it: RunItem; ctx: RunCtx; className?: st
 }
 
 const initialsOf = (full: string) => full.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
-const fullWhen = (iso: string) => {
+/** "6:21 AM · Mon Oct 19" — time first, then the day. */
+const completedWhen = (iso: string) => {
   const d = DateTime.fromISO(iso);
-  return d.isValid ? `${d.toFormat('ccc LLL d')} · ${timeOf(iso)}` : timeOf(iso);
+  return d.isValid ? `${timeOf(iso)} · ${d.toFormat('ccc LLL d')}` : timeOf(iso);
 };
-
-/** Right column of a done row: 26px avatar + time; tap the avatar for who/when. */
-function DoneWho({ ctx, id }: { ctx: RunCtx; id: string }) {
-  const c = ctx.completer(id);
-  if (!c) return null;
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button type="button" aria-label={`Completed by ${c.fullName}`} onClick={(e) => e.stopPropagation()}
-          className="flex w-11 shrink-0 flex-col items-center self-start">
-          <Avatar className="h-[26px] w-[26px]">
-            <AvatarImage src={c.profilePhoto || undefined} />
-            <AvatarFallback className="bg-secondary text-[10px] font-semibold text-secondary-foreground">{initialsOf(c.fullName)}</AvatarFallback>
-          </Avatar>
-          <span className="mt-0.5 whitespace-nowrap text-[10px] leading-none text-muted-foreground">{timeOf(c.completedAt)}</span>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-3" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-2.5">
-          <Avatar className="h-9 w-9">
-            <AvatarImage src={c.profilePhoto || undefined} />
-            <AvatarFallback className="bg-secondary text-xs font-semibold text-secondary-foreground">{initialsOf(c.fullName)}</AvatarFallback>
-          </Avatar>
-          <div>
-            <div className="text-sm font-semibold">{c.fullName}</div>
-            <div className="text-xs text-muted-foreground">{fullWhen(c.completedAt)}</div>
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function DoneReading({ ctx, it }: { ctx: RunCtx; it: RunItem }) {
-  const r = ctx.reading(it.id);
-  const has = r.temp != null;
-  const tone = !has ? 'warn' : r.valid === false ? 'bad' : 'good';
-  const color = tone === 'good' ? 'text-[hsl(var(--success))]' : tone === 'bad' ? 'text-destructive' : 'text-[hsl(var(--warning))]';
-  const chip = !has || r.unconfirmed ? 'Unconfirmed' : r.valid === false ? 'Out of range' : null;
-  return (
-    <span className="mt-0.5 block">
-      <span className="flex flex-nowrap items-center gap-1.5">
-        <span className="flex items-center gap-[3px]">
-          <span className={cn('text-base font-bold tabular-nums', color)}>{has ? `${Number(r.temp).toFixed(1)}°F` : '?°F'}</span>
-          <button type="button" aria-label={has ? 'Edit temperature' : 'Enter temperature'} className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center"
-            onClick={(e) => { e.stopPropagation(); ctx.setTempValue(it.id, has ? String(r.temp) : ''); ctx.setTempOpen(it.id, true); }}>
-            <span className={cn('flex h-[22px] w-[22px] items-center justify-center rounded-full',
-              tone === 'good' ? 'bg-[hsl(var(--success)/0.14)]' : tone === 'bad' ? 'bg-destructive/10' : 'bg-[hsl(var(--warning)/0.16)]', color)}><Pencil className="h-3 w-3" /></span>
-          </button>
-        </span>
-        {chip && (
-          <span className={cn('whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold',
-            chip === 'Out of range' ? 'bg-destructive/10 text-destructive' : 'bg-[hsl(var(--warning)/0.14)] text-[hsl(var(--warning))]')}>{chip}</span>
-        )}
-        <PhotoIcon ctx={ctx} it={it} />
-      </span>
-      {r.editedBy && <span className="block text-xs text-muted-foreground">Edited by {r.editedBy}</span>}
-    </span>
-  );
-}
 
 function PhotoIcon({ ctx, it }: { ctx: RunCtx; it: RunItem }) {
   const ph = ctx.photos(it);
