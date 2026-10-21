@@ -249,7 +249,7 @@ export function SafeCountForm({ onSave, isSaving, existingShifts = [], safeTarge
                 onChange={(e) => handleRollChange(denom.name, e.target.value)}
                 placeholder="0"
               />
-              <Badge className="justify-center text-[10px] bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">
+              <Badge className="justify-center text-xs bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">
                 {formatCurrency((denom.rollValue || 0) / 100)}
               </Badge>
             </div>

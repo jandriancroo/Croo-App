@@ -712,7 +712,7 @@ export function AutoScheduleWizard({
                         <p className="text-sm font-semibold text-green-700 dark:text-green-300">
                           CrooAI Optimization
                         </p>
-                        <Badge className="bg-green-600 text-white text-[10px] px-1.5 py-0">
+                        <Badge className="bg-green-600 text-white text-xs px-1.5 py-0">
                           SAVINGS
                         </Badge>
                       </div>

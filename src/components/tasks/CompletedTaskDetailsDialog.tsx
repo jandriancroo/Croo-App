@@ -109,7 +109,7 @@ export function CompletedTaskDetailsDialog({
                             >
                               {subtask.title}
                             </p>
-                            <Badge variant="outline" className="text-[10px]">
+                            <Badge variant="outline" className="text-xs">
                               Photo
                             </Badge>
                           </div>

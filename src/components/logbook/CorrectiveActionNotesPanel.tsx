@@ -93,7 +93,7 @@ export function CorrectiveActionNotesPanel({
         <p className="text-sm font-medium text-muted-foreground">Conversation Notes</p>
         <div className="flex items-center gap-2">
           {locked ? (
-            <Badge variant="outline" className="text-[10px] gap-1">
+            <Badge variant="outline" className="text-xs gap-1">
               <Lock className="h-3 w-3" /> Signed — locked
             </Badge>
           ) : dirty ? (
@@ -108,7 +108,7 @@ export function CorrectiveActionNotesPanel({
       <div className="space-y-2">
         {bullets.map((b, i) => (
           <div key={i} className="flex gap-2 items-start">
-            <Badge variant="outline" className="text-[10px] shrink-0 mt-1.5 max-w-[45%] truncate">
+            <Badge variant="outline" className="text-xs shrink-0 mt-1.5 max-w-[45%] truncate">
               {b.speaker}
             </Badge>
             <Textarea

@@ -204,7 +204,7 @@ function ChangeRow({ change }: { change: PersonChange }) {
         <Icon className={cn("h-3 w-3", config.color)} />
       </div>
       <div className="flex-1 min-w-0">
-        <Badge variant="secondary" className="text-[9px] h-4 px-1.5 mr-1.5">{config.label}</Badge>
+        <Badge variant="secondary" className="text-xs h-4 px-1.5 mr-1.5">{config.label}</Badge>
         {type === "added" || type === "reassigned_to" ? (
           <span className="text-foreground">{newShift && shiftLabel(newShift)}</span>
         ) : type === "removed" || type === "reassigned_from" ? (

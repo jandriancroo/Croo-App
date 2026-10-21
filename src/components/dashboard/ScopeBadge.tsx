@@ -12,7 +12,7 @@ const SCOPE_META: Record<AuthorityScope, { label: string; className: string }> =
 export function ScopeBadge({ scope, className = '' }: { scope?: AuthorityScope | null; className?: string }) {
   const meta = SCOPE_META[(scope || 'self') as AuthorityScope];
   return (
-    <Badge variant="outline" className={`px-1.5 py-0 text-[9px] font-semibold tracking-wider ${meta.className} ${className}`}>
+    <Badge variant="outline" className={`px-1.5 py-0 text-xs font-semibold tracking-wider ${meta.className} ${className}`}>
       {meta.label}
     </Badge>
   );

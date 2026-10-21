@@ -569,7 +569,7 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                 <p className="text-sm text-muted-foreground">State: {rules.state_code || '—'}</p>
               </div>
               <div className="flex flex-wrap gap-1">
-                {sources.map((s) => <Badge key={s} variant="outline" className="text-[10px]">{SOURCE_LABEL[s] || s}</Badge>)}
+                {sources.map((s) => <Badge key={s} variant="outline" className="text-xs">{SOURCE_LABEL[s] || s}</Badge>)}
               </div>
             </div>
             <div className="flex flex-col gap-2 sm:grid sm:grid-cols-2 sm:gap-x-6 sm:gap-y-2 text-sm [&>div]:min-w-0 [&>div]:break-words">
@@ -615,7 +615,7 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                     <div className="min-w-0">
                       <div>
                         {format(new Date(h.changed_at), 'MMM d, yyyy h:mm a')}{' '}
-                        <Badge variant="outline" className="text-[10px] ml-1">
+                        <Badge variant="outline" className="text-xs ml-1">
                           {h.source === 'ai' ? `AI${nameOf(h.changed_by) ? ` (approved by ${nameOf(h.changed_by)})` : ' (approved)'}` : SOURCE_LABEL[h.source] || h.source}
                         </Badge>
                       </div>
@@ -649,7 +649,7 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                   </span>
                   <span className="flex items-center gap-2 shrink-0">
                     <span className="text-xs text-muted-foreground">{p.diff.length} change{p.diff.length === 1 ? '' : 's'}</span>
-                    <Badge variant={p.status === 'pending' ? 'default' : 'outline'} className="text-[10px]">{p.status.replace('_', ' ')}</Badge>
+                    <Badge variant={p.status === 'pending' ? 'default' : 'outline'} className="text-xs">{p.status.replace('_', ' ')}</Badge>
                   </span>
                 </button>
               ))}

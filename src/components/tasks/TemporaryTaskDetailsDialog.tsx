@@ -443,7 +443,7 @@ export function TemporaryTaskDetailsDialog({
                             <p className={`text-sm ${subtask.completed_at ? "line-through text-muted-foreground" : ""}`}>
                               {subtask.title}
                             </p>
-                            <Badge variant="outline" className="text-[10px]">Photo</Badge>
+                            <Badge variant="outline" className="text-xs">Photo</Badge>
                           </div>
                           
                           {subtask.response_image_url ? (

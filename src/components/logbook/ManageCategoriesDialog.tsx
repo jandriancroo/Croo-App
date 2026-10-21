@@ -62,7 +62,7 @@ function SortableCategoryItem({ category, onDelete, onToggleAlert, onTogglePushN
         <div
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing touch-none"
+          className="cursor-grab active:cursor-grabbing touch-none relative after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']"
         >
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </div>
@@ -189,7 +189,7 @@ function SortableCategoryItem({ category, onDelete, onToggleAlert, onTogglePushN
                   <div key={field.id} className="text-xs p-2 bg-muted/50 rounded">
                     <span className="font-medium">{field.field_name}</span>
                     <span className="text-muted-foreground"> • {field.field_type}</span>
-                    {field.is_required && <Badge variant="secondary" className="ml-1 text-[10px]">Required</Badge>}
+                    {field.is_required && <Badge variant="secondary" className="ml-1 text-xs">Required</Badge>}
                   </div>
                 ))}
               </div>

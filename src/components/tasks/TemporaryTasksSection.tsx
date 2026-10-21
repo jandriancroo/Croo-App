@@ -425,7 +425,7 @@ export function TemporaryTasksSection() {
                             <p className={`text-sm ${subtask.completed_at ? "line-through text-muted-foreground" : ""}`}>
                               {subtask.title}
                             </p>
-                            <Badge variant="outline" className="text-[10px] px-1.5">
+                            <Badge variant="outline" className="text-xs px-1.5">
                               {subtask.item_type === 'photo' ? 'Photo' : 'Check'}
                             </Badge>
                           </div>

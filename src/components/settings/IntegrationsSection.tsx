@@ -1779,7 +1779,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                   value={opusSessionId}
                   onChange={(e) => setOpusSessionId(e.target.value)}
                   placeholder="Paste sessionid cookie value"
-                  className="h-9 pr-9 font-mono text-xs"
+                  className="h-9 pr-10 font-mono text-xs"
                 />
                 <Button variant="ghost" size="icon-sm"
                  

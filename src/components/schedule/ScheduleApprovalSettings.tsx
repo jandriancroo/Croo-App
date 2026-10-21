@@ -87,7 +87,7 @@ export function ScheduleApprovalRulesBlock({ locationId }: { locationId: string 
     <div className="space-y-3 rounded-lg border p-3">
       <div className="flex items-center justify-between gap-2">
         <h4 className="flex items-center gap-2 text-sm font-semibold"><CalendarCheck className="h-4 w-4" /> Schedule approval</h4>
-        <Badge variant={s.enabled ? "default" : "outline"} className="text-[10px]">{s.enabled ? "On" : "Off"}</Badge>
+        <Badge variant={s.enabled ? "default" : "outline"} className="text-xs">{s.enabled ? "On" : "Off"}</Badge>
       </div>
       {!editable && <p className="text-xs text-muted-foreground">Set by your admin.</p>}
       <div className="space-y-1.5">

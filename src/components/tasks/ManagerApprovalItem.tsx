@@ -159,7 +159,7 @@ export function ManagerApprovalItem({
             <ShieldCheck className="h-4 w-4 mt-0.5 text-primary shrink-0" />
             <p className="text-sm font-medium">{question || 'Manager approval'}</p>
           </div>
-          <Badge className={cn('shrink-0 border-0 text-[11px]', meta.className)}>{meta.label}</Badge>
+          <Badge className={cn('shrink-0 border-0 text-xs', meta.className)}>{meta.label}</Badge>
         </div>
 
         {assignment?.manager_note && (

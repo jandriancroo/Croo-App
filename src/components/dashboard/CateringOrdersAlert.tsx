@@ -145,7 +145,7 @@ export function CateringOrdersAlert() {
       <div
         key={order.id}
         onClick={() => handleOrderClick(order, isTomorrow)}
-        className="dashboard-task-pill flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity shadow-neumorphic-sm"
+        className="dashboard-task-pill flex items-center gap-1.5 px-2 py-1.5 rounded-lg overflow-hidden cursor-pointer active:opacity-80 transition-opacity shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
         style={{ backgroundColor: `${color}10` }}
       >
         <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: color }} />

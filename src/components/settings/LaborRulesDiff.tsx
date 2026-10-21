@@ -40,7 +40,7 @@ export function LaborRulesDiff({ rows, checked, onToggle }: Props) {
               <div className="flex items-center justify-between gap-2">
                 <span className="min-w-0">{label}</span>
                 <span className="flex items-center gap-2 shrink-0">
-                  {r.currentSource && <Badge variant="outline" className="text-[10px]">{SOURCE[r.currentSource] || r.currentSource}</Badge>}
+                  {r.currentSource && <Badge variant="outline" className="text-xs">{SOURCE[r.currentSource] || r.currentSource}</Badge>}
                   <span className="text-muted-foreground">{formatValue(f, r.current)}</span>
                   <span>→</span>
                   <span className="font-medium">{formatValue(f, r.next)}</span>

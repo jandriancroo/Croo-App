@@ -352,7 +352,7 @@ export default function Schedule() {
                   leftAlignOnDesktop
                   variant="subtle"
                 />
-                <Badge variant="outline" className="whitespace-nowrap hidden lg:flex text-[10px] font-bold uppercase tracking-[0.09em] text-muted-foreground">
+                <Badge variant="outline" className="whitespace-nowrap hidden lg:flex text-xs font-bold uppercase tracking-[0.09em] text-muted-foreground">
                   {getWeekLabel().label}
                 </Badge>
               </div>

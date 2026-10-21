@@ -29,7 +29,7 @@ function SortableStationRow({ station, disabled, children }: { station: Location
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}
       className={`flex items-center gap-2 rounded-md border bg-card px-2 py-1.5 ${isDragging ? "relative z-10 opacity-70" : ""}`}>
       <Button size="icon-sm" ref={setActivatorNodeRef} type="button" variant="ghost"
-        className="shrink-0 touch-none cursor-grab active:cursor-grabbing text-muted-foreground"
+        className="shrink-0 touch-none cursor-grab active:cursor-grabbing text-muted-foreground relative after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']"
         disabled={disabled} {...attributes} {...listeners} aria-label={`Reorder ${station.name}`}>
         <GripVertical className="h-4 w-4" />
       </Button>
@@ -130,7 +130,7 @@ export function StationsManagerCard({ locationId }: StationsManagerCardProps) {
           <div className="flex items-center gap-2 min-w-0">
             <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
             <CardTitle className="text-sm font-semibold">Stations</CardTitle>
-            <Badge variant="secondary" className="text-[10px]">In use</Badge>
+            <Badge variant="secondary" className="text-xs">In use</Badge>
           </div>
         </div>
         <p className="text-xs text-muted-foreground">Schedule groups into these sections; each template gets one station. FOH / BOH / Patio, etc.</p>

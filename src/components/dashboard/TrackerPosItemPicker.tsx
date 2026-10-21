@@ -72,7 +72,7 @@ export function TrackerPosItemPicker({ value, onChange, label = "Promo Item(s)" 
       {value.length > 0 && (
         <div className="flex max-h-40 flex-wrap gap-1 overflow-y-auto rounded-md border border-border/40 bg-muted/20 p-1.5 pr-1">
           {value.map((item, idx) => (
-            <Badge key={item} variant="secondary" className="h-6 max-w-full gap-1 pr-1 text-[10px]">
+            <Badge key={item} variant="secondary" className="h-6 max-w-full gap-1 pr-1 text-xs">
               <span className="text-muted-foreground/70">{idx + 1}.</span>
               <span className="max-w-[140px] truncate">{item}</span>
               <Button variant="ghost" size="icon-sm" onClick={() => removeItem(item)} className="[&_svg]:size-auto hover:bg-background/70">

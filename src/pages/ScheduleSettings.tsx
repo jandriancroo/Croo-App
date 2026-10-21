@@ -525,7 +525,7 @@ export default function ScheduleSettings() {
                 <div className="flex items-center gap-2">
                   <Briefcase className="h-4 w-4 text-muted-foreground" />
                   <h2 className="font-semibold text-sm">Positions</h2>
-                   {!stationMode && <Badge variant="secondary" className="text-[10px]">In use</Badge>}
+                   {!stationMode && <Badge variant="secondary" className="text-xs">In use</Badge>}
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => setPositionsOpen(o => !o)}>
                   {positionsOpen ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}

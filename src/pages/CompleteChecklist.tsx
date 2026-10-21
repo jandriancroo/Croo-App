@@ -1665,7 +1665,7 @@ export default function CompleteChecklist() {
                       )}
                       
                       {item.reference_image_url && <div className="space-y-1">
-                          <Badge variant="secondary" className="text-[10px] h-4 gap-1">
+                          <Badge variant="secondary" className="text-xs h-4 gap-1">
                             <Eye className="h-2.5 w-2.5" />
                             Reference Standard
                           </Badge>
@@ -1681,14 +1681,14 @@ export default function CompleteChecklist() {
                         </div>}
                       
                       {item.reference_link && <div className="space-y-0.5">
-                          <Badge variant="secondary" className="text-[10px] h-4">Link</Badge>
+                          <Badge variant="secondary" className="text-xs h-4">Link</Badge>
                           <a href={item.reference_link} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline block break-all">
                             {item.reference_link}
                           </a>
                         </div>}
                       
                       {item.reference_video_url && <div className="space-y-1">
-                          <Badge variant="secondary" className="text-[10px] h-4">Video</Badge>
+                          <Badge variant="secondary" className="text-xs h-4">Video</Badge>
                           <InlineVideoPlayer url={item.reference_video_url} title={item.question} />
                         </div>}
 
@@ -1774,7 +1774,7 @@ export default function CompleteChecklist() {
                           <div className="grid grid-cols-2 gap-3">
                             {/* Left: Reference Standard */}
                             <div className="space-y-1.5">
-                              <Badge variant="secondary" className="text-[10px] h-4 gap-1">
+                              <Badge variant="secondary" className="text-xs h-4 gap-1">
                                 <Eye className="h-2.5 w-2.5" />
                                 Standard
                               </Badge>
@@ -1801,7 +1801,7 @@ export default function CompleteChecklist() {
 
                             {/* Right: Camera / Uploaded Photo */}
                             <div className="space-y-1.5">
-                              <Badge variant="outline" className="text-[10px] h-4 gap-1">
+                              <Badge variant="outline" className="text-xs h-4 gap-1">
                                 <Camera className="h-2.5 w-2.5" />
                                 Your Photo
                               </Badge>

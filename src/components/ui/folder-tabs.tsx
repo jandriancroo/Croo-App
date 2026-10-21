@@ -78,7 +78,7 @@ export const FolderTabs = memo(function FolderTabs({
       </div>
       
       {/* Content area - neumorphic card that connects to active tab */}
-      <div className="bg-card rounded-b-xl rounded-tr-xl border border-t-0 border-border/40 shadow-neumorphic p-5">
+      <div className="bg-card rounded-b-xl rounded-tr-xl border border-t-0 border-border/40 shadow-[0_1px_3px_rgba(0,0,0,0.08)] p-5">
         {children}
       </div>
     </div>

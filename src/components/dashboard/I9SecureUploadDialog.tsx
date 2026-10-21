@@ -343,13 +343,13 @@ export function I9SecureUploadDialog({ open, onOpenChange, request }: I9SecureUp
 
         {/* Security badges */}
         <div className="flex items-center justify-center gap-2">
-          <Badge variant="outline" className="text-[10px] gap-1 text-primary border-primary/30">
+          <Badge variant="outline" className="text-xs gap-1 text-primary border-primary/30">
             <Lock className="h-2.5 w-2.5" /> Encrypted at rest
           </Badge>
-          <Badge variant="outline" className="text-[10px] gap-1 text-primary border-primary/30">
+          <Badge variant="outline" className="text-xs gap-1 text-primary border-primary/30">
             <ScanLine className="h-2.5 w-2.5" /> AI Verified
           </Badge>
-          <Badge variant="outline" className="text-[10px] gap-1 text-primary border-primary/30">
+          <Badge variant="outline" className="text-xs gap-1 text-primary border-primary/30">
             <Shield className="h-2.5 w-2.5" /> Auto-deleted
           </Badge>
         </div>

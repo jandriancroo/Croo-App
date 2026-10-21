@@ -56,7 +56,7 @@ export function RecipeVersionHistorySheet({ open, onOpenChange, recipeId, canRes
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-medium text-sm truncate">{title}</span>
-                          {i === 0 && <Badge variant="secondary" className="text-[10px]">Latest saved</Badge>}
+                          {i === 0 && <Badge variant="secondary" className="text-xs">Latest saved</Badge>}
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {formatDistanceToNow(new Date(v.created_at), { addSuffix: true })}
