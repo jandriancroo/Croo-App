@@ -379,6 +379,13 @@
       "when": 1792552555845,
       "tag": "0053_labor_pace_scorecard_checkpoints",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1792552595935,
+      "tag": "0054_labor_pace_report_summary_order_fix",
+      "breakpoints": true
     }
   ]
 }
