@@ -38,3 +38,19 @@ export function videoEmbedUrl(value: string): string | null {
   } catch { return null; }
   return null;
 }
+export type AlertBodyBlock = { kind: 'p' | 'ul' | 'ol'; lines: string[] };
+/** Lines starting with "- " or "• " become bullets; "1. " style lines become a numbered list. */
+export function alertBodyBlocks(body: string): AlertBodyBlock[] {
+  const blocks: AlertBodyBlock[] = [];
+  for (const raw of body.split('\n')) {
+    const ul = raw.match(/^\s*[-•*]\s+(.*)$/); const ol = raw.match(/^\s*\d+[.)]\s+(.*)$/);
+    const kind = ul ? 'ul' : ol ? 'ol' : 'p';
+    const text = ul ? ul[1] : ol ? ol[1] : raw;
+    const last = blocks[blocks.length - 1];
+    if (kind === 'p' && !raw.trim()) { if (last?.kind === 'p') blocks.push({ kind: 'p', lines: [] }); continue; }
+    if (last && last.kind === kind) last.lines.push(text); else blocks.push({ kind, lines: [text] });
+  }
+  return blocks.filter(b => b.lines.length);
+}
+
+export const ALERT_BUTTON_PRESETS = ['Got it', 'Try it now', 'Watch the video', 'Learn more', 'Take me there'];

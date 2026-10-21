@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { Bell, Palette, Play, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { SystemAlert, videoEmbedUrl } from '@/lib/systemAlerts';
+import { alertBodyBlocks, SystemAlert, videoEmbedUrl } from '@/lib/systemAlerts';
 
 interface Props {
   alert: SystemAlert | null;
@@ -34,12 +34,14 @@ export function SystemAlertDialog({ alert, open, busy, onDismiss, onAction }: Pr
   const directVideo = alert.video_url && /\.(mp4|webm)(\?|$)/i.test(alert.video_url);
   return <Dialog open={open} onOpenChange={value => { if (!value && !busy) onDismiss(); }}>
     <DialogContent className="max-w-md max-h-[85dvh] overflow-y-auto rounded-lg">
-      {alert.hero_media_path && <SystemAlertHeroMedia path={alert.hero_media_path} type={alert.hero_media_type} />}
+      {alert.hero_media_path && <div className="-mx-6 -mt-6 overflow-hidden rounded-t-[22px]"><SystemAlertHeroMedia path={alert.hero_media_path} type={alert.hero_media_type} className="aspect-[4/3] max-h-[50dvh] rounded-none" /></div>}
       <DialogHeader className="pr-8">
         {!alert.hero_media_path && <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary"><Icon className="h-6 w-6" /></div>}
-        <p className="text-xs font-semibold uppercase text-muted-foreground">{alert.kind === 'theme' ? 'New theme' : alert.kind === 'feature' ? 'New feature' : 'System alert'}</p>
-        <DialogTitle className="text-xl leading-tight">{alert.title}</DialogTitle>
-        <DialogDescription className="whitespace-pre-wrap leading-relaxed">{alert.body}</DialogDescription>
+        <DialogTitle className="text-2xl font-extrabold leading-tight">{alert.title}</DialogTitle>
+        <DialogDescription asChild><div className="space-y-2 text-left leading-relaxed">{alertBodyBlocks(alert.body).map((b, i) => b.kind === 'p'
+          ? <p key={i} className="whitespace-pre-wrap">{b.lines.join('\n')}</p>
+          : b.kind === 'ul' ? <ul key={i} className="list-disc space-y-1 pl-5">{b.lines.map((l, j) => <li key={j}>{l}</li>)}</ul>
+          : <ol key={i} className="list-decimal space-y-1 pl-5">{b.lines.map((l, j) => <li key={j}>{l}</li>)}</ol>)}</div></DialogDescription>
       </DialogHeader>
       {alert.video_url && <div className="space-y-2">
         {embed ? <iframe title="Training video" src={embed} className="aspect-video w-full rounded-lg border border-border" allow="fullscreen; picture-in-picture" allowFullScreen />
