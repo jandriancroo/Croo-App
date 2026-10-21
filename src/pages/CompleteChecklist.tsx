@@ -1494,7 +1494,7 @@ export default function CompleteChecklist() {
   };
 
   return <Layout>
-      <div className="-mx-1 md:mx-auto max-w-[1200px]">
+      <div className="-mx-1 md:-mx-3 lg:mx-auto max-w-[1200px]">
         <ChecklistRunView ctx={runCtx} />
 
         <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
