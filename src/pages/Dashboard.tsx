@@ -559,7 +559,7 @@ export default function Dashboard() {
 
   const quickTasksContent = (
     <>
-    {showNudgeSection && <NudgeSection locationId={currentLocation?.id} className="mb-4" />}
+    {showNudgeSection && <NudgeSection locationId={currentLocation?.id} className="mb-5" />}
     <QuickTasksSection locationSettings={locationSettings} timezone={timezone} />
     </>
   );
