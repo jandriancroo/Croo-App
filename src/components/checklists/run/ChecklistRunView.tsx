@@ -121,7 +121,7 @@ function subText(it: RunItem, ctx: RunCtx) {
     return min > 1 ? (n > 0 ? `Photo · ${n} of ${min} taken` : `Photo · ${min} needed`) : 'Photo';
   }
   if (it.item_type === 'manager_approval') return 'Manager sign-off';
-  if (isCheck(it.item_type)) return isOneTap(it) ? 'Checkmark' : 'Checkmark · opens notes';
+  if (isCheck(it.item_type)) return 'Checkmark';
   return typeLabel(it, min);
 }
 
