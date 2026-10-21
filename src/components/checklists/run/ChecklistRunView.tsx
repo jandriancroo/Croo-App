@@ -369,7 +369,7 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
         >
           <span className="flex shrink-0">{circle}</span>
           <span className="min-w-0 flex-1">
-            <Name it={it} ctx={ctx} className="block break-words text-base font-bold leading-snug" />
+            <Name it={it} ctx={ctx} className="block break-words text-[16px] font-semibold leading-[1.25] text-foreground" />
             {photos.length > 0 && (
               <span className="mt-[5px] flex flex-wrap gap-1">
                 {photos.map((u, i) => (
@@ -381,9 +381,9 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
             )}
           </span>
           {readingText && (
-            <span className={cn('shrink-0 text-right text-base font-bold tabular-nums', badTemp ? 'text-destructive' : temp && r && r.temp == null && 'text-[hsl(var(--warning))]')}>{readingText}</span>
+            <span className={cn('shrink-0 text-right text-[16px] font-bold tabular-nums', badTemp ? 'text-destructive' : temp && r && r.temp == null && 'text-[hsl(var(--warning))]')}>{readingText}</span>
           )}
-          {who && <span className="w-[52px] shrink-0 whitespace-nowrap text-right text-[11.5px] text-muted-foreground">{timeOf(who.completedAt)}</span>}
+          {who && <span className="w-[52px] shrink-0 whitespace-nowrap text-right text-[12px] font-medium text-muted-foreground">{timeOf(who.completedAt)}</span>}
           {who && (
             <Avatar className="h-10 w-10 shrink-0">
               <AvatarImage src={who.profilePhoto || undefined} />
@@ -413,7 +413,7 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
       >
         <span className="flex shrink-0">{circle}</span>
         <span className="min-w-0 flex-1 pt-[3px]">
-          <Name it={it} ctx={ctx} className="block break-words text-[15px] font-semibold leading-snug" />
+          <Name it={it} ctx={ctx} className="block break-words text-[16px] font-semibold leading-[1.25] text-foreground" />
           {amber ? (
             <span className="mt-0.5 block text-sm text-[hsl(var(--warning))]">Photo saved. Type the temperature.</span>
           ) : (
@@ -963,8 +963,8 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
       <section key={s.key} className="space-y-1.5">
         {(s.label || ctx.sections.length > 1) && (
           <div className="flex items-baseline justify-between px-1">
-            <span className={capLabel}>{s.label || 'Tasks'}</span>
-            <span className={capLabel}>{leftHere > 0 ? `${leftHere} left` : `${s.items.filter((x) => walkable(x) && !todo(x)).length} of ${s.items.filter(walkable).length}`}</span>
+            <span className="text-[12px] font-bold uppercase tracking-[0.06em] text-muted-foreground">{s.label || 'Tasks'}</span>
+            <span className="text-[12px] font-bold uppercase tracking-[0.06em] text-muted-foreground">{leftHere > 0 ? `${leftHere} left` : `${s.items.filter((x) => walkable(x) && !todo(x)).length} of ${s.items.filter(walkable).length}`}</span>
           </div>
         )}
         <div className="overflow-hidden rounded-2xl border bg-card">
@@ -980,24 +980,24 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
         <div>
           <div className="flex flex-wrap items-center gap-3 pt-7">
             <Button variant="ghost" size="icon" className="-ml-2 h-9 w-9 shrink-0" onClick={goDash} aria-label="Back to dashboard"><ArrowLeft className="h-5 w-5" /></Button>
-            <h1 className="min-w-0 flex-1 break-words text-2xl font-bold">{ctx.title}</h1>
+            <h1 className="min-w-0 flex-1 break-words text-[20px] font-extrabold">{ctx.title}</h1>
             {tempsNeeded > 0 && <span className="rounded-full bg-[hsl(var(--warning)/0.14)] px-3 py-1 text-sm font-semibold text-[hsl(var(--warning))]">{tempsNeeded} {tempsNeeded === 1 ? 'needs' : 'need'} a temp</span>}
             {switches}
           </div>
           {ctx.description && <p className="px-1 text-sm text-muted-foreground">{ctx.description}</p>}
-          <div className="my-2 flex items-start gap-3"><div className="flex-1"><ProgressBar done={ctx.doneCount} total={ctx.totalCount} /></div><span className="shrink-0 text-sm font-bold leading-none">{ctx.doneCount} of {ctx.totalCount}</span></div>
+          <div className="my-2 flex items-start gap-3"><div className="w-3/4"><ProgressBar done={ctx.doneCount} total={ctx.totalCount} /></div><span className="shrink-0 text-[14px] font-extrabold leading-none">{ctx.doneCount} of {ctx.totalCount}</span></div>
         </div>
       ) : (
         <div>
           <div className="flex items-center gap-1 px-1 pt-7">
             <Button variant="ghost" size="icon" className="-mx-1 -my-1.5 h-9 w-9 shrink-0" onClick={goDash} aria-label="Back to dashboard"><ArrowLeft className="h-5 w-5" /></Button>
             <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
-              <h1 className="min-w-0 break-words text-xl font-bold">{ctx.title}</h1>
-              <span className="shrink-0 text-base font-bold">{ctx.doneCount} of {ctx.totalCount}</span>
+              <h1 className="min-w-0 break-words text-[20px] font-extrabold">{ctx.title}</h1>
+              <span className="shrink-0 text-[14px] font-extrabold">{ctx.doneCount} of {ctx.totalCount}</span>
             </div>
           </div>
           {ctx.description && <p className="px-1 text-sm text-muted-foreground">{ctx.description}</p>}
-          <div className="my-2"><ProgressBar done={ctx.doneCount} total={ctx.totalCount} /></div>
+          <div className="my-2 w-3/4"><ProgressBar done={ctx.doneCount} total={ctx.totalCount} /></div>
           {switches}
         </div>
       )}
