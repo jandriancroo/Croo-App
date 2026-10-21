@@ -82,11 +82,11 @@ function SortableItemRow({ id, image, onAddPhoto, onRemovePhoto, onRemoveItem, u
       </div>
       {uploading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : image ? (
         <>
-          <Button type="button" variant="outline" size="xs" onClick={onAddPhoto}><Camera className="mr-1 h-3.5 w-3.5" />Replace</Button>
+          <Button type="button" variant="outline" size="icon-sm" aria-label="Replace photo" onClick={onAddPhoto}><Camera className="h-4 w-4" /></Button>
           <Button type="button" variant="ghost" size="icon-sm" aria-label="Remove photo" onClick={onRemovePhoto}><X className="h-4 w-4" /></Button>
         </>
       ) : (
-        <Button type="button" variant="outline" size="xs" onClick={onAddPhoto}>Add photo</Button>
+        <Button type="button" variant="outline" size="icon-sm" aria-label="Add photo" onClick={onAddPhoto}><Camera className="h-4 w-4" /></Button>
       )}
       <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove ${id}`} onClick={onRemoveItem}>
         <Trash2 className="h-4 w-4" />
