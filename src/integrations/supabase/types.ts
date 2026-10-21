@@ -11056,6 +11056,159 @@ export type Database = {
           },
         ]
       }
+      promo_tracker_locations: {
+        Row: {
+          location_id: string
+          promo_id: string
+        }
+        Insert: {
+          location_id: string
+          promo_id: string
+        }
+        Update: {
+          location_id?: string
+          promo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_tracker_locations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_tracker_locations_promo_id_fkey"
+            columns: ["promo_id"]
+            isOneToOne: false
+            referencedRelation: "promo_trackers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_tracker_wipe_backup_2026_10: {
+        Row: {
+          accent_color: string | null
+          audience_roles: Database["public"]["Enums"]["app_role"][] | null
+          authority_scope: string | null
+          brand_id: string | null
+          config: Json | null
+          created_at: string | null
+          created_by: string | null
+          display_order: number | null
+          hidden_for_user_ids: string[] | null
+          id: string | null
+          is_active: boolean | null
+          location_id: string | null
+          organization_id: string | null
+          reference_id: string | null
+          title: string | null
+          updated_at: string | null
+          widget_size: string | null
+          widget_type: string | null
+        }
+        Insert: {
+          accent_color?: string | null
+          audience_roles?: Database["public"]["Enums"]["app_role"][] | null
+          authority_scope?: string | null
+          brand_id?: string | null
+          config?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          display_order?: number | null
+          hidden_for_user_ids?: string[] | null
+          id?: string | null
+          is_active?: boolean | null
+          location_id?: string | null
+          organization_id?: string | null
+          reference_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          widget_size?: string | null
+          widget_type?: string | null
+        }
+        Update: {
+          accent_color?: string | null
+          audience_roles?: Database["public"]["Enums"]["app_role"][] | null
+          authority_scope?: string | null
+          brand_id?: string | null
+          config?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          display_order?: number | null
+          hidden_for_user_ids?: string[] | null
+          id?: string | null
+          is_active?: boolean | null
+          location_id?: string | null
+          organization_id?: string | null
+          reference_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          widget_size?: string | null
+          widget_type?: string | null
+        }
+        Relationships: []
+      }
+      promo_trackers: {
+        Row: {
+          brand_id: string | null
+          config: Json
+          created_at: string
+          created_by: string
+          ended_at: string | null
+          ends_on: string
+          id: string
+          organization_id: string | null
+          owner_type: string
+          starts_on: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id?: string | null
+          config?: Json
+          created_at?: string
+          created_by: string
+          ended_at?: string | null
+          ends_on: string
+          id?: string
+          organization_id?: string | null
+          owner_type: string
+          starts_on: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string | null
+          config?: Json
+          created_at?: string
+          created_by?: string
+          ended_at?: string | null
+          ends_on?: string
+          id?: string
+          organization_id?: string | null
+          owner_type?: string
+          starts_on?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_trackers_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_trackers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       punch_clock_attempts: {
         Row: {
           attempt_time: string
@@ -15566,6 +15719,15 @@ export type Database = {
         Args: { _location_id: string; _user: string }
         Returns: boolean
       }
+      _can_manage_promo: {
+        Args: {
+          _brand_id: string
+          _org_id: string
+          _owner_type: string
+          _uid: string
+        }
+        Returns: boolean
+      }
       _invert_log_rows: {
         Args: {
           _rows: Database["public"]["Tables"]["schedule_change_log"]["Row"][]
@@ -15858,6 +16020,13 @@ export type Database = {
       }
       _payroll_classify: {
         Args: { _rules: Json; _shifts: Json; _wage: number }
+        Returns: Json
+      }
+      _promo_json: {
+        Args: {
+          _p: Database["public"]["Tables"]["promo_trackers"]["Row"]
+          _uid: string
+        }
         Returns: Json
       }
       _publish_schedule: {
@@ -16305,6 +16474,7 @@ export type Database = {
       }
       effective_labor_rules: { Args: { _location_id: string }; Returns: Json }
       email_queue_dispatch: { Args: never; Returns: undefined }
+      end_promo_tracker: { Args: { _id: string }; Returns: undefined }
       end_promo_tracker_by_title: { Args: { _title: string }; Returns: number }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
@@ -16357,6 +16527,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      get_active_promo_tracker: {
+        Args: { _location_id: string }
+        Returns: Json
       }
       get_applications_by_email: {
         Args: { _email: string }
@@ -16765,6 +16939,7 @@ export type Database = {
       }
       labor_source_for: { Args: { _location_id: string }; Returns: string }
       labor_week_pay: { Args: { _rules: Json; _shifts: Json }; Returns: Json }
+      list_promo_trackers: { Args: { _location_id: string }; Returns: Json }
       location_pos_source: { Args: { _location_id: string }; Returns: string }
       log_pin_nudge: { Args: { p_target_user_id: string }; Returns: Json }
       mark_theo_read: {
@@ -17072,6 +17247,20 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      save_promo_tracker: {
+        Args: {
+          _brand_id: string
+          _config: Json
+          _ends_on: string
+          _id: string
+          _location_ids?: string[]
+          _organization_id: string
+          _owner_type: string
+          _starts_on: string
+          _title: string
+        }
+        Returns: string
       }
       schedule_week_labor_check: {
         Args: { _schedule_id: string }

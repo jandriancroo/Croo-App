@@ -1,36 +1,22 @@
 import { Button } from '@/components/ui/button';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { ArrowDown, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Trophy } from 'lucide-react';
+import { ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
-import type { TrackerDisplayMode, TrackerRankMetric, TrackerScopeType } from './AddWidgetDialog';
-import { PROMO_BANNER_ASPECT_CLASS, PromoImageLayers } from './PromoBannerPreview';
-
-
-interface TrackerConfig {
-  id: string;
-  title: string;
-  trackerDisplayMode?: TrackerDisplayMode;
-  trackerScope?: { type: TrackerScopeType; role?: string };
-  trackerItemRefs?: string[];
-  trackerPromoStart?: string | null;
-  trackerPromoEnd?: string | null;
-  trackerPromoImageUrl?: string | null;
-  trackerLocationRefs?: string[];
-  trackerRankMetrics?: TrackerRankMetric[];
-  trackerLocationScope?: 'org' | 'brand';
-}
+import type { TrackerRankMetric } from './AddWidgetDialog';
+import { buildPromoSlides, campaignDay, type PromoTracker } from '@/lib/promoTrackers';
+import { PromoHeroView, type PromoPeriodKey } from './promo/PromoHeroView';
+import { usePrefersReducedMotion, usePromoAutoplay } from './promo/usePromoAutoplay';
 
 interface TrackerWidgetProps {
-  tracker: TrackerConfig;
+  promo: PromoTracker;
 }
 
-type PeriodKey = 'day' | 'yday' | 'wtd' | 'promo';
+type PeriodKey = PromoPeriodKey;
 type TrackerSortMetric = 'units' | 'sales' | 'pmix';
 
 interface StoreRankRow {
@@ -49,13 +35,6 @@ const DEFAULT_TRACKER_TZ = 'America/Los_Angeles';
 const money = (value: number) => `$${Math.round(value).toLocaleString()}`;
 const number = (value: number) => Math.round(value).toLocaleString();
 const percent = (value: number) => `${value.toFixed(1)}%`;
-const PERIOD_MODES: PeriodKey[] = ['day', 'yday', 'wtd', 'promo'];
-const PERIOD_LABELS: Record<PeriodKey, string> = {
-  day: 'Today',
-  yday: 'Yesterday',
-  wtd: 'This Week',
-  promo: 'Campaign',
-};
 
 function normalizeMix(rowMix: unknown): Array<{ itemName: string; quantity: number; netSales: number }> {
   const mix = typeof rowMix === 'string' ? JSON.parse(rowMix) : rowMix;
@@ -67,25 +46,37 @@ function normalizeMix(rowMix: unknown): Array<{ itemName: string; quantity: numb
   }));
 }
 
-export function TrackerWidget({ tracker }: TrackerWidgetProps) {
-  const { currentLocation, locations } = useAppLocation();
+export function TrackerWidget({ promo }: TrackerWidgetProps) {
+  const cfg = promo.config || {};
+  const tracker = {
+    id: promo.id,
+    title: promo.title,
+    trackerDisplayMode: cfg.tracker_display_mode,
+    trackerItemRefs: cfg.tracker_item_refs || [],
+    trackerPromoStart: promo.starts_on,
+    trackerPromoEnd: promo.ends_on,
+    trackerPromoImageUrl: cfg.tracker_promo_image_url,
+    trackerRankMetrics: cfg.tracker_rank_metrics as TrackerRankMetric[] | undefined,
+  };
+  const { currentLocation } = useAppLocation();
   const { timezone: locTimezone } = useLocationTimezone();
   const TRACKER_TZ = locTimezone || DEFAULT_TRACKER_TZ;
+  const slides = useMemo(() => buildPromoSlides(cfg), [cfg]);
   const [period, setPeriod] = useState<PeriodKey>('day');
   const [expanded, setExpanded] = useState(false);
   const [sortMetric, setSortMetric] = useState<TrackerSortMetric>('pmix');
-  const [selectedItemRef, setSelectedItemRef] = useState<string>(() => tracker.trackerItemRefs?.[0] || '');
-  const [itemMenuOpen, setItemMenuOpen] = useState(false);
-  const touchStartXRef = useRef<number | null>(null);
+  const [selectedItemRef, setSelectedItemRef] = useState<string>(() => slides[0]?.ref || tracker.trackerItemRefs[0] || '');
+  const reducedMotion = usePrefersReducedMotion();
 
   const today = DateTime.now().setZone(TRACKER_TZ).toFormat('yyyy-MM-dd');
   const yesterday = DateTime.now().setZone(TRACKER_TZ).minus({ days: 1 }).toFormat('yyyy-MM-dd');
   const wtdStart = DateTime.now().setZone(TRACKER_TZ).minus({ days: DateTime.now().setZone(TRACKER_TZ).weekday - 1 }).toFormat('yyyy-MM-dd');
   const promoStart = tracker.trackerPromoStart || wtdStart;
   const promoEnd = tracker.trackerPromoEnd || today;
-  const trackedItemRefs = tracker.trackerItemRefs || [];
+  const trackedItemRefs = tracker.trackerItemRefs;
   const trackedItems = trackedItemRefs.map(item => item.toLowerCase());
-  const isBrandScope = tracker.trackerLocationScope === 'brand';
+  // Ranking pool: brand promo = every store in the brand; org contest = its chosen stores (or the whole org).
+  const isBrandScope = promo.owner_type === 'brand';
 
   const range = period === 'day'
     ? { start: today, end: today }
@@ -95,12 +86,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
         ? { start: wtdStart, end: today }
         : { start: promoStart, end: promoEnd };
 
-  // Higher-level scopes (brand/org) must always recompute the live pool — ignore any stale trackerLocationRefs snapshot
-  const explicitRefs =
-    !(isBrandScope || tracker.trackerLocationScope === 'org') &&
-    tracker.trackerLocationRefs?.length
-      ? tracker.trackerLocationRefs
-      : null;
+  const explicitRefs = !isBrandScope && promo.location_ids?.length ? promo.location_ids : null;
 
   const { data: rpcResult, isLoading, isFetching } = useQuery({
     queryKey: ['dashboard-tracker-ranking-rpc', tracker.id, currentLocation?.id, isBrandScope, explicitRefs, trackedItems, range.start, range.end],
@@ -195,15 +181,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
   const promoImageUrl = tracker.trackerPromoImageUrl?.trim();
 
   const activeItemLabel = isAllItems ? 'All Items' : (activeItemRef || 'Promo item');
-  const activePeriodLabel = PERIOD_LABELS[period];
 
-  const cyclePeriod = (direction: 'prev' | 'next') => {
-    const currentIndex = PERIOD_MODES.indexOf(period);
-    const nextIndex = direction === 'next'
-      ? (currentIndex + 1) % PERIOD_MODES.length
-      : (currentIndex - 1 + PERIOD_MODES.length) % PERIOD_MODES.length;
-    setPeriod(PERIOD_MODES[nextIndex]);
-  };
 
   const cycleItem = (direction: 'prev' | 'next') => {
     if (itemSwitchOptions.length <= 1) return;
@@ -214,15 +192,6 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
     setSelectedItemRef(itemSwitchOptions[nextIndex]);
   };
 
-  const handleItemTouchStart = (e: React.TouchEvent) => {
-    touchStartXRef.current = e.touches[0].clientX;
-  };
-  const handleItemTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartXRef.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartXRef.current;
-    touchStartXRef.current = null;
-    if (Math.abs(dx) > 40) cycleItem(dx < 0 ? 'next' : 'prev');
-  };
 
   const MetricButton = ({ metric, label, value }: { metric: TrackerSortMetric; label: string; value: string }) => (
     <button
@@ -237,111 +206,50 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
     </button>
   );
 
+  // ── Hero wiring ────────────────────────────────────────────────────────
+  const slideRefs = slides.map(s => s.ref);
+  const goToSlide = (dir: 'next' | 'prev') => {
+    if (slideRefs.length <= 1) return;
+    const i = Math.max(0, slideRefs.indexOf(activeItemRef));
+    const n = dir === 'next' ? (i + 1) % slideRefs.length : (i - 1 + slideRefs.length) % slideRefs.length;
+    setSelectedItemRef(slideRefs[n]);
+  };
+  const autoplay = usePromoAutoplay({
+    enabled: cfg.tracker_autoplay !== false && !expanded,
+    count: slides.length,
+    onAdvance: () => goToSlide('next'),
+  });
+  // Expanding the list pauses autoplay.
+  useEffect(() => { if (expanded) autoplay.setPaused(true); }, [expanded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const day = campaignDay(promo.starts_on, promo.ends_on, TRACKER_TZ);
+  const heroRank = isPending ? '#– of –' : `#${myStore?.rank ?? '–'} of ${totalLocationCount || '–'}`;
+  const heroSubtitle = trackedItemRefs.length === 0
+    ? ''
+    : `${isAllItems ? 'All items' : activeItemLabel} · ${isPending ? '–' : number(myVisibleStats.units)} sold`;
+
   return (
-    <Card className="overflow-hidden rounded-[26px] border-transparent bg-transparent shadow-none">
+    <Card className="overflow-hidden rounded-3xl border-transparent bg-transparent shadow-none">
       <CardContent className="p-0">
-        <div className="relative @container">
-          <button
-            type="button"
-            onClick={() => canExpand && setExpanded(v => !v)}
-            className={`relative block w-full ${PROMO_BANNER_ASPECT_CLASS} overflow-hidden text-left shadow-[0_18px_40px_-18px_rgba(0,0,0,0.55)]`}
-            onTouchStart={handleItemTouchStart}
-            onTouchEnd={handleItemTouchEnd}
-          >
-            {promoImageUrl ? (
-              <img src={promoImageUrl} alt={tracker.title} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
-            ) : (
-              <div className="absolute inset-0 bg-primary" />
-            )}
-
-            {/* Subtle bottom fade for the pill to read clearly */}
-            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/60 to-transparent" />
-
-            {/* Glass bubble overlay */}
-            <div className="pointer-events-none absolute inset-0 rounded-[26px] border-[0.5px] border-white/35 shadow-[inset_0_1px_2px_rgba(255,255,255,0.25),0_4px_12px_rgba(0,0,0,0.2)]" />
-
-
-            <div className="absolute left-3 top-3 inline-flex h-[clamp(1.375rem,6cqw,2rem)] items-center justify-center gap-1.5 rounded-full border border-white/30 bg-black/60 px-3 text-[clamp(9px,2.8cqw,13px)] font-bold uppercase tracking-wider text-white shadow-lg backdrop-blur-sm">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
-              </span>
-              LIVE
-            </div>
-
-            <div className="absolute right-3 top-3 inline-flex h-[clamp(1.375rem,6cqw,2rem)] items-center overflow-hidden rounded-full border border-white/30 bg-black/40 p-0.5 text-[clamp(9px,2.8cqw,13px)] font-bold text-white shadow-lg backdrop-blur-sm">
-              {PERIOD_MODES.map(key => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); setPeriod(key); }}
-                  className={`px-[clamp(0.4rem,1.8cqw,0.75rem)] py-1 transition-colors ${period === key ? 'rounded-full bg-white text-black' : 'text-white/80 hover:text-white'}`}
-                >
-                  {PERIOD_LABELS[key]}
-                </button>
-              ))}
-            </div>
-
-            <div className="absolute left-3 top-[3.25rem] right-3">
-              <p className="truncate text-[clamp(1.375rem,7cqw,3rem)] font-black leading-none text-white [text-shadow:0_2px_8px_rgba(0,0,0,0.6)]">{tracker.title}</p>
-            </div>
-
-            <div className="absolute inset-x-0 bottom-0 p-3">
-              <div className="flex h-[clamp(1.625rem,7.5cqw,2.5rem)] w-full items-center overflow-hidden rounded-full border border-white/30 bg-black/40 p-0.5 text-[clamp(9px,2.8cqw,13px)] font-bold shadow-lg backdrop-blur-sm">
-                {/* Item selector as the white selected segment */}
-                <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-white px-1.5 py-1 text-black">
-                  {itemSwitchOptions.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); cycleItem('prev'); }}
-                      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-black/10"
-                      aria-label="Previous item"
-                    >
-                      <ChevronLeft className="h-3 w-3" />
-                    </button>
-                  )}
-                  <span className="max-w-[clamp(90px,28cqw,180px)] truncate">{activeItemLabel}</span>
-                  {itemSwitchOptions.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); cycleItem('next'); }}
-                      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-black/10"
-                      aria-label="Next item"
-                    >
-                      <ChevronRight className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Ranking metrics on the dark glass remainder - scrollable on narrow screens */}
-                <div className="flex min-w-0 flex-1 items-center overflow-x-auto whitespace-nowrap px-2 py-1 text-white no-scrollbar">
-                  <div className="flex w-full items-center justify-between gap-2">
-                    <div className="flex items-center gap-1">
-                      <Trophy className="h-2.5 w-2.5 shrink-0" />
-                      <span className="shrink-0 font-bold uppercase tracking-wider text-white/80">Rank</span>
-                      <span className="shrink-0 tabular-nums">#{isPending ? '-' : myStore?.rank ?? '-'} / {totalLocationCount || '-'}</span>
-                    </div>
-                    {rankMetrics.includes('units') && (
-                      <div className="flex items-center gap-1">
-                        <span className="h-2.5 w-px shrink-0 bg-white/25" />
-                        <span className="shrink-0 tabular-nums">{isPending ? '--' : number(myVisibleStats.units)} sold</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {canExpand && (
-                  <div className="flex shrink-0 items-center px-2 py-1 text-white/80">
-                    <span className="h-3 w-px bg-white/25" />
-                    <span className="ml-1.5">
-                      {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </button>
-        </div>
+        <PromoHeroView
+          title={tracker.title}
+          slides={slides}
+          activeRef={activeItemRef}
+          subtitle={heroSubtitle}
+          dayLabel={day ? `DAY ${day.day}/${day.total}` : null}
+          rankLabel={heroRank}
+          canExpand={canExpand}
+          expanded={expanded}
+          paused={autoplay.active && autoplay.paused}
+          reducedMotion={reducedMotion}
+          period={period}
+          campaignImageUrl={promoImageUrl || null}
+          onPeriodChange={setPeriod}
+          onSelectSlide={(ref) => { setSelectedItemRef(ref); autoplay.setPaused(true); }}
+          onRankTap={() => setExpanded(v => !v)}
+          onLongPress={() => autoplay.setPaused(p => !p)}
+          onSwipe={(dir) => { goToSlide(dir); autoplay.setPaused(true); }}
+        />
 
         {canExpand && expanded && (
           <div className="space-y-2 p-3">
@@ -409,6 +317,7 @@ export function TrackerWidget({ tracker }: TrackerWidgetProps) {
             </div>
           </div>
         )}
+
       </CardContent>
     </Card>
   );

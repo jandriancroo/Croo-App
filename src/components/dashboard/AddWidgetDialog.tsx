@@ -470,19 +470,6 @@ export function AddWidgetDialog({
                 </div>
               </button>
 
-              {/* Tracker */}
-              <button
-                className="flex flex-col items-center gap-3 p-4 rounded-xl border-2 border-transparent hover:border-primary/50 hover:bg-accent transition-all"
-                onClick={() => handleTypeSelect('tracker')}
-              >
-                <div className="w-14 h-14 rounded-xl bg-primary/20 flex items-center justify-center">
-                  <Trophy className="h-6 w-6 text-primary" />
-                </div>
-                <div className="text-center">
-                  <span className="text-sm font-medium block">Tracker</span>
-                  <span className="text-[10px] text-muted-foreground">Promo ranking</span>
-                </div>
-              </button>
             </div>
           </div>
         )}
