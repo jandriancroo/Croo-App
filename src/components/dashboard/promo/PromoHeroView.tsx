@@ -3,7 +3,6 @@ import { ChevronDown, ChevronUp, Pause, Trophy } from 'lucide-react';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { cn } from '@/lib/utils';
 import { ALL_ITEMS_REF, type PromoSlide, type PromoBorder } from '@/lib/promoTrackers';
-import { borderTitleOffset } from '@/lib/promoBorders';
 import { PromoBorderOverlay } from './PromoBorderOverlay';
 
 export type PromoPeriodKey = 'day' | 'yday' | 'wtd' | 'promo';
@@ -72,17 +71,20 @@ export function PromoHeroView({
   }, [activeRef, reducedMotion]);
 
   const manyDots = slides.length > 5;
-  const titleOffset = borderTitleOffset(border);
+  const decorated = !!border || borderWinner || borderClosing;
 
   return (
-    <div data-promo-hero className={cn('relative w-full overflow-hidden rounded-3xl shadow-md', !activeImage && 'bg-primary', PROMO_HERO_HEIGHT_CLASS)}>
+    <div data-promo-border-space className={cn('min-w-0 overflow-visible', decorated && 'p-4')}>
+    <div data-promo-hero className={cn('relative w-full overflow-visible rounded-3xl shadow-md', !activeImage && 'bg-primary', PROMO_HERO_HEIGHT_CLASS)}>
       {/* Photo layers (crossfade) */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[inherit]">
       {images.map(url => (
         <img key={url} src={url} alt="" aria-hidden loading="lazy" draggable={false}
           className={cn('absolute inset-0 h-full w-full select-none object-cover transition-opacity', fade, url === activeImage ? 'opacity-100' : 'opacity-0')} />
       ))}
       {/* Shade: dark from the top, light at the very bottom */}
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,hsl(var(--promo-shade)/0.6)_0%,hsl(var(--promo-shade)/0)_50%,hsl(var(--promo-shade)/0)_70%,hsl(var(--promo-shade)/0.25)_100%)]" />
+      </div>
       <PromoBorderOverlay border={border} winner={borderWinner} closing={borderClosing} paused={borderPaused ?? paused} reducedMotion={reducedMotion} />
 
       {/* Photo gesture layer */}
@@ -111,7 +113,7 @@ export function PromoHeroView({
 
       {/* Top: title (left) + LIVE chip (right). The item line sits below and
           spans the full card width, so it never borrows the chip's column. */}
-      <div className={cn('pointer-events-none absolute inset-x-3 flex flex-col', titleOffset === 24 ? 'top-9' : titleOffset === 8 ? 'top-5' : 'top-3')}>
+      <div className="pointer-events-none absolute inset-x-3 top-3 flex flex-col">
         <div className="flex items-start gap-2">
           <div key={activeRef} className={cn('min-w-0 flex-1', !reducedMotion && 'animate-in fade-in duration-500')}>
             <p className={cn('line-clamp-2 break-words text-[25px] font-black uppercase leading-[0.92] tracking-[-0.02em] [text-shadow:0_1px_6px_hsl(var(--promo-shade)/0.35)]', INK)}>
@@ -215,6 +217,7 @@ export function PromoHeroView({
           itemClassName="relative px-1 text-[13px] md:text-[13px] after:absolute after:-inset-y-1.5 after:inset-x-0"
         />
       </div>
+    </div>
     </div>
   );
 }

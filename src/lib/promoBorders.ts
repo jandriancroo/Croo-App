@@ -33,10 +33,6 @@ export function borderColor(value: string | undefined, fallback = 'ivory'): stri
   return `hsl(var(--promo-border-${key}))`;
 }
 
-export function borderTitleOffset(border?: PromoBorder | null): 0 | 8 | 24 {
-  return border?.style === 'spring-bunting' || border?.style === 'fourth-july' ? 24 : border?.style === 'gingham' ? 8 : 0;
-}
-
 interface BorderRank { locationId: string; rank: number; units: number; itemStats?: Record<string, { units: number }> }
 /** Presentation only: reuse the existing order, never sort or fetch ranking. */
 export function promoBorderReactions(rows: BorderRank[], locationId: string | undefined, activeRef: string, pending: boolean) {

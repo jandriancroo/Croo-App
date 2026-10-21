@@ -233,7 +233,7 @@ export function TrackerWidget({ promo }: TrackerWidgetProps) {
       : `${isAllItems ? 'All items' : activeItemLabel} · ${number(myVisibleStats.units)}\u00A0sold`;
 
   return (
-    <Card className="overflow-hidden rounded-3xl border-transparent bg-transparent shadow-none">
+    <Card className="overflow-visible rounded-3xl border-transparent bg-transparent shadow-none">
       <CardContent className="p-0">
         <PromoHeroView
           title={tracker.title}
@@ -251,7 +251,7 @@ export function TrackerWidget({ promo }: TrackerWidgetProps) {
           border={cfg.tracker_border}
           borderWinner={!!cfg.tracker_border_winner && borderReactions.winner}
           borderClosing={!!cfg.tracker_border_closing && borderReactions.closing}
-          borderPaused={autoplay.paused || cfg.tracker_autoplay === false || expanded}
+          borderPaused={autoplay.paused || cfg.tracker_autoplay === false || expanded || (typeof document !== 'undefined' && document.hidden)}
           onPeriodChange={setPeriod}
           onSelectSlide={(ref) => { setSelectedItemRef(ref); autoplay.setPaused(true); }}
           onRankTap={() => setExpanded(v => !v)}
