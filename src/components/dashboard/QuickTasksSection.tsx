@@ -1,5 +1,4 @@
 import React from 'react';
-import { UnreadAnnouncementsAlert } from '@/components/dashboard/UnreadAnnouncementsAlert';
 import { PendingDocumentsCard } from '@/components/dashboard/PendingDocumentsCard';
 import { I9UploadCard } from '@/components/dashboard/I9UploadCard';
 import { OpusBackgroundSync } from '@/components/dashboard/OpusBackgroundSync';
@@ -26,7 +25,6 @@ export const QuickTasksSection = React.memo(function QuickTasksSection({
       <div className="quick-task-content flex flex-col gap-1 w-full">
 
 
-        <UnreadAnnouncementsAlert />
         <PinMigrationTask />
         <PendingDocumentsCard />
         <I9UploadCard />
