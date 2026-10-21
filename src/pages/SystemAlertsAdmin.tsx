@@ -68,14 +68,14 @@ export default function SystemAlertsAdmin() {
     finally { setBusy(false); }
   };
   if (loading) return <Layout><Loader2 className="mx-auto my-12 h-6 w-6 animate-spin" /></Layout>;
-  if (!isSuperAdmin) return <Layout><PageTitle status={null}>System Alerts</PageTitle><p className="text-muted-foreground">Only the super admin can manage system alerts.</p></Layout>;
+  if (!isSuperAdmin) return <Layout><PageTitle color="teal" status={null}>System Alerts</PageTitle><p className="text-muted-foreground">Only the super admin can manage system alerts.</p></Layout>;
 
   return <Layout><div className="mx-auto w-full max-w-4xl space-y-4">
     <div className="flex items-center justify-between gap-3">
       <Button variant="ghost" size="icon" aria-label="Back to Settings" onClick={() => navigate('/settings')}><ArrowLeft className="h-5 w-5" /></Button>
       {!editing && <Button onClick={() => user && setEditing(blankAlert(user.id))}><Plus className="mr-2 h-4 w-4" />New alert</Button>}
     </div>
-    <PageTitle status={null}>System Alerts</PageTitle>
+    <PageTitle color="teal" status={null}>System Alerts</PageTitle>
     {editing ? <div className="space-y-4">
       <div className="flex items-center justify-between"><h2 className="text-lg font-semibold">{editing.id ? 'Edit draft' : 'New alert'}</h2><Badge variant="secondary">Draft</Badge></div>
       <div className="grid gap-4 sm:grid-cols-2">
