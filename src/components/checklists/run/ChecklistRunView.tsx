@@ -121,7 +121,7 @@ function subText(it: RunItem, ctx: RunCtx) {
     return min > 1 ? (n > 0 ? `Photo · ${n} of ${min} taken` : `Photo · ${min} needed`) : 'Photo';
   }
   if (it.item_type === 'manager_approval') return 'Manager sign-off';
-  if (isCheck(it.item_type)) return 'Tap to complete';
+  if (isCheck(it.item_type)) return isOneTap(it) ? 'Checkmark' : 'Checkmark · opens notes';
   return typeLabel(it, min);
 }
 
@@ -345,7 +345,7 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
         onPointerLeave={longPressEnd}
         className="flex min-h-14 w-full cursor-pointer items-start gap-3 px-3 py-3 text-left"
       >
-        <span className="pt-0.5">{circle}</span>
+        <span className="flex shrink-0 pt-0.5">{circle}</span>
         <span className="min-w-0 flex-1">
           <Name it={it} ctx={ctx} className={cn('block break-words text-[15px] font-semibold leading-snug', done && !amber && 'text-muted-foreground')} />
           {amber ? (
@@ -517,7 +517,7 @@ function GuidedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
             <img src={shot} alt="Your temperature photo" className="max-h-72 w-full object-cover" />
           </button>
         ) : (
-          <PhotoSlot label="Take photo" active uploading={ctx.uploading(it.id)} onTake={(f) => ctx.upload(it.id, f)} />
+          <div className="[&_.aspect-square]:aspect-[4/3]"><PhotoSlot label="Take photo" active uploading={ctx.uploading(it.id)} onTake={(f) => ctx.upload(it.id, f)} /></div>
         )}
         {(shot || has) && (
           <div className={cn('flex items-center justify-between gap-3 rounded-xl p-3',
