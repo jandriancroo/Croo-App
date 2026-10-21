@@ -11,6 +11,7 @@ import type { TrackerRankMetric } from './AddWidgetDialog';
 import { buildPromoSlides, campaignDay, type PromoTracker } from '@/lib/promoTrackers';
 import { PromoHeroView, type PromoPeriodKey } from './promo/PromoHeroView';
 import { usePrefersReducedMotion, usePromoAutoplay } from './promo/usePromoAutoplay';
+import { promoBorderReactions } from '@/lib/promoBorders';
 
 interface TrackerWidgetProps {
   promo: PromoTracker;
@@ -224,6 +225,7 @@ export function TrackerWidget({ promo }: TrackerWidgetProps) {
 
   const day = campaignDay(promo.starts_on, promo.ends_on, TRACKER_TZ);
   const heroRank = isPending ? '#– of –' : `#${myStore?.rank ?? '–'} of ${totalLocationCount || '–'}`;
+  const borderReactions = promoBorderReactions(sortedRanking, currentLocation?.id, activeItemRef, isPending);
   const heroSubtitle = trackedItemRefs.length === 0
     ? ''
     : isPending
@@ -246,6 +248,10 @@ export function TrackerWidget({ promo }: TrackerWidgetProps) {
           reducedMotion={reducedMotion}
           period={period}
           campaignImageUrl={promoImageUrl || null}
+          border={cfg.tracker_border}
+          borderWinner={!!cfg.tracker_border_winner && borderReactions.winner}
+          borderClosing={!!cfg.tracker_border_closing && borderReactions.closing}
+          borderPaused={autoplay.paused || cfg.tracker_autoplay === false || expanded}
           onPeriodChange={setPeriod}
           onSelectSlide={(ref) => { setSelectedItemRef(ref); autoplay.setPaused(true); }}
           onRankTap={() => setExpanded(v => !v)}
