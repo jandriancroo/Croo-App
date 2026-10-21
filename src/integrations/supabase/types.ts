@@ -2513,6 +2513,7 @@ export type Database = {
           response_image_urls: Json | null
           response_text: string | null
           submission_id: string
+          temperature_unconfirmed: boolean
           temperature_valid: boolean | null
           temperature_validated_at: string | null
         }
@@ -2527,6 +2528,7 @@ export type Database = {
           response_image_urls?: Json | null
           response_text?: string | null
           submission_id: string
+          temperature_unconfirmed?: boolean
           temperature_valid?: boolean | null
           temperature_validated_at?: string | null
         }
@@ -2541,6 +2543,7 @@ export type Database = {
           response_image_urls?: Json | null
           response_text?: string | null
           submission_id?: string
+          temperature_unconfirmed?: boolean
           temperature_valid?: boolean | null
           temperature_validated_at?: string | null
         }
@@ -13354,6 +13357,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      temperature_read_issues: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string | null
+          item_id: string | null
+          location_id: string | null
+          reads: Json | null
+          reason: string
+          saved_temperature: number | null
+          submission_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          item_id?: string | null
+          location_id?: string | null
+          reads?: Json | null
+          reason: string
+          saved_temperature?: number | null
+          submission_id?: string | null
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          item_id?: string | null
+          location_id?: string | null
+          reads?: Json | null
+          reason?: string
+          saved_temperature?: number | null
+          submission_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       temporary_task_assignments: {
         Row: {

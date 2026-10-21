@@ -1,3 +1,4 @@
+import { decideTemperature } from './temperatureDecision.ts';
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -305,8 +306,8 @@ async function handleExtractTemperature(payload: any) {
   if (!imageUrl) return errorResponse('Image URL is required', 400);
 
   // Thermometer reader: GPT-6 Luna + the store dial colour rule, read TWICE in
-  // parallel. If the two reads disagree by 5°F or more (or one fails), we do not
-  // guess — temperature comes back null so the manager types it.
+  // parallel. Agreeing reads are saved as-is; a disagreement or one failed read
+  // returns the best read marked unconfirmed so the crew confirms or types it.
   const systemPrompt = `You read photos of restaurant cooler and freezer thermometers. Stores use different brands, so read what is printed on THIS dial — never assume a layout.
 
 How these dials work (common to most brands):
@@ -341,7 +342,7 @@ Reply with a short explanation, then a final line exactly: ANSWER: <number> (or 
       imagePayload = `data:${imgRes.headers.get('content-type') || 'image/jpeg'};base64,${btoa(bin)}`;
     } else {
       console.error('[extract-temperature] photo download failed', imgRes.status);
-      return jsonResponse({ temperature: null, isValid: null, extractedText: 'NONE', unreadable: true });
+      return jsonResponse({ temperature: null, isValid: null, unconfirmed: false, extractedText: 'NONE', unreadable: true, reason: 'read_failed' });
     }
   } catch (e) {
     console.error('[extract-temperature] photo download error', String(e));
@@ -365,12 +366,17 @@ Reply with a short explanation, then a final line exactly: ANSWER: <number> (or 
   };
   const [a, b] = await Promise.all([readOnce(), readOnce()]);
   console.log('[extract-temperature] reads', a, b);
-  if (a == null || b == null || Math.abs(a - b) >= 5) {
-    return jsonResponse({ temperature: null, isValid: null, extractedText: 'NONE', unreadable: true, reads: [a, b], reason: a != null && b != null ? 'reads_disagree' : 'unreadable' });
-  }
-  const temperature = Math.round(((a + b) / 2) * 10) / 10;
-  const isValid = temperature <= 41.0 || temperature >= 135.0;
-  return jsonResponse({ temperature, isValid, extractedText: String(temperature), reads: [a, b] });
+  const d = decideTemperature(a, b);
+  if (d.reason) console.warn('[extract-temperature] no clean reading', d.reason, a, b);
+  return jsonResponse({
+    temperature: d.temperature,
+    isValid: d.isValid,
+    unconfirmed: d.unconfirmed,
+    reason: d.reason,
+    unreadable: d.temperature == null,
+    extractedText: d.temperature == null ? 'NONE' : String(d.temperature),
+    reads: [a, b],
+  });
 }
 
 async function handleExtractAuditDate(payload: any) {
@@ -907,8 +913,8 @@ async function handleRescanTemperatures(payload: any) {
 
       const { temperature, isValid } = extractData;
       // Never wipe a saved reading when the rescan can't agree on a number.
-      if (temperature == null) {
-        results.push({ id: response.id, question, success: false, error: 'Reads disagreed — kept the saved value', previousTemp: response.extracted_temperature });
+      if (temperature == null || extractData.unconfirmed) {
+        results.push({ id: response.id, question, success: false, error: 'No confirmed reading — kept the saved value', previousTemp: response.extracted_temperature });
         continue;
       }
 

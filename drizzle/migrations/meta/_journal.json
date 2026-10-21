@@ -414,6 +414,13 @@
       "when": 1792607953890,
       "tag": "0058_checklist_items_reference_image_urls",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1792608154911,
+      "tag": "0059_temperature_unconfirmed_and_read_issues",
+      "breakpoints": true
     }
   ]
 }
