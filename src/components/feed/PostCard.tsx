@@ -1,7 +1,7 @@
 import { memo, useState, useEffect, useRef, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Eye, Pin, Paperclip, ThumbsUp, ThumbsDown, MoreHorizontal } from 'lucide-react';
+import { MessageCircle, Eye, Megaphone, Paperclip, ThumbsUp, ThumbsDown, MoreHorizontal } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { FeedPost } from '@/hooks/useAnnouncementFeed';
 import { cn } from '@/lib/utils';
@@ -164,24 +164,21 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
               </span>
             </div>
             {/* Second row: badges */}
-            <div className="flex items-center gap-1.5 flex-wrap mt-1">
+            <div className="flex items-center gap-1 mt-1 min-w-0">
               {post.is_announcement && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-background text-foreground shadow-sm">Announcement</span>
+                <span className="inline-flex items-center justify-center text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-background text-foreground shadow-sm" aria-label="Announcement" title="Announcement"><Megaphone className="h-3.5 w-3.5" /></span>
               )}
               {post.badge && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-background text-foreground shadow-sm">
-                  <span aria-hidden className="h-2 w-2 rounded-full" style={{ backgroundColor: post.badge.color ?? 'hsl(var(--primary))' }} />
-                  {post.badge.label}
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-background text-foreground shadow-sm min-w-0">
+                  <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: post.badge.color ?? 'hsl(var(--primary))' }} />
+                  <span className="truncate">{post.badge.label}</span>
                 </span>
               )}
               {post.channel && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-background text-foreground shadow-sm">
-                  <span aria-hidden className="h-2 w-2 rounded-full" style={{ backgroundColor: post.channel.color ?? 'hsl(var(--primary))' }} />
-                  {post.channel.name}
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded-md bg-background text-foreground shadow-sm min-w-0">
+                  <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: post.channel.color ?? 'hsl(var(--primary))' }} />
+                  <span className="truncate">{post.channel.name}</span>
                 </span>
-              )}
-              {post.pinned && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md bg-background text-foreground shadow-sm" aria-label="Pinned"><Pin className="h-3 w-3" />Pinned</span>
               )}
             </div>
           </div>
