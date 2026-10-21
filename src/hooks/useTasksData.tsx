@@ -8,6 +8,8 @@ import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 
 import { getDayOfWeekInTimezone } from "@/utils/dateUtils";
+import { getTodayInTimezone } from "@/utils/timezoneUtils";
+import { checklistShowsOn } from "@/lib/taskHistory/schedule";
 import { isItemLive } from "@/utils/checklistArchivePeriod";
 import {
   loadChecklistHistory,
