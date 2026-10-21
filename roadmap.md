@@ -1,7 +1,5 @@
 # Roadmap
 
-## In progress
-- Fix promo tracker editor: right side cut off + no vertical scroll after photo upload (fix applied, verifying on screen)
-
-## Up next
-- Dash layout must be saved per user — Jordan shouldn't have to keep moving things around (investigate where section order/layout is stored and why it resets)
+## Done
+- Fix promo tracker editor: right side cut off + no vertical scroll after photo upload (verified at phone + desktop sizes)
+- Dash layout saved per user: section order now stored on the user's profile and follows them across devices (build passes; not yet exercised end-to-end on screen)
