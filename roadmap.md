@@ -10,7 +10,7 @@
 - Preserved original tracker width and 220px height (hero and wrapper); spacing is outside, not inside. Verified phone/desktop, saved choices, period taps, paused/reduced motion and 15 tests.
 
 ## Held (waiting on Jordan)
-- Finished rows: "final layout is option 3, plus a read-only details view" — not started; Jordan wants to change or confirm first.
+- (none — finished-rows hold lifted Oct 21; final spec in progress above)
 
 ## Up next
 - Remaining border mockups — waiting for Jordan's references; current styles already use outer-edge placement.
