@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { checklistShowsOn, isPeriodScored } from '@/lib/taskHistory/schedule';
 import { useClock } from '@/hooks/useClock';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -598,6 +599,15 @@ export function ManagerDashboardOverlay({
           title, 
           frequency,
           template_type,
+          scheduled_date,
+          visible_days_before_month_end,
+          schedule_repeats,
+          schedule_period,
+          schedule_mode,
+          schedule_weekdays,
+          schedule_day,
+          schedule_quarter_month,
+          schedule_last_n,
           checklist_items(id, days_of_week, deleted_at)
         `)
         .eq('location_id', locationId)
@@ -615,8 +625,9 @@ export function ManagerDashboardOverlay({
           );
           return todayItems && todayItems.length > 0;
         }
-        // Include daily and weekly standard checklists
-        return c.frequency === 'daily' || c.frequency === 'weekly';
+        // Day-scored Standard lists that show today (shared schedule rule).
+        if (c.template_type === 'training') return false;
+        return !isPeriodScored(c as any) && checklistShowsOn(c as any, todayStr);
       });
 
       if (relevantChecklists.length === 0) return [];
