@@ -4,13 +4,13 @@ import type { CSSProperties } from 'react';
  * roles use theme tokens from this one map (change here only).
  */
 export const ROLE_BADGE_COLOR: Record<string, string> = {
-  team_member: 'hsl(var(--chart-3))',
-  shift_manager_in_training: 'hsl(var(--chart-4))',
-  shift_manager: 'hsl(var(--chart-2))',
+  team_member: 'hsl(var(--chart-3, 226 45% 50%))',
+  shift_manager_in_training: 'hsl(var(--chart-4, 280 45% 52%))',
+  shift_manager: 'hsl(var(--chart-2, 200 70% 42%))',
   manager: 'hsl(var(--warning))',
   admin: 'hsl(var(--primary))',
 };
-export const ROLE_BADGE_FALLBACK = 'hsl(var(--chart-5))';
+export const ROLE_BADGE_FALLBACK = 'hsl(var(--chart-5, 29 40% 50%))';
 
 export type AssignmentKind = 'position' | 'station' | 'role' | 'person' | 'none';
 
@@ -29,8 +29,8 @@ export interface AssignmentInfo {
 export function badgeStyle(color?: string): CSSProperties | undefined {
   if (!color) return undefined;
   return {
-    backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`,
+    backgroundColor: `color-mix(in srgb, ${color} 15%, hsl(var(--card)))`,
     borderColor: `color-mix(in srgb, ${color} 45%, transparent)`,
-    color: `color-mix(in srgb, ${color} 65%, hsl(var(--foreground)))`,
+    color: `color-mix(in srgb, ${color} 45%, hsl(var(--foreground)))`,
   };
 }
