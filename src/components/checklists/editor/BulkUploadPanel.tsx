@@ -118,7 +118,7 @@ export function BulkUploadPanel({ wide, locationId, onStartNewInstead, onCancel,
       .filter((it) => it.question.trim())
       .map((it) => {
         const { _key, ...rest } = it;
-        const next: EditorItem = { ...rest, _key: undefined as any, question: it.question.trim() };
+        const next: EditorItem = { ...rest, question: it.question.trim() };
         if (next.item_type === 'multiple_choice' && !Array.isArray(next.options)) next.options = ['Yes', 'No', 'N/A'];
         if (next.item_type !== 'multiple_choice' && Array.isArray(next.options)) next.options = undefined;
         return next;
@@ -216,7 +216,7 @@ export function BulkUploadPanel({ wide, locationId, onStartNewInstead, onCancel,
       </div>
       <div className="mt-4 flex gap-2 border-t pt-3">
         <Button type="button" variant="outline" className="h-11 flex-1 border border-border bg-card" onClick={onCancel}>Cancel</Button>
-        <Button type="button" className="h-11 flex-1" disabled={preview.filter((i) => i.question.trim()).length === 0 || reading} onClick={add}>
+        <Button type="button" className="h-11 flex-1" disabled={taskCount === 0 || reading} onClick={add}>
           Add {taskCount} task{taskCount === 1 ? '' : 's'}
         </Button>
       </div>
