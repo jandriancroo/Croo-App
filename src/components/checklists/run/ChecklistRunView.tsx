@@ -1,6 +1,7 @@
 // Phase E run screen: list first, guided one-by-one on tap.
 // Presentation only: every save goes through the handlers the page passes in.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Camera, Check, ChevronLeft, ChevronRight, Eye, FileText, Image as ImageIcon, Link as LinkIcon, BookOpen, Pencil, Video, RotateCcw, PlayCircle } from 'lucide-react';
 import { cn, formatTime12Hour } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -867,6 +868,9 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [atEnd, setAtEnd] = useState(false);
   const [flashId, setFlashId] = useState<string | null>(null);
+  // The header arrow always lands on the Dash, whatever brought you here.
+  const navigate = useNavigate();
+  const goDash = () => navigate('/');
 
   const sectionOf = useMemo(() => {
     const m = new Map<string, string>();
@@ -975,7 +979,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
       {wideList ? (
         <div>
           <div className="flex flex-wrap items-center gap-3 pt-3">
-            <Button variant="ghost" size="icon" className="h-11 w-11" onClick={ctx.onBack} aria-label="Back"><ArrowLeft className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" className="-ml-2 h-9 w-9 shrink-0" onClick={goDash} aria-label="Back to dashboard"><ArrowLeft className="h-5 w-5" /></Button>
             <h1 className="min-w-0 flex-1 break-words text-2xl font-bold">{ctx.title}</h1>
             {tempsNeeded > 0 && <span className="rounded-full bg-[hsl(var(--warning)/0.14)] px-3 py-1 text-sm font-semibold text-[hsl(var(--warning))]">{tempsNeeded} {tempsNeeded === 1 ? 'needs' : 'need'} a temp</span>}
             {switches}
@@ -985,9 +989,12 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
         </div>
       ) : (
         <div>
-          <div className="flex items-baseline justify-between gap-3 px-1 pt-3">
-            <h1 className="min-w-0 break-words text-xl font-bold">{ctx.title}</h1>
-            <span className="shrink-0 text-base font-bold">{ctx.doneCount} of {ctx.totalCount}</span>
+          <div className="flex items-center gap-1 px-1 pt-3">
+            <Button variant="ghost" size="icon" className="-mx-1 -my-1.5 h-9 w-9 shrink-0" onClick={goDash} aria-label="Back to dashboard"><ArrowLeft className="h-5 w-5" /></Button>
+            <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
+              <h1 className="min-w-0 break-words text-xl font-bold">{ctx.title}</h1>
+              <span className="shrink-0 text-base font-bold">{ctx.doneCount} of {ctx.totalCount}</span>
+            </div>
           </div>
           {ctx.description && <p className="px-1 text-sm text-muted-foreground">{ctx.description}</p>}
           <div className="mb-2 mt-1.5"><ProgressBar done={ctx.doneCount} total={ctx.totalCount} /></div>
