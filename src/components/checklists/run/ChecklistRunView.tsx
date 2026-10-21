@@ -871,6 +871,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
     <div key={current.id} className="space-y-3 rounded-2xl border bg-card p-4">
       <div className={capLabel}>{(sectionOf.get(current.id) || 'Tasks')} · {typeLabel(current, ctx.minPhotos(current))}</div>
       <Name it={current} ctx={ctx} className="block break-words text-2xl font-bold leading-tight" />
+      <ShiftTag it={current} />
       <GuidedBody it={current} ctx={ctxWithFlash} />
     </div>
   );
