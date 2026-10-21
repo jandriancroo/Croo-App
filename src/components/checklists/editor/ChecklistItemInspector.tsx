@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { Copy, Trash2, Link as LinkIcon, Video, CheckSquare, Type, Hash, Camera, Thermometer, List, ClipboardList, Heading, ShieldCheck, MoreHorizontal, Minus, Plus, Check, ChevronLeft } from 'lucide-react';
+import { Copy, Trash2, Link as LinkIcon, Video, CheckSquare, Type, Hash, Camera, Thermometer, List, ClipboardList, Heading, ShieldCheck, MoreHorizontal, Minus, Plus, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -48,9 +48,12 @@ interface Props {
   /** Phone sheet: two pages + Done. */
   compact?: boolean;
   onDone?: () => void;
+  itemTotal?: number;
+  onPrev?: () => void;
+  onNext?: () => void;
 }
 
-export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, onRemove, locationId, showAmPm, showPosition, availablePositions, uploadReference, autoFocusName, itemNumber, compact, onDone }: Props) {
+export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, onRemove, locationId, showAmPm, showPosition, availablePositions, uploadReference, autoFocusName, itemNumber, compact, onDone, itemTotal, onPrev, onNext }: Props) {
   const [pending, setPending] = useState<{ next: EditorItem; drop: number } | null>(null);
   const isSection = item.item_type === 'section_header';
   const set = (patch: Partial<EditorItem>) => onChange({ ...item, ...patch });
@@ -78,15 +81,27 @@ export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, o
   const pickType = (v: string) => { if (v !== shownType) applyShrinking({ ...item, item_type: v }); };
 
   const label = (t: string) => <div className="mb-1.5 text-sm font-semibold">{t}</div>;
+  const navBtn = 'flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-card disabled:opacity-40';
   const header = (left?: ReactNode) => (
     <div className="flex min-h-11 items-center justify-between gap-2">
-      <div className="flex items-center gap-1">
+      <div className="flex min-w-0 items-center gap-1">
         {left}
         <span className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-          {isSection ? 'Section' : `Item ${itemNumber ?? ''}`}
+          {isSection ? 'Section' : `Item ${itemNumber ?? ''}${itemTotal ? ` of ${itemTotal}` : ''}`}
         </span>
       </div>
-      {compact && onDone && <Button type="button" className="h-11 px-5" onClick={onDone}>Done</Button>}
+      <div className="flex shrink-0 items-center gap-2">
+        <button type="button" aria-label="Previous task" className={navBtn} disabled={!onPrev} onClick={onPrev}><ChevronLeft className="h-4 w-4" /></button>
+        <button type="button" aria-label="Next task" className={navBtn} disabled={!onNext} onClick={onNext}><ChevronRight className="h-4 w-4" /></button>
+        {compact && onDone && <Button type="button" className="h-11 px-4" onClick={onDone}>Done</Button>}
+      </div>
+    </div>
+  );
+
+  const assignRow = !isSection && showPosition && (
+    <div>
+      {label('Assigned to')}
+      <TaskAssigneePicker locationId={locationId} value={item} availablePositions={availablePositions} noneLabel="Anyone" className="h-11 w-full max-w-none border-solid px-3 text-sm" onChange={(next) => set(next as Partial<EditorItem>)} />
     </div>
   );
 
@@ -139,12 +154,6 @@ export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, o
 
   const extras = !isSection && (
     <>
-      {showPosition && (
-        <div className="flex min-h-11 items-center justify-between gap-3">
-          <span className="text-sm font-semibold">Assigned to</span>
-          <TaskAssigneePicker locationId={locationId} value={item} availablePositions={availablePositions} className="min-h-11 max-w-[60%]" onChange={(next) => set(next as Partial<EditorItem>)} />
-        </div>
-      )}
       {showAmPm && (
         <div className="flex min-h-11 items-center justify-between gap-3">
           <span className="text-sm font-semibold">Shift</span>
@@ -267,6 +276,7 @@ export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, o
     ) : (
       <div className="space-y-4">
         {header()}
+        {assignRow}
         {nameField}
         {typeGrid}
         {photoStepper}
@@ -282,6 +292,7 @@ export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, o
   ) : (
     <div className="space-y-4">
       {header()}
+      {assignRow}
       {nameField}
       {typeGrid}
       {photoStepper}

@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { blankItem, duplicateItem, moveChecklistItems, type EditorItem } from '@/lib/checklistEditorItems';
 import { ChecklistItemInspector, typeMeta } from './ChecklistItemInspector';
 import { ChecklistSettingsPanel } from './ChecklistSettingsPanel';
+import { useAssignmentLabeler } from '@/components/tasks/TaskAssigneePicker';
 import type { ChecklistEditorSettings, TemplateType } from './types';
 
 export type EditorTab = 'items' | 'settings';
@@ -62,8 +63,10 @@ function useIsWide(ref: React.RefObject<HTMLElement>, min = 720) {
   return wide;
 }
 
-function ItemRow({ item, id, selected, inSection, onSelect, showAmPm }: {
+function ItemRow({ item, id, selected, inSection, onSelect, showAmPm, assignText, wide }: {
   item: EditorItem; id: string; selected: boolean; inSection: boolean; onSelect: () => void; showAmPm: boolean;
+  /** undefined = assignments off; null = unassigned ("Anyone"). */
+  assignText?: string | null; wide: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const isSection = item.item_type === 'section_header';
@@ -85,6 +88,7 @@ function ItemRow({ item, id, selected, inSection, onSelect, showAmPm }: {
   return (
     <div
       ref={setNodeRef}
+      data-row-key={id}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
         'relative flex items-stretch border-b border-border last:border-b-0',
@@ -107,10 +111,22 @@ function ItemRow({ item, id, selected, inSection, onSelect, showAmPm }: {
           ) : (
             <>
               <meta.Icon className="h-5 w-5 shrink-0 text-primary" aria-label={meta.label} />
-              <span className={cn('min-w-0 flex-1 break-words line-clamp-2 text-[15px] leading-snug', selected ? 'font-bold' : 'font-semibold', !name && 'italic font-normal text-muted-foreground')}>
-                {name || 'Untitled task'}
+              <span className="min-w-0 flex-1">
+                <span className={cn('block break-words line-clamp-2 text-[15px] leading-snug', selected ? 'font-bold' : 'font-semibold', !name && 'italic font-normal text-muted-foreground')}>
+                  {name || 'Untitled task'}
+                </span>
+                {!wide && (assignText !== undefined || (showAmPm && item.manager_shift)) && (
+                  <span className={cn('mt-0.5 block break-words text-xs', assignText ? 'text-muted-foreground' : 'text-muted-foreground/60')}>
+                    {[assignText !== undefined ? (assignText ?? 'Anyone') : null, showAmPm && item.manager_shift ? item.manager_shift.toUpperCase() : null].filter(Boolean).join(' · ')}
+                  </span>
+                )}
               </span>
-              {showAmPm && item.manager_shift && (
+              {wide && assignText !== undefined && (
+                <span className={cn('max-w-[40%] shrink-0 truncate rounded-full bg-muted px-2.5 py-1 text-xs font-medium', assignText ? 'text-muted-foreground' : 'text-muted-foreground/60')}>
+                  {assignText ?? 'Anyone'}
+                </span>
+              )}
+              {wide && showAmPm && item.manager_shift && (
                 <span className="shrink-0 text-xs font-medium text-muted-foreground">{item.manager_shift.toUpperCase()}</span>
               )}
               <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -132,12 +148,40 @@ export function ChecklistEditor(p: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const wide = useIsWide(rootRef);
   const roomy = useIsWide(rootRef, 1100);
+  const labelFor = useAssignmentLabeler(p.locationId);
+  const showAssign = settings.positionFilteringEnabled;
 
   const selectedIndex = items.findIndex((it, i) => keyOf(it, i) === selectedKey);
   const selected = selectedIndex >= 0 ? items[selectedIndex] : null;
   const taskCount = items.filter((it) => it.item_type !== 'section_header').length;
 
   useEffect(() => { if (selectedKey && selectedIndex < 0) setSelectedKey(null); }, [selectedKey, selectedIndex]);
+
+  const goTo = (i: number) => { if (i < 0 || i >= items.length) return; setFocusNameKey(null); setSelectedKey(keyOf(items[i], i)); };
+  const onPrev = selectedIndex > 0 ? () => goTo(selectedIndex - 1) : undefined;
+  const onNext = selectedIndex >= 0 && selectedIndex < items.length - 1 ? () => goTo(selectedIndex + 1) : undefined;
+
+  // Keep the selected row visible.
+  useEffect(() => {
+    if (!selectedKey) return;
+    const el = rootRef.current?.querySelector(`[data-row-key="${window.CSS.escape(selectedKey)}"]`);
+    (el as HTMLElement | null)?.scrollIntoView({ block: 'nearest' });
+  }, [selectedKey]);
+
+  // Wide: Alt+Up / Alt+Down step through rows when not typing.
+  useEffect(() => {
+    if (!wide || tab !== 'items') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      e.preventDefault();
+      if (selectedIndex < 0) { goTo(0); return; }
+      goTo(selectedIndex + (e.key === 'ArrowUp' ? -1 : 1));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -202,6 +246,9 @@ export function ChecklistEditor(p: Props) {
       itemNumber={selected.item_type === 'section_header' ? null : items.slice(0, selectedIndex + 1).filter((it) => it.item_type !== 'section_header').length}
       compact={!wide}
       onDone={() => setSelectedKey(null)}
+      itemTotal={taskCount}
+      onPrev={onPrev}
+      onNext={onNext}
     />
   );
 
@@ -218,6 +265,8 @@ export function ChecklistEditor(p: Props) {
         inSection={item.item_type !== 'section_header' && inSection}
         onSelect={() => { setFocusNameKey(null); setSelectedKey(k === selectedKey && wide ? null : k); }}
         showAmPm={settings.enableAmPmDivision}
+        wide={wide}
+        assignText={showAssign && item.item_type !== 'section_header' ? labelFor(item) : undefined}
       />
     );
   });
