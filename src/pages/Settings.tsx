@@ -86,9 +86,10 @@ const LOCATION_SECTIONS = ['theme', 'theo-voice', 'notifications', 'nudge-templa
 // Sections that belong to the org tab
 const ORG_SECTIONS = ['billing', 'reporting', 'org-members', 'org-roles'];
 // Sections only super admins see
-const SUPER_ADMIN_SECTIONS = ['theo-usage', 'pin-migration', 'plan-catalogs', 'brands', 'organizations', 'maintenance'];
+const SUPER_ADMIN_SECTIONS = ['system-alerts', 'theo-usage', 'pin-migration', 'plan-catalogs', 'brands', 'organizations', 'maintenance'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
+  'system-alerts': { title: 'System Alerts', icon: <Bell className="h-4 w-4" /> },
   'theo-voice': { title: 'Theo Voice', icon: <AudioLines className="h-4 w-4" /> },
   'theo-usage': { title: 'Theo Usage', icon: <BarChart3 className="h-4 w-4" /> },
   billing: { title: 'Plans & Billing', icon: <CreditCard className="h-4 w-4" /> },
@@ -542,6 +543,7 @@ export default function Settings() {
               'reporting': () => navigate('/reporting'),
               'kds-board': () => navigate('/kds'),
               'plan-catalogs': () => navigate('/super-admin/plans'),
+              'system-alerts': () => navigate('/super-admin/system-alerts'),
             };
 
             if (navLinks[sectionId]) {

@@ -42,7 +42,7 @@ import { useActivePromoTracker } from '@/hooks/useActivePromoTracker';
 import { BillingActivationBanner } from '@/components/billing/BillingActivationBanner';
 import { PageTitle } from '@/components/PageTitle';
 import { SpookifiedEffects } from '@/components/dashboard/SpookifiedEffects';
-import { SpookifiedInvite } from '@/components/dashboard/SpookifiedInvite';
+import { SystemAlertsPopup } from '@/components/system-alerts/SystemAlertsPopup';
 import { markDashReady } from '@/lib/startupSequence';
 
 
@@ -627,7 +627,7 @@ export default function Dashboard() {
   );
   return <Layout>
       <SpookifiedEffects />
-      <SpookifiedInvite />
+      <SystemAlertsPopup />
       <PullToRefresh
         alwaysRefreshKeys={ALWAYS_REFRESH_KEYS}
         cooldownKeys={COOLDOWN_KEYS}
