@@ -521,7 +521,7 @@ export default function Settings() {
 
         {/* Pill selector — only for org_admin and above */}
         {showPillSelector && (
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'location' | 'org' | 'super')} className="w-full">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'location' | 'org' | 'super')} className="w-full mb-4">
             <TabsList className="w-full flex h-10 items-center gap-0.5">
               <TabsTrigger value="location"><span className="truncate">{locationLabel}</span></TabsTrigger>
               <TabsTrigger value="org"><span className="truncate">{orgLabel}</span></TabsTrigger>
