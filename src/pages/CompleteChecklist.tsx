@@ -1657,6 +1657,22 @@ export default function CompleteChecklist() {
                     </span>
                   )}
 
+                  {manualTempOpen[item.id] && (
+                    <div className="absolute inset-0 z-20 flex items-center gap-2 bg-background px-3">
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        placeholder="°F"
+                        autoFocus
+                        aria-label="Temperature in °F"
+                        className="h-9 w-24"
+                        value={manualTempValue[item.id] ?? ''}
+                        onChange={(e) => setManualTempValue(prev => ({ ...prev, [item.id]: e.target.value }))}
+                      />
+                      <Button size="sm" onClick={() => saveManualTemperature(item.id, manualTempValue[item.id] ?? '')}>Save</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setManualTempOpen(prev => ({ ...prev, [item.id]: false }))}>Cancel</Button>
+                    </div>
+                  )}
                   {/* Temperature: same chip + edit button for every reading (or "?" when none) */}
                   {(item.item_type === 'temperature' || item.requires_temperature_validation === true) && (
                     <span className="ml-auto flex items-center gap-1.5 shrink-0">
@@ -1999,7 +2015,7 @@ export default function CompleteChecklist() {
 
                         {/* Number entry, opened from the temperature edit button */}
                         {showTempEntry && !isUploading && (
-                          manualTempOpen[item.id] ? (
+                          manualTempOpen[item.id] && !hasResponse ? (
                             <div className="flex flex-wrap items-center gap-2">
                               <Input
                                 type="number"
@@ -2018,7 +2034,7 @@ export default function CompleteChecklist() {
                               </Button>
                             </div>
                           ) : !hasResponse ? (
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <span className="text-sm text-muted-foreground">Temperature</span>
                               <TempReadingChip
                                 temp={savedTemp}
