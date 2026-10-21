@@ -52,9 +52,18 @@ export default function Tasks() {
 
 
   const isHistoryToday = format(historyDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-  const tasksStatusText = isHistoryToday
-    ? (completionPercent > 0 ? `${completionPercent}% DONE TODAY` : 'NO TASKS DONE YET')
-    : `${completionPercent}% DONE · ${format(historyDate, 'MMM d').toUpperCase()}`;
+  const { doneCount, totalCount } = useMemo(() => {
+    const stats = historyStats || [];
+    return {
+      doneCount: stats.reduce((sum: number, s: any) => sum + (s.completedCount || 0), 0),
+      totalCount: stats.reduce((sum: number, s: any) => sum + (s.itemCount || 0), 0),
+    };
+  }, [historyStats]);
+  const tasksStatusText = totalCount === 0
+    ? (isHistoryToday ? 'NO TASKS TODAY' : `NO TASKS · ${format(historyDate, 'MMM d').toUpperCase()}`)
+    : isHistoryToday
+      ? `${doneCount} OF ${totalCount} DONE TODAY`
+      : `${doneCount} OF ${totalCount} DONE · ${format(historyDate, 'MMM d').toUpperCase()}`;
 
   return (
     <Layout>
