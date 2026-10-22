@@ -108,9 +108,7 @@ final class PhoneTheoVoice {
                 }
                 Task { @MainActor in self?.countChunk() }
             }
-            audio.onLevel = { [weak self] level in
-                Task { @MainActor in self?.micLevel = level }
-            }
+            audio.onLevel = nil // no meter on the iPhone call (saves ~15 main-thread hops a second)
             audio.onDrained = { [weak self] in
                 Task { @MainActor in self?.playbackDrained() }
             }
@@ -267,7 +265,6 @@ final class PhoneTheoVoice {
         guard line != debugLine else { return }
         debugLine = line
         print("[theo-call]", line)
-        if caption.isEmpty { onChange?() } // the Live Activity shows it while there's no caption
     }
 
     // Caption updates are batched (~7 per second) so the 3D view isn't redrawn on every word.
@@ -583,7 +580,10 @@ nonisolated final class TheoAudio: @unchecked Sendable {
         buf.frameLength = AVAudioFrameCount(frames)
         data.withUnsafeBytes { raw in
             let src = raw.bindMemory(to: Int16.self)
-            for i in 0..<frames { dst[i] = Float(Int16(littleEndian: src[i])) / 32768 }
+            // About 3x louder for quiet sounds; loud peaks are rounded off (tanh) instead of crackling.
+            // voiceChat mode plays at call level, which was too quiet on the loudspeaker.
+            let k: Float = 3
+            for i in 0..<frames { dst[i] = tanhf(k * Float(Int16(littleEndian: src[i])) / 32768) }
         }
         lock.lock(); pending += 1; lock.unlock()
         if primed {
@@ -731,6 +731,21 @@ final class TheoCallManager {
         TheoCallBridge.start = { await TheoCallManager.shared.start() }
         TheoCallBridge.end = { TheoCallManager.shared.end() }
         TheoCallBridge.toggleMute = { TheoCallManager.shared.toggleMute() }
+        let center = CFNotificationCenterGetDarwinNotifyCenter()
+        CFNotificationCenterAddObserver(center, nil, { _, _, name, _, _ in
+            let n = name?.rawValue as String?
+            Task { @MainActor in
+                if n == TheoCallSignal.end { TheoCallManager.shared.end() }
+                if n == TheoCallSignal.mute { TheoCallManager.shared.toggleMute() }
+            }
+        }, TheoCallSignal.end as CFString, nil, .deliverImmediately)
+        CFNotificationCenterAddObserver(center, nil, { _, _, name, _, _ in
+            let n = name?.rawValue as String?
+            Task { @MainActor in
+                if n == TheoCallSignal.end { TheoCallManager.shared.end() }
+                if n == TheoCallSignal.mute { TheoCallManager.shared.toggleMute() }
+            }
+        }, TheoCallSignal.mute as CFString, nil, .deliverImmediately)
     }
 
     var isLive: Bool { voice != nil || starting }
@@ -752,10 +767,11 @@ final class TheoCallManager {
         let name = (pairing?["locationName"]).flatMap { $0.isEmpty ? nil : $0 }
             ?? stores.first(where: { $0.id == locationId })?.name ?? "Crew HQ"
 
-        // Clear any leftover card first, then start the Live Activity right away
-        // (iOS requires it for background recording).
-        if activity == nil { for a in Activity<TheoCallAttributes>.activities { await a.end(nil, dismissalPolicy: .immediate) } }
+        // Start the Live Activity right away (iOS requires it for background recording),
+        // then clear any leftover cards from earlier calls without waiting on it.
         startActivity(storeName: name)
+        let keep = activity?.id
+        Task { for a in Activity<TheoCallAttributes>.activities where a.id != keep { await a.end(nil, dismissalPolicy: .immediate) } }
 
         guard NativeAuth.hasSession, let locationId else {
             await showProblem("Open Crew HQ once and sign in, then try again.")
@@ -832,10 +848,7 @@ final class TheoCallManager {
         guard let v = voice, let activity else { return }
         lastPush = Date()
         lastPhase = (v.phase == .listening && v.hearing) ? "hearing" : Self.name(for: v.phase)
-        // While nothing is being said, show the troubleshooting line (temporary, to find the stuck step).
-        let caption = v.caption.isEmpty && v.phase == .listening && !v.hearing
-            ? v.debugLine
-            : String(v.caption.suffix(140))
+        let caption = String(v.caption.suffix(140))
         let state = TheoCallAttributes.ContentState(phase: lastPhase, caption: caption, muted: v.muted)
         Task { await activity.update(ActivityContent(state: state, staleDate: nil)) }
     }

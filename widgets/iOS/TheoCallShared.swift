@@ -25,6 +25,17 @@ enum TheoCallBridge {
     static var toggleMute: (@MainActor () -> Void)?
 }
 
+/// Backup path for End / Mute: if iOS runs the button's intent in the widget extension (where the call
+/// isn't), it rings this bell instead and the app hears it. Darwin notifications cross processes.
+enum TheoCallSignal {
+    static let end = "com.croohq.kitchenmate.theo.end"
+    static let mute = "com.croohq.kitchenmate.theo.mute"
+    static func post(_ name: String) {
+        CFNotificationCenterPostNotification(CFNotificationCenterGetDarwinNotifyCenter(),
+                                             CFNotificationName(name as CFString), nil, nil, true)
+    }
+}
+
 /// Talk to Theo without opening the app: he lives in the Dynamic Island while you talk.
 /// Action Button, Siri ("talk to Crew HQ") or the Control Center button.
 @available(iOS 18.0, *)
@@ -48,7 +59,7 @@ struct EndTheoCallIntent: LiveActivityIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        TheoCallBridge.end?()
+        if let end = TheoCallBridge.end { end() } else { TheoCallSignal.post(TheoCallSignal.end) }
         return .result()
     }
 }
@@ -61,7 +72,7 @@ struct MuteTheoCallIntent: LiveActivityIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        TheoCallBridge.toggleMute?()
+        if let mute = TheoCallBridge.toggleMute { mute() } else { TheoCallSignal.post(TheoCallSignal.mute) }
         return .result()
     }
 }
