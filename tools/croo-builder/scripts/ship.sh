@@ -69,6 +69,9 @@ step "Uploading build $NEW to App Store Connect"
 if ! xcodebuild -exportArchive -archivePath "$OUT/App.xcarchive" -exportOptionsPlist "$OUT/ExportOptions.plist" \
      -exportPath "$OUT/export" -allowProvisioningUpdates ${AUTH[@]+"${AUTH[@]}"} >>"$LOG" 2>&1; then
   grep -E "error:|EXPORT FAILED|Error Domain" "$LOG" | head -20
+  if grep -q "No Accounts with App Store Connect Access" "$LOG"; then
+    fail "Xcode isn't signed in to your Apple developer team. Open Xcode → Settings → Accounts, click +, sign in with your Apple ID, then Ship again."
+  fi
   fail "Upload failed. Press “Copy error” and paste it to Claude. Full log: $LOG"
 fi
 ok "Uploaded build $NEW to TestFlight. Apple emails you when it's ready (usually 10–30 minutes)."
