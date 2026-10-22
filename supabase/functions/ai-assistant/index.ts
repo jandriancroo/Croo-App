@@ -3084,7 +3084,7 @@ async function handleRequest(req: Request, streamer: Streamer | null): Promise<R
     }
 
     const userRole = highest;
-    const { messages, location_id, location_name, source: usageSource, model_override, reasoning_override, actions_dry_run, action_guard, pending_action, pick, list_context } = await req.json();
+    const { messages, location_id, location_name, source: usageSource, model_override, reasoning_override, actions_dry_run, action_guard, pending_action, pick, list_context, no_actions } = await req.json();
     // TEMPORARY model bake-off (test only). Honored only for a super admin AND source "bakeoff"
     // AND one of these ids; otherwise ignored and Theo runs on gemini-2.5-flash. Bake-off calls
     // write no usage rows and return token counts instead. Remove after the bake-off.
@@ -3104,7 +3104,8 @@ async function handleRequest(req: Request, streamer: Streamer | null): Promise<R
     // business-day functions read). "Today" is the store's BUSINESS date.
     // Speed: permissions, crew and the memory lookup only need the store id, so they start now and
     // run alongside the time zone / business date / snapshot / labor work. Results are unchanged.
-    const actionsMayRun = !bakeoff && (usageSource === "voice" || usageSource === "chat");
+    // no_actions: the iPhone call outside the app (Action Button / Siri / Live Activity) can't confirm changes, so it never gets proposals.
+    const actionsMayRun = !bakeoff && no_actions !== true && (usageSource === "voice" || usageSource === "chat");
     const actionsP: Promise<any> = actionsMayRun ? theoActionsAt(supabaseAdmin, user.id, userRole, location_id) : Promise.resolve(null);
     // Crew is only USED when an action is on (needs a valid store id); fetched early, errors held until used.
     const crewP: Promise<Settled<{ id: string; full_name: string; nickname: string | null }[]>> | null =

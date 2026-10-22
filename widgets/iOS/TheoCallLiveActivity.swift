@@ -61,12 +61,24 @@ private struct TheoCallButtons: View {
     let state: TheoCallAttributes.ContentState
     var body: some View {
         HStack(spacing: 10) {
+            if state.offerOpen {
+                // Opens Crew HQ straight to Theo, where changes (Hands) work. Ends this call.
+                Link(destination: URL(string: "croohq://theo")!) {
+                    Label("Open Crew HQ", systemImage: "arrow.up.forward.app")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(Color(red: 0.31, green: 0.70, blue: 0.78)))
+                        .foregroundStyle(.black)
+                }
+            } else {
             Button(intent: MuteTheoCallIntent()) {
                 Label(state.muted ? "Unmute" : "Mute", systemImage: state.muted ? "mic.slash.fill" : "mic.fill")
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .frame(maxWidth: .infinity)
             }
             .tint(Color(white: 0.25))
+            }
             Button(intent: EndTheoCallIntent()) {
                 Label("End", systemImage: "xmark")
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
@@ -103,6 +115,7 @@ struct TheoCallLiveActivity: Widget {
                 TheoCallButtons(state: context.state)
             }
             .padding(16)
+            .widgetURL(URL(string: "croohq://theo")) // tapping the card opens Theo in the app
             .activityBackgroundTint(Color(red: 0.06, green: 0.12, blue: 0.14).opacity(0.85))
             .activitySystemActionForegroundColor(.white)
             .foregroundStyle(.white)

@@ -20,6 +20,8 @@ final class PhoneTheoVoice {
     private(set) var caption = "" { didSet { onChange?() } }
     private(set) var errorText: String?
     private(set) var muted = false { didSet { onChange?() } }
+    /// Theo offered to open Crew HQ for a change (shows the Open Crew HQ button).
+    private(set) var offerOpen = false { didSet { if offerOpen != oldValue { onChange?() } } }
     private(set) var micLevel: Double = 0
     /// True while the server hears you talking (shows "Hearing you…").
     private(set) var hearing = false { didSet { if hearing != oldValue { onChange?() } } }
@@ -31,6 +33,9 @@ final class PhoneTheoVoice {
 
     private static let rate: Double = 24000
     private static let maxLive: TimeInterval = 180
+    /// Hands stays in the app: on this call Theo offers to open Crew HQ instead of making changes.
+    private static let noChangesNote = "\n\nIMPORTANT, this overrides anything above about making changes: on this call (outside the app) you cannot make or preview changes. If the manager asks you to create, change, send, clock, nudge or post anything, don't describe a preview and never say \"confirm on screen\". Say: \"I can't make changes from here. Want me to open the Crew HQ app to do that?\" If they say yes, call offer_open_app, then tell them to tap Open Crew HQ. Questions about the store you answer normally with ask_theo."
+
     private static let voiceSuffix = "\n\n(Voice mode: answer the whole question. If the answer is a list of people, shifts or items, include every one with its key detail (for a schedule: name and shift time). Keep it compact: round numbers, short lines, no tables. You are talking to a manager with full access, so say names and details plainly.)"
 
     private var socket: URLSessionWebSocketTask?
@@ -107,13 +112,18 @@ final class PhoneTheoVoice {
                 "type": "session.update",
                 "session": [
                     "voice": pass.voice,
-                    "instructions": pass.instructions,
+                    "instructions": pass.instructions + Self.noChangesNote,
                     "turn_detection": ["type": "server_vad", "silence_duration_ms": 600],
                     "audio": [
                         "input": ["format": ["type": "audio/pcm", "rate": Int(Self.rate)]],
                         "output": ["format": ["type": "audio/pcm", "rate": Int(Self.rate)], "speed": 1.2],
                     ],
                     "tools": [[
+                        "type": "function",
+                        "name": "offer_open_app",
+                        "description": "Call this when the manager wants a change made (a task, shift, event, message, punch, nudge or announcement) and has said yes to opening the Crew HQ app. It puts an Open Crew HQ button on their screen.",
+                        "parameters": ["type": "object", "properties": [:]],
+                    ], [
                         "type": "function",
                         "name": "ask_theo",
                         "description": "Ask Theo's store-data brain any question about this store (sales, labor, schedule, checklists, tips, reviews, punches, crew). Returns the answer to speak. Before calling ask_theo, say a 2-4 word filler like \"Checking the numbers…\", then call it. Don't repeat the filler after the answer.",
@@ -249,9 +259,16 @@ final class PhoneTheoVoice {
                let obj = try? JSONSerialization.jsonObject(with: args) as? [String: Any] {
                 question = obj["question"] as? String ?? ""
             }
-            let output = (ev["name"] as? String) == "ask_theo" && !question.isEmpty
-                ? await askTheo(question)
-                : "{\"error\":\"Unknown tool\"}"
+            let toolName = ev["name"] as? String
+            let output: String
+            if toolName == "offer_open_app" {
+                offerOpen = true
+                output = "{\"ok\":true,\"say\":\"Tap Open Crew HQ on your screen and I'll pick it up there.\"}"
+            } else if toolName == "ask_theo" && !question.isEmpty {
+                output = await askTheo(question)
+            } else {
+                output = "{\"error\":\"Unknown tool\"}"
+            }
             caption = ""
             captionBuffer = ""
             try? await send(["type": "conversation.item.create",
@@ -401,6 +418,7 @@ final class PhoneTheoVoice {
                 "location_id": locationId,
                 "location_name": locationName,
                 "source": "voice",
+                "no_actions": true, // this call can't confirm changes; Hands lives in the app
             ])
             let answer = d["content"] as? String ?? ""
             if !answer.isEmpty { history = Array((history + [(question, String(answer.prefix(300)))]).suffix(6)) }
@@ -933,6 +951,7 @@ final class TheoCallManager {
     }
 
     private var lastPhase = ""
+    private var lastOffer = false
     private var pulse = 0
     private var pulseTask: Task<Void, Never>?
 
@@ -964,9 +983,15 @@ final class TheoCallManager {
         let previous = lastPhase
         lastPhase = (v.phase == .listening && v.hearing) ? "hearing" : Self.name(for: v.phase)
         let caption = String(v.caption.suffix(140))
-        let state = TheoCallAttributes.ContentState(phase: lastPhase, caption: caption, muted: v.muted, pulse: pulse)
+        let state = TheoCallAttributes.ContentState(phase: lastPhase, caption: caption, muted: v.muted, pulse: pulse, offerOpen: v.offerOpen)
         let content = ActivityContent(state: state, staleDate: nil)
-        if lastPhase == "speaking" && previous != "speaking" {
+        let newOffer = v.offerOpen && !lastOffer
+        lastOffer = v.offerOpen
+        if newOffer {
+            // Pop the Island open so the Open Crew HQ button is right there.
+            let alert = AlertConfiguration(title: "Theo", body: "Open Crew HQ to make that change", sound: .named("theo-silent.wav"))
+            Task { await activity.update(content, alertConfiguration: alert) }
+        } else if lastPhase == "speaking" && previous != "speaking" {
             // Pops the Dynamic Island open (and lights the Lock Screen) when Theo starts answering.
             // iOS decides how long it stays open; a silent sound so it doesn't ding.
             let alert = AlertConfiguration(title: "Theo", body: "Answering…", sound: .named("theo-silent.wav"))
@@ -984,6 +1009,7 @@ final class TheoCallManager {
         pulseTask = nil
         guard let activity else { return }
         self.activity = nil
+        lastOffer = false
         if let message {
             let state = TheoCallAttributes.ContentState(phase: "error", caption: message, muted: false)
             await activity.update(ActivityContent(state: state, staleDate: nil))

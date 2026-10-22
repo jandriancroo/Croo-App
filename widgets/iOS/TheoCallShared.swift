@@ -15,6 +15,8 @@ struct TheoCallAttributes: ActivityAttributes {
         var muted: Bool
         /// Ticks about once a second while someone is talking, so the bars move (Live Activities can't animate on their own).
         var pulse: Int = 0
+        /// Theo offered to open Crew HQ (for a change): the card shows an "Open Crew HQ" button.
+        var offerOpen: Bool = false
     }
     var storeName: String
     var startedAt: Date

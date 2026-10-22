@@ -56,6 +56,8 @@ enum TheoLauncher {
 
     static func open(in root: UIViewController?, attempt: Int = 0) {
         guard attempt < 60 else { return }
+        // Coming from the Theo call card: hang that call up so the app's Theo gets the mic.
+        if attempt == 0, #available(iOS 18.0, *) { Task { @MainActor in TheoCallManager.shared.end() } }
         let js = "(function(){if(window.__theoReady){window.dispatchEvent(new Event('open-theo-voice'));return true;}return false;})()"
         let web = (root as? CAPBridgeViewController)?.bridge?.webView
         web?.evaluateJavaScript(js) { result, _ in
