@@ -451,9 +451,9 @@ nonisolated final class TheoAudio: @unchecked Sendable {
 
     func start() throws {
         let session = AVAudioSession.sharedInstance()
-        // Normal mode, not .voiceChat: voiceChat without Apple's call processing (which won't run in the
-        // background) kept the mic around 5% and Theo's voice faint. Loudspeaker unless headphones/car.
-        try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
+        // .voiceChat is the only mode iOS lets a background call activate (.default failed: "Session activation failed").
+        // Theo was faint because voiceChat routes to the earpiece, so force the loudspeaker unless headphones/car.
+        try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetooth])
         try session.setActive(true)
         let onBuiltIn = session.currentRoute.outputs.allSatisfy { $0.portType == .builtInReceiver || $0.portType == .builtInSpeaker }
         if onBuiltIn { try? session.overrideOutputAudioPort(.speaker) }
@@ -494,7 +494,7 @@ nonisolated final class TheoAudio: @unchecked Sendable {
             // Small boost so normal talking reaches Theo's "someone is speaking" level (clipped, never wraps).
             let n = Int(out.frameLength)
             for i in 0..<n {
-                let v = Int32(ch[0][i]) * 5 / 2
+                let v = Int32(ch[0][i]) * 3
                 ch[0][i] = Int16(max(-32767, min(32767, v)))
             }
             // Loudness for the on-screen meter, measured on what we actually send.
@@ -743,7 +743,9 @@ final class TheoCallManager {
         let name = (pairing?["locationName"]).flatMap { $0.isEmpty ? nil : $0 }
             ?? stores.first(where: { $0.id == locationId })?.name ?? "Crew HQ"
 
-        // The Live Activity has to start right away (iOS requires it for background recording).
+        // Clear any leftover card first, then start the Live Activity right away
+        // (iOS requires it for background recording).
+        if activity == nil { for a in Activity<TheoCallAttributes>.activities { await a.end(nil, dismissalPolicy: .immediate) } }
         startActivity(storeName: name)
 
         guard NativeAuth.hasSession, let locationId else {
@@ -763,8 +765,20 @@ final class TheoCallManager {
         await v.start()
     }
 
+    /// End always works: stops the call if one is running, and clears any leftover card either way.
     func end() {
-        voice?.stop()
+        if let v = voice {
+            v.stop()
+        } else {
+            Task { await Self.endAllActivities() }
+        }
+    }
+
+    /// Clears every Theo call card (leftovers from a failed or force-quit call).
+    static func endAllActivities() async {
+        for a in Activity<TheoCallAttributes>.activities {
+            await a.end(nil, dismissalPolicy: .immediate)
+        }
     }
 
     func toggleMute() {
