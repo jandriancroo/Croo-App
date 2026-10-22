@@ -10,6 +10,8 @@ struct TheoVolume: View {
     @State private var orb = Entity()
     @State private var frameTick: EventSubscription?
     @State private var motion = OrbMotion()
+    /// Show Theo's words under him (remembered between sessions).
+    @AppStorage("theoShowCaptions") private var showCaptions = true
 
     var body: some View {
         RealityView { content, attachments in
@@ -50,7 +52,7 @@ struct TheoVolume: View {
                     .font(.title.weight(.bold))
                     .foregroundStyle(voice.phase == .error ? VColor.red : .white)
                     .shadow(radius: 6)
-                if !voice.caption.isEmpty {
+                if showCaptions && !voice.caption.isEmpty {
                     Text(voice.caption)
                         .font(.title3)
                         .multilineTextAlignment(.center)
@@ -58,18 +60,28 @@ struct TheoVolume: View {
                         .frame(maxWidth: 420)
                         .shadow(radius: 6)
                 }
-                if voice.isLive {
-                    Button(role: .destructive) { voice.stop() } label: {
-                        Label("End", systemImage: "xmark")
+                HStack(spacing: 12) {
+                    if voice.isLive {
+                        Button(role: .destructive) { voice.stop() } label: {
+                            Label("End", systemImage: "xmark")
+                        }
+                        .controlSize(.large)
+                    } else {
+                        Button { Task { await voice.start(store: store) } } label: {
+                            Label("Talk to Theo", systemImage: "waveform")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(VColor.orange)
+                        .controlSize(.large)
                     }
-                    .controlSize(.large)
-                } else {
-                    Button { Task { await voice.start(store: store) } } label: {
-                        Label("Talk to Theo", systemImage: "waveform")
+                    // Words on / off
+                    Button { showCaptions.toggle() } label: {
+                        Image(systemName: showCaptions ? "captions.bubble.fill" : "captions.bubble")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(VColor.orange)
+                    .buttonBorderShape(.circle)
                     .controlSize(.large)
+                    .help(showCaptions ? "Hide Theo's words" : "Show Theo's words")
+                    .accessibilityLabel(showCaptions ? "Hide captions" : "Show captions")
                 }
             }
         }
