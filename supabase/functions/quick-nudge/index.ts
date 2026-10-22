@@ -7,6 +7,12 @@ import { renderNudgeText, fieldsFor, missingFields, DEFAULT_NUDGE_TEMPLATES, MAX
 import { loadTarget, nudgeAudience, senderFirstName, nudgeableTargets, storeTimezone } from "../_shared/nudgeData.ts";
 import { buildNudgeList } from "../_shared/nudgeList.ts";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
