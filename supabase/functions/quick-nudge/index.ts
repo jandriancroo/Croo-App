@@ -1,7 +1,6 @@
 // Quick Nudge (checklists, tasks, events). THE only send path: the dashboard sheet and Theo's Send nudge tap both call this.
 // Recipients are computed here at send time (everyone on the clock at the store, minus the sender, minus cooldown).
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { authenticateCaller } from "../_shared/callerAuth.ts";
 import { roleForUser, NUDGE_ROLES } from "../_shared/theoActions.ts";
 import { renderNudgeText, fieldsFor, missingFields, DEFAULT_NUDGE_TEMPLATES, MAX_MESSAGE, NUDGE_COOLDOWN_MIN, FIELD_LABELS, TARGET_TYPES, type TargetType } from "../_shared/nudgePlan.ts";
