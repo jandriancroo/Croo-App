@@ -21,7 +21,7 @@ export function constantTimeEqual(a: string, b: string): boolean {
 }
 
 export async function sha256(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(bytes).buffer);
   return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
@@ -139,7 +139,7 @@ async function release(req: Request, url: URL, db: SupabaseClient) {
   return json({ version, download_url: downloadUrl, sha256: digest });
 }
 
-export function createHandler(db: SupabaseClient, clock = () => DateTime.utc()) {
+export function createHandler(db: SupabaseClient, clock: () => DateTime = () => DateTime.utc()) {
   return async (req: Request): Promise<Response> => {
     if (req.method === 'OPTIONS') return empty(405);
     const url = new URL(req.url);

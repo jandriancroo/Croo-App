@@ -59,7 +59,8 @@ Deno.test('all protected routes enforce their exact scope', async () => {
   }
 });
 Deno.test('OPTIONS 405, unknown route 404, public latest empty 404; no CORS', async () => {
-  for (const [path, method, status] of [['/', 'OPTIONS', 405], ['/unknown', 'GET', 404], ['/latest', 'GET', 404]]) {
+  const cases: [string, string, number][] = [['/', 'OPTIONS', 405], ['/unknown', 'GET', 404], ['/latest', 'GET', 404]];
+  for (const [path, method, status] of cases) {
     const response = await (await fixture()).handler(request(path, method));
     equal(response.status, status); equal(await response.text(), '');
     equal([...response.headers.keys()].some(key => key.startsWith('access-control-')), false);
