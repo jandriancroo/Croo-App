@@ -32,6 +32,12 @@ struct TheoVolume: View {
             }
         }
         .volumeBaseplateVisibility(.hidden) // no glowing "plate" under him
+        // Look at Theo and pinch: he starts listening. Pinch again while he's on to end.
+        .gesture(
+            SpatialTapGesture()
+                .targetedToEntity(orb)
+                .onEnded { _ in togglePinch() }
+        )
         .task {
             if store.hasUserSession { await voice.start(store: store) }
         }
@@ -66,13 +72,6 @@ struct TheoVolume: View {
                             Label("End", systemImage: "xmark")
                         }
                         .controlSize(.large)
-                    } else {
-                        Button { Task { await voice.start(store: store) } } label: {
-                            Label("Talk to Theo", systemImage: "waveform")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(VColor.orange)
-                        .controlSize(.large)
                     }
                     // Words on / off
                     Button { showCaptions.toggle() } label: {
@@ -90,7 +89,7 @@ struct TheoVolume: View {
 
     private var statusText: String {
         switch voice.phase {
-        case .idle: return "Tap to talk"
+        case .idle: return "Pinch Theo to talk"
         case .connecting: return "Connecting…"
         case .listening: return "Listening…"
         case .thinking: return "Checking…"
@@ -99,10 +98,22 @@ struct TheoVolume: View {
         }
     }
 
+    private func togglePinch() {
+        if voice.isLive {
+            voice.stop()
+        } else if store.hasUserSession {
+            Task { await voice.start(store: store) }
+        }
+    }
+
     // MARK: 3D orb
 
     private func buildOrb() {
         guard orb.children.isEmpty else { return }
+        // Pinch target: an invisible sphere around the dots, with the system look-highlight.
+        orb.components.set(InputTargetComponent())
+        orb.components.set(CollisionComponent(shapes: [.generateSphere(radius: 0.13)]))
+        orb.components.set(HoverEffectComponent())
         let n = 420
         let radius: Float = 0.11
         let golden = Float.pi * (3 - 5.0.squareRoot().float)
