@@ -18,6 +18,11 @@ enum NativeAuth {
     private static let refreshKey = "croo.native.refresh"
     private static let userKey = "croo.native.userId"
     private static let selfPairingKey = "croo.native.selfPairing"
+    // The access token is kept too (not just in memory), so a call started from a cold app
+    // skips a sign-in refresh round trip while the token is still good (about an hour).
+    private static let accessKey = "croo.native.access"
+    private static let accessExpiryKey = "croo.native.accessExpiry"
+    private static var refreshing: Task<String, Error>?
 
     private static var accessToken: String?
     private static var accessExpiry = Date.distantPast
@@ -76,6 +81,8 @@ enum NativeAuth {
     /// Called when the person signs out of the app.
     static func signOut(keepWatchPairing: Bool = true) {
         NativeKeychain.delete(refreshKey)
+        NativeKeychain.delete(accessKey)
+        UserDefaults.standard.removeObject(forKey: accessExpiryKey)
         UserDefaults.standard.removeObject(forKey: userKey)
         accessToken = nil
         accessExpiry = .distantPast
@@ -89,7 +96,20 @@ enum NativeAuth {
 
     /// A fresh access token for the signed-in person, refreshed when close to expiring.
     static func validAccessToken() async throws -> String {
+        if accessToken == nil, let saved = NativeKeychain.read(accessKey) {
+            accessToken = saved
+            accessExpiry = Date(timeIntervalSince1970: UserDefaults.standard.double(forKey: accessExpiryKey))
+        }
         if let t = accessToken, accessExpiry > Date().addingTimeInterval(60) { return t }
+        // One refresh at a time (the pass, the usage log and a prefetch can all ask at once).
+        if let r = refreshing { return try await r.value }
+        let task = Task { try await refreshNow() }
+        refreshing = task
+        defer { refreshing = nil }
+        return try await task.value
+    }
+
+    private static func refreshNow() async throws -> String {
         guard let refresh = NativeKeychain.read(refreshKey),
               let url = URL(string: supabaseURL + "/auth/v1/token?grant_type=refresh_token") else {
             throw NativeAuthError.signedOut
@@ -117,6 +137,10 @@ enum NativeAuth {
         let expiresIn = (obj["expires_in"] as? Double) ?? Double(obj["expires_in"] as? Int ?? 3600)
         accessExpiry = Date().addingTimeInterval(expiresIn)
         if let r = obj["refresh_token"] as? String { NativeKeychain.save(refreshKey, r) }
+        if let t = accessToken {
+            NativeKeychain.save(accessKey, t)
+            UserDefaults.standard.set(accessExpiry.timeIntervalSince1970, forKey: accessExpiryKey)
+        }
     }
 
     private static func call(action: String, body: [String: Any], bearer: String) async throws -> [String: Any] {

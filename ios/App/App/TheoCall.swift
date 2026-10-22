@@ -36,6 +36,7 @@ final class PhoneTheoVoice {
     private var socket: URLSessionWebSocketTask?
     private var audio: TheoAudio?
     private var early: EarlyAudio?
+    private var connectStart: Date?
     private var history: [(q: String, a: String)] = []
     private var responseDone = true
     private var spokeThisResponse = false
@@ -72,6 +73,10 @@ final class PhoneTheoVoice {
         do {
             // Mic and the "ready" cue start immediately; Theo's connection comes up behind it
             // (4-6 s on a cold start). Anything you say meanwhile is held and sent the moment he's connected.
+            connectStart = Date()
+            // Get Theo's pass (a ready one if we have it) while the mic starts, and warm up the line to xAI.
+            let passTask = Task { try await Self.takePass(locationId: self.locationId) }
+            Self.warmVoiceLine()
             let audio = try TheoAudio(rate: Self.rate)
             self.audio = audio
             let early = EarlyAudio()
@@ -90,7 +95,7 @@ final class PhoneTheoVoice {
             phase = .listening
             liveStart = Date()
 
-            let pass = try await fetchPass(locationId: locationId)
+            let pass = try await passTask.value
             guard self.audio === audio else { return } // ended while connecting
 
             guard let url = URL(string: "wss://api.x.ai/v1/realtime?model=\(pass.model)") else { throw TheoError("Bad voice URL") }
@@ -207,6 +212,10 @@ final class PhoneTheoVoice {
         case "response.output_audio_transcript.delta", "response.audio_transcript.delta":
             if let d = ev["delta"] as? String { appendCaption(d) }
         case "session.created", "session.updated":
+            if let t = connectStart, caption.isEmpty {
+                connectStart = nil
+                caption = String(format: "Connected in %.1fs", Date().timeIntervalSince(t)) // temporary, to measure
+            }
             if let session = ev["session"] as? [String: Any],
                let audioCfg = session["audio"] as? [String: Any],
                let output = audioCfg["output"] as? [String: Any],
@@ -310,7 +319,40 @@ final class PhoneTheoVoice {
     // MARK: Network
 
     private struct TheoError: Error { let message: String; init(_ m: String) { message = m } }
-    private struct Pass { let token: String; let model: String; let voice: String; let instructions: String }
+    struct Pass { let token: String; let model: String; let voice: String; let instructions: String }
+
+    // A pass fetched ahead of time (app opened, or a call just ended). Used once, and only while it
+    // has more time left than a call can last (3 min of its 5), so "Talk to Theo" skips the slowest step.
+    private static var readyPass: (pass: Pass, locationId: String, at: Date)?
+    private static var prefetching = false
+
+    static func takePass(locationId: String) async throws -> Pass {
+        if let r = readyPass, r.locationId == locationId, Date().timeIntervalSince(r.at) < 110 {
+            readyPass = nil
+            return r.pass
+        }
+        readyPass = nil
+        return try await fetchPass(locationId: locationId)
+    }
+
+    static func prefetchPass(locationId: String) {
+        if let r = readyPass, r.locationId == locationId, Date().timeIntervalSince(r.at) < 90 { return }
+        guard !prefetching, NativeAuth.hasSession else { return }
+        prefetching = true
+        Task {
+            defer { prefetching = false }
+            if let p = try? await fetchPass(locationId: locationId) { readyPass = (p, locationId, Date()) }
+        }
+    }
+
+    /// Opens (and caches) the secure connection to xAI while the pass is being fetched.
+    nonisolated static func warmVoiceLine() {
+        guard let url = URL(string: "https://api.x.ai/") else { return }
+        var req = URLRequest(url: url)
+        req.httpMethod = "HEAD"
+        req.timeoutInterval = 5
+        URLSession.shared.dataTask(with: req) { _, _, _ in }.resume()
+    }
 
     private func send(_ obj: [String: Any]) async throws {
         guard let ws = socket else { return }
@@ -318,7 +360,7 @@ final class PhoneTheoVoice {
         try await ws.send(.string(String(decoding: data, as: UTF8.self)))
     }
 
-    private func functionRequest(_ name: String, body: [String: Any]) async throws -> [String: Any] {
+    private static func functionRequest(_ name: String, body: [String: Any]) async throws -> [String: Any] {
         let token: String
         do { token = try await NativeAuth.validAccessToken() } catch { throw TheoError("Open Crew HQ once and sign in, then try again.") }
         guard let url = URL(string: NativeAuth.supabaseURL + "/functions/v1/" + name) else { throw TheoError("Bad URL") }
@@ -334,7 +376,7 @@ final class PhoneTheoVoice {
         return (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
     }
 
-    private func fetchPass(locationId: String) async throws -> Pass {
+    private static func fetchPass(locationId: String) async throws -> Pass {
         let d = try await functionRequest("theo-voice", body: ["action": "session", "location_id": locationId])
         guard let token = d["token"] as? String, !token.isEmpty else {
             throw TheoError(d["error"] as? String ?? "Theo’s voice isn’t available right now.")
@@ -354,7 +396,7 @@ final class PhoneTheoVoice {
         }
         messages.append(["role": "user", "content": question + Self.voiceSuffix])
         do {
-            let d = try await functionRequest("ai-assistant", body: [
+            let d = try await Self.functionRequest("ai-assistant", body: [
                 "messages": messages,
                 "location_id": locationId,
                 "location_name": locationName,
@@ -784,6 +826,22 @@ final class TheoCallManager {
     }
 
     var isLive: Bool { voice != nil || starting }
+
+    /// The store a call would use (the paired store, else the first one).
+    private static func callStore() -> (id: String, name: String)? {
+        let stores = CrooSharedGroup.locations()
+        let pairing = CrooSharedGroup.pairing()
+        guard let id = pairing?["locationId"] ?? stores.first?.id else { return nil }
+        let name = (pairing?["locationName"]).flatMap { $0.isEmpty ? nil : $0 }
+            ?? stores.first(where: { $0.id == id })?.name ?? "Crew HQ"
+        return (id, name)
+    }
+
+    /// Get a pass ready ahead of time (app opened, or a call just ended) so the next call connects faster.
+    func prefetch() {
+        guard voice == nil, !starting, let store = Self.callStore() else { return }
+        PhoneTheoVoice.prefetchPass(locationId: store.id)
+    }
     /// True from the button press until the call is up (or has failed). Blocks a second call.
     private var starting = false
 
@@ -820,6 +878,7 @@ final class TheoCallManager {
             let message = v?.phase == .error ? v?.errorText : nil
             self.voice = nil
             Task { await self.finishActivity(message: message) }
+            if message == nil { self.prefetch() } // ready for a quick follow-up call
         }
         voice = v
         await v.start()

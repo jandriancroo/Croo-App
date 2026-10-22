@@ -139,19 +139,20 @@ Deno.serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return json({ error: "Unauthorized" }, 401);
 
-    const { role: highest, roles: roleList } = await roleForUser(admin, user.id);
+    // The checks' reads run together (one round trip instead of four); the checks themselves are unchanged.
+    const [{ role: highest, roles: roleList }, { data: member }, { data: loc }, { data: pref }] = await Promise.all([
+      roleForUser(admin, user.id),
+      admin.from("user_locations").select("id").eq("user_id", user.id).eq("location_id", locationId).maybeSingle(),
+      admin.from("locations").select("id, name").eq("id", locationId).maybeSingle(),
+      admin.from("theo_voice_prefs").select("voice").eq("user_id", user.id).maybeSingle(),
+    ]);
     const role = highest && MANAGER_ROLES.includes(highest) ? highest : null;
     if (!role) return json({ error: "Theo voice is for shift managers and above" }, 403);
-    if (!roleList.some((r: string) => ALL_ACCESS_ROLES.includes(r))) {
-      const { data: m } = await admin.from("user_locations").select("id").eq("user_id", user.id).eq("location_id", locationId).maybeSingle();
-      if (!m) return json({ error: "No access to this store" }, 403);
-    }
-    const { data: loc } = await admin.from("locations").select("id, name").eq("id", locationId).maybeSingle();
+    if (!roleList.some((r: string) => ALL_ACCESS_ROLES.includes(r)) && !member) return json({ error: "No access to this store" }, 403);
     if (!loc) return json({ error: "Store not found" }, 404);
 
     const xaiKey = Deno.env.get("XAI_API_KEY");
     if (!xaiKey) return json({ error: "Voice is not set up yet" }, 503);
-    const { data: pref } = await admin.from("theo_voice_prefs").select("voice").eq("user_id", user.id).maybeSingle();
     const voice = pref?.voice && VOICES.includes(pref.voice) ? pref.voice : "eve";
 
     if (body.action === "update") {
@@ -173,11 +174,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    const tokenRes = await fetch("https://api.x.ai/v1/realtime/client_secrets", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${xaiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ expires_after: { seconds: 300 } }),
-    });
+    // Mint the pass and look up this person's Theo actions at the same time (both only after the checks above).
+    const [tokenRes, actions] = await Promise.all([
+      fetch("https://api.x.ai/v1/realtime/client_secrets", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${xaiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ expires_after: { seconds: 300 } }),
+      }),
+      // Which Theo actions this person has at this store (store access checked inside). The screen uses only this.
+      theoActionsAt(admin, user.id, role, loc.id),
+    ]);
     if (!tokenRes.ok) {
       console.error("xai token failed", tokenRes.status, await tokenRes.text());
       return json({ error: "Voice service unavailable" }, 502);
@@ -186,8 +192,6 @@ Deno.serve(async (req) => {
     const token = tok?.value || tok?.client_secret?.value || tok?.token;
     if (!token) return json({ error: "Voice service unavailable" }, 502);
 
-    // Which Theo actions this person has at this store (store access checked inside). The screen uses only this.
-    const actions = await theoActionsAt(admin, user.id, role, loc.id);
     return json({
       actions,
       token,
