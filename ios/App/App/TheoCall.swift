@@ -451,8 +451,12 @@ nonisolated final class TheoAudio: @unchecked Sendable {
 
     func start() throws {
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetooth])
+        // Normal mode, not .voiceChat: voiceChat without Apple's call processing (which won't run in the
+        // background) kept the mic around 5% and Theo's voice faint. Loudspeaker unless headphones/car.
+        try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
         try session.setActive(true)
+        let onBuiltIn = session.currentRoute.outputs.allSatisfy { $0.portType == .builtInReceiver || $0.portType == .builtInSpeaker }
+        if onBuiltIn { try? session.overrideOutputAudioPort(.speaker) }
 
         let input = engine.inputNode
         // No voice processing: with it on, iOS never opened the mic for a background call (mic 0),
@@ -487,8 +491,13 @@ nonisolated final class TheoAudio: @unchecked Sendable {
                 self.lock.lock(); self.convertFails += 1; self.lock.unlock()
                 return
             }
-            // Loudness for the on-screen meter, measured on what we actually send.
+            // Small boost so normal talking reaches Theo's "someone is speaking" level (clipped, never wraps).
             let n = Int(out.frameLength)
+            for i in 0..<n {
+                let v = Int32(ch[0][i]) * 5 / 2
+                ch[0][i] = Int16(max(-32767, min(32767, v)))
+            }
+            // Loudness for the on-screen meter, measured on what we actually send.
             var sum: Double = 0
             for i in 0..<n { let v = Double(ch[0][i]) / 32768; sum += v * v }
             let raw = min(1, (sum / Double(n)).squareRoot() * 12)
