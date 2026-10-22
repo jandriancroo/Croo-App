@@ -28,7 +28,7 @@ enum TheoCallBridge {
 /// Talk to Theo without opening the app: he lives in the Dynamic Island while you talk.
 /// Action Button, Siri ("talk to Crew HQ") or the Control Center button.
 @available(iOS 18.0, *)
-struct TalkToTheoIntent: AudioRecordingIntent {
+struct TalkToTheoIntent: AudioRecordingIntent, LiveActivityIntent {
     static var title: LocalizedStringResource = "Talk to Theo"
     static var description = IntentDescription("Talk to Theo without opening Crew HQ. He shows up in the Dynamic Island.")
     static var openAppWhenRun: Bool = false
