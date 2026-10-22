@@ -4,7 +4,7 @@
 (none)
 
 ## In progress
-(none)
+- Toast Status v2: additive tables and public release bucket; scoped native-only function; security tests and deployment. No existing Toast, punch, kiosk, payroll, or frontend changes.
 
 ## Done (Oct 21 late)
 - System alert top photo/video upload; System Alerts page title matches other pages; Settings tab bar spacing.
