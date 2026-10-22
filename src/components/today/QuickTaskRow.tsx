@@ -57,9 +57,9 @@ export function QuickTaskRow({ title, dueLabel, overdue, done, progress, onSelec
       <button
         type="button"
         onClick={onSelect}
-        className={cn('relative flex h-[33px] w-full items-center gap-2 bg-card px-2.5 text-left active:bg-muted/60')}
+        className={cn('relative isolate flex h-[33px] w-full items-center gap-2 bg-card px-2.5 text-left active:bg-muted/60')}
       >
-        {wash && <span aria-hidden data-wash={wash} className={cn('pointer-events-none absolute inset-0', WASH[wash])} />}
+        {wash && <span aria-hidden data-wash={wash} className={cn('pointer-events-none absolute inset-0 -z-10', WASH[wash])} />}
         <TaskGlyph done={!!done} overdue={!!overdue} progress={progress} />
         <span className={cn('flex-1 truncate text-[13px] font-medium text-foreground', done && 'line-through')}>{title}</span>
         {overdue && !done ? (
