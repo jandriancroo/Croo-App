@@ -1,4 +1,5 @@
 import SwiftUI
+import ServiceManagement
 import AppKit
 
 /// The panel that pops out of the menu bar hammer.
@@ -6,6 +7,7 @@ struct PanelView: View {
     @EnvironmentObject var runner: Runner
     @State private var selectedDevice: Device?
     @State private var showLog = false
+    @State private var loginOn = SMAppService.mainApp.status == .enabled
     @State private var notesText = ""
     @State private var previewNotes: String?
 
@@ -235,6 +237,12 @@ struct PanelView: View {
             .help("See the What to Test message the next Ship will post (nothing ships)")
             Button("Change folder…") { pickFolder() }.buttonStyle(.link).font(.caption)
             Button("Terminal") { runner.openInTerminal() }.buttonStyle(.link).font(.caption)
+            Button(loginOn ? "Opens at login ✓" : "Open at login") {
+                if loginOn { try? SMAppService.mainApp.unregister() } else { try? SMAppService.mainApp.register() }
+                loginOn = SMAppService.mainApp.status == .enabled
+            }
+            .buttonStyle(.link).font(.caption)
+            .help("Start Croo Builder automatically when you sign in to this Mac")
             Spacer()
             Button("Quit") { NSApp.terminate(nil) }.buttonStyle(.link).font(.caption)
         }
