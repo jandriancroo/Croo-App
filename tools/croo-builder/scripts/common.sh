@@ -19,30 +19,37 @@ step() { printf '%s\n' "▶ $1"; }
 ok()   { printf '%s\n' "✔ $1"; }
 fail() { printf '%s\n' "✖ $1"; exit 1; }
 
-# Files that tools rewrite on their own (Xcode, npm, CocoaPods, Capacitor).
-# Changes to these are backed up to ~/Developer/CrooHQ backups and reset so a pull never gets blocked.
-AUTO_FILES=(
-  "$PBX"
+# Files that tools rewrite on their own (Xcode, npm, CocoaPods, Capacitor) get reset so a pull
+# never gets blocked. Only the Xcode project file is worth a backup (you might have changed a
+# setting on purpose); the others are always regenerated, so they're reset without a copy.
+BACKUP_FILES=("$PBX")
+REGENERATED_FILES=(
   "package-lock.json"
   "ios/App/Podfile.lock"
   "ios/App/App/capacitor.config.json"
   "ios/App/App/config.xml"
 )
 
+# reset_auto_files [quiet]  — "quiet" = after our own npm/cap steps: reset everything, no backup.
 reset_auto_files() {
-  local backup="$HOME/Developer/CrooHQ backups/$(date +%Y-%m-%d_%H%M%S)"
-  local moved=0
-  for f in "${AUTO_FILES[@]}"; do
+  local mode="${1:-}"
+  local f
+  for f in "${REGENERATED_FILES[@]}"; do
+    if [[ -e "$f" ]] && ! git diff --quiet -- "$f" 2>/dev/null; then git checkout -- "$f"; fi
+  done
+  for f in "${BACKUP_FILES[@]}"; do
     if [[ -e "$f" ]] && ! git diff --quiet -- "$f" 2>/dev/null; then
-      mkdir -p "$backup/$(dirname "$f")"
-      cp "$f" "$backup/$f"
+      if [[ "$mode" != "quiet" ]]; then
+        local stamp backup
+        stamp="$(date +%Y-%m-%d_%H%M%S)"
+        backup="$HOME/Developer/CrooHQ backups/$stamp"
+        mkdir -p "$backup"
+        cp "$f" "$backup/$(basename "$f")"
+        printf '%s\n' "  Set aside Xcode project changes (copy saved in Developer › CrooHQ backups › $stamp)."
+      fi
       git checkout -- "$f"
-      moved=1
     fi
   done
-  if (( moved )); then
-    printf '%s\n' "  Set aside changes Xcode/npm made on their own (copy saved in Developer › CrooHQ backups)."
-  fi
 }
 
 # Stops if there are real edits that aren't saved to GitHub yet.
