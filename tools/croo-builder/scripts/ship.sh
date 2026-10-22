@@ -64,3 +64,38 @@ if ! xcodebuild -exportArchive -archivePath "$OUT/App.xcarchive" -exportOptionsP
   fail "Upload failed. Press “Copy error” and paste it to Claude. Full log: $LOG"
 fi
 ok "Uploaded build $NEW to TestFlight. Apple emails you when it's ready (usually 10–30 minutes)."
+
+# TestFlight notes: Croo Builder posts them (or copies them) after this. Here we file them under
+# this build in ios/TESTFLIGHT_NOTES.md and start a fresh "Next build" section.
+if [[ -n "${CROO_NOTES_FILE:-}" && -f "$CROO_NOTES_FILE" ]] && command -v python3 >/dev/null 2>&1; then
+  step "Filing the TestFlight notes under build $NEW"
+  if python3 - "$CROO_NOTES_FILE" "$NEW" "ios/TESTFLIGHT_NOTES.md" <<'PY'
+import sys, datetime, os
+notes_file, build, path = sys.argv[1], sys.argv[2], sys.argv[3]
+notes = open(notes_file, encoding="utf-8").read().strip()
+text = open(path, encoding="utf-8").read() if os.path.exists(path) else "# TestFlight notes\n\n## Next build\n"
+lines = text.split("\n")
+out, i, done = [], 0, False
+while i < len(lines):
+    line = lines[i]
+    if not done and line.lower().startswith("## next build"):
+        i += 1
+        while i < len(lines) and not lines[i].startswith("## "):
+            i += 1  # drop the old "next build" text (the edited notes replace it)
+        stamp = datetime.date.today().strftime("%b %-d, %Y")
+        out += ["## Next build", "", f"## Build {build} · {stamp}", "", notes, ""]
+        done = True
+        continue
+    out.append(line)
+    i += 1
+if not done:
+    out += ["", "## Next build", "", f"## Build {build}", "", notes, ""]
+open(path, "w", encoding="utf-8").write("\n".join(out).rstrip() + "\n")
+PY
+  then
+    git add ios/TESTFLIGHT_NOTES.md
+    git commit -q -m "TestFlight notes for build $NEW" || true
+    git push -q origin HEAD:main || { git pull --rebase -q origin main && git push -q origin HEAD:main; } || true
+    ok "Notes filed under build $NEW"
+  fi
+fi

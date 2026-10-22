@@ -6,6 +6,7 @@ struct PanelView: View {
     @EnvironmentObject var runner: Runner
     @State private var selectedDevice: Device?
     @State private var showLog = false
+    @State private var notesText = ""
 
     private let orange = Color(red: 0.92, green: 0.49, blue: 0.24)
     private let teal = Color(red: 0.31, green: 0.70, blue: 0.78)
@@ -16,10 +17,12 @@ struct PanelView: View {
             status
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                 tile("Get latest", "arrow.down.circle.fill", teal) { runner.run(.getLatest) }
-                tile("Ship to TestFlight", "paperplane.fill", orange) { runner.run(.ship) }
+                tile("Ship to TestFlight", "paperplane.fill", orange) { runner.prepareShip() }
                 tile("Save my changes", "square.and.arrow.up.fill", .green) { runner.run(.saveChanges) }
                 tile("Open in Xcode", "hammer", .secondary, alwaysOn: true) { runner.openXcode() }
             }
+            if runner.notesDraft != nil { notesEditor }
+            if !runner.notesStatus.isEmpty { notesStatusRow }
             deviceRow
             logSection
             footer
@@ -28,6 +31,7 @@ struct PanelView: View {
         .frame(width: 380)
         .onAppear { if runner.devices.isEmpty { runner.loadDevices() } }
         .onChange(of: runner.isRunning) { _, running in if running { showLog = true } }
+        .onChange(of: runner.notesDraft) { _, draft in if let draft { notesText = draft } }
     }
 
     // MARK: Header + status
@@ -85,6 +89,51 @@ struct PanelView: View {
         .buttonStyle(.plain)
         .disabled(disabled)
         .opacity(disabled ? 0.45 : 1)
+    }
+
+    // MARK: TestFlight notes
+
+    private var notesEditor: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "text.bubble.fill").foregroundStyle(orange)
+                Text("What to Test").font(.callout.weight(.semibold))
+                Spacer()
+                Text(runner.hasASCKey ? "Posts to TestFlight" : "Copied for you to paste")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            TextEditor(text: $notesText)
+                .font(.system(size: 12))
+                .frame(height: 150)
+                .scrollContentBackground(.hidden)
+                .padding(6)
+                .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
+            Text("This is what testers see. Edit it if you want, then ship.")
+                .font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Button("Cancel") { runner.cancelShip() }
+                Spacer()
+                Button {
+                    runner.ship(notes: notesText)
+                } label: { Label("Ship build", systemImage: "paperplane.fill") }
+                .buttonStyle(.borderedProminent)
+                .tint(orange)
+                .disabled(notesText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(10)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private var notesStatusRow: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "text.bubble").foregroundStyle(teal)
+            Text(runner.notesStatus).font(.caption).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            if !runner.hasASCKey {
+                Button("Open") { runner.openAppStoreConnect() }.controlSize(.small)
+            }
+        }
     }
 
     // MARK: Run on device

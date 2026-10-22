@@ -74,6 +74,14 @@ final class Runner: ObservableObject {
 
     private var process: Process?
     private var partial = ""
+    private var onSuccess: (() -> Void)?
+
+    // Ship flow: Get latest → edit the TestFlight notes → Ship → notes posted (or copied).
+    /// Non-nil while the notes editor is showing.
+    @Published var notesDraft: String?
+    /// One line about the notes after a ship ("Posted to TestFlight ✓", "Copied…").
+    @Published var notesStatus = ""
+    var hasASCKey: Bool { TestFlightNotes.apiKey() != nil }
 
     init() {
         let saved = UserDefaults.standard.string(forKey: "repoPath")
@@ -86,8 +94,9 @@ final class Runner: ObservableObject {
 
     // MARK: Running scripts
 
-    func run(_ action: BuilderAction) {
+    func run(_ action: BuilderAction, env extra: [String: String] = [:], onSuccess: (() -> Void)? = nil) {
         guard !isRunning else { return }
+        self.onSuccess = onSuccess
         guard repoLooksRight else {
             lines = [LogLine(text: "✖ Can't find the CrooHQ project at \(repoPath). Use “Change…” to pick the Croo-App folder.")]
             return
@@ -104,6 +113,7 @@ final class Runner: ObservableObject {
         p.currentDirectoryURL = URL(fileURLWithPath: repoPath)
         var env = ProcessInfo.processInfo.environment
         env["CROO_BUILDER"] = "1"
+        extra.forEach { env[$0.key] = $0.value }
         p.environment = env
 
         let pipe = Pipe()
@@ -153,6 +163,66 @@ final class Runner: ObservableObject {
         }
         notify(title: ok ? "\(action.title) ✓" : "\(action.title) failed",
                body: lines.last(where: { $0.kind == .ok || $0.kind == .error })?.text ?? "")
+        let next = onSuccess
+        onSuccess = nil
+        if ok { next?() }
+    }
+
+    // MARK: Ship with TestFlight notes
+
+    /// Step 1: get the latest (so the notes include everyone's changes), then show the notes editor.
+    func prepareShip() {
+        notesStatus = ""
+        run(.getLatest) { [weak self] in
+            guard let self else { return }
+            self.notesDraft = TestFlightNotes.draft(repo: self.repoPath)
+        }
+    }
+
+    func cancelShip() { notesDraft = nil }
+
+    /// Step 2: ship with these notes. Afterwards they're posted to TestFlight (API key) or copied.
+    func ship(notes: String) {
+        let text = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        notesDraft = nil
+        let file = NSTemporaryDirectory() + "croo-testflight-notes.txt"
+        try? text.write(toFile: file, atomically: true, encoding: .utf8)
+        run(.ship, env: ["CROO_NOTES_FILE": file]) { [weak self] in
+            self?.afterShip(notes: text)
+        }
+    }
+
+    private func afterShip(notes: String) {
+        let build = lines.compactMap { line -> String? in
+            guard let r = line.text.range(of: #"Uploaded build (\d+)"#, options: .regularExpression) else { return nil }
+            return line.text[r].components(separatedBy: " ").last
+        }.last
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(notes, forType: .string)
+        guard let build, let key = TestFlightNotes.apiKey() else {
+            notesStatus = "Notes copied. In App Store Connect → TestFlight → the new build, paste them into “What to Test”."
+            return
+        }
+        notesStatus = "Adding the notes to build \(build) once Apple finishes processing it (10–30 min)…"
+        Task { [weak self] in
+            do {
+                try await TestFlightNotes.post(build: build, notes: notes, key: key) { msg in
+                    Task { @MainActor in self?.notesStatus = msg }
+                }
+                await MainActor.run {
+                    self?.notesStatus = "Notes added to build \(build) in TestFlight ✓"
+                    self?.notify(title: "TestFlight notes added", body: "Build \(build) shows your What to Test notes.")
+                }
+            } catch {
+                await MainActor.run {
+                    self?.notesStatus = "Couldn't add the notes (\(error.localizedDescription)). They're copied: paste them into “What to Test”."
+                }
+            }
+        }
+    }
+
+    func openAppStoreConnect() {
+        if let url = URL(string: "https://appstoreconnect.apple.com/apps") { NSWorkspace.shared.open(url) }
     }
 
     /// The useful part of the log for pasting to Claude: every error line plus the last 40 lines.

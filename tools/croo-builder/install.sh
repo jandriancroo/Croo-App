@@ -29,6 +29,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>NSHighResolutionCapable</key><true/>
   <key>LSUIElement</key><true/>
   <key>CrooRepoPath</key><string>$ROOT</string>
+  <key>CrooBuilderSource</key><string>$(git -C "$ROOT" log -1 --format=%h -- tools/croo-builder/App tools/croo-builder/install.sh 2>/dev/null || echo unknown)</string>
 </dict></plist>
 PLIST
 
