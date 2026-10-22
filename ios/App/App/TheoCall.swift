@@ -34,7 +34,7 @@ final class PhoneTheoVoice {
     private static let rate: Double = 24000
     private static let maxLive: TimeInterval = 180
     /// Hands stays in the app: on this call Theo offers to open CrooHQ instead of making changes.
-    private static let noChangesNote = "\n\nIMPORTANT, this overrides anything above about making changes: on this call (outside the app) you cannot make or preview changes. If the manager asks you to create, change, send, clock, nudge or post anything, don't describe a preview and never say \"confirm on screen\". Say: \"I can't make changes from here. Want me to open the CrooHQ app to do that?\" If they say yes, call offer_open_app, then tell them to tap Open CrooHQ. Questions about the store you answer normally with ask_theo."
+    private static let noChangesNote = "\n\nIMPORTANT, this overrides anything above about making changes: on this call (outside the app) you cannot make or preview changes. If the manager asks you to create, change, send, clock, nudge or post anything, don't describe a preview and never say \"confirm on screen\". Say: \"I can't make changes from here. Want me to open the CrooHQ app to do that?\" If they say yes, call offer_open_app, then tell them to tap Open CrooHQ. Questions about the store you answer normally with ask_theo. The app is written CrooHQ and said \"crew H Q\"."
 
     private static let voiceSuffix = "\n\n(Voice mode: answer the whole question. If the answer is a list of people, shifts or items, include every one with its key detail (for a schedule: name and shift time). Keep it compact: round numbers, short lines, no tables. You are talking to a manager with full access, so say names and details plainly.)"
 
