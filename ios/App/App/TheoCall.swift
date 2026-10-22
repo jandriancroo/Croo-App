@@ -422,10 +422,13 @@ nonisolated final class TheoAudio: @unchecked Sendable {
     private var lastLevelSent: CFAbsoluteTime = 0
     private var convertFails = 0
     private var formatInfo = ""
+    private var peak: Double = 0      // loudest sample in the current window (0–1)
+    private var lastPeak: Double = 0  // loudest sample in the last finished ~1 s window
+    private var peakWindowStart: CFAbsoluteTime = 0
     /// "mic buffers 120 · convert fails 0 · in 48000Hz 1ch" for the troubleshooting line.
     var stats: String {
         lock.lock(); defer { lock.unlock() }
-        return "mic buffers \(tapCalls) · convert fails \(convertFails) · \(formatInfo)"
+        return "mic \(tapCalls) · loud \(Int((max(lastPeak, peak) * 100).rounded()))% · fails \(convertFails) · \(formatInfo)"
     }
 
     var onChunk: (@Sendable (String) -> Void)?
@@ -487,7 +490,12 @@ nonisolated final class TheoAudio: @unchecked Sendable {
             var sum: Double = 0
             for i in 0..<n { let v = Double(ch[0][i]) / 32768; sum += v * v }
             let raw = min(1, (sum / Double(n)).squareRoot() * 12)
+            var pk: Double = 0
+            for i in 0..<n { pk = max(pk, abs(Double(ch[0][i])) / 32768) }
             self.lock.lock()
+            self.peak = max(self.peak, pk)
+            let tNow = CFAbsoluteTimeGetCurrent()
+            if tNow - self.peakWindowStart > 1 { self.lastPeak = self.peak; self.peak = 0; self.peakWindowStart = tNow }
             self.level = self.level * 0.6 + raw * 0.4
             let now = CFAbsoluteTimeGetCurrent()
             let due = now - self.lastLevelSent > 0.066
