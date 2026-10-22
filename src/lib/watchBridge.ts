@@ -73,6 +73,9 @@ const noop: WatchBridgePlugin = {
 
 const native = registerPlugin<WatchBridgePlugin>('WatchBridge');
 
+/** Same native plugin, for the iPhone sign-in handoff (src/lib/nativeHandoff.ts). Registered once. */
+export const watchBridgeNative = native as unknown;
+
 /** Only the native iOS shell can talk to the Apple Watch. */
 export const isWatchBridgeAvailable = () =>
   Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';

@@ -1,6 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
-import { registerPlugin } from '@capacitor/core';
-import { isWatchBridgeAvailable } from './watchBridge';
+import { isWatchBridgeAvailable, watchBridgeNative } from './watchBridge';
 
 // iPhone app only: hands the signed-in person to the native side so Siri ("ask Theo…"),
 // the Action Button / Control Center Theo button and the Home Screen widgets work without the
@@ -13,7 +12,7 @@ interface NativeAuthPlugin {
   nativeSignOut(): Promise<{ ok: boolean }>;
 }
 
-const native = registerPlugin<NativeAuthPlugin>('WatchBridge');
+const native = watchBridgeNative as NativeAuthPlugin;
 let lastUserId: string | null = null;
 
 export async function syncNativeSession(session: Session | null) {
