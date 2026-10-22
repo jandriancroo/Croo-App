@@ -26,6 +26,8 @@ if [[ -f "$HOME/.croo-builder/asc.env" ]]; then
   AUTH=(-authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
 fi
 
+ensure_pods
+
 step "Archiving build $NEW (about 5–15 minutes, you can keep working)"
 if ! xcodebuild -workspace "$WORKSPACE" -scheme App -configuration Release \
      -destination 'generic/platform=iOS' -archivePath "$OUT/App.xcarchive" \

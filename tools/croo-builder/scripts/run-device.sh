@@ -7,6 +7,8 @@ SCHEME="${1:?scheme}"; UDID="${2:?device}"; PLATFORM="${3:-iOS}"
 DD="$CACHE/DerivedData"
 LOG="$CACHE/run-$(date +%Y%m%d-%H%M%S).log"
 
+ensure_pods
+
 step "Building $SCHEME for your device (first build takes a few minutes)"
 if ! xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Debug \
      -destination "id=$UDID" -derivedDataPath "$DD" -allowProvisioningUpdates build >"$LOG" 2>&1; then

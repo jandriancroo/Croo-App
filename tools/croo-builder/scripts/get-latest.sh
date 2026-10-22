@@ -17,4 +17,5 @@ ok "Web app built"
 step "Copying the web app into the iPhone app"
 npx cap sync ios >"$CACHE/cap-sync.log" 2>&1 || { tail -30 "$CACHE/cap-sync.log"; fail "cap sync failed."; }
 reset_auto_files quiet
+ensure_pods
 ok "Ready: this Mac has the newest app. Open Xcode or press Run / Ship."
