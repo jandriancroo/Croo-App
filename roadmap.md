@@ -4,7 +4,10 @@
 (none)
 
 ## In progress
-- Toast Status v2: additive tables and public release bucket; scoped native-only function; security tests and deployment. No existing Toast, punch, kiosk, payroll, or frontend changes.
+- Toast Status public downloads: blocked by workspace public-bucket restriction. Owner/admin must allow public buckets under Settings → Privacy & Security, then make toast-status-releases public. Release publishing deliberately returns 503 until then.
+
+## Done (Toast Status v2)
+- Added service-only tokens/restart tables, public release metadata, atomic restart RPC, scoped native-only toast-status function and tests. Deployed; 10 tests passed and live empty 401/404/405 + no-CORS checks passed. No tokens inserted; authorized live flows wait for owner-supplied tokens. Existing Toast, punch, kiosk, payroll and frontend unchanged.
 
 ## Done (Oct 21 late)
 - System alert top photo/video upload; System Alerts page title matches other pages; Settings tab bar spacing.
