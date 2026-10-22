@@ -42,12 +42,22 @@ struct LogLine: Identifiable {
     }
 }
 
+/// A real iPhone or Vision Pro this Mac has paired with (Croo Builder never lists simulators).
 struct Device: Identifiable, Hashable {
-    let id: String      // UDID
-    let name: String
+    let id: String       // UDID
+    let name: String     // the name you gave it, e.g. "Jordan's iPhone"
+    let model: String    // e.g. "iPhone 18 Pro"
     let platform: String // "iOS" or "visionOS"
+    let reachable: Bool  // connected right now (Wi-Fi or cable)
+    let via: String      // "Wi-Fi" / "Cable" / ""
     var scheme: String { platform == "visionOS" ? "CrooVision" : "App" }
     var symbol: String { platform == "visionOS" ? "visionpro" : "iphone" }
+    /// What the picker shows: "Jordan's iPhone · iPhone 18 Pro · Ready (Wi-Fi)"
+    var label: String {
+        let modelPart = (model.isEmpty || model == name) ? "" : " · \(model)"
+        let status = reachable ? "Ready\(via.isEmpty ? "" : " (\(via))")" : "Not connected"
+        return "\(name)\(modelPart) · \(status)"
+    }
 }
 
 @MainActor
@@ -184,13 +194,25 @@ final class Runner: ObservableObject {
         return list.compactMap { d in
             let hw = d["hardwareProperties"] as? [String: Any] ?? [:]
             let props = d["deviceProperties"] as? [String: Any] ?? [:]
-            guard let udid = hw["udid"] as? String,
-                  let platform = hw["platform"] as? String,
-                  platform == "iOS" || platform == "visionOS" else { return nil }
-            let name = props["name"] as? String ?? (hw["marketingName"] as? String ?? platform)
-            return Device(id: udid, name: name, platform: platform)
+            let conn = d["connectionProperties"] as? [String: Any] ?? [:]
+            guard let udid = hw["udid"] as? String, let raw = hw["platform"] as? String else { return nil }
+            // Real devices only: skip anything that reports itself as a simulator.
+            if (hw["reality"] as? String)?.lowercased() == "virtual" { return nil }
+            let platform: String
+            switch raw.lowercased() {
+            case "ios": platform = "iOS"
+            case "visionos", "xros": platform = "visionOS"
+            default: return nil // watch, Mac, TV: not runnable from here
+            }
+            let model = hw["marketingName"] as? String ?? (hw["productType"] as? String ?? "")
+            let name = props["name"] as? String ?? (model.isEmpty ? platform : model)
+            let tunnel = (conn["tunnelState"] as? String ?? "").lowercased()
+            let transport = (conn["transportType"] as? String ?? "").lowercased()
+            let reachable = tunnel == "connected" || transport == "wired" || transport == "localnetwork"
+            let via = transport == "wired" ? "Cable" : (transport == "localnetwork" || transport == "network" ? "Wi-Fi" : "")
+            return Device(id: udid, name: name, model: model, platform: platform, reachable: reachable, via: via)
         }
-        .sorted { $0.name < $1.name }
+        .sorted { ($0.reachable ? 0 : 1, $0.name) < ($1.reachable ? 0 : 1, $1.name) }
     }
 
     // MARK: Helpers

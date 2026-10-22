@@ -94,7 +94,7 @@ struct PanelView: View {
             Picker("", selection: $selectedDevice) {
                 Text(runner.devices.isEmpty ? "No device found" : "Run on…").tag(Device?.none)
                 ForEach(runner.devices) { d in
-                    Label(d.name, systemImage: d.symbol).tag(Device?.some(d))
+                    Label(d.label, systemImage: d.symbol).tag(Device?.some(d))
                 }
             }
             .labelsHidden()
@@ -110,8 +110,9 @@ struct PanelView: View {
                 }
             } label: { Label("Run", systemImage: "play.fill") }
             .buttonStyle(.borderedProminent)
-            .disabled(selectedDevice == nil || runner.isRunning)
+            .disabled(selectedDevice == nil || runner.isRunning || selectedDevice?.reachable == false)
         }
+        .help("Only your real iPhones and Vision Pro show here (no simulators). “Not connected” = unlock it and join the same Wi-Fi, then tap refresh.")
     }
 
     // MARK: Log
