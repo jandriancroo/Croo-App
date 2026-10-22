@@ -66,7 +66,10 @@ cat >"$OUT/ExportOptions.plist" <<PLIST
 PLIST
 
 step "Uploading build $NEW to App Store Connect"
+# First try the Apple account signed in to Xcode (Admin can sign the upload); the App Manager key is the fallback.
 if ! xcodebuild -exportArchive -archivePath "$OUT/App.xcarchive" -exportOptionsPlist "$OUT/ExportOptions.plist" \
+     -exportPath "$OUT/export" -allowProvisioningUpdates >>"$LOG" 2>&1 \
+   && ! xcodebuild -exportArchive -archivePath "$OUT/App.xcarchive" -exportOptionsPlist "$OUT/ExportOptions.plist" \
      -exportPath "$OUT/export" -allowProvisioningUpdates ${AUTH[@]+"${AUTH[@]}"} >>"$LOG" 2>&1; then
   grep -E "error:|EXPORT FAILED|Error Domain" "$LOG" | head -20
   if grep -q "No Accounts with App Store Connect Access" "$LOG"; then
