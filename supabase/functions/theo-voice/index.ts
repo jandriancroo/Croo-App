@@ -1,7 +1,11 @@
 // Theo Voice — mints short-lived Grok live-voice passes and serves the
 // per-location 4-hour opening update. The xAI key never leaves the server.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+};
 import { encodeBase64 } from "jsr:@std/encoding@1/base64";
 import { roleForUser, theoActionsAt, type TheoActions } from "../_shared/theoActions.ts";
 import { isWarmPing, warmResponse } from "../_shared/warm.ts";
