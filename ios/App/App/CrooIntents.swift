@@ -212,7 +212,7 @@ struct NextEventIntent: AppIntent {
 @available(iOS 18.0, *)
 struct AskTheoIntent: AppIntent {
     static var title: LocalizedStringResource = "Ask Theo"
-    static var description = IntentDescription("Ask Theo anything about your store. Siri reads his answer.")
+    static var description = IntentDescription("Ask Theo anything about your store.")
 
     // Optional on purpose: when it's empty (Action Button, Shortcuts, "ask CrooHQ"), we ask for it
     // explicitly below, which works everywhere, including from the Action Button.
