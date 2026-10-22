@@ -4,7 +4,6 @@
 source "$(dirname "$0")/common.sh"
 
 SCHEME="${1:?scheme}"; UDID="${2:?device}"; PLATFORM="${3:-iOS}"
-SDKDIR="Debug-iphoneos"; [[ "$PLATFORM" == "visionOS" ]] && SDKDIR="Debug-xros"
 DD="$CACHE/DerivedData"
 LOG="$CACHE/run-$(date +%Y%m%d-%H%M%S).log"
 
@@ -16,8 +15,21 @@ if ! xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Debug \
 fi
 ok "Built"
 
-APP="$(find "$DD/Build/Products/$SDKDIR" -maxdepth 1 -name '*.app' -print -quit)"
-[[ -n "$APP" ]] || fail "Couldn't find the built app."
+# Ask Xcode where it put the app (folder names differ per device type), then fall back to searching.
+SETTINGS="$(xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Debug \
+  -destination "id=$UDID" -derivedDataPath "$DD" -showBuildSettings 2>/dev/null || true)"
+TBD="$(printf '%s\n' "$SETTINGS" | awk -F' = ' '/^ *TARGET_BUILD_DIR = /{print $2; exit}')"
+FPN="$(printf '%s\n' "$SETTINGS" | awk -F' = ' '/^ *FULL_PRODUCT_NAME = /{print $2; exit}')"
+APP=""
+if [[ -n "$TBD" && -n "$FPN" && -d "$TBD/$FPN" ]]; then
+  APP="$TBD/$FPN"
+else
+  APP="$(find "$DD/Build/Products" -maxdepth 2 -type d -name '*.app' ! -path '*simulator*' 2>/dev/null \
+    | grep -E "/(${SCHEME}|${FPN%.app})\.app$" | head -1 || true)"
+  [[ -n "$APP" ]] || APP="$(ls -td "$DD"/Build/Products/*/*.app 2>/dev/null | grep -v simulator | head -1 || true)"
+fi
+[[ -n "$APP" && -d "$APP" ]] || fail "Built, but couldn't find the app in $DD/Build/Products. Copy this log to Claude."
+printf '%s\n' "  App: $APP"
 BUNDLE="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Info.plist")"
 
 step "Installing on the device (keep it unlocked)"
