@@ -15,7 +15,7 @@ struct TheoCallAttributes: ActivityAttributes {
         var muted: Bool
         /// Ticks about once a second while someone is talking, so the bars move (Live Activities can't animate on their own).
         var pulse: Int = 0
-        /// Theo offered to open Crew HQ (for a change): the card shows an "Open Crew HQ" button.
+        /// Theo offered to open CrooHQ (for a change): the card shows an "Open CrooHQ" button.
         var offerOpen: Bool = false
     }
     var storeName: String
@@ -41,11 +41,11 @@ enum TheoCallSignal {
 }
 
 /// Talk to Theo without opening the app: he lives in the Dynamic Island while you talk.
-/// Action Button, Siri ("talk to Crew HQ") or the Control Center button.
+/// Action Button, Siri ("talk to CrooHQ") or the Control Center button.
 @available(iOS 18.0, *)
 struct TalkToTheoIntent: AudioRecordingIntent, LiveActivityIntent {
     static var title: LocalizedStringResource = "Talk to Theo"
-    static var description = IntentDescription("Talk to Theo without opening Crew HQ. He shows up in the Dynamic Island.")
+    static var description = IntentDescription("Talk to Theo without opening CrooHQ. He shows up in the Dynamic Island.")
     static var openAppWhenRun: Bool = false
 
     @MainActor

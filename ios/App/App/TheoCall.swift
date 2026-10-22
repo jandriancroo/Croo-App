@@ -20,7 +20,7 @@ final class PhoneTheoVoice {
     private(set) var caption = "" { didSet { onChange?() } }
     private(set) var errorText: String?
     private(set) var muted = false { didSet { onChange?() } }
-    /// Theo offered to open Crew HQ for a change (shows the Open Crew HQ button).
+    /// Theo offered to open CrooHQ for a change (shows the Open CrooHQ button).
     private(set) var offerOpen = false { didSet { if offerOpen != oldValue { onChange?() } } }
     private(set) var micLevel: Double = 0
     /// True while the server hears you talking (shows "Hearing you…").
@@ -33,8 +33,8 @@ final class PhoneTheoVoice {
 
     private static let rate: Double = 24000
     private static let maxLive: TimeInterval = 180
-    /// Hands stays in the app: on this call Theo offers to open Crew HQ instead of making changes.
-    private static let noChangesNote = "\n\nIMPORTANT, this overrides anything above about making changes: on this call (outside the app) you cannot make or preview changes. If the manager asks you to create, change, send, clock, nudge or post anything, don't describe a preview and never say \"confirm on screen\". Say: \"I can't make changes from here. Want me to open the Crew HQ app to do that?\" If they say yes, call offer_open_app, then tell them to tap Open Crew HQ. Questions about the store you answer normally with ask_theo."
+    /// Hands stays in the app: on this call Theo offers to open CrooHQ instead of making changes.
+    private static let noChangesNote = "\n\nIMPORTANT, this overrides anything above about making changes: on this call (outside the app) you cannot make or preview changes. If the manager asks you to create, change, send, clock, nudge or post anything, don't describe a preview and never say \"confirm on screen\". Say: \"I can't make changes from here. Want me to open the CrooHQ app to do that?\" If they say yes, call offer_open_app, then tell them to tap Open CrooHQ. Questions about the store you answer normally with ask_theo."
 
     private static let voiceSuffix = "\n\n(Voice mode: answer the whole question. If the answer is a list of people, shifts or items, include every one with its key detail (for a schedule: name and shift time). Keep it compact: round numbers, short lines, no tables. You are talking to a manager with full access, so say names and details plainly.)"
 
@@ -121,7 +121,7 @@ final class PhoneTheoVoice {
                     "tools": [[
                         "type": "function",
                         "name": "offer_open_app",
-                        "description": "Call this when the manager wants a change made (a task, shift, event, message, punch, nudge or announcement) and has said yes to opening the Crew HQ app. It puts an Open Crew HQ button on their screen.",
+                        "description": "Call this when the manager wants a change made (a task, shift, event, message, punch, nudge or announcement) and has said yes to opening the CrooHQ app. It puts an Open CrooHQ button on their screen.",
                         "parameters": ["type": "object", "properties": [:]],
                     ], [
                         "type": "function",
@@ -263,7 +263,7 @@ final class PhoneTheoVoice {
             let output: String
             if toolName == "offer_open_app" {
                 offerOpen = true
-                output = "{\"ok\":true,\"say\":\"Tap Open Crew HQ on your screen and I'll pick it up there.\"}"
+                output = "{\"ok\":true,\"say\":\"Tap Open CrooHQ on your screen and I'll pick it up there.\"}"
             } else if toolName == "ask_theo" && !question.isEmpty {
                 output = await askTheo(question)
             } else {
@@ -379,7 +379,7 @@ final class PhoneTheoVoice {
 
     private static func functionRequest(_ name: String, body: [String: Any]) async throws -> [String: Any] {
         let token: String
-        do { token = try await NativeAuth.validAccessToken() } catch { throw TheoError("Open Crew HQ once and sign in, then try again.") }
+        do { token = try await NativeAuth.validAccessToken() } catch { throw TheoError("Open CrooHQ once and sign in, then try again.") }
         guard let url = URL(string: NativeAuth.supabaseURL + "/functions/v1/" + name) else { throw TheoError("Bad URL") }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -851,7 +851,7 @@ final class TheoCallManager {
         let pairing = CrooSharedGroup.pairing()
         guard let id = pairing?["locationId"] ?? stores.first?.id else { return nil }
         let name = (pairing?["locationName"]).flatMap { $0.isEmpty ? nil : $0 }
-            ?? stores.first(where: { $0.id == id })?.name ?? "Crew HQ"
+            ?? stores.first(where: { $0.id == id })?.name ?? "CrooHQ"
         return (id, name)
     }
 
@@ -876,7 +876,7 @@ final class TheoCallManager {
         let pairing = CrooSharedGroup.pairing()
         let locationId = pairing?["locationId"] ?? stores.first?.id
         let name = (pairing?["locationName"]).flatMap { $0.isEmpty ? nil : $0 }
-            ?? stores.first(where: { $0.id == locationId })?.name ?? "Crew HQ"
+            ?? stores.first(where: { $0.id == locationId })?.name ?? "CrooHQ"
 
         // Start the Live Activity right away (iOS requires it for background recording),
         // then clear any leftover cards from earlier calls without waiting on it.
@@ -885,7 +885,7 @@ final class TheoCallManager {
         Task { for a in Activity<TheoCallAttributes>.activities where a.id != keep { await a.end(nil, dismissalPolicy: .immediate) } }
 
         guard NativeAuth.hasSession, let locationId else {
-            await showProblem("Open Crew HQ once and sign in, then try again.")
+            await showProblem("Open CrooHQ once and sign in, then try again.")
             return
         }
 
@@ -988,8 +988,8 @@ final class TheoCallManager {
         let newOffer = v.offerOpen && !lastOffer
         lastOffer = v.offerOpen
         if newOffer {
-            // Pop the Island open so the Open Crew HQ button is right there.
-            let alert = AlertConfiguration(title: "Theo", body: "Open Crew HQ to make that change", sound: .named("theo-silent.wav"))
+            // Pop the Island open so the Open CrooHQ button is right there.
+            let alert = AlertConfiguration(title: "Theo", body: "Open CrooHQ to make that change", sound: .named("theo-silent.wav"))
             Task { await activity.update(content, alertConfiguration: alert) }
         } else if lastPhase == "speaking" && previous != "speaking" {
             // Pops the Dynamic Island open (and lights the Lock Screen) when Theo starts answering.

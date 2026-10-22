@@ -2,7 +2,7 @@ import AppIntents
 import Foundation
 import UIKit
 
-// Siri and Shortcuts for CrooHQ ("Crew HQ"):
+// Siri and Shortcuts for CrooHQ. Always spelled CrooHQ; only Info.plist's spoken name (CFBundleSpokenName) is written phonetically so Siri says it right.
 //  • Sales / Labor / Who's on / Next event: read straight from the same read-only feed as the widgets
 //    (watch-device-service snapshot, device token in the App Group). No AI, no Grok.
 //  • Ask Theo: one question to ai-assistant (Theo's brain) as the signed-in person; Siri reads the answer.
@@ -96,8 +96,8 @@ enum SiriData {
         String((n ?? "").split(separator: " ").first ?? "Someone")
     }
 
-    static let notConnectedLine = "Open Crew HQ once and sign in, then ask me again."
-    static let unreachableLine = "I couldn't reach Crew HQ just now. Try again in a minute."
+    static let notConnectedLine = "Open CrooHQ once and sign in, then ask me again."
+    static let unreachableLine = "I couldn't reach CrooHQ just now. Try again in a minute."
 }
 
 @available(iOS 18.0, *)
@@ -214,7 +214,7 @@ struct AskTheoIntent: AppIntent {
     static var title: LocalizedStringResource = "Ask Theo"
     static var description = IntentDescription("Ask Theo anything about your store. Siri reads his answer.")
 
-    // Optional on purpose: when it's empty (Action Button, Shortcuts, "ask Crew HQ"), we ask for it
+    // Optional on purpose: when it's empty (Action Button, Shortcuts, "ask CrooHQ"), we ask for it
     // explicitly below, which works everywhere, including from the Action Button.
     @Parameter(title: "Question", requestValueDialog: IntentDialog("What do you want to know?"))
     var question: String?
@@ -285,7 +285,7 @@ struct AskTheoIntent: AppIntent {
 // TalkToTheoIntent lives in widgets/iOS/TheoCallShared.swift (shared with the Control Center button):
 // it starts a background Theo call shown in the Dynamic Island, without opening the app.
 
-// MARK: - Phrases (the app name is said "Crew HQ"; "Theo" is registered as another name for the app)
+// MARK: - Phrases (Siri pronounces the app via Info.plist CFBundleSpokenName; on screen it is always CrooHQ. "Theo" is another name for the app)
 
 @available(iOS 18.0, *)
 struct CrooShortcuts: AppShortcutsProvider {

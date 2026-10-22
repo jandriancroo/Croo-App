@@ -62,9 +62,9 @@ private struct TheoCallButtons: View {
     var body: some View {
         HStack(spacing: 10) {
             if state.offerOpen {
-                // Opens Crew HQ straight to Theo, where changes (Hands) work. Ends this call.
+                // Opens CrooHQ straight to Theo, where changes (Hands) work. Ends this call.
                 Link(destination: URL(string: "croohq://theo")!) {
-                    Label("Open Crew HQ", systemImage: "arrow.up.forward.app")
+                    Label("Open CrooHQ", systemImage: "arrow.up.forward.app")
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 7)
@@ -101,7 +101,7 @@ struct TheoCallLiveActivity: Widget {
                     TheoOrbView().frame(width: 48, height: 48)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(statusText(context.state)).font(.system(size: 16, weight: .bold, design: .rounded))
-                        Text("Crew HQ · \(context.attributes.storeName)")
+                        Text("CrooHQ · \(context.attributes.storeName)")
                             .font(.system(size: 12, design: .rounded)).foregroundStyle(.secondary)
                     }
                     Spacer()
