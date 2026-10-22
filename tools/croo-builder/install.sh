@@ -27,6 +27,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSHighResolutionCapable</key><true/>
+  <key>LSUIElement</key><true/>
   <key>CrooRepoPath</key><string>$ROOT</string>
 </dict></plist>
 PLIST
@@ -43,5 +44,6 @@ if [[ -f "$SRC" ]]; then
 fi
 
 codesign --force --deep -s - "$APP" >/dev/null 2>&1 || true
-echo "✔ Installed: $APP"
+pkill -x CrooBuilder 2>/dev/null || true
+echo "✔ Installed: $APP (look for the hammer in your menu bar)"
 open "$APP"

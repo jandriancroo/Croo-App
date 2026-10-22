@@ -1,6 +1,6 @@
 # Croo Builder
 
-A small Mac app (window + menu bar hammer) so shipping CrooHQ needs no Terminal commands.
+A small menu bar app (click the hammer, a panel pops out) so shipping CrooHQ needs no Terminal commands.
 
 | Button | What it does |
 |---|---|
