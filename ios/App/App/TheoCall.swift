@@ -733,10 +733,19 @@ final class TheoCallManager {
         TheoCallBridge.toggleMute = { TheoCallManager.shared.toggleMute() }
     }
 
-    var isLive: Bool { voice != nil }
+    var isLive: Bool { voice != nil || starting }
+    /// True from the button press until the call is up (or has failed). Blocks a second call.
+    private var starting = false
 
+    /// One call at a time. Pressing Talk to Theo again while a call is running (or connecting) hangs up.
     func start() async {
-        if voice != nil { return } // already talking
+        if starting && voice == nil { return } // still setting up: ignore the extra press
+        if voice != nil {
+            end()
+            return
+        }
+        starting = true
+        defer { starting = false }
         let stores = CrooSharedGroup.locations()
         let pairing = CrooSharedGroup.pairing()
         let locationId = pairing?["locationId"] ?? stores.first?.id
@@ -768,8 +777,9 @@ final class TheoCallManager {
     /// End always works: stops the call if one is running, and clears any leftover card either way.
     func end() {
         if let v = voice {
-            v.stop()
+            v.stop() // its onEnded closes every card
         } else {
+            activity = nil
             Task { await Self.endAllActivities() }
         }
     }
@@ -842,6 +852,8 @@ final class TheoCallManager {
         }
         let done = TheoCallAttributes.ContentState(phase: "ended", caption: "", muted: false)
         await activity.end(ActivityContent(state: done, staleDate: nil), dismissalPolicy: .immediate)
+        // Never leave a stray card behind (unless a new call started meanwhile).
+        if voice == nil && !starting && self.activity == nil { await Self.endAllActivities() }
     }
 
     private func showProblem(_ message: String) async {
