@@ -26,7 +26,8 @@ BUILDS="$(grep -oE 'CURRENT_PROJECT_VERSION = [^;]+;' "$PBX" | sort -u | wc -l |
 [[ "$VERSIONS" == "1" && "$BUILDS" == "1" ]] || fail "The apps don't all have the same version/build number. Tell Claude: 'version mismatch in ship'."
 ok "iPhone, widgets, Watch and Vision Pro all on $(grep -oE 'MARKETING_VERSION = [^;]+' "$PBX" | head -1 | cut -d' ' -f3) ($NEW)"
 
-TEAM="$(grep -oE 'DEVELOPMENT_TEAM = [A-Z0-9]+;' "$PBX" | head -1 | grep -oE '[A-Z0-9]{10}')"
+TEAM="$(grep -oE 'DEVELOPMENT_TEAM = [A-Z0-9]+;' "$PBX" | head -1 | sed -E 's/DEVELOPMENT_TEAM = ([A-Z0-9]+);/\1/')"
+[[ "$TEAM" =~ ^[A-Z0-9]{10}$ ]] || fail "Couldn't read your Apple team ID from the Xcode project (got '$TEAM'). Tell Claude: 'team id in ship'."
 OUT="$CACHE/ship-$NEW"
 LOG="$OUT/xcodebuild.log"
 rm -rf "$OUT"; mkdir -p "$OUT"
