@@ -99,6 +99,7 @@ struct TheoVolume: View {
     }
 
     private func togglePinch() {
+        motion.kick() // squish + bounce + spin, so you know he felt it
         if voice.isLive {
             voice.stop()
         } else if store.hasUserSession {
@@ -151,10 +152,17 @@ struct TheoVolume: View {
         default: base = 1
         }
         motion.scale += (base - motion.scale) * min(1, dt * 10)
-        motion.angle += motion.speed * dt
+        motion.angle += (motion.speed + motion.spin) * dt
+        motion.spin *= exp(-3 * dt) // pinch spin fades out
+
+        // Pinch reaction: quick squish, then a springy bounce that settles in under a second.
+        var react: Float = 1
+        let k = motion.time - motion.kickTime
+        if k >= 0 && k < 1.2 { react = 1 - 0.16 * exp(-5 * k) * cos(15 * k) }
+        let sc = motion.scale * react
 
         orb.transform.rotation = simd_quatf(angle: motion.angle, axis: [0, 1, 0]) * simd_quatf(angle: 0.38, axis: [1, 0, 0])
-        orb.transform.scale = [motion.scale, motion.scale, motion.scale]
+        orb.transform.scale = [sc, sc, sc]
     }
 }
 
@@ -165,6 +173,13 @@ final class OrbMotion {
     var speed: Float = 0.3
     var scale: Float = 1
     var mic: Float = 0
+    var spin: Float = 0
+    var kickTime: Float = -10
+
+    func kick() {
+        kickTime = time
+        spin = 3.5
+    }
 }
 
 private extension Double {

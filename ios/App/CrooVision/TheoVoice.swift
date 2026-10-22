@@ -29,6 +29,7 @@ final class TheoVoice: ObservableObject {
     private var audio: TheoAudio?
     private var history: [(q: String, a: String)] = []
     private var responseDone = true
+    private var spokeThisResponse = false
     private var limitTask: Task<Void, Never>?
     private var logId: String?
     private var liveStart: Date?
@@ -96,6 +97,7 @@ final class TheoVoice: ObservableObject {
             }
             try audio.start()
             audio.setSending(true)
+            audio.playCue(.ready) // "I'm listening" (same Wood cue as the web app)
             phase = .listening
             liveStart = Date()
             await startLog(store: store, locationId: locationId)
@@ -119,10 +121,18 @@ final class TheoVoice: ObservableObject {
     func stop() {
         limitTask?.cancel()
         limitTask = nil
+        let wasLive = socket != nil
         socket?.cancel(with: .normalClosure, reason: nil)
         socket = nil
-        audio?.stop()
-        audio = nil
+        if let a = audio {
+            audio = nil
+            if wasLive {
+                a.playCue(.closed) // "bye" cue, then shut the audio down once it has played
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { a.stop() }
+            } else {
+                a.stop()
+            }
+        }
         if phase != .error { phase = .idle }
         finishLog()
     }
@@ -158,8 +168,10 @@ final class TheoVoice: ObservableObject {
         switch type {
         case "response.created":
             responseDone = false
+            spokeThisResponse = false
         case "response.output_audio.delta", "response.audio.delta":
             if let b64 = ev["delta"] as? String {
+                spokeThisResponse = true
                 if phase != .speaking {
                     phase = .speaking
                     audio?.setSending(false) // Theo never hears himself
@@ -186,7 +198,12 @@ final class TheoVoice: ObservableObject {
             caption = ""
             captionBuffer = ""
             phase = .listening
+        case "input_audio_buffer.speech_stopped":
+            if phase == .listening { audio?.playCue(.heard) } // "got it"
         case "response.function_call_arguments.done":
+            // Looking it up without saying a filler: soft "one sec" double tap.
+            if !spokeThisResponse { audio?.playCue(.checking) }
+            spokeThisResponse = false
             phase = .thinking
             audio?.setSending(false)
             let callId = ev["call_id"] as? String ?? ""
@@ -408,6 +425,8 @@ nonisolated final class TheoAudio: @unchecked Sendable {
         // Theo never hears himself anyway, because the mic is muted while he talks.
         engine.attach(player)
         engine.connect(player, to: engine.mainMixerNode, format: playFormat)
+        engine.attach(cuePlayer)
+        engine.connect(cuePlayer, to: engine.mainMixerNode, format: TheoCues.format)
 
         let inFormat = input.outputFormat(forBus: 0)
         formatInfo = "in \(Int(inFormat.sampleRate))Hz \(inFormat.channelCount)ch"
@@ -446,13 +465,30 @@ nonisolated final class TheoAudio: @unchecked Sendable {
             let lvl = self.level
             self.lock.unlock()
             if due { self.onLevel?(lvl) }
-            guard on else { return }
+            self.lock.lock(); let gated = CFAbsoluteTimeGetCurrent() < self.micGateUntil; self.lock.unlock()
+            guard on, !gated else { return }
             let data = Data(bytes: ch[0], count: n * 2)
             self.onChunk?(data.base64EncodedString())
         }
         engine.prepare()
         try engine.start()
         player.play()
+        cuePlayer.play()
+    }
+
+    // MARK: Cues ("Wood" taps, generated, same as the web app)
+
+    private let cuePlayer = AVAudioPlayerNode()
+    private var micGateUntil: CFAbsoluteTime = 0
+
+    /// Plays a cue and keeps the mic from sending it to Theo (so a cue never counts as you talking).
+    func playCue(_ cue: TheoCue) {
+        playQueue.async { [weak self] in
+            guard let self, let buf = TheoCues.buffer(for: cue) else { return }
+            let seconds = Double(buf.frameLength) / TheoCues.format.sampleRate
+            self.lock.lock(); self.micGateUntil = CFAbsoluteTimeGetCurrent() + seconds + 0.1; self.lock.unlock()
+            self.cuePlayer.scheduleBuffer(buf, completionHandler: nil)
+        }
     }
 
     // Playback runs on its own queue so the main thread (UI, 3D orb) can never starve it.
@@ -547,7 +583,82 @@ nonisolated final class TheoAudio: @unchecked Sendable {
         setSending(false)
         engine.inputNode.removeTap(onBus: 0)
         player.stop()
+        cuePlayer.stop()
         engine.stop()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+}
+
+// MARK: - Theo's cues
+
+nonisolated enum TheoCue: Sendable { case ready, heard, closed, checking }
+
+/// Theo's "Wood" cues, rendered in code (same pitches and timing as src/components/ai/theoCues.ts).
+nonisolated enum TheoCues {
+    static let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
+    private static let lo: Double = 659.25, hi: Double = 830.61
+
+    /// Each cue's taps: (seconds after start, pitch Hz, level).
+    private static func taps(_ cue: TheoCue) -> [(Double, Double, Double)] {
+        switch cue {
+        case .ready: return [(0, lo, 1), (0.085, hi, 1)]
+        case .heard: return [(0, hi, 0.55)]
+        case .closed: return [(0, hi, 1), (0.1, lo, 1)]
+        case .checking: return [(0, lo, 0.45), (0.16, lo, 0.45)]
+        }
+    }
+
+    static func buffer(for cue: TheoCue) -> AVAudioPCMBuffer? {
+        let sr = format.sampleRate
+        let list = taps(cue)
+        let total = (list.last?.0 ?? 0) + 0.45
+        let n = Int(total * sr)
+        guard let buf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(n)),
+              let out = buf.floatChannelData?[0] else { return nil }
+        buf.frameLength = AVAudioFrameCount(n)
+        for i in 0..<n { out[i] = 0 }
+        for (start, f, level) in list {
+            let s0 = Int(start * sr)
+            partial(out, n, s0, sr, f: f, peak: 0.35 * level, dur: 0.32, attack: 0.002, from: f * 1.25, glide: 0.012)
+            partial(out, n, s0, sr, f: f * 4, peak: 0.09 * level, dur: 0.07, attack: 0.001, from: nil, glide: 0)
+            puff(out, n, s0, sr, dur: 0.014, peak: 0.035 * level)
+        }
+        // A touch of room (a few soft echoes), like the web version's small reverb.
+        let echoes: [(Double, Float)] = [(0.031, 0.10), (0.047, 0.08), (0.067, 0.06), (0.089, 0.04)]
+        let dry = Array(UnsafeBufferPointer(start: out, count: n))
+        for (d, g) in echoes {
+            let off = Int(d * sr)
+            if off < n { for i in off..<n { out[i] += dry[i - off] * g } }
+        }
+        return buf
+    }
+
+    private static func partial(_ out: UnsafeMutablePointer<Float>, _ n: Int, _ s0: Int, _ sr: Double,
+                                f: Double, peak: Double, dur: Double, attack: Double, from: Double?, glide: Double) {
+        var phase = 0.0
+        let count = Int(dur * sr)
+        for k in 0..<count {
+            let i = s0 + k
+            if i >= n { break }
+            let t = Double(k) / sr
+            var freq = f
+            if let from, glide > 0, t < glide { freq = from * pow(f / from, t / glide) }
+            phase += 2 * .pi * freq / sr
+            let env: Double = t < attack
+                ? peak * (t / attack)
+                : peak * exp(log(0.0001 / peak) * (t - attack) / max(dur - attack, 0.001))
+            out[i] += Float(sin(phase) * env)
+        }
+    }
+
+    private static func puff(_ out: UnsafeMutablePointer<Float>, _ n: Int, _ s0: Int, _ sr: Double, dur: Double, peak: Double) {
+        let count = Int(dur * sr)
+        for k in 0..<count {
+            let i = s0 + k
+            if i >= n { break }
+            let t = Double(k) / Double(max(count, 1))
+            let env = t < 0.35 ? peak * (t / 0.35) : peak * pow(1 - (t - 0.35) / 0.65, 2)
+            out[i] += Float(Double.random(in: -1...1) * env)
+        }
     }
 }
