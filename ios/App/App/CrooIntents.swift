@@ -214,13 +214,22 @@ struct AskTheoIntent: AppIntent {
     static var title: LocalizedStringResource = "Ask Theo"
     static var description = IntentDescription("Ask Theo anything about your store. Siri reads his answer.")
 
+    // Optional on purpose: when it's empty (Action Button, Shortcuts, "ask Crew HQ"), we ask for it
+    // explicitly below, which works everywhere, including from the Action Button.
     @Parameter(title: "Question", requestValueDialog: IntentDialog("What do you want to know?"))
-    var question: String
+    var question: String?
 
     @Parameter(title: "Store") var store: StoreEntity?
 
+    static var parameterSummary: some ParameterSummary {
+        Summary("Ask Theo \(\.$question)")
+    }
+
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let answer = await Self.ask(question, store: store)
+        guard let q = question?.trimmingCharacters(in: .whitespacesAndNewlines), !q.isEmpty else {
+            throw $question.needsValueError(IntentDialog("What do you want to know?"))
+        }
+        let answer = await Self.ask(q, store: store)
         return .result(dialog: IntentDialog(stringLiteral: answer))
     }
 
