@@ -6,13 +6,17 @@ source "$(dirname "$0")/common.sh"
 
 "$(dirname "$0")/get-latest.sh"
 
+step "Checking this Mac can upload to GitHub"
+git push --dry-run -q origin HEAD:main >/dev/null 2>&1 || fail "This Mac isn't signed in to GitHub, so the build number can't be saved. In Terminal run: gh auth login   (pick GitHub.com → HTTPS → Login with a web browser), then: gh auth setup-git   — then press Ship again."
+ok "GitHub sign-in OK"
+
 step "Picking the next build number"
 CUR="$(grep -oE 'CURRENT_PROJECT_VERSION = [0-9]+;' "$PBX" | grep -oE '[0-9]+' | sort -n | tail -1)"
 NEW=$(( CUR + 1 ))
 sed -i '' -E "s/CURRENT_PROJECT_VERSION = [0-9]+;/CURRENT_PROJECT_VERSION = $NEW;/g" "$PBX"
 git add "$PBX"
 git commit -q -m "Build $NEW"
-git push -q origin HEAD:main || { git pull --rebase -q origin main && git push -q origin HEAD:main; } || fail "Couldn't save the build number to GitHub."
+git push -q origin HEAD:main || { git pull --rebase --autostash -q origin main && git push -q origin HEAD:main; } || fail "Couldn't save the build number to GitHub."
 ok "Build $NEW (saved to GitHub so both Macs agree)"
 
 # Every piece (iPhone app, widgets, Watch app, Vision Pro app) must carry the same version and build,
@@ -95,7 +99,7 @@ PY
   then
     git add ios/TESTFLIGHT_NOTES.md
     git commit -q -m "TestFlight notes for build $NEW" || true
-    git push -q origin HEAD:main || { git pull --rebase -q origin main && git push -q origin HEAD:main; } || true
+    git push -q origin HEAD:main || { git pull --rebase --autostash -q origin main && git push -q origin HEAD:main; } || true
     ok "Notes filed under build $NEW"
   fi
 fi
