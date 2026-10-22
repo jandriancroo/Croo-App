@@ -21,7 +21,7 @@ struct CrooVisionApp: App {
                 .environmentObject(store)
         }
         .windowStyle(.volumetric)
-        .defaultSize(width: 0.45, height: 0.6, depth: 0.45, in: .meters)
+        .defaultSize(width: 0.42, height: 0.46, depth: 0.32, in: .meters)
     }
 }
 

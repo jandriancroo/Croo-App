@@ -167,13 +167,24 @@ final class TheoVoice: ObservableObject {
                 audio?.play(base64: b64)
             }
         case "response.output_audio_transcript.delta", "response.audio_transcript.delta":
-            if let d = ev["delta"] as? String { caption += d }
+            if let d = ev["delta"] as? String { appendCaption(d) }
+        case "session.created", "session.updated":
+            if let session = ev["session"] as? [String: Any],
+               let audioCfg = session["audio"] as? [String: Any],
+               let output = audioCfg["output"] as? [String: Any],
+               let format = output["format"] as? [String: Any],
+               let rate = (format["rate"] as? Double) ?? (format["rate"] as? Int).map(Double.init),
+               [8000, 16000, 22050, 24000, 32000, 44100, 48000].contains(rate) {
+                audio?.setOutputRate(rate)
+            }
         case "response.done":
             responseDone = true
-            if audio?.isIdle ?? true { backToListening() }
+            audio?.endOfResponse() // plays any waiting audio, then reports "drained" when he's done talking
+            flushCaption()
         case "input_audio_buffer.speech_started":
             audio?.flushPlayback()
             caption = ""
+            captionBuffer = ""
             phase = .listening
         case "response.function_call_arguments.done":
             phase = .thinking
@@ -188,6 +199,7 @@ final class TheoVoice: ObservableObject {
                 ? await askTheo(question)
                 : "{\"error\":\"Unknown tool\"}"
             caption = ""
+            captionBuffer = ""
             try? await send(["type": "conversation.item.create",
                              "item": ["type": "function_call_output", "call_id": callId, "output": output]])
             try? await send(["type": "response.create"])
@@ -209,6 +221,25 @@ final class TheoVoice: ObservableObject {
 
     private func updateDebug() {
         debugLine = "chunks sent \(chunks) · events \(events) · last: \(lastEvent)\n\(audio?.stats ?? "")"
+    }
+
+    // Caption updates are batched (~7 per second) so the 3D view isn't redrawn on every word.
+    private var captionBuffer = ""
+    private var captionFlushScheduled = false
+    private func appendCaption(_ d: String) {
+        captionBuffer += d
+        guard !captionFlushScheduled else { return }
+        captionFlushScheduled = true
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            self?.flushCaption()
+        }
+    }
+    private func flushCaption() {
+        captionFlushScheduled = false
+        guard !captionBuffer.isEmpty else { return }
+        caption += captionBuffer
+        captionBuffer = ""
     }
 
     private func playbackDrained() {
@@ -340,6 +371,8 @@ nonisolated final class TheoAudio: @unchecked Sendable {
     private var sending = false
     private var pending = 0
     private var tapCalls = 0
+    private var level: Double = 0
+    private var lastLevelSent: CFAbsoluteTime = 0
     private var convertFails = 0
     private var formatInfo = ""
     /// "mic buffers 120 · convert fails 0 · in 48000Hz 1ch" for the troubleshooting line.
@@ -404,7 +437,15 @@ nonisolated final class TheoAudio: @unchecked Sendable {
             let n = Int(out.frameLength)
             var sum: Double = 0
             for i in 0..<n { let v = Double(ch[0][i]) / 32768; sum += v * v }
-            self.onLevel?(min(1, (sum / Double(n)).squareRoot() * 12))
+            let raw = min(1, (sum / Double(n)).squareRoot() * 12)
+            self.lock.lock()
+            self.level = self.level * 0.6 + raw * 0.4
+            let now = CFAbsoluteTimeGetCurrent()
+            let due = now - self.lastLevelSent > 0.066
+            if due { self.lastLevelSent = now }
+            let lvl = self.level
+            self.lock.unlock()
+            if due { self.onLevel?(lvl) }
             guard on else { return }
             let data = Data(bytes: ch[0], count: n * 2)
             self.onChunk?(data.base64EncodedString())
@@ -414,10 +455,45 @@ nonisolated final class TheoAudio: @unchecked Sendable {
         player.play()
     }
 
+    // Playback runs on its own queue so the main thread (UI, 3D orb) can never starve it.
+    private let playQueue = DispatchQueue(label: "theo.playback", qos: .userInteractive)
+    private var primed = false
+    private var preroll: [AVAudioPCMBuffer] = []
+    private var prerollFrames: AVAudioFrameCount = 0
+    private var outRate: Double = 24000
+
+    /// Server-confirmed output rate (session.created/updated). Call before the first audio.
+    func setOutputRate(_ rate: Double) {
+        playQueue.async { [weak self] in
+            guard let self, rate > 0, rate != self.outRate,
+                  let f = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: rate, channels: 1, interleaved: false) else { return }
+            self.outRate = rate
+            self.player.stop()
+            self.engine.disconnectNodeOutput(self.player)
+            self.engine.connect(self.player, to: self.engine.mainMixerNode, format: f)
+            self.player.play()
+        }
+    }
+
     func play(base64: String) {
-        guard let data = Data(base64Encoded: base64), data.count >= 2 else { return }
+        playQueue.async { [weak self] in self?.enqueue(base64) }
+    }
+
+    /// Theo finished generating this answer: play whatever is still waiting in the pre-roll.
+    func endOfResponse() {
+        playQueue.async { [weak self] in
+            guard let self else { return }
+            self.releasePreroll()
+            self.lock.lock(); let left = self.pending; self.lock.unlock()
+            if left == 0 { self.onDrained?() } // nothing (left) to play
+        }
+    }
+
+    private func enqueue(_ base64: String) {
+        guard let data = Data(base64Encoded: base64), data.count >= 2,
+              let fmt = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: outRate, channels: 1, interleaved: false) else { return }
         let frames = data.count / 2
-        guard let buf = AVAudioPCMBuffer(pcmFormat: playFormat, frameCapacity: AVAudioFrameCount(frames)),
+        guard let buf = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: AVAudioFrameCount(frames)),
               let dst = buf.floatChannelData?[0] else { return }
         buf.frameLength = AVAudioFrameCount(frames)
         data.withUnsafeBytes { raw in
@@ -425,17 +501,46 @@ nonisolated final class TheoAudio: @unchecked Sendable {
             for i in 0..<frames { dst[i] = Float(Int16(littleEndian: src[i])) / 32768 }
         }
         lock.lock(); pending += 1; lock.unlock()
+        if primed {
+            schedule(buf)
+        } else {
+            // Collect ~0.25 s before starting so a slow network moment doesn't make him stutter.
+            preroll.append(buf)
+            prerollFrames += buf.frameLength
+            if Double(prerollFrames) >= outRate * 0.25 { releasePreroll() }
+        }
+    }
+
+    private func releasePreroll() {
+        guard !preroll.isEmpty else { return }
+        primed = true
+        let waiting = preroll
+        preroll = []
+        prerollFrames = 0
+        waiting.forEach(schedule)
+    }
+
+    private func schedule(_ buf: AVAudioPCMBuffer) {
         player.scheduleBuffer(buf, completionCallbackType: .dataPlayedBack) { [weak self] _ in
             guard let self else { return }
             self.lock.lock(); self.pending = max(0, self.pending - 1); let left = self.pending; self.lock.unlock()
-            if left == 0 { self.onDrained?() }
+            if left == 0 {
+                self.playQueue.async { self.primed = false }
+                self.onDrained?()
+            }
         }
     }
 
     func flushPlayback() {
-        lock.lock(); pending = 0; lock.unlock()
-        player.stop()
-        player.play()
+        playQueue.async { [weak self] in
+            guard let self else { return }
+            self.lock.lock(); self.pending = 0; self.lock.unlock()
+            self.preroll = []
+            self.prerollFrames = 0
+            self.primed = false
+            self.player.stop()
+            self.player.play()
+        }
     }
 
     func stop() {

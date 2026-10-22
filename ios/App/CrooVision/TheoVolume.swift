@@ -8,22 +8,28 @@ struct TheoVolume: View {
     @EnvironmentObject var store: VisionStore
     @StateObject private var voice = TheoVoice()
     @State private var orb = Entity()
+    @State private var frameTick: EventSubscription?
+    @State private var motion = OrbMotion()
 
     var body: some View {
         RealityView { content, attachments in
             buildOrb()
-            orb.position = [0, 0.08, 0]
+            orb.position = [0, 0.07, 0]
             content.add(orb)
             if let panel = attachments.entity(for: "panel") {
-                panel.position = [0, -0.16, 0.02]
+                panel.position = [0, -0.14, 0.02]
                 content.add(panel)
+            }
+            // Animate on RealityKit's own frame clock (smooth, in step with the display).
+            frameTick = content.subscribe(to: SceneEvents.Update.self) { event in
+                step(dt: Float(event.deltaTime))
             }
         } attachments: {
             Attachment(id: "panel") {
                 panel
             }
         }
-        .task { await animate() }
+        .volumeBaseplateVisibility(.hidden) // no glowing "plate" under him
         .task {
             if store.hasUserSession { await voice.start(store: store) }
         }
@@ -103,26 +109,39 @@ struct TheoVolume: View {
         }
     }
 
-    /// ~60 fps turn + breathing/pulse by phase. Runs while the window is open.
-    private func animate() async {
-        var angle: Float = 0
-        var t: Float = 0
-        while !Task.isCancelled {
-            let phase = voice.phase
-            let speed: Float = phase == .thinking ? 1.6 : (phase == .speaking ? 0.9 : 0.35)
-            angle += speed / 60
-            t += 1 / 60
-            let pulse: Float
-            switch phase {
-            case .speaking: pulse = 1 + 0.06 * sin(t * 9)
-            case .listening: pulse = 1 + 0.025 * sin(t * 2.2) + Float(voice.micLevel) * 0.18
-            default: pulse = 1
-            }
-            orb.transform.rotation = simd_quatf(angle: angle, axis: [0, 1, 0]) * simd_quatf(angle: 0.38, axis: [1, 0, 0])
-            orb.transform.scale = [pulse, pulse, pulse]
-            try? await Task.sleep(nanoseconds: 16_000_000)
+    /// One display frame: ease speed and size toward where the current phase wants them,
+    /// so changes (listening → thinking → talking, your voice getting louder) glide instead of jump.
+    private func step(dt: Float) {
+        let dt = min(max(dt, 0), 0.05)
+        motion.time += dt
+        let phase = voice.phase
+        let targetSpeed: Float = phase == .thinking ? 1.4 : (phase == .speaking ? 0.8 : 0.3)
+        motion.speed += (targetSpeed - motion.speed) * min(1, dt * 3)
+
+        let mic = Float(voice.micLevel)
+        motion.mic += (mic - motion.mic) * min(1, dt * 8)
+        let base: Float
+        switch phase {
+        case .speaking: base = 1 + 0.045 * (0.5 + 0.5 * sin(motion.time * 7))
+        case .listening: base = 1 + 0.02 * sin(motion.time * 2) + motion.mic * 0.15
+        case .thinking: base = 1 + 0.015 * sin(motion.time * 4)
+        default: base = 1
         }
+        motion.scale += (base - motion.scale) * min(1, dt * 10)
+        motion.angle += motion.speed * dt
+
+        orb.transform.rotation = simd_quatf(angle: motion.angle, axis: [0, 1, 0]) * simd_quatf(angle: 0.38, axis: [1, 0, 0])
+        orb.transform.scale = [motion.scale, motion.scale, motion.scale]
     }
+}
+
+/// Smoothed animation state for the orb (kept between frames).
+final class OrbMotion {
+    var time: Float = 0
+    var angle: Float = 0
+    var speed: Float = 0.3
+    var scale: Float = 1
+    var mic: Float = 0
 }
 
 private extension Double {
