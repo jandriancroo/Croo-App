@@ -425,10 +425,11 @@ nonisolated final class TheoAudio: @unchecked Sendable {
     private var peak: Double = 0      // loudest sample in the current window (0–1)
     private var lastPeak: Double = 0  // loudest sample in the last finished ~1 s window
     private var peakWindowStart: CFAbsoluteTime = 0
+    private var voiceProcessing = false
     /// "mic buffers 120 · convert fails 0 · in 48000Hz 1ch" for the troubleshooting line.
     var stats: String {
         lock.lock(); defer { lock.unlock() }
-        return "mic \(tapCalls) · loud \(Int((max(lastPeak, peak) * 100).rounded()))% · fails \(convertFails) · \(formatInfo)"
+        return "mic \(tapCalls) · loud \(Int((max(lastPeak, peak) * 100).rounded()))% · vp \(voiceProcessing ? "on" : "off") · \(formatInfo)"
     }
 
     var onChunk: (@Sendable (String) -> Void)?
@@ -454,8 +455,11 @@ nonisolated final class TheoAudio: @unchecked Sendable {
         try session.setActive(true)
 
         let input = engine.inputNode
-        // No voice processing: on Vision Pro it can hand the app silent mic buffers.
-        // Theo never hears himself anyway, because the mic is muted while he talks.
+        // iPhone: turn on Apple's voice processing (auto gain + echo cancel), like a phone call.
+        // Without it the raw mic came through very quiet (about 2% loud) and Theo never heard you.
+        // (Vision Pro keeps it off; there it handed over silent buffers.)
+        do { try input.setVoiceProcessingEnabled(true) } catch { print("[theo-call] voice processing off:", error) }
+        voiceProcessing = input.isVoiceProcessingEnabled
         engine.attach(player)
         engine.connect(player, to: engine.mainMixerNode, format: playFormat)
         engine.attach(cuePlayer)
@@ -495,7 +499,7 @@ nonisolated final class TheoAudio: @unchecked Sendable {
             self.lock.lock()
             self.peak = max(self.peak, pk)
             let tNow = CFAbsoluteTimeGetCurrent()
-            if tNow - self.peakWindowStart > 1 { self.lastPeak = self.peak; self.peak = 0; self.peakWindowStart = tNow }
+            if tNow - self.peakWindowStart > 3 { self.lastPeak = self.peak; self.peak = 0; self.peakWindowStart = tNow }
             self.level = self.level * 0.6 + raw * 0.4
             let now = CFAbsoluteTimeGetCurrent()
             let due = now - self.lastLevelSent > 0.066
