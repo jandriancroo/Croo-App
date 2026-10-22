@@ -455,11 +455,9 @@ nonisolated final class TheoAudio: @unchecked Sendable {
         try session.setActive(true)
 
         let input = engine.inputNode
-        // iPhone: turn on Apple's voice processing (auto gain + echo cancel), like a phone call.
-        // Without it the raw mic came through very quiet (about 2% loud) and Theo never heard you.
-        // (Vision Pro keeps it off; there it handed over silent buffers.)
-        do { try input.setVoiceProcessingEnabled(true) } catch { print("[theo-call] voice processing off:", error) }
-        voiceProcessing = input.isVoiceProcessingEnabled
+        // No voice processing: with it on, iOS never opened the mic for a background call (mic 0),
+        // and on Vision Pro it handed over silent buffers. Theo is muted while he talks instead.
+        voiceProcessing = false
         engine.attach(player)
         engine.connect(player, to: engine.mainMixerNode, format: playFormat)
         engine.attach(cuePlayer)
