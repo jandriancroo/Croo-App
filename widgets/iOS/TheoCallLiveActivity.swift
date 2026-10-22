@@ -14,6 +14,7 @@ private func statusText(_ s: TheoCallAttributes.ContentState) -> String {
     switch s.phase {
     case "connecting": return "Connecting…"
     case "listening": return "Listening…"
+    case "hearing": return "Hearing you…"
     case "thinking": return "Checking…"
     case "speaking": return "Theo"
     case "error": return "Couldn't connect"
@@ -37,6 +38,7 @@ private struct TheoBars: View {
             switch state.phase {
             case "speaking": return [7, 14, 20, 11, 16]
             case "listening": return state.muted ? [3, 3, 3, 3, 3] : [5, 9, 13, 8, 10]
+            case "hearing": return [10, 18, 22, 15, 19]
             case "thinking": return [6, 6, 6, 6, 6]
             default: return [4, 6, 8, 6, 4]
             }

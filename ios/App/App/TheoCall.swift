@@ -21,6 +21,9 @@ final class PhoneTheoVoice {
     private(set) var errorText: String?
     private(set) var muted = false { didSet { onChange?() } }
     private(set) var micLevel: Double = 0
+    /// True while the server hears you talking (shows "Hearing you…").
+    private(set) var hearing = false { didSet { if hearing != oldValue { onChange?() } } }
+    /// Troubleshooting line, shown on the Live Activity while it's waiting for you (temporary).
     private(set) var debugLine = ""
     private var chunks = 0
     private var events = 0
@@ -186,6 +189,7 @@ final class PhoneTheoVoice {
         updateDebug()
         switch type {
         case "response.created":
+            hearing = false
             responseDone = false
             spokeThisResponse = false
         case "response.output_audio.delta", "response.audio.delta":
@@ -217,7 +221,9 @@ final class PhoneTheoVoice {
             caption = ""
             captionBuffer = ""
             phase = .listening
+            hearing = true
         case "input_audio_buffer.speech_stopped":
+            hearing = false
             if phase == .listening { audio?.playCue(.heard) } // "got it"
         case "response.function_call_arguments.done":
             // Looking it up without saying a filler: soft "one sec" double tap.
@@ -244,6 +250,7 @@ final class PhoneTheoVoice {
             print("[theo-voice]", m)
             errorText = m
             lastEvent = "error: " + m
+            caption = "Problem: " + m
             updateDebug()
         default:
             break
@@ -256,7 +263,11 @@ final class PhoneTheoVoice {
     }
 
     private func updateDebug() {
-        debugLine = "chunks sent \(chunks) · events \(events) · last: \(lastEvent)\n\(audio?.stats ?? "")"
+        let line = "sent \(chunks) · events \(events) · last \(lastEvent) · \(audio?.stats ?? "no audio")"
+        guard line != debugLine else { return }
+        debugLine = line
+        print("[theo-call]", line)
+        if caption.isEmpty { onChange?() } // the Live Activity shows it while there's no caption
     }
 
     // Caption updates are batched (~7 per second) so the 3D view isn't redrawn on every word.
@@ -769,13 +780,19 @@ final class TheoCallManager {
     }
 
     private var lastPhase = ""
-    private func voiceStateChangedPhase() -> Bool { (voice.map { Self.name(for: $0.phase) } ?? "") != lastPhase }
+    private func voiceStateChangedPhase() -> Bool {
+        guard let v = voice else { return lastPhase != "" }
+        return ((v.phase == .listening && v.hearing) ? "hearing" : Self.name(for: v.phase)) != lastPhase
+    }
 
     private func pushNow() {
         guard let v = voice, let activity else { return }
         lastPush = Date()
-        lastPhase = Self.name(for: v.phase)
-        let caption = String(v.caption.suffix(140))
+        lastPhase = (v.phase == .listening && v.hearing) ? "hearing" : Self.name(for: v.phase)
+        // While nothing is being said, show the troubleshooting line (temporary, to find the stuck step).
+        let caption = v.caption.isEmpty && v.phase == .listening && !v.hearing
+            ? v.debugLine
+            : String(v.caption.suffix(140))
         let state = TheoCallAttributes.ContentState(phase: lastPhase, caption: caption, muted: v.muted)
         Task { await activity.update(ActivityContent(state: state, staleDate: nil)) }
     }
