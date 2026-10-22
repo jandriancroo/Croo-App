@@ -7,6 +7,7 @@ struct PanelView: View {
     @State private var selectedDevice: Device?
     @State private var showLog = false
     @State private var notesText = ""
+    @State private var previewNotes: String?
 
     private let orange = Color(red: 0.92, green: 0.49, blue: 0.24)
     private let teal = Color(red: 0.31, green: 0.70, blue: 0.78)
@@ -22,6 +23,7 @@ struct PanelView: View {
                 tile("Open in Xcode", "hammer", .secondary, alwaysOn: true) { runner.openXcode() }
             }
             if runner.notesDraft != nil { notesEditor }
+            if let preview = previewNotes, runner.notesDraft == nil { notesPreview(preview) }
             if !runner.notesStatus.isEmpty { notesStatusRow }
             deviceRow
             logSection
@@ -125,6 +127,29 @@ struct PanelView: View {
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
     }
 
+    private func notesPreview(_ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "eye").foregroundStyle(teal)
+                Text("Next TestFlight message").font(.callout.weight(.semibold))
+                Spacer()
+                Button { previewNotes = nil } label: { Image(systemName: "xmark.circle.fill") }
+                    .buttonStyle(.borderless).foregroundStyle(.secondary)
+            }
+            ScrollView {
+                Text(text).font(.system(size: 12)).textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(height: 140)
+            .padding(6)
+            .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 8))
+            Text("Preview only. You can still edit it when you press Ship.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .padding(10)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+    }
+
     private var notesStatusRow: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "text.bubble").foregroundStyle(teal)
@@ -203,6 +228,11 @@ struct PanelView: View {
 
     private var footer: some View {
         HStack {
+            Button("Preview notes") {
+                previewNotes = previewNotes == nil ? TestFlightNotes.draft(repo: runner.repoPath) : nil
+            }
+            .buttonStyle(.link).font(.caption)
+            .help("See the What to Test message the next Ship will post (nothing ships)")
             Button("Change folder…") { pickFolder() }.buttonStyle(.link).font(.caption)
             Button("Terminal") { runner.openInTerminal() }.buttonStyle(.link).font(.caption)
             Spacer()
