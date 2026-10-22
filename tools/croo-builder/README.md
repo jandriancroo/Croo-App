@@ -4,7 +4,7 @@ A small menu bar app (click the hammer, a panel pops out) so shipping CrooHQ nee
 
 | Button | What it does |
 |---|---|
-| **Get latest** | Sets aside changes Xcode/npm made on their own (backup in Desktop › CrooHQ backups), pulls GitHub, `npm install`, `npm run build`, `npx cap sync ios`. |
+| **Get latest** | Sets aside changes Xcode/npm made on their own (backup in Developer › CrooHQ backups), pulls GitHub, `npm install`, `npm run build`, `npx cap sync ios`. |
 | **Run on (device)** | Builds a test version and installs + opens it on your iPhone (App) or Vision Pro (CrooVision). |
 | **Ship to TestFlight** | Get latest → next build number (saved to GitHub so both Macs agree) → archive → upload. Uses the Apple account signed in to Xcode. |
 | **Save my changes** | Sends anything you changed on this Mac (e.g. in Xcode) to GitHub. |

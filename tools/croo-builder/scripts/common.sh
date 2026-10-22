@@ -20,7 +20,7 @@ ok()   { printf '%s\n' "✔ $1"; }
 fail() { printf '%s\n' "✖ $1"; exit 1; }
 
 # Files that tools rewrite on their own (Xcode, npm, CocoaPods, Capacitor).
-# Changes to these are backed up to the Desktop and reset so a pull never gets blocked.
+# Changes to these are backed up to ~/Developer/CrooHQ backups and reset so a pull never gets blocked.
 AUTO_FILES=(
   "$PBX"
   "package-lock.json"
@@ -30,7 +30,7 @@ AUTO_FILES=(
 )
 
 reset_auto_files() {
-  local backup="$HOME/Desktop/CrooHQ backups/$(date +%Y-%m-%d_%H%M%S)"
+  local backup="$HOME/Developer/CrooHQ backups/$(date +%Y-%m-%d_%H%M%S)"
   local moved=0
   for f in "${AUTO_FILES[@]}"; do
     if [[ -e "$f" ]] && ! git diff --quiet -- "$f" 2>/dev/null; then
@@ -41,7 +41,7 @@ reset_auto_files() {
     fi
   done
   if (( moved )); then
-    printf '%s\n' "  Set aside changes Xcode/npm made on their own (copy saved in Desktop › CrooHQ backups)."
+    printf '%s\n' "  Set aside changes Xcode/npm made on their own (copy saved in Developer › CrooHQ backups)."
   fi
 }
 
