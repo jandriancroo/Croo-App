@@ -89,7 +89,7 @@ export function usePinMigrationRow(): { rows: QuickExtraRow[]; overlay: React.Re
     }
   };
 
-  return (
+  const overlay = (
     <>
       <Dialog open={open} onOpenChange={(o) => !submitting && setOpen(o)}>
         <DialogContent className="sm:max-w-md">
