@@ -106,6 +106,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Start the Apple Watch link as early as possible so the watch can
         // receive a snapshot even before the dashboard finishes loading.
         WatchSessionManager.shared.activate()
+        // Lets Talk to Theo (Action Button / Siri / Control Center) run a call in the background.
+        if #available(iOS 18.0, *) { TheoCallManager.shared.register() }
         return true
     }
 

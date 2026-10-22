@@ -6,12 +6,12 @@ import UIKit
 //  • Sales / Labor / Who's on / Next event: read straight from the same read-only feed as the widgets
 //    (watch-device-service snapshot, device token in the App Group). No AI, no Grok.
 //  • Ask Theo: one question to ai-assistant (Theo's brain) as the signed-in person; Siri reads the answer.
-//  • Talk to Theo: opens the app straight into Theo voice (Action Button / Siri / Control Center).
+//  • Talk to Theo: a background Theo call in the Dynamic Island (Action Button / Siri / Control Center).
 // Answers only: Theo actions stay on the in-app wizard.
 
 // MARK: - Store picker ("…at Hemet")
 
-@available(iOS 17.0, *)
+@available(iOS 18.0, *)
 struct StoreEntity: AppEntity {
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "Store"
     static var defaultQuery = StoreQuery()
@@ -20,7 +20,7 @@ struct StoreEntity: AppEntity {
     var displayRepresentation: DisplayRepresentation { DisplayRepresentation(title: "\(name)") }
 }
 
-@available(iOS 17.0, *)
+@available(iOS 18.0, *)
 struct StoreQuery: EntityQuery {
     func entities(for identifiers: [String]) async throws -> [StoreEntity] {
         CrooSharedGroup.locations().filter { identifiers.contains($0.id) }.map { StoreEntity(id: $0.id, name: $0.name) }
@@ -100,7 +100,7 @@ enum SiriData {
     static let unreachableLine = "I couldn't reach Crew HQ just now. Try again in a minute."
 }
 
-@available(iOS 17.0, *)
+@available(iOS 18.0, *)
 private func storeAnswer(_ store: StoreEntity?, _ build: (SiriData.Snap, String) -> String) async -> String {
     do {
         let snap = try await SiriData.snapshot(storeId: store?.id)
@@ -113,7 +113,7 @@ private func storeAnswer(_ store: StoreEntity?, _ build: (SiriData.Snap, String)
     }
 }
 
-@available(iOS 17.0, *)
+@available(iOS 18.0, *)
 struct SalesTodayIntent: AppIntent {
     static var title: LocalizedStringResource = "Sales today"
     static var description = IntentDescription("Today's sales, goal and pace for a store.")
@@ -134,7 +134,7 @@ struct SalesTodayIntent: AppIntent {
     }
 }
 
-@available(iOS 17.0, *)
+@available(iOS 18.0, *)
 struct LaborIntent: AppIntent {
     static var title: LocalizedStringResource = "Labor"
     static var description = IntentDescription("Today's labor percent against the store's goal.")
@@ -155,7 +155,7 @@ struct LaborIntent: AppIntent {
     }
 }
 
-@available(iOS 17.0, *)
+@available(iOS 18.0, *)
 struct WhosOnIntent: AppIntent {
     static var title: LocalizedStringResource = "Who's on"
     static var description = IntentDescription("Who is clocked in right now, and who starts next.")
@@ -184,7 +184,7 @@ struct WhosOnIntent: AppIntent {
     }
 }
 
-@available(iOS 17.0, *)
+@available(iOS 18.0, *)
 struct NextEventIntent: AppIntent {
     static var title: LocalizedStringResource = "Next event"
     static var description = IntentDescription("The next event on today's schedule.")
@@ -209,7 +209,7 @@ struct NextEventIntent: AppIntent {
 
 // MARK: - Ask Theo (Luna brain, no Grok)
 
-@available(iOS 17.0, *)
+@available(iOS 18.0, *)
 struct AskTheoIntent: AppIntent {
     static var title: LocalizedStringResource = "Ask Theo"
     static var description = IntentDescription("Ask Theo anything about your store. Siri reads his answer.")
@@ -281,25 +281,13 @@ struct AskTheoIntent: AppIntent {
     }
 }
 
-// MARK: - Talk to Theo (opens the app in Theo voice)
-
-@available(iOS 17.0, *)
-struct TalkToTheoIntent: AppIntent {
-    static var title: LocalizedStringResource = "Talk to Theo"
-    static var description = IntentDescription("Opens Crew HQ straight into Theo voice.")
-    static var openAppWhenRun: Bool = true
-
-    @MainActor
-    func perform() async throws -> some IntentResult {
-        // Same link the Ask Theo widget uses; the app opens Theo listening once it's ready.
-        if let url = URL(string: "croohq://theo") { await UIApplication.shared.open(url) }
-        return .result()
-    }
-}
+// MARK: - Talk to Theo
+// TalkToTheoIntent lives in widgets/iOS/TheoCallShared.swift (shared with the Control Center button):
+// it starts a background Theo call shown in the Dynamic Island, without opening the app.
 
 // MARK: - Phrases (the app name is said "Crew HQ"; "Theo" is registered as another name for the app)
 
-@available(iOS 17.0, *)
+@available(iOS 18.0, *)
 struct CrooShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: SalesTodayIntent(), phrases: [

@@ -69,7 +69,7 @@ enum NativeAuth {
                 if result == "ok" { result = "device token failed" }
             }
         }
-        if #available(iOS 17.0, *) { CrooShortcuts.updateAppShortcutParameters() }
+        if #available(iOS 18.0, *) { CrooShortcuts.updateAppShortcutParameters() }
         return result
     }
 

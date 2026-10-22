@@ -37,6 +37,10 @@
 		A1C0FFEE0000000000000109 /* CrooWatchWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1C0FFEE00000000000000E4 /* CrooWatchWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A1C0FFEE0000000000000171 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE0000000000000170 /* Assets.xcassets */; };
 		A20000000000000000000002 /* WatchBridgePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* WatchBridgePlugin.swift */; };
+		A2000000000000000000000F /* TheoCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* TheoCall.swift */; };
+		A20000000000000000000011 /* TheoCallShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* TheoCallShared.swift */; };
+		A20000000000000000000012 /* TheoCallShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* TheoCallShared.swift */; };
+		A20000000000000000000014 /* TheoCallLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* TheoCallLiveActivity.swift */; };
 		A2000000000000000000000D /* CrooIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* CrooIntents.swift */; };
 		A2000000000000000000000B /* NativeAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* NativeAuth.swift */; };
 		C1DB58957DBA464EBD777E36 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13F8767856034FCAB5EF7E84 /* Assets.xcassets */; };
@@ -138,6 +142,9 @@
 		A1C0FFEE00000000000000FB /* CrooWatchWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CrooWatchWidgets.entitlements; sourceTree = "<group>"; };
 		A1C0FFEE0000000000000170 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A20000000000000000000001 /* WatchBridgePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchBridgePlugin.swift; sourceTree = "<group>"; };
+		A2000000000000000000000E /* TheoCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheoCall.swift; sourceTree = "<group>"; };
+		A20000000000000000000010 /* TheoCallShared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheoCallShared.swift; sourceTree = "<group>"; };
+		A20000000000000000000013 /* TheoCallLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheoCallLiveActivity.swift; sourceTree = "<group>"; };
 		A2000000000000000000000C /* CrooIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrooIntents.swift; sourceTree = "<group>"; };
 		A2000000000000000000000A /* NativeAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAuth.swift; sourceTree = "<group>"; };
 		AEE55AC830848FD700D2B85F /* CrooVision.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CrooVision.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -242,6 +249,7 @@
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				A20000000000000000000001 /* WatchBridgePlugin.swift */,
+				A2000000000000000000000E /* TheoCall.swift */,
 				A2000000000000000000000C /* CrooIntents.swift */,
 				A2000000000000000000000A /* NativeAuth.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -289,6 +297,8 @@
 			isa = PBXGroup;
 			children = (
 				A1C0FFEE00000000000000F4 /* CrooWidgets.swift */,
+				A20000000000000000000010 /* TheoCallShared.swift */,
+				A20000000000000000000013 /* TheoCallLiveActivity.swift */,
 				A1C0FFEE00000000000000F6 /* Info.plist */,
 				A1C0FFEE00000000000000FA /* CrooWidgets.entitlements */,
 				A1C0FFEE0000000000000170 /* Assets.xcassets */,
@@ -573,6 +583,8 @@
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				A20000000000000000000002 /* WatchBridgePlugin.swift in Sources */,
+				A2000000000000000000000F /* TheoCall.swift in Sources */,
+				A20000000000000000000011 /* TheoCallShared.swift in Sources */,
 				A2000000000000000000000D /* CrooIntents.swift in Sources */,
 				A2000000000000000000000B /* NativeAuth.swift in Sources */,
 			);
@@ -586,6 +598,8 @@
 				A1C0FFEE0000000000000101 /* LocationIntent.swift in Sources */,
 				A1C0FFEE0000000000000102 /* WidgetViews.swift in Sources */,
 				A1C0FFEE0000000000000103 /* CrooWidgets.swift in Sources */,
+				A20000000000000000000012 /* TheoCallShared.swift in Sources */,
+				A20000000000000000000014 /* TheoCallLiveActivity.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
