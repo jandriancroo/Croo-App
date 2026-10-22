@@ -5,10 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { useState } from "react";
+import React, { useState } from "react";
 import { ReadAndSignView } from "@/components/logbook/ReadAndSignView";
+import type { QuickExtraRow } from "@/lib/quickTasks/extraRows";
 
-export function PendingDocumentsCard() {
+export function useReadAndSignRows(): { rows: QuickExtraRow[]; overlay: React.ReactNode } {
   const { user } = useAuth();
   const [activeAssignment, setActiveAssignment] = useState<any>(null);
 
@@ -90,47 +91,12 @@ export function PendingDocumentsCard() {
     refetch();
   };
 
-  if (pendingDocs.length === 0) {
-    return null;
-  }
-
-  return (
+  const rows: QuickExtraRow[] = pendingDocs.map((doc: any) => ({
+    key: `read-sign-${doc.id}`, title: doc.document?.title || "Document", icon: FileText, wash: "amber", overdue: false,
+    dueLabel: "Read & Sign", onSelect: () => setActiveAssignment(doc),
+  }));
+  const overlay = (
     <>
-      <Card className="border-amber-500/50 bg-amber-500/5">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <FileText className="h-4 w-4 text-amber-500" />
-              Documents to Read & Sign
-            </CardTitle>
-            <Badge variant="outline" className="text-amber-600 border-amber-500/50">
-              {pendingDocs.length} pending
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {pendingDocs.map((doc) => (
-            <Button
-              key={doc.id}
-              variant="outline"
-              className="w-full justify-between h-auto py-3 px-4"
-              onClick={() => setActiveAssignment(doc)}
-            >
-              <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-primary" />
-                <div className="text-left">
-                  <p className="font-medium text-sm">{doc.document?.title || "Document"}</p>
-                  <p className="text-xs text-muted-foreground">
-                    From {doc.document?.created_by_profile?.full_name || "Manager"}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          ))}
-        </CardContent>
-      </Card>
-
       {/* Full-screen Read & Sign View */}
       {activeAssignment && documentItems.length > 0 && (
         <ReadAndSignView
@@ -149,6 +115,29 @@ export function PendingDocumentsCard() {
           onComplete={handleComplete}
         />
       )}
+    </>
+  );
+  return { rows, overlay };
+}
+
+/** Legacy card (no longer mounted on the Dash). */
+export function PendingDocumentsCard() {
+  const { rows, overlay } = useReadAndSignRows();
+  return (
+    <>
+      {rows.length > 0 && (
+        <Card className="border-amber-500/50 bg-amber-500/5">
+          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><FileText className="h-4 w-4 text-amber-500" />Documents to Read & Sign</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {rows.map(r => (
+              <Button key={r.key} variant="outline" className="w-full justify-between h-auto py-3 px-4" onClick={r.onSelect}>
+                <span className="font-medium text-sm">{r.title}</span><ChevronRight className="h-4 w-4" />
+              </Button>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+      {overlay}
     </>
   );
 }
