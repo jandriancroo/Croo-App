@@ -6,6 +6,8 @@ Croo Builder's Ship button shows this for editing, posts it to TestFlight, then 
 
 ## Next build
 
+## Build 18 · Oct 21, 2026
+
 - Talk to Theo without opening the app: use the Action Button, Siri ("Talk to Theo") or the Theo button in Control Center. Theo shows up in the Dynamic Island and on the Lock Screen, with Mute and End.
 - Ask Siri about your store: "Ask CrooHQ how sales are at Hemet." Siri also answers labor, who's on and what's next on the schedule.
 - Widgets connect on their own after you sign in. No more "Pair CrooHQ."
