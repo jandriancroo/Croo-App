@@ -18,6 +18,7 @@ import { filterEventsByRole } from "@/utils/eventRoleFilter";
 import { getAlarmIntervalKey } from "@/utils/timezoneUtils";
 import { CollapsibleSection } from "@/components/today/CollapsibleSection";
 import { QuickTaskRow } from "@/components/today/QuickTaskRow";
+import { splitExtraRows, type QuickExtraRow } from "@/lib/quickTasks/extraRows";
 
 interface AssignedTemporaryTasksProps {
   showCompleted?: boolean;
@@ -29,6 +30,8 @@ interface AssignedTemporaryTasksProps {
   afterEventsContent?: React.ReactNode;
   /** Mobile Dash: render tasks as a collapsible "Quick Tasks" section of compact rows. */
   sectioned?: boolean;
+  /** Sectioned Dash only: cash, spot check, Read & Sign, I-9 and PIN rows that live inside the card. */
+  extraRows?: QuickExtraRow[];
 }
 
 interface CateringOrder {
@@ -65,6 +68,7 @@ export function AssignedTemporaryTasks({
   compact = false,
   afterEventsContent,
   sectioned = false,
+  extraRows = [],
 }: AssignedTemporaryTasksProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
@@ -376,7 +380,7 @@ export function AssignedTemporaryTasks({
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  const hasNoTasks = tasks.length === 0 && pendingOrders.length === 0 && completedOrders.length === 0 && eventTasks.length === 0;
+  const hasNoTasks = tasks.length === 0 && pendingOrders.length === 0 && completedOrders.length === 0 && eventTasks.length === 0 && (!sectioned || extraRows.length === 0);
 
   if (hasNoTasks) {
     return null;
@@ -449,6 +453,13 @@ export function AssignedTemporaryTasks({
       const timeOnly = (t: string) => { const [h, m] = t.split(":"); const hr = parseInt(h) || 0; return `${hr % 12 || 12}${m && m !== "00" ? `:${m}` : ""}${hr >= 12 ? "pm" : "am"}`; };
       type Row = { key: string; node: React.ReactNode; overdue: boolean };
       const rows: Row[] = [];
+      const extra = splitExtraRows(extraRows);
+      const extraRow = (r: QuickExtraRow): Row => ({ key: r.key, overdue: r.overdue, node: (
+        <QuickTaskRow title={r.title} icon={r.icon} wash={r.wash} overdue={r.overdue} dueLabel={r.dueLabel} onSelect={r.onSelect} />
+      ) });
+      extra.red.forEach(r => rows.push(extraRow(r)));
+      extra.amber.forEach(r => rows.push(extraRow(r)));
+      const writeUpRows: Row[] = [];
       [...eventTasks].sort((a, b) => a.event_time.localeCompare(b.event_time)).forEach(ev => {
         const done = isEventCompleted(ev.id);
         const overdue = !done && !!ev.event_end_time && nowLocalHHMM > ev.event_end_time.slice(0, 5);
@@ -462,9 +473,9 @@ export function AssignedTemporaryTasks({
         const done = !!task.completed_at;
         const counts = subtaskCounts[task.id];
         const overdue = !done && task.task_style === "alarm" && !!task.last_triggered_at;
-        rows.push({ key: task.id, overdue, node: (
+        (task.write_up_id ? writeUpRows : rows).push({ key: task.id, overdue, node: (
           <QuickTaskRow key={task.id} title={task.title} icon={getIconComponent(task.icon_name || "ClipboardList")}
-            done={done} overdue={overdue}
+            done={done} overdue={overdue} wash={task.write_up_id ? "amber" : undefined}
             dueLabel={task.expires_at ? `Due ${fmtHour(new Date(task.expires_at))}` : null}
             progress={counts ? { done: counts.completed, total: counts.total } : null}
             onSelect={() => openTask(task)}  />
@@ -477,7 +488,10 @@ export function AssignedTemporaryTasks({
             dueLabel={`Due ${timeOnly(order.pickup_time)}`} onSelect={() => setSelectedOrder(order)} />
         ) });
       });
-      const total = eventTasks.length + tasks.length + cateringOrders.length;
+      extra.teal.forEach(r => rows.push(extraRow(r)));
+      // Write-up "Sign" tasks sit with the amber rows, after Read & Sign.
+      rows.splice(extra.red.length + extra.amber.length, 0, ...writeUpRows);
+      const total = eventTasks.length + tasks.length + cateringOrders.length + extraRows.length;
       const doneCount = completedEventTasks.length + completedTasks.length + completedOrders.length;
       const overdueCount = rows.filter(r => r.overdue).length;
       return (

@@ -40,17 +40,26 @@ interface QuickTaskRowProps {
   done?: boolean;
   progress?: { done: number; total: number } | null;
   onSelect: () => void;
+  /** Faint tint for system (teal), document (amber) and account (red) rows. Base look unchanged. */
+  wash?: 'teal' | 'amber' | 'red';
 }
 
+const WASH: Record<'teal' | 'amber' | 'red', string> = {
+  teal: 'bg-primary/[0.07]',
+  amber: 'bg-[hsl(var(--warning)/0.10)]',
+  red: 'bg-destructive/[0.07]',
+};
+
 /** Compact (~33px) quick task row for the mobile Dash Quick Tasks section. */
-export function QuickTaskRow({ title, dueLabel, overdue, done, progress, onSelect }: QuickTaskRowProps) {
+export function QuickTaskRow({ title, dueLabel, overdue, done, progress, onSelect, wash }: QuickTaskRowProps) {
   return (
     <div className={cn('relative', done && 'opacity-60')}>
       <button
         type="button"
         onClick={onSelect}
-        className={cn('flex h-[33px] w-full items-center gap-2 bg-card px-2.5 text-left active:bg-muted/60')}
+        className={cn('relative isolate flex h-[33px] w-full items-center gap-2 bg-card px-2.5 text-left active:bg-muted/60')}
       >
+        {wash && <span aria-hidden data-wash={wash} className={cn('pointer-events-none absolute inset-0 -z-10', WASH[wash])} />}
         <TaskGlyph done={!!done} overdue={!!overdue} progress={progress} />
         <span className={cn('flex-1 truncate text-[13px] font-medium text-foreground', done && 'line-through')}>{title}</span>
         {overdue && !done ? (

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -17,14 +17,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ShieldCheck, Loader2, Lock, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { differenceInDays } from "date-fns";
+import { pinDue, type QuickExtraRow } from "@/lib/quickTasks/extraRows";
 
 /**
  * Quick Task — "Set your new 6-digit PIN"
  * Shows when the signed-in user has no pin_pending yet. Hashes server-side
  * via the set_pending_punch_pin RPC. Operational punch flow is untouched.
  */
-export function PinMigrationTask() {
+export function usePinMigrationRow(): { rows: QuickExtraRow[]; overlay: React.ReactNode } {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -48,28 +48,10 @@ export function PinMigrationTask() {
     staleTime: 60 * 1000,
   });
 
-  if (!profile) return null;
-  if (profile.pin_pending) return null; // already set — manage from My Profile
-
-  // Age the card based on days since this task started being shown.
-  // Use account created_at as a proxy until we track first-seen.
-  const ageDays = profile.created_at
-    ? differenceInDays(new Date(), new Date(profile.created_at))
-    : 0;
-  const escalation: "normal" | "amber" | "red" =
-    ageDays >= 15 ? "red" : ageDays >= 8 ? "amber" : "normal";
-
-  const accentClasses = {
-    normal: "border-primary/50 bg-primary/5",
-    amber: "border-amber-500/60 bg-amber-500/10",
-    red: "border-destructive/60 bg-destructive/10",
-  }[escalation];
-
-  const stripClasses = {
-    normal: "from-primary via-primary/80 to-primary",
-    amber: "from-amber-500 via-amber-500/80 to-amber-500",
-    red: "from-destructive via-destructive/80 to-destructive",
-  }[escalation];
+  const due = pinDue(profile?.created_at);
+  const rows: QuickExtraRow[] = profile && !profile.pin_pending
+    ? [{ key: "pin-migration", title: "Set your new PIN", icon: ShieldCheck, wash: "red", overdue: due.overdue, dueLabel: due.label, onSelect: () => setOpen(true) }]
+    : [];
 
   const handleSubmit = async () => {
     if (pin !== confirm) {
@@ -107,51 +89,8 @@ export function PinMigrationTask() {
     }
   };
 
-  return (
+  const overlay = (
     <>
-      <Card className={`${accentClasses} relative overflow-hidden`}>
-        <div
-          className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${stripClasses}`}
-        />
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <div className="relative">
-                <ShieldCheck className="h-5 w-5 text-primary" />
-                <Lock className="h-2.5 w-2.5 text-primary absolute -bottom-0.5 -right-0.5" />
-              </div>
-              Set your new 6-digit punch PIN
-            </CardTitle>
-            {escalation !== "normal" && (
-              <Badge
-                variant="outline"
-                className={
-                  escalation === "red"
-                    ? "border-destructive/50 text-destructive text-[10px]"
-                    : "border-amber-500/50 text-amber-700 dark:text-amber-400 text-[10px]"
-                }
-              >
-                {escalation === "red" ? "Required" : "Due soon"}
-              </Badge>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            We're upgrading punch security from 4 → 6 digits. Pick your new PIN
-            now — you'll keep using your current 4-digit one at the punch clock
-            until the system flips over.
-          </p>
-          <Button
-            className="w-full"
-            onClick={() => setOpen(true)}
-            variant={escalation === "red" ? "destructive" : "default"}
-          >
-            Set my 6-digit PIN
-          </Button>
-        </CardContent>
-      </Card>
-
       <Dialog open={open} onOpenChange={(o) => !submitting && setOpen(o)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -223,4 +162,5 @@ export function PinMigrationTask() {
       </Dialog>
     </>
   );
+  return { rows, overlay };
 }

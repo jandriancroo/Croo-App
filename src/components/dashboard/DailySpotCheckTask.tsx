@@ -1,4 +1,4 @@
-import { useState, Suspense } from "react";
+import React, { useState, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
@@ -13,6 +13,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
+import { parseHHMM, spotCheckWindow, type QuickExtraRow } from "@/lib/quickTasks/extraRows";
 
 const DailySpotCount = lazyWithRetry(() => import("@/components/inventory/DailySpotCount"));
 
@@ -23,7 +24,7 @@ interface DailySpotCheckTaskProps {
   timezone?: string;
 }
 
-export function DailySpotCheckTask({ locationHours, timezone = "America/Los_Angeles" }: DailySpotCheckTaskProps) {
+export function useDailySpotCheckRow({ locationHours, timezone = "America/Los_Angeles" }: DailySpotCheckTaskProps): { rows: QuickExtraRow[]; overlay: React.ReactNode } {
   const { currentLocation } = useAppLocation();
   const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -70,38 +71,18 @@ export function DailySpotCheckTask({ locationHours, timezone = "America/Los_Ange
     refetchInterval: 30000,
   });
 
-  if (!canAccess || !locationHours || !hasTrackedItems || isCompleted) return null;
+  let win = { show: false, overdue: false };
+  if (canAccess && locationHours && hasTrackedItems && !isCompleted) {
+    const currentTimeInTz = formatInTimeZone(new Date(), timezone, "HH:mm");
+    const [currentHours, currentMins] = currentTimeInTz.split(":").map(Number);
+    win = spotCheckWindow(parseHHMM(locationHours.hours_close), currentHours * 60 + currentMins);
+  }
+  const rows: QuickExtraRow[] = win.show
+    ? [{ key: "daily-spot-check", title: "Daily Spot Check", icon: ClipboardCheck, wash: "teal", overdue: win.overdue, onSelect: () => setDrawerOpen(true) }]
+    : [];
 
-  // Time window: close → close + 2 hours
-  const parseTime = (timeStr: string | null): number | null => {
-    if (!timeStr) return null;
-    const [hours, minutes] = timeStr.split(":").map(Number);
-    return hours * 60 + minutes;
-  };
-
-  const closeMinutes = parseTime(locationHours.hours_close);
-  if (closeMinutes === null) return null;
-
-  const now = new Date();
-  const currentTimeInTz = formatInTimeZone(now, timezone, "HH:mm");
-  const [currentHours, currentMins] = currentTimeInTz.split(":").map(Number);
-  const currentMinutes = currentHours * 60 + currentMins;
-
-  const windowStart = closeMinutes;
-  const windowEnd = closeMinutes + 120;
-  if (currentMinutes < windowStart || currentMinutes > windowEnd) return null;
-
-  return (
+  const overlay = (
     <>
-      <TemporaryTaskCard
-        id="daily-spot-check"
-        title="Daily Spot Check"
-        icon={ClipboardCheck}
-        accentColor={TEAL_COLOR}
-        variant="system"
-        onAction={() => setDrawerOpen(true)}
-      />
-
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
         <DrawerContent className="max-h-[90vh]">
           <DrawerHeader className="pb-2">
@@ -123,6 +104,19 @@ export function DailySpotCheckTask({ locationHours, timezone = "America/Los_Ange
           </div>
         </DrawerContent>
       </Drawer>
+    </>
+  );
+  return { rows, overlay };
+}
+
+/** Legacy loose-card rendering (no longer mounted on the Dash). */
+export function DailySpotCheckTask(props: DailySpotCheckTaskProps) {
+  const { rows, overlay } = useDailySpotCheckRow(props);
+  if (rows.length === 0) return <>{overlay}</>;
+  return (
+    <>
+      <TemporaryTaskCard id="daily-spot-check" title="Daily Spot Check" icon={ClipboardCheck} accentColor={TEAL_COLOR} variant="system" onAction={rows[0].onSelect} />
+      {overlay}
     </>
   );
 }
