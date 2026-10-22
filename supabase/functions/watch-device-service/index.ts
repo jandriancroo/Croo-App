@@ -20,7 +20,7 @@ import { clockedInUserIds } from "../_shared/onClock.ts";
 import { roleForUser } from "../_shared/theoActions.ts";
 
 // Bump on every change so a deploy can be confirmed: POST {"action":"version"}.
-const WATCH_SERVICE_VERSION = "2026-10-21.1";
+const WATCH_SERVICE_VERSION = "2026-10-21.2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -697,6 +697,40 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
     'sales_wtd', 'sales_mtd',
   ];
 
+  // Labor pace + sales pace line (same numbers as the web Dash title line): read-only call to
+  // get_labor_pace, the one place that computes labor pace. Never computed here.
+  let laborPace: Record<string, unknown> | null = null;
+  try {
+    const { data: lp } = await sb.rpc('get_labor_pace', { _location_id: locationId });
+    if (lp && lp.mode !== 'unavailable') {
+      laborPace = {
+        salesPace: lp.sales_pace ?? null,
+        paceLaborPct: lp.pace_labor_pct != null ? Number(lp.pace_labor_pct) : null,
+        targetLaborPct: lp.target_labor_pct != null ? Number(lp.target_labor_pct) : null,
+        status: lp.status ?? null,
+      };
+    }
+  } catch (e) { console.error('[watch-device-service] labor pace failed', e); }
+
+  // Today's checklist completion: checklist_nudge_status (same source as Quick Nudge). Read-only.
+  let checklists: Array<Record<string, unknown>> = [];
+  try {
+    const { data: rows } = await sb.rpc('checklist_nudge_status', { _location_id: locationId, _checklist_id: null });
+    checklists = (rows || [])
+      .filter((r: any) => r.template_type !== 'training' && r.frequency !== 'training' && (r.total_items ?? 0) > 0)
+      .map((r: any) => ({
+        id: r.checklist_id,
+        title: r.title,
+        done: r.completed_items ?? 0,
+        total: r.total_items ?? 0,
+        complete: !!r.is_complete,
+        dueBy: r.lock_until_time ? String(r.lock_until_time).slice(0, 5) : null, // "09:00" = do by 9 AM
+        locked: !!r.is_locked,
+        frequency: r.frequency ?? null,
+      }))
+      .slice(0, 20);
+  } catch (e) { console.error('[watch-device-service] checklists failed', e); }
+
   return {
     version: WATCH_SERVICE_VERSION,
     updatedAt: new Date().toISOString(),
@@ -706,6 +740,8 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
     schedule,
     scheduleSummary,
     scheduleEvents,
+    laborPace,
+    checklists,
     sales: toMetrics(SALES_SUMMARY_METRICS),
     salesSummary,
   };

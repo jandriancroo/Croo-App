@@ -51,6 +51,24 @@ struct VEvent: Codable, Hashable {
     var color: String?
 }
 
+struct VPace: Codable {
+    var salesPace: Double?
+    var paceLaborPct: Double?
+    var targetLaborPct: Double?
+    var status: String?   // "ahead" / "on_track" / "behind"
+}
+
+struct VChecklist: Codable, Hashable {
+    var id: String?
+    var title: String?
+    var done: Int?
+    var total: Int?
+    var complete: Bool?
+    var dueBy: String?    // "09:00"
+    var locked: Bool?
+    var frequency: String?
+}
+
 struct VSnapshot: Codable {
     var updatedAt: String?
     var locationId: String?
@@ -60,6 +78,8 @@ struct VSnapshot: Codable {
     var schedule: [VShift]?
     var scheduleEvents: [VEvent]?
     var locations: [VLocation]?
+    var laborPace: VPace?
+    var checklists: [VChecklist]?
 }
 
 struct VEnvelope: Codable {
@@ -167,5 +187,41 @@ extension VSnapshot {
         let f = DateFormatter()
         f.dateFormat = "h:mma"
         return f.string(from: d).lowercased().replacingOccurrences(of: "m", with: "")
+    }
+}
+
+extension VChecklist {
+    var progress: Double {
+        guard let t = total, t > 0 else { return 0 }
+        return min(1, Double(done ?? 0) / Double(t))
+    }
+    var isDone: Bool { complete == true || (total ?? 0) > 0 && (done ?? 0) >= (total ?? 0) }
+    /// "by 9a" from "09:00".
+    var dueText: String? {
+        guard let d = dueBy else { return nil }
+        let parts = d.split(separator: ":").compactMap { Int($0) }
+        guard parts.count >= 2 else { return nil }
+        return "by " + VFormat.clock(Double(parts[0] * 60 + parts[1]))
+    }
+}
+
+extension VSnapshot {
+    /// The web Dash title line: "You're pacing at $X on a $Y projection, and it looks like
+    /// you'll end with around Z% labor tonight." Same numbers (get_labor_pace).
+    var paceLine: (sales: String?, labor: String?, behind: Bool)? {
+        let pace = laborPace?.salesPace ?? salesSummary?.today?.paceValue
+        let goal = salesSummary?.today?.goalValue
+        let laborPct = laborPace?.paceLaborPct
+        var salesText: String?
+        if let p = pace, p > 0 {
+            if let g = goal, g > 0 {
+                salesText = "You're pacing at \(VFormat.money(p)) on a \(VFormat.money(g)) projection"
+            } else {
+                salesText = "You're pacing at \(VFormat.money(p)) today"
+            }
+        }
+        let laborText = laborPct.map { String(format: "around %.1f%% labor tonight", $0) }
+        if salesText == nil && laborText == nil { return nil }
+        return (salesText, laborText, laborPace?.status == "behind")
     }
 }
