@@ -564,6 +564,36 @@ export type Database = {
           },
         ]
       }
+      app_releases: {
+        Row: {
+          app: string
+          created_at: string | null
+          download_url: string
+          id: string
+          notes: string | null
+          sha256: string
+          version: string
+        }
+        Insert: {
+          app?: string
+          created_at?: string | null
+          download_url: string
+          id?: string
+          notes?: string | null
+          sha256: string
+          version: string
+        }
+        Update: {
+          app?: string
+          created_at?: string | null
+          download_url?: string
+          id?: string
+          notes?: string | null
+          sha256?: string
+          version?: string
+        }
+        Relationships: []
+      }
       applicant_flags: {
         Row: {
           application_id: string
@@ -14674,6 +14704,82 @@ export type Database = {
           },
         ]
       }
+      toast_status_restart_requests: {
+        Row: {
+          ack_note: string | null
+          acked_at: string | null
+          id: string
+          location_id: string
+          requested_at: string | null
+          requested_by_token: string | null
+        }
+        Insert: {
+          ack_note?: string | null
+          acked_at?: string | null
+          id?: string
+          location_id: string
+          requested_at?: string | null
+          requested_by_token?: string | null
+        }
+        Update: {
+          ack_note?: string | null
+          acked_at?: string | null
+          id?: string
+          location_id?: string
+          requested_at?: string | null
+          requested_by_token?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "toast_status_restart_requests_requested_by_token_fkey"
+            columns: ["requested_by_token"]
+            isOneToOne: false
+            referencedRelation: "toast_status_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      toast_status_tokens: {
+        Row: {
+          created_at: string | null
+          id: string
+          label: string | null
+          last_used_at: string | null
+          location_id: string
+          revoked: boolean
+          scope: string
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          label?: string | null
+          last_used_at?: string | null
+          location_id: string
+          revoked?: boolean
+          scope: string
+          token_hash: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          label?: string | null
+          last_used_at?: string | null
+          location_id?: string
+          revoked?: boolean
+          scope?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "toast_status_tokens_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_dashboard_sections: {
         Row: {
           created_at: string
@@ -17679,6 +17785,10 @@ export type Database = {
       toast_push_wage_to_profile: {
         Args: { _location_id: string; _toast_user_id: string }
         Returns: undefined
+      }
+      toast_status_request_restart: {
+        Args: { _location_id: string; _token_id: string }
+        Returns: Json
       }
       toggle_widget_hidden_for_self: {
         Args: { _widget_id: string }

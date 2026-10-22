@@ -166,3 +166,6 @@ verify_jwt = true
 
 [functions.labor-rules-ai]
 verify_jwt = true
+
+[functions.toast-status]
+verify_jwt = false

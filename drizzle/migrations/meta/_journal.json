@@ -477,6 +477,13 @@
       "when": 1792625400634,
       "tag": "0067_announcement_require_confirm",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1792712799107,
+      "tag": "0068_toast_status_v2",
+      "breakpoints": true
     }
   ]
 }
