@@ -9,10 +9,12 @@ import AppIntents
 
 struct TheoCallAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
-        /// connecting · listening · thinking · speaking · error · ended
+        /// connecting · listening · hearing · thinking · speaking · error · ended
         var phase: String
         var caption: String
         var muted: Bool
+        /// Ticks about once a second while someone is talking, so the bars move (Live Activities can't animate on their own).
+        var pulse: Int = 0
     }
     var storeName: String
     var startedAt: Date

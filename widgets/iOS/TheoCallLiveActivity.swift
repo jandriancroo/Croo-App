@@ -30,15 +30,18 @@ private func statusColor(_ s: TheoCallAttributes.ContentState) -> Color {
     }
 }
 
-/// Little sound bars; heights change by phase (Live Activities can't animate continuously).
+/// Little sound bars. While someone talks, the app ticks `pulse` about once a second and the
+/// bars step through a few shapes with a smooth transition (Live Activities can't animate on their own).
 private struct TheoBars: View {
     let state: TheoCallAttributes.ContentState
+    private static let talking: [[CGFloat]] = [
+        [7, 16, 22, 11, 15], [14, 9, 17, 21, 8], [10, 20, 12, 15, 19], [18, 12, 21, 8, 13],
+    ]
     var body: some View {
         let heights: [CGFloat] = {
             switch state.phase {
-            case "speaking": return [7, 14, 20, 11, 16]
-            case "listening": return state.muted ? [3, 3, 3, 3, 3] : [5, 9, 13, 8, 10]
-            case "hearing": return [10, 18, 22, 15, 19]
+            case "speaking", "hearing": return Self.talking[abs(state.pulse) % Self.talking.count]
+            case "listening": return state.muted ? [3, 3, 3, 3, 3] : [5, 7, 9, 7, 5]
             case "thinking": return [6, 6, 6, 6, 6]
             default: return [4, 6, 8, 6, 4]
             }
@@ -48,6 +51,7 @@ private struct TheoBars: View {
                 Capsule().fill(statusColor(state)).frame(width: 3, height: heights[i])
             }
         }
+        .animation(.easeInOut(duration: 0.6), value: state.pulse)
         .animation(.easeInOut(duration: 0.3), value: state.phase)
     }
 }

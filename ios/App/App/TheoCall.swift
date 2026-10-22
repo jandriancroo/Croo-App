@@ -35,6 +35,7 @@ final class PhoneTheoVoice {
 
     private var socket: URLSessionWebSocketTask?
     private var audio: TheoAudio?
+    private var early: EarlyAudio?
     private var history: [(q: String, a: String)] = []
     private var responseDone = true
     private var spokeThisResponse = false
@@ -69,9 +70,28 @@ final class PhoneTheoVoice {
             return
         }
         do {
-            let pass = try await fetchPass(locationId: locationId)
+            // Mic and the "ready" cue start immediately; Theo's connection comes up behind it
+            // (4-6 s on a cold start). Anything you say meanwhile is held and sent the moment he's connected.
             let audio = try TheoAudio(rate: Self.rate)
             self.audio = audio
+            let early = EarlyAudio()
+            self.early = early
+            audio.onChunk = { [weak self] b64 in
+                early.push(b64)
+                Task { @MainActor in self?.countChunk() }
+            }
+            audio.onLevel = nil // no meter on the iPhone call (saves main-thread hops)
+            audio.onDrained = { [weak self] in
+                Task { @MainActor in self?.playbackDrained() }
+            }
+            try audio.start()
+            audio.setSending(true)
+            audio.playCue(.ready) // "I'm listening" (same Wood cue as the web app)
+            phase = .listening
+            liveStart = Date()
+
+            let pass = try await fetchPass(locationId: locationId)
+            guard self.audio === audio else { return } // ended while connecting
 
             guard let url = URL(string: "wss://api.x.ai/v1/realtime?model=\(pass.model)") else { throw TheoError("Bad voice URL") }
             let ws = URLSession.shared.webSocketTask(with: url, protocols: ["xai-client-secret.\(pass.token)"])
@@ -100,24 +120,8 @@ final class PhoneTheoVoice {
                     ]],
                 ],
             ])
-
-            audio.onChunk = { [weak ws, weak self] b64 in
-                let msg = "{\"type\":\"input_audio_buffer.append\",\"audio\":\"\(b64)\"}"
-                ws?.send(.string(msg)) { err in
-                    if let err { print("[theo-voice] send failed", err) }
-                }
-                Task { @MainActor in self?.countChunk() }
-            }
-            audio.onLevel = nil // no meter on the iPhone call (saves ~15 main-thread hops a second)
-            audio.onDrained = { [weak self] in
-                Task { @MainActor in self?.playbackDrained() }
-            }
-            try audio.start()
-            audio.setSending(true)
-            audio.playCue(.ready) // "I'm listening" (same Wood cue as the web app)
-            phase = .listening
-            liveStart = Date()
-            await startLog(locationId: locationId)
+            early.attach(ws) // sends what you already said, then streams live
+            Task { [weak self] in await self?.startLog(locationId: self?.locationId ?? "") }
 
             Task { [weak self] in
                 while let me = self, me.socket != nil {
@@ -138,9 +142,10 @@ final class PhoneTheoVoice {
     func stop() {
         limitTask?.cancel()
         limitTask = nil
-        let wasLive = socket != nil
+        let wasLive = socket != nil || audio != nil
         socket?.cancel(with: .normalClosure, reason: nil)
         socket = nil
+        early = nil
         if let a = audio {
             audio = nil
             if wasLive {
@@ -406,6 +411,36 @@ final class PhoneTheoVoice {
 
 // MARK: - Audio (runs on the audio thread, so it stays off the main actor)
 
+/// Holds mic audio said before Theo's connection is up (up to ~15 s), then streams live.
+nonisolated final class EarlyAudio: @unchecked Sendable {
+    private let lock = NSLock()
+    private var held: [String] = []
+    private weak var ws: URLSessionWebSocketTask?
+
+    func push(_ b64: String) {
+        lock.lock(); defer { lock.unlock() }
+        if let ws {
+            Self.send(b64, on: ws)
+        } else {
+            held.append(b64)
+            if held.count > 360 { held.removeFirst(held.count - 360) }
+        }
+    }
+
+    func attach(_ socket: URLSessionWebSocketTask) {
+        lock.lock(); defer { lock.unlock() }
+        held.forEach { Self.send($0, on: socket) } // in order, before any new audio
+        held = []
+        ws = socket
+    }
+
+    private static func send(_ b64: String, on ws: URLSessionWebSocketTask) {
+        ws.send(.string("{\"type\":\"input_audio_buffer.append\",\"audio\":\"\(b64)\"}")) { err in
+            if let err { print("[theo-voice] send failed", err) }
+        }
+    }
+}
+
 nonisolated final class TheoAudio: @unchecked Sendable {
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
@@ -582,7 +617,7 @@ nonisolated final class TheoAudio: @unchecked Sendable {
             let src = raw.bindMemory(to: Int16.self)
             // About 3x louder for quiet sounds; loud peaks are rounded off (tanh) instead of crackling.
             // voiceChat mode plays at call level, which was too quiet on the loudspeaker.
-            let k: Float = 3
+            let k: Float = 4.5
             for i in 0..<frames { dst[i] = tanhf(k * Float(Int16(littleEndian: src[i])) / 32768) }
         }
         lock.lock(); pending += 1; lock.unlock()
@@ -839,6 +874,26 @@ final class TheoCallManager {
     }
 
     private var lastPhase = ""
+    private var pulse = 0
+    private var pulseTask: Task<Void, Never>?
+
+    /// While Theo is talking or hearing you, tick the bars about once a second.
+    private func updatePulseLoop() {
+        let talking = lastPhase == "speaking" || lastPhase == "hearing"
+        if talking, pulseTask == nil {
+            pulseTask = Task { [weak self] in
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 900_000_000)
+                    guard let self, !Task.isCancelled else { return }
+                    self.pulse += 1
+                    self.pushNow()
+                }
+            }
+        } else if !talking, let t = pulseTask {
+            t.cancel()
+            pulseTask = nil
+        }
+    }
     private func voiceStateChangedPhase() -> Bool {
         guard let v = voice else { return lastPhase != "" }
         return ((v.phase == .listening && v.hearing) ? "hearing" : Self.name(for: v.phase)) != lastPhase
@@ -847,15 +902,27 @@ final class TheoCallManager {
     private func pushNow() {
         guard let v = voice, let activity else { return }
         lastPush = Date()
+        let previous = lastPhase
         lastPhase = (v.phase == .listening && v.hearing) ? "hearing" : Self.name(for: v.phase)
         let caption = String(v.caption.suffix(140))
-        let state = TheoCallAttributes.ContentState(phase: lastPhase, caption: caption, muted: v.muted)
-        Task { await activity.update(ActivityContent(state: state, staleDate: nil)) }
+        let state = TheoCallAttributes.ContentState(phase: lastPhase, caption: caption, muted: v.muted, pulse: pulse)
+        let content = ActivityContent(state: state, staleDate: nil)
+        if lastPhase == "speaking" && previous != "speaking" {
+            // Pops the Dynamic Island open (and lights the Lock Screen) when Theo starts answering.
+            // iOS decides how long it stays open; a silent sound so it doesn't ding.
+            let alert = AlertConfiguration(title: "Theo", body: "Answering…", sound: .named("theo-silent.wav"))
+            Task { await activity.update(content, alertConfiguration: alert) }
+        } else {
+            Task { await activity.update(content) }
+        }
+        updatePulseLoop()
     }
 
     private func finishActivity(message: String?) async {
         pendingPush?.cancel()
         pendingPush = nil
+        pulseTask?.cancel()
+        pulseTask = nil
         guard let activity else { return }
         self.activity = nil
         if let message {

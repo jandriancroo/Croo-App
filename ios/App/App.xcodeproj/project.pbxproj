@@ -38,6 +38,7 @@
 		A1C0FFEE0000000000000171 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1C0FFEE0000000000000170 /* Assets.xcassets */; };
 		A20000000000000000000002 /* WatchBridgePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* WatchBridgePlugin.swift */; };
 		A2000000000000000000000F /* TheoCall.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* TheoCall.swift */; };
+		A20000000000000000000016 /* theo-silent.wav in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* theo-silent.wav */; };
 		A20000000000000000000011 /* TheoCallShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* TheoCallShared.swift */; };
 		A20000000000000000000012 /* TheoCallShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* TheoCallShared.swift */; };
 		A20000000000000000000014 /* TheoCallLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* TheoCallLiveActivity.swift */; };
@@ -143,6 +144,7 @@
 		A1C0FFEE0000000000000170 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A20000000000000000000001 /* WatchBridgePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchBridgePlugin.swift; sourceTree = "<group>"; };
 		A2000000000000000000000E /* TheoCall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheoCall.swift; sourceTree = "<group>"; };
+		A20000000000000000000015 /* theo-silent.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "theo-silent.wav"; sourceTree = "<group>"; };
 		A20000000000000000000010 /* TheoCallShared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheoCallShared.swift; sourceTree = "<group>"; };
 		A20000000000000000000013 /* TheoCallLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheoCallLiveActivity.swift; sourceTree = "<group>"; };
 		A2000000000000000000000C /* CrooIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrooIntents.swift; sourceTree = "<group>"; };
@@ -250,6 +252,7 @@
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				A20000000000000000000001 /* WatchBridgePlugin.swift */,
 				A2000000000000000000000E /* TheoCall.swift */,
+				A20000000000000000000015 /* theo-silent.wav */,
 				A2000000000000000000000C /* CrooIntents.swift */,
 				A2000000000000000000000A /* NativeAuth.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -498,6 +501,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */,
+				A20000000000000000000016 /* theo-silent.wav in Resources */,
 				50B271D11FEDC1A000F3C39B /* public in Resources */,
 				504EC30F1FED79650016851F /* Assets.xcassets in Resources */,
 				A1C0FFEE00000000000000D2 /* PrivacyInfo.xcprivacy in Resources */,
