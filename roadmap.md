@@ -4,6 +4,7 @@
 (none)
 
 ## In progress
+- Fix marketplace confirmation publishing and repair Jaysen's already-confirmed Hemet assignment; verify selected-shift publication and unrelated draft preservation.
 - Shift marketplace + support chats batch (Oct 23): built, waiting for Jordan's "ship". Not published.
 - Toast Status public downloads: blocked by workspace public-bucket restriction. Owner/admin must allow public buckets under Settings → Privacy & Security, then make toast-status-releases public. Release publishing deliberately returns 503 until then.
 
