@@ -137,7 +137,7 @@ export function getTourStepsForRole(role: AppRole | null): Step[] {
       title: step.title,
       content: step.content,
       placement: step.placement || 'auto',
-      disableBeacon: true,
+      skipBeacon: true,
       spotlightClicks: false,
       data: { page: step.page, requiresMenu: !!step.requiresMenu, requiresDock: !!step.requiresDock },
     }));

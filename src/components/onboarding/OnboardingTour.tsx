@@ -150,7 +150,6 @@ export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
 
   return (
     <Joyride
-      debug
       steps={steps}
       run={run}
       stepIndex={stepIndex}
