@@ -13086,6 +13086,9 @@ export type Database = {
       }
       shift_offers: {
         Row: {
+          approved_at: string | null
+          approved_by_user_id: string | null
+          approved_via: string | null
           claimed_by_user_id: string | null
           created_at: string
           id: string
@@ -13095,6 +13098,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by_user_id?: string | null
+          approved_via?: string | null
           claimed_by_user_id?: string | null
           created_at?: string
           id?: string
@@ -13104,6 +13110,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by_user_id?: string | null
+          approved_via?: string | null
           claimed_by_user_id?: string | null
           created_at?: string
           id?: string
@@ -13113,6 +13122,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "shift_offers_approved_by_user_id_fkey"
+            columns: ["approved_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shift_offers_claimed_by_user_id_fkey"
             columns: ["claimed_by_user_id"]
@@ -16044,6 +16060,7 @@ export type Database = {
         }
         Returns: Json
       }
+      _is_shift_manager_plus: { Args: { _user_id: string }; Returns: boolean }
       _labor_cache_refresh_from: {
         Args: { _from: string; _location_id: string }
         Returns: undefined
@@ -16431,6 +16448,11 @@ export type Database = {
           user_id: string
         }[]
       }
+      _shift_has_started: { Args: { _shift_id: string }; Returns: boolean }
+      _shift_offer_guard: {
+        Args: { _offer_id: string }
+        Returns: Record<string, unknown>
+      }
       _shift_offer_push: {
         Args: {
           _claimer?: string
@@ -16555,6 +16577,14 @@ export type Database = {
         }
       }
       approve_schedule: { Args: { _schedule_id: string }; Returns: number }
+      approve_shift_offer: {
+        Args: { _claimer_id: string; _offer_id: string }
+        Returns: undefined
+      }
+      assign_shift_offer: {
+        Args: { _offer_id: string; _user_id: string }
+        Returns: undefined
+      }
       assign_user_to_location: {
         Args: { p_location_id: string; p_user_id: string }
         Returns: undefined
@@ -16794,6 +16824,10 @@ export type Database = {
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
+      }
+      deny_shift_offer_claim: {
+        Args: { _claimer_id: string; _offer_id: string }
+        Returns: undefined
       }
       derive_store_region: {
         Args: { address: string }
@@ -17799,6 +17833,7 @@ export type Database = {
         Args: { _dry_run?: boolean; _schedule_id: string }
         Returns: Json
       }
+      undo_shift_offer: { Args: { _offer_id: string }; Returns: undefined }
       update_dashboard_widget: {
         Args: {
           _accent_color?: string
