@@ -146,7 +146,7 @@ export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
     }
   };
 
-  if (!steps.length) return null;
+  if (!run || !steps.length) return null;
 
   return (
     <Joyride
