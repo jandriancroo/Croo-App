@@ -214,7 +214,7 @@ export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplic
           <SheetHeader className="px-4 pt-4 pb-3 border-b border-primary-foreground/10 shrink-0 bg-primary text-primary-foreground">
             <SheetTitle className="pr-8 text-left text-lg text-primary-foreground">Inbox</SheetTitle>
             {steps.length > 1 && (
-              <div className="mt-2 grid w-full grid-cols-[1.45fr_1fr_1fr] items-center gap-1 rounded-full bg-primary-foreground/10 p-1" role="tablist" aria-label="Inbox source">
+              <div className="mt-2 grid w-full items-center gap-1 rounded-full bg-primary-foreground/10 p-1" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }} role="tablist" aria-label="Inbox source">
                 {steps.map(source => {
                   const SourceIcon = source.icon;
                   const selected = source.id === step;
