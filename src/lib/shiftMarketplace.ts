@@ -47,6 +47,34 @@ export function wouldHitSixthDay(personId: string, shift: { id: string; shift_da
   return days.size >= 6;
 }
 
+/** Pure: how many distinct days the person works that week once they take this shift (6 = Sixth day, 7 = Seventh day). */
+export function weekDaysAfterTaking(personId: string, shift: { id: string; shift_date: string }, weekShifts: { id: string; user_id: string | null; shift_date: string; is_time_off?: boolean | null }[]) {
+  const days = new Set(weekShifts.filter((w) => w.user_id === personId && !w.is_time_off && w.id !== shift.id).map((w) => w.shift_date));
+  days.add(shift.shift_date);
+  return days.size;
+}
+
+/** Pure: the warning flags for one person. Warnings only; nothing is blocked. */
+export function assignFlags(c: { dayCount: number; blocked: string | null }): string[] {
+  const f: string[] = [];
+  if (c.dayCount >= 7) f.push('Seventh day');
+  else if (c.dayCount === 6) f.push('Sixth day');
+  if (c.blocked) f.push('Unavailable');
+  return f;
+}
+
+/** Pure: people who claimed come first (in claim order), then everyone else (in cover order). */
+export function splitClaimersFirst<T extends { id: string }>(list: T[], claimerIds: string[]): { claimers: T[]; others: T[] } {
+  const byId = new Map(list.map((c) => [c.id, c]));
+  const seen = new Set<string>();
+  const claimers: T[] = [];
+  for (const id of claimerIds) {
+    const c = byId.get(id);
+    if (c && !seen.has(id)) { claimers.push(c); seen.add(id); }
+  }
+  return { claimers, others: list.filter((c) => !seen.has(c.id)) };
+}
+
 /** The offered shift with its store. */
 export async function loadOfferShift(shiftId: string): Promise<OfferShift> {
   const { data, error } = await supabase.from('scheduled_shifts')
@@ -69,7 +97,7 @@ export async function loadDayShifts(shift: OfferShift): Promise<DayShiftRow[]> {
   return (data || []).map((r: any) => ({ id: r.id, user_id: r.user_id, start_time: r.start_time, end_time: r.end_time, is_time_off: r.is_time_off, position: r.template?.position ?? null, name: nm.get(r.user_id) || 'Teammate' }));
 }
 
-export type AssignCandidate = { id: string; name: string; line: string; tag: string | null; sixthDay: boolean; blocked: string | null; group: 'clear' | 'working' | 'blocked' };
+export type AssignCandidate = { id: string; name: string; line: string; tag: string | null; sixthDay: boolean; dayCount: number; blocked: string | null; group: 'clear' | 'working' | 'blocked' };
 
 /** Store crew ranked with the same cover check Theo uses (time off, availability, overlaps) plus a Sixth day flag. */
 export async function loadAssignCandidates(shift: OfferShift): Promise<AssignCandidate[]> {
@@ -112,9 +140,10 @@ export async function loadAssignCandidates(shift: OfferShift): Promise<AssignCan
 /** Pure: flatten the ranked cover result into one list (clear, then working, then blocked). */
 export function toAssignList(r: CoverResult, shift: { id: string; shift_date: string }, weekShifts: { id: string; user_id: string | null; shift_date: string; is_time_off?: boolean | null }[]): AssignCandidate[] {
   const six = (id: string) => wouldHitSixthDay(id, shift, weekShifts);
+  const days = (id: string) => weekDaysAfterTaking(id, shift, weekShifts);
   return [
-    ...r.clear.map((c) => ({ id: c.id, name: c.name, line: c.line, tag: c.tag, sixthDay: six(c.id), blocked: null, group: 'clear' as const })),
-    ...r.working.map((c) => ({ id: c.id, name: c.name, line: c.line, tag: c.tag, sixthDay: six(c.id), blocked: null, group: 'working' as const })),
-    ...r.blocked.map((b) => ({ id: b.id, name: b.name, line: b.reason, tag: null, sixthDay: six(b.id), blocked: b.reason, group: 'blocked' as const })),
+    ...r.clear.map((c) => ({ id: c.id, name: c.name, line: c.line, tag: c.tag, sixthDay: six(c.id), dayCount: days(c.id), blocked: null, group: 'clear' as const })),
+    ...r.working.map((c) => ({ id: c.id, name: c.name, line: c.line, tag: c.tag, sixthDay: six(c.id), dayCount: days(c.id), blocked: null, group: 'working' as const })),
+    ...r.blocked.map((b) => ({ id: b.id, name: b.name, line: b.reason, tag: null, sixthDay: six(b.id), dayCount: days(b.id), blocked: b.reason, group: 'blocked' as const })),
   ];
 }
