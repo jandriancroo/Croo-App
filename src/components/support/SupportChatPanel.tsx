@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Send, CheckCircle, Image, Loader2, Clock, User, ArrowLeft, Zap, CheckCheck, ChevronDown, Trash2 } from 'lucide-react';
+import { Send, CheckCircle, Image, Loader2, Clock, User, ArrowLeft, Zap, CheckCheck, Check, Ticket, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -110,6 +110,17 @@ const STATUS_DOT: Record<string, string> = {
 
 const formatTicketNum = (num: number) => `#SUP-${String(num).padStart(3, '0')}`;
 
+function TicketTag({ ticket }: { ticket: SupportTicket }) {
+  const resolved = ticket.status === 'resolved';
+  return (
+    <span className={`inline-flex min-w-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${resolved ? 'bg-success/15 text-success' : 'bg-primary/10 text-primary'}`}>
+      <Ticket className="h-3 w-3 shrink-0" />
+      <span className="shrink-0">{formatTicketNum(ticket.ticket_number)}</span>
+      <span className="truncate opacity-80">· {CATEGORY_LABELS[ticket.category] || ticket.category}</span>
+    </span>
+  );
+}
+
 function TicketRow({
   ticket,
   onClick,
@@ -119,8 +130,8 @@ function TicketRow({
   onClick: () => void;
   active?: boolean;
 }) {
-  const StatusIcon = ticket.status === 'resolved' ? CheckCheck : ticket.status === 'in_progress' ? Zap : Clock;
   const profile = displayProfile(ticket);
+  const resolved = ticket.status === 'resolved';
   return (
     <div
       role="button"
@@ -133,44 +144,35 @@ function TicketRow({
         }
       }}
       className={`group w-full flex items-center gap-3 px-3 py-3 transition-colors text-left cursor-pointer select-none ${
-        active
-          ? 'bg-accent text-accent-foreground'
-          : ticket.status !== 'resolved'
-          ? 'hover:bg-muted/50'
-          : 'hover:bg-muted/40'
+        active ? 'bg-accent text-accent-foreground' : 'hover:bg-muted/50'
       }`}
     >
       <div className="relative shrink-0">
-        <Avatar className="h-12 w-12">
+        <Avatar className={`h-12 w-12 ${resolved ? 'opacity-70' : ''}`}>
           <AvatarImage src={profile?.profile_photo_url || ''} />
           <AvatarFallback className="text-lg font-medium">
             {ticket.is_system ? 'C' : profile?.full_name?.charAt(0) || <User className="h-5 w-5" />}
           </AvatarFallback>
         </Avatar>
-        <span
-          className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full ring-2 ring-background flex items-center justify-center ${STATUS_DOT[ticket.status]}`}
-          title={ticket.status.replace('_', ' ')}
-        >
-          <StatusIcon className="h-2 w-2 text-white" strokeWidth={3} />
-        </span>
+        {resolved && (
+          <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-success ring-2 ring-background" title="Resolved">
+            <Check className="h-2.5 w-2.5 text-success-foreground" strokeWidth={3.5} />
+          </span>
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="flex-1 min-w-0 truncate text-[15px] font-medium">
+          <p className={`flex-1 min-w-0 truncate text-[15px] ${resolved ? 'font-medium text-muted-foreground' : 'font-semibold text-foreground'}`}>
             {profile?.full_name || 'Unknown'}
           </p>
-          <span className="text-sm text-muted-foreground whitespace-nowrap shrink-0">
+          <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
             {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: false })}
           </span>
         </div>
-        <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
-          <span className="font-mono text-[11px] text-primary shrink-0">
-            {formatTicketNum(ticket.ticket_number)}
-          </span>
-          <span className="text-muted-foreground/40 text-[11px]">·</span>
-          <span className="text-[13px] text-muted-foreground truncate">
-            {CATEGORY_LABELS[ticket.category] || ticket.category}
-          </span>
+        <p className={`truncate text-[13px] ${resolved ? 'text-muted-foreground/70' : 'text-muted-foreground'}`}>{ticket.description}</p>
+        <div className="mt-1 flex items-center gap-1.5 min-w-0">
+          <TicketTag ticket={ticket} />
+          {resolved && <span className="shrink-0 text-[11px] font-bold text-success">Resolved</span>}
         </div>
       </div>
     </div>
@@ -438,58 +440,46 @@ export function SupportChatPanel() {
   // Mobile: show either list OR chat, not both
   if (isMobile) {
     if (selectedTicket) {
-      // Show chat view with back button
+      const resolved = selectedTicket.status === 'resolved';
+      const bubble = (own: boolean) => `max-w-[80%] rounded-2xl px-3 py-2 ${own ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`;
+      // Chat view, DM look: header, cream thread, gray left / teal right bubbles
       return (
         <div className="flex flex-col h-full">
-          {/* Compact Ticket Header with Back Button */}
-          <div className="p-3 border-b">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedTicket(null)}
-                  className="gap-1 -ml-2 h-8 px-2"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={displayProfile(selectedTicket)?.profile_photo_url || ''} />
-                  <AvatarFallback>
-                    {selectedTicket.is_system ? 'C' : <User className="h-4 w-4" />}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-sm truncate">{displayProfile(selectedTicket)?.full_name}</span>
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {formatTicketId(selectedTicket.ticket_number)}
-                    </span>
-                  </div>
-                  <Badge variant="secondary" className="text-xs w-fit">{CATEGORY_LABELS[selectedTicket.category]}</Badge>
+          <div className="px-3 py-2.5 border-b bg-card">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedTicket(null)}
+                className="-ml-2 h-9 w-9 p-0"
+                aria-label="Back to support chats"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <Avatar className="h-9 w-9">
+                <AvatarImage src={displayProfile(selectedTicket)?.profile_photo_url || ''} />
+                <AvatarFallback>
+                  {selectedTicket.is_system ? 'C' : <User className="h-4 w-4" />}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[15px] font-semibold">{displayProfile(selectedTicket)?.full_name}</p>
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <TicketTag ticket={selectedTicket} />
+                  <span className={`shrink-0 text-[11px] font-bold ${resolved ? 'text-success' : selectedTicket.status === 'in_progress' ? 'text-primary' : 'text-muted-foreground'}`}>
+                    {resolved ? 'Resolved ✓' : selectedTicket.status === 'in_progress' ? 'In progress' : 'Open'}
+                  </span>
                 </div>
-              </div>
-              {/* Status Indicator - icon only */}
-              <div className={`inline-flex items-center justify-center w-7 h-7 rounded-full ${
-                selectedTicket.status === 'resolved' 
-                  ? 'bg-green-500/20 text-green-400' 
-                  : selectedTicket.status === 'in_progress'
-                  ? 'bg-blue-500/20 text-blue-400'
-                  : 'bg-yellow-500/20 text-yellow-400'
-              }`} title={selectedTicket.status === 'resolved' ? 'Resolved' : selectedTicket.status === 'in_progress' ? 'In Progress' : 'Open'}>
-                {selectedTicket.status === 'resolved' ? <CheckCheck className="h-4 w-4" /> : 
-                 selectedTicket.status === 'in_progress' ? <Zap className="h-4 w-4" /> : 
-                 <Clock className="h-4 w-4" />}
               </div>
             </div>
           </div>
 
           {/* Messages */}
-          <ScrollArea className="flex-1 min-h-0">
-            <div className="p-3 space-y-3">
+          <ScrollArea className="flex-1 min-h-0 bg-secondary/40">
+            <div className="p-3 space-y-2">
               {/* Initial ticket as first message from user */}
-              <div className="flex justify-end">
-                <div className="max-w-[85%] rounded-lg p-2.5 bg-primary text-primary-foreground">
+              <div className="flex justify-start">
+                <div className={bubble(false)}>
                   <p className="text-sm">{selectedTicket.description}</p>
                   {selectedTicket.screenshot_url && (
                     <a
@@ -504,30 +494,24 @@ export function SupportChatPanel() {
                         loading="lazy"
                         className="rounded-md max-w-full"
                       />
-                      <span className="inline-flex items-center gap-1 text-xs text-primary-foreground/80 hover:text-primary-foreground mt-1">
+                      <span className="inline-flex items-center gap-1 text-xs text-primary mt-1">
                         <Image className="h-3 w-3" />
                         Open Screenshot
                       </span>
                     </a>
                   )}
-                  <p className="text-xs mt-1 text-primary-foreground/70">
+                  <p className="text-[11px] mt-1 text-muted-foreground">
                     {format(new Date(selectedTicket.created_at), 'h:mm a')}
                   </p>
                 </div>
               </div>
-              
+
               {messages.map((msg) => {
                 const isOwnMessage = msg.sender_id === currentUserId;
                 const messageContent = (
-                  <div
-                    className={`max-w-[85%] rounded-lg p-2.5 ${
-                      isOwnMessage
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted'
-                    }`}
-                  >
+                  <div className={bubble(isOwnMessage)}>
                     {!isOwnMessage && (
-                      <p className="text-xs font-medium mb-1">{msg.profiles?.full_name}</p>
+                      <p className="text-xs font-semibold mb-0.5">{msg.profiles?.full_name}</p>
                     )}
                     {msg.content && <p className="text-sm">{msg.content}</p>}
                     {msg.image_url && (
@@ -538,7 +522,7 @@ export function SupportChatPanel() {
                         className="mt-2 rounded max-w-full"
                       />
                     )}
-                    <p className={`text-xs mt-1 ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                    <p className={`text-[11px] mt-1 ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                       {format(new Date(msg.created_at), 'h:mm a')}
                     </p>
                   </div>
@@ -570,36 +554,36 @@ export function SupportChatPanel() {
                   </div>
                 );
               })}
+              {resolved && (
+                <div className="flex items-center gap-2 py-2 text-[12px] font-semibold text-success">
+                  <span className="h-px flex-1 bg-success/30" />
+                  ✓ This ticket has been resolved
+                  <span className="h-px flex-1 bg-success/30" />
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
 
           {/* Message Input */}
-          {selectedTicket.status !== 'resolved' && (
-            <div className="p-3 border-t space-y-2">
-              {/* Quick Replies Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="text-xs h-7" disabled={sending}>
-                    Quick Reply
-                    <ChevronDown className="h-3 w-3 ml-1" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="bg-background">
-                  {QUICK_REPLIES.map((qr, idx) => (
-                    <DropdownMenuItem
-                      key={idx}
-                      onClick={() => handleQuickReply(qr)}
-                      className="text-xs cursor-pointer"
-                    >
-                      {qr.status === 'in_progress' && <Zap className="h-3 w-3 mr-2 text-blue-400" />}
-                      {qr.status === 'resolved' && <CheckCheck className="h-3 w-3 mr-2 text-green-400" />}
-                      {!qr.status && <span className="w-5" />}
-                      {qr.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+          {!resolved && (
+            <div className="p-3 border-t bg-card space-y-2">
+              {/* Quick replies as chips */}
+              <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                {QUICK_REPLIES.map((qr, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleQuickReply(qr)}
+                    disabled={sending}
+                    className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted disabled:opacity-60"
+                  >
+                    {qr.status === 'in_progress' && <Zap className="h-3 w-3 text-primary" />}
+                    {qr.status === 'resolved' && <CheckCheck className="h-3 w-3 text-success" />}
+                    {qr.label}
+                  </button>
+                ))}
+              </div>
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -612,9 +596,9 @@ export function SupportChatPanel() {
                   onChange={(e) => setNewMessage(e.target.value)}
                   placeholder="Type your response..."
                   disabled={sending}
-                  className="h-9"
+                  className="h-10 rounded-full"
                 />
-                <Button type="submit" disabled={sending || !newMessage.trim()} className="h-9 w-9 p-0">
+                <Button type="submit" disabled={sending || !newMessage.trim()} className="h-10 w-10 shrink-0 rounded-full p-0">
                   {sending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
@@ -624,37 +608,37 @@ export function SupportChatPanel() {
               </form>
             </div>
           )}
-          {selectedTicket.status === 'resolved' && (
-            <div className="p-3 border-t text-center text-sm text-muted-foreground">
-              ✅ This ticket has been resolved
+          {resolved && (
+            <div className="p-3 border-t bg-card">
+              <div className="flex h-10 items-center rounded-full border border-border bg-muted/40 px-4 text-sm text-muted-foreground" aria-disabled="true">
+                Reply to reopen…
+              </div>
             </div>
           )}
         </div>
       );
     }
 
-    // Show ticket list (full width on mobile)
+    // Ticket list: Open first, then Resolved
+    const openTickets = tickets.filter((t) => t.status !== 'resolved');
+    const resolvedTickets = tickets.filter((t) => t.status === 'resolved');
+    const sectionLabel = 'px-4 pt-3 pb-1 text-[11.5px] font-bold uppercase tracking-[0.06em] text-muted-foreground';
     return (
       <div className="flex flex-col h-full">
-        <div className="p-4 border-b bg-card">
-          <div className="flex flex-wrap items-center gap-2">
-            {(['open', 'in_progress', 'resolved'] as const).map((status) => (
-              <Badge key={status} variant="outline" className={STATUS_COLORS[status]}>
-                {tickets.filter(t => t.status === status).length} {status.replace('_', ' ')}
-              </Badge>
-            ))}
-          </div>
-        </div>
         <ScrollArea className="flex-1">
-          <div className="divide-y divide-border/50 px-1">
-            {tickets.map((ticket) => (
-              <TicketRow
-                key={ticket.id}
-                ticket={ticket}
-                onClick={() => setSelectedTicket(ticket)}
-              />
+          {openTickets.length > 0 && <p className={sectionLabel}>Open · {openTickets.length}</p>}
+          <div className="divide-y divide-border/50">
+            {openTickets.map((ticket) => (
+              <TicketRow key={ticket.id} ticket={ticket} onClick={() => setSelectedTicket(ticket)} />
             ))}
           </div>
+          {resolvedTickets.length > 0 && <p className={sectionLabel}>Resolved · {resolvedTickets.length}</p>}
+          <div className="divide-y divide-border/50">
+            {resolvedTickets.map((ticket) => (
+              <TicketRow key={ticket.id} ticket={ticket} onClick={() => setSelectedTicket(ticket)} />
+            ))}
+          </div>
+          {tickets.length === 0 && <p className="p-6 text-center text-sm text-muted-foreground">No support chats yet.</p>}
         </ScrollArea>
       </div>
     );
