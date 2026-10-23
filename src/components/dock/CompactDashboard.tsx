@@ -45,8 +45,8 @@ import { computePace, laborPct, storeNow } from '../../../supabase/functions/_sh
 // Swipe-up panel palette. "Ink" = theme primary darkened for text on the light
 // page background; dark themes lighten it instead so it stays readable.
 const CD_STYLE = `
-.cd-panel{--cd-ink:color-mix(in srgb,hsl(var(--primary)) 75%,black);--cd-solid:color-mix(in srgb,hsl(var(--primary)) 75%,black);--cd-good:hsl(142 70% 28%);--cd-warn:hsl(32 90% 32%);--cd-bad:hsl(0 72% 42%);--cd-good-solid:hsl(142 70% 28%);--cd-bad-solid:hsl(0 72% 42%);--cd-line:color-mix(in srgb,var(--cd-ink) 25%,transparent)}
-.dark .cd-panel,[data-theme="oled"] .cd-panel,.dark.cd-panel,[data-theme="oled"].cd-panel{--cd-ink:color-mix(in srgb,hsl(var(--primary)) 45%,white);--cd-good:hsl(142 62% 55%);--cd-warn:hsl(38 92% 60%);--cd-bad:hsl(0 80% 66%)}
+.cd-panel{--cd-ink:color-mix(in srgb,hsl(var(--primary)) 75%,black);--cd-solid:color-mix(in srgb,hsl(var(--primary)) 75%,black);--cd-good:hsl(142 70% 28%);--cd-warn:hsl(32 90% 32%);--cd-bad:hsl(0 72% 42%);--cd-good-solid:hsl(142 70% 28%);--cd-bad-solid:hsl(0 72% 42%);--cd-line:color-mix(in srgb,var(--cd-ink) 25%,transparent);--cd-pill:#fff}
+.dark .cd-panel,[data-theme="oled"] .cd-panel,.dark.cd-panel,[data-theme="oled"].cd-panel{--cd-ink:color-mix(in srgb,hsl(var(--primary)) 45%,white);--cd-good:hsl(142 62% 55%);--cd-warn:hsl(38 92% 60%);--cd-bad:hsl(0 80% 66%);--cd-pill:hsl(var(--background))}
 `;
 const PACE_PILL_BG: Record<string, string> = {
   'On Track': 'var(--cd-solid)',
@@ -683,8 +683,12 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                       type="button"
                       onClick={() => window.dispatchEvent(new CustomEvent('open-theo'))}
                       aria-label="Open Theo"
-                      className="mt-[10px] flex h-9 w-full items-center gap-2 rounded-full bg-accent-foreground px-3 text-left transition-transform active:scale-[0.98] hover:brightness-110 animate-scale-in"
-                      style={{ color: 'var(--cd-ink)' }}
+                      className="mt-[10px] flex h-9 w-full items-center gap-2 rounded-full px-3 text-left transition-transform active:scale-[0.98] hover:brightness-110 animate-scale-in"
+                      style={{
+                        background: 'var(--cd-pill)',
+                        color: 'var(--cd-ink)',
+                        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--cd-ink) 22%, transparent)',
+                      }}
                     >
                       {hasUnreadTheo && (
                         <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: 'var(--cd-bad)' }} />
