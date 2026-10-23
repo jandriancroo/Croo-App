@@ -605,12 +605,19 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
           dragConstraints={{ top: 0, bottom: 0 }}
           dragElastic={{ top: 0, bottom: 0.3 }}
           onDragEnd={(_, info) => onDragEnd(info)}
-          className="cd-panel fixed bottom-0 left-0 right-0 z-[60] bg-accent rounded-t-3xl flex flex-col overflow-hidden"
+          className="cd-panel fixed bottom-0 left-0 right-0 z-[60] bg-background rounded-t-3xl flex flex-col overflow-hidden"
           style={{ height: '75vh', touchAction: 'none' }}
         >
           <style>{CD_STYLE}</style>
           {/* A. Orange header — does not scroll */}
-          <div className="relative shrink-0 px-4 pb-4">
+          <div
+            className="relative z-10 shrink-0 px-4 pb-4 rounded-b-[30px]"
+            style={{
+              background:
+                'linear-gradient(135deg, color-mix(in srgb, hsl(var(--accent)) 82%, white) 0%, hsl(var(--accent)) 50%, color-mix(in srgb, hsl(var(--accent)) 85%, black) 100%)',
+              boxShadow: '0 10px 22px -6px hsl(var(--accent) / 0.45)',
+            }}
+          >
             <div className="flex justify-center items-center h-[34px]">
               <div className="w-[44px] h-[5px] bg-accent-foreground/40 rounded-full" />
             </div>
@@ -720,14 +727,14 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
 
           {/* B. Beige panel — scrolls on its own */}
           <div
-            className="flex-1 min-h-0 overflow-y-auto bg-background rounded-t-[24px] px-4 pt-5 tabular-nums"
+            className="flex-1 min-h-0 overflow-y-auto bg-background px-4 pt-6 tabular-nums"
             style={{ color: 'var(--cd-ink)', paddingBottom: 'calc(20px + env(safe-area-inset-bottom))' }}
           >
             {/* B1. Sales | Pace */}
             <div className="grid grid-cols-2">
               <div className="pr-4">
                 <p className="text-[13px] font-bold">Sales</p>
-                <p className="text-[32px] font-extrabold tracking-[-0.02em] leading-tight">
+                <p className="text-[28px] font-extrabold tracking-[-0.02em] leading-tight">
                   {formatCurrency(totalSales)}
                 </p>
                 <div className="h-1.5 rounded-full mt-1.5 overflow-hidden" style={{ background: 'color-mix(in srgb, var(--cd-ink) 18%, transparent)' }}>
@@ -748,7 +755,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
               </div>
               <div className="pl-4" style={{ borderLeft: '1px solid var(--cd-line)' }}>
                 <p className="text-[13px] font-bold">Pace</p>
-                <p className="text-[32px] font-extrabold tracking-[-0.02em] leading-tight">
+                <p className="text-[28px] font-extrabold tracking-[-0.02em] leading-tight">
                   {formatCurrency(paceAdjusted)}
                 </p>
                 {paceStatus && (
@@ -768,18 +775,18 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
             {/* B2. Labor | Goal | Variance */}
             <div className="grid grid-cols-3 text-center">
               <div>
-                <p className="text-[24px] font-extrabold leading-tight" style={{ color: LABOR_COLOR[laborStatus] }}>
+                <p className="text-[22px] font-extrabold leading-tight" style={{ color: LABOR_COLOR[laborStatus] }}>
                   {laborPercentage.toFixed(1)}%
                 </p>
                 <p className="text-[13px] font-bold">Labor</p>
               </div>
               <div style={{ borderLeft: '1px solid var(--cd-line)', borderRight: '1px solid var(--cd-line)' }}>
-                <p className="text-[24px] font-extrabold leading-tight">{laborTarget}%</p>
+                <p className="text-[22px] font-extrabold leading-tight">{laborTarget}%</p>
                 <p className="text-[13px] font-bold">Goal</p>
               </div>
               <div>
                 <p
-                  className="text-[24px] font-extrabold leading-tight"
+                  className="text-[22px] font-extrabold leading-tight"
                   style={{ color: laborSavings >= 0 ? 'var(--cd-good)' : 'var(--cd-bad)' }}
                 >
                   {laborSavings >= 0 ? '−' : '+'}{formatCurrency(Math.abs(laborSavings))}
