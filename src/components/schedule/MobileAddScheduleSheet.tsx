@@ -563,9 +563,9 @@ export function MobileAddScheduleSheet({
                     <SelectValue placeholder="Choose template">
                       {(() => {
                         const id = shiftTemplateId || '';
-                        if (!id || id === 'none') return undefined;
+                        if (!id || id === 'none') return 'None — custom times';
                         const tpl = templates.find(t => t.id === id);
-                        if (!tpl) return undefined;
+                        if (!tpl) return 'None — custom times';
                         return `${tpl.template_name.split(/\d{1,2}:\d{2}/)[0].trim()} · ${fmt12(tpl.start_time)} – ${fmt12(tpl.end_time)}`;
                       })()}
                     </SelectValue>

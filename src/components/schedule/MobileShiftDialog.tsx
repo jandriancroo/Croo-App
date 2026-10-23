@@ -557,9 +557,9 @@ export function MobileShiftDialog({
                         const name = sd.shift_templates?.position || (rawName ? rawName.split(/\d{1,2}:\d{2}/)[0].trim() : 'Shift');
                         return `${name} · ${fmt(sd.start_time)} – ${fmt(sd.end_time)}`;
                       }
-                      if (!id || id === 'none') return undefined;
+                      if (!id || id === 'none') return 'None';
                       const tpl = templates.find(t => t.id === id);
-                      if (!tpl) return undefined;
+                      if (!tpl) return 'None';
                       return `${tpl.template_name.split(/\d{1,2}:\d{2}/)[0].trim()} · ${fmt(tpl.start_time)} – ${fmt(tpl.end_time)}`;
                     })()}
                   </SelectValue>
