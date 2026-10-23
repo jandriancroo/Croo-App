@@ -1452,26 +1452,38 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   )}
                 </div>
 
-                {/* Settings (full width) */}
-                {mobileMenuItems.filter(i => i.path === '/settings').map(item => {
-                  const Icon = item.icon;
-                  const isActive = location.pathname === item.path;
-                  return (
-                    <Button size="sm" 
-                      key={item.path} 
-                      variant={isActive ? 'secondary' : 'outline'} 
-                      onClick={() => {
-                        navigate(item.path);
-                        setMenuOpen(false);
-                      }}
-                      className="justify-start gap-3 h-12 px-4 bg-muted/60 hover:bg-muted"
-                      data-tour="nav-settings"
-                    >
-                      <Icon className="h-5 w-5" />
-                      <span className="text-base">{item.label}</span>
-                    </Button>
-                  );
-                })}
+                {/* Settings + Sign out row */}
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                  {mobileMenuItems.filter(i => i.path === '/settings').map(item => {
+                    const Icon = item.icon;
+                    const isActive = location.pathname === item.path;
+                    return (
+                      <Button size="sm"
+                        key={item.path}
+                        variant={isActive ? 'secondary' : 'outline'}
+                        onClick={() => {
+                          navigate(item.path);
+                          setMenuOpen(false);
+                        }}
+                        className="justify-start gap-3 h-12 px-4 bg-muted/60 hover:bg-muted w-full"
+                        data-tour="nav-settings"
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span className="text-base">{item.label}</span>
+                      </Button>
+                    );
+                  })}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setSignOutConfirmOpen(true)}
+                    data-allow-during-count="logout"
+                    aria-label="Sign out"
+                    className="h-12 w-14 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <LogOut className="h-5 w-5" />
+                  </Button>
+                </div>
 
               </div>
             </SheetContent>

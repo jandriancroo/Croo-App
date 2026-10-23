@@ -559,7 +559,17 @@ export function MobileAddScheduleSheet({
                   value={shiftTemplateId || 'none'}
                   onValueChange={(v) => v === 'none' ? setShiftTemplateId('') : applyTemplateToShift(v)}
                 >
-                  <SelectTrigger><SelectValue placeholder="Choose template" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose template">
+                      {(() => {
+                        const id = shiftTemplateId || '';
+                        if (!id || id === 'none') return undefined;
+                        const tpl = templates.find(t => t.id === id);
+                        if (!tpl) return undefined;
+                        return `${tpl.template_name.split(/\d{1,2}:\d{2}/)[0].trim()} · ${fmt12(tpl.start_time)} – ${fmt12(tpl.end_time)}`;
+                      })()}
+                    </SelectValue>
+                  </SelectTrigger>
                   <SelectContent className="max-w-[calc(100vw-2rem)]">
                     <SelectItem value="none">None — custom times</SelectItem>
                     {templates.map(t => (
