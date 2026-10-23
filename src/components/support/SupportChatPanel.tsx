@@ -619,7 +619,7 @@ export function SupportChatPanel() {
     const sectionLabel = 'px-4 pt-3 pb-1 text-[11.5px] font-bold uppercase tracking-[0.06em] text-muted-foreground';
     return (
       <div className="flex flex-col h-full">
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block">
           {openTickets.length > 0 && <p className={sectionLabel}>Open · {openTickets.length}</p>}
           <div className="divide-y divide-border/50">
             {openTickets.map((ticket) => (
