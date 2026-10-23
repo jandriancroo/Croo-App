@@ -8,6 +8,7 @@
 - Interview calendar files expose only signed CrooHQ join URLs; the raw video-call URL stays server-side. Why: Google Calendar rewrites raw Meet links during import.
 - Store counting pack comes only from get_store_pack_lens / v_store_pack_lens; inventory_items.pack_quantity_override is retired, never read. Why: per-store pack matches what the store buys.
 - Shift-swap phone alerts (offered / claim / approved) are queued only by the shift_offers + shift_offer_claims triggers into alert_queue; clients never send them. Why: alerts fire no matter which screen made the change.
+- Marketplace Assign/Approve/Undo refresh only the selected shift's published snapshot in the same RPC transaction; unpublished weeks are rejected, and the schedule lifecycle marks only that shift's history sent. Why: confirmations cannot leave draft assignments or publish unrelated edits.
 
 - POS list: server only _shared/posSources.ts, client only src/lib/pos/liveSales.ts; never a hard-coded fallback POS (unknown = null). Why: missing lists mislabeled Hayward.
 - New data/POS source: update data_point_registry in the same migration. Why: one writer map.

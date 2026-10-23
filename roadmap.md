@@ -15,6 +15,7 @@
 - Announcements pop up on Dash after system alerts (read via Chat or popup, optional required "I've read this", who's-read list, out of Quick Tasks). Not yet tried live with test data.
 
 ## Done
+- Marketplace Assign/Approve/Undo now update only the selected published shift atomically; repaired Jaysen's Hemet Saturday assignment and verified it live on the phone schedule without draft styling. Other published shifts unchanged; 4 isolated SQL regression tests and 13 marketplace tests passed. No app publishing, punch, kiosk or cache changes.
 - System Alerts: reusable theme/feature/system popups with optional training video; super-admin draft/preview/ship/retire screen in Settings. Private live delivery/dismissal/reload/retirement verified, test alert deleted, eight tests passed, build clean. Old Spookify invite no longer mounted; public rollout of app changes not requested.
 - Corrected clearance beneath the teal header on run list and completed review; phone and iPad verified, with 8px before the progress bar.
 - Review-screen spacing tightening (Oct 21): flat separate cards (no nested wrapper), compact header (~52px), completed-by card without uppercase label, 4-across photo tiles, 48px buttons; verified temp/photo/check at phone + iPad, test data deleted.
