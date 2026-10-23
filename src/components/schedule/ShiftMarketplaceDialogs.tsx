@@ -140,7 +140,7 @@ export function AssignShiftDialog(props: {
 
   return (
     <Dialog open={props.open} onOpenChange={(o) => { if (!o) props.onClose(); }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md grid-cols-[minmax(0,1fr)]">
         <DialogHeader>
           <DialogTitle>Assign to…</DialogTitle>
           <DialogDescription>
