@@ -1,15 +1,30 @@
-// Shift Marketplace manager sheets: the Confirm preview (the day as it will be, via DayRows) and the "Assign to…" picker.
+// Shift Marketplace sheets: the Confirm preview (the day as it will be, via DayRows, plus Theo's amber flag box)
+// and the "Assign to…" picker (Theo cover-list style: claimers first, then "Everyone else").
 import { useEffect, useState } from 'react';
 import { DateTime } from 'luxon';
+import { AlertTriangle, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { DayRows, NEW_GREEN, type DayView } from '@/components/schedule/DayRows';
+import { CoverListScroller, DayRows, NEW_GREEN, type DayView } from '@/components/schedule/DayRows';
 import {
-  buildOfferDayView, loadAssignCandidates, loadDayShifts, loadOfferShift,
+  assignFlags, buildOfferDayView, loadAssignCandidates, loadDayShifts, loadOfferShift, splitClaimersFirst,
   type AssignCandidate, type OfferShift,
 } from '@/lib/shiftMarketplace';
 
-export type ConfirmTarget = { verb: 'Approve' | 'Claim' | 'Assign'; person: { id: string; name: string } };
+export type ConfirmTarget = {
+  verb: 'Approve' | 'Claim' | 'Assign';
+  person: { id: string; name: string };
+  /** Warnings carried from the picker (Sixth day, Seventh day, Unavailable). */
+  flags?: string[];
+  /** A manager claiming for themselves: show the take-over warning and look up their own flags. */
+  takeOver?: boolean;
+};
+
+const AMBER_BOX = { background: 'hsl(38 95% 90%)', color: 'hsl(32 90% 22%)' };
+
+function FlagTag({ label }: { label: string }) {
+  return <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold" style={AMBER_BOX}>{label}</span>;
+}
 
 export function ShiftOfferConfirmDialog(props: {
   shiftId: string; ownerName: string; target: ConfirmTarget | null; busy: boolean;
@@ -18,8 +33,9 @@ export function ShiftOfferConfirmDialog(props: {
   const { target, shiftId, ownerName } = props;
   const [view, setView] = useState<DayView | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [selfFlags, setSelfFlags] = useState<string[]>([]);
   useEffect(() => {
-    if (!target) { setView(null); setErr(null); return; }
+    if (!target) { setView(null); setErr(null); setSelfFlags([]); return; }
     let live = true;
     (async () => {
       try {
@@ -27,13 +43,32 @@ export function ShiftOfferConfirmDialog(props: {
         const day = await loadDayShifts(shift);
         const title = DateTime.fromFormat(shift.shift_date, 'yyyy-MM-dd').toFormat('cccc, LLL d');
         if (live) setView(buildOfferDayView({ shift, dayShifts: day, ownerName, newPerson: target.person, title }));
+        if (target.takeOver && !target.flags) {
+          try {
+            const me = (await loadAssignCandidates(shift)).find((c) => c.id === target.person.id);
+            if (live && me) setSelfFlags(assignFlags(me));
+          } catch { /* flags are warnings only; never block the claim */ }
+        }
       } catch (e: any) { if (live) setErr(e?.message || 'Could not load the day'); }
     })();
     return () => { live = false; };
   }, [target, shiftId, ownerName]);
 
   const first = target?.person.name.split(' ')[0] ?? '';
-  const heading = !target ? '' : target.verb === 'Claim' ? 'Take this shift?' : `Give this shift to ${first}?`;
+  const flags = target?.flags ?? selfFlags;
+  const heading = !target ? '' : target.verb === 'Claim' ? 'Claim this shift?' : `Give this shift to ${first}?`;
+  const warnings: string[] = [];
+  if (target?.takeOver) warnings.push(`You're taking this shift over from ${ownerName.split(' ')[0]}. It moves to your schedule right away.`);
+  const who = target?.verb === 'Claim' ? 'You' : first;
+  if (flags.includes('Seventh day')) warnings.push(`${who} would work a seventh day this week.`);
+  if (flags.includes('Sixth day')) warnings.push(`${who} would work a sixth day this week.`);
+  if (flags.includes('Unavailable')) warnings.push(`${who} ${who === 'You' ? 'are' : 'is'} marked unavailable for this time.`);
+  const checks: string[] = [];
+  if (target && target.verb !== 'Claim' || target?.takeOver) {
+    if (!flags.includes('Unavailable')) checks.push('Available at this time');
+    if (!flags.includes('Sixth day') && !flags.includes('Seventh day')) checks.push('Under six days this week');
+    checks.push('Undo is available for 10 minutes');
+  }
   return (
     <Dialog open={!!target} onOpenChange={(o) => { if (!o && !props.busy) props.onCancel(); }}>
       <DialogContent className="max-w-md">
@@ -42,6 +77,16 @@ export function ShiftOfferConfirmDialog(props: {
           <DialogDescription>{view ? `${view.title} as it will be` : err || 'Loading the day…'}</DialogDescription>
         </DialogHeader>
         {view && <DayRows view={view} />}
+        {warnings.length > 0 && (
+          <ul className="flex flex-col gap-1 rounded-xl px-3 py-2" style={AMBER_BOX}>
+            {warnings.map((w) => <li key={w} className="flex items-start gap-2 text-[13px] font-semibold"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{w}</li>)}
+          </ul>
+        )}
+        {checks.length > 0 && (
+          <ul className="flex flex-col gap-1 px-1">
+            {checks.map((t) => <li key={t} className="flex items-start gap-2 text-[13px]"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={3} />{t}</li>)}
+          </ul>
+        )}
         <DialogFooter className="flex-row gap-2 sm:justify-stretch">
           <Button variant="outline" className="h-11 flex-1 rounded-full" onClick={props.onCancel} disabled={props.busy}>Cancel</Button>
           <Button className="h-11 flex-1 rounded-full font-extrabold text-white" style={{ background: NEW_GREEN }}
@@ -54,14 +99,18 @@ export function ShiftOfferConfirmDialog(props: {
   );
 }
 
-export function AssignShiftDialog(props: { open: boolean; shiftId: string; onClose: () => void; onPick: (p: { id: string; name: string }) => void }) {
+export function AssignShiftDialog(props: {
+  open: boolean; shiftId: string; claimerIds: string[]; onClose: () => void;
+  onPick: (p: { id: string; name: string }, info: { flags: string[]; claimed: boolean }) => void;
+}) {
   const [rows, setRows] = useState<AssignCandidate[] | null>(null);
   const [shift, setShift] = useState<OfferShift | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [showOthers, setShowOthers] = useState(false);
   useEffect(() => {
     if (!props.open) return;
     let live = true;
-    setRows(null); setErr(null);
+    setRows(null); setErr(null); setShowOthers(false);
     (async () => {
       try {
         const s = await loadOfferShift(props.shiftId);
@@ -72,24 +121,23 @@ export function AssignShiftDialog(props: { open: boolean; shiftId: string; onClo
     return () => { live = false; };
   }, [props.open, props.shiftId]);
 
-  const section = (label: string, list: AssignCandidate[]) => list.length > 0 && (
-    <div className="space-y-1">
-      <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{label}</p>
-      {list.map((c) => (
-        <button key={c.id} type="button" onClick={() => props.onPick({ id: c.id, name: c.name })}
-          className={`flex w-full items-center justify-between gap-2 rounded-[10px] px-3 py-2 text-left hover:bg-muted ${c.blocked ? 'opacity-70' : ''}`}>
-          <span className="min-w-0">
-            <span className="block truncate text-[14.5px] font-extrabold">{c.name}</span>
-            <span className="block truncate text-[12px] text-muted-foreground">{c.line}</span>
-          </span>
-          <span className="flex shrink-0 gap-1">
-            {c.sixthDay && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-bold text-amber-700">Sixth day</span>}
-            {c.tag && <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">{c.tag}</span>}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
+  const { claimers, others } = rows ? splitClaimersFirst(rows, props.claimerIds) : { claimers: [], others: [] };
+  const rowCls = 'flex min-h-[60px] w-full shrink-0 items-center gap-3 rounded-xl px-3 py-2 text-left active:bg-muted hover:bg-muted/60';
+  const groupLabel = 'sticky top-0 z-10 shrink-0 bg-background px-1 py-1 text-[12px] font-bold uppercase tracking-wide text-muted-foreground';
+  const person = (c: AssignCandidate, claimed: boolean) => {
+    const flags = assignFlags(c);
+    return (
+      <button key={c.id} type="button" data-plain="" className={`${rowCls} ${c.blocked ? 'opacity-55' : ''}`}
+        onClick={() => props.onPick({ id: c.id, name: c.name }, { flags, claimed })}>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[16px] font-extrabold">{c.name}</div>
+          <div className="truncate text-[13px] text-muted-foreground">{claimed ? `Claimed · ${c.line}` : c.line}</div>
+        </div>
+        <span className="flex shrink-0 flex-wrap justify-end gap-1">{flags.map((f) => <FlagTag key={f} label={f} />)}</span>
+        <ChevronRight aria-hidden="true" className="h-[18px] w-[18px] shrink-0 text-muted-foreground" />
+      </button>
+    );
+  };
 
   return (
     <Dialog open={props.open} onOpenChange={(o) => { if (!o) props.onClose(); }}>
@@ -100,13 +148,24 @@ export function AssignShiftDialog(props: { open: boolean; shiftId: string; onClo
             {shift ? DateTime.fromFormat(shift.shift_date, 'yyyy-MM-dd').toFormat('cccc, LLL d') : 'Store crew, checked against availability, time off and other shifts.'}
           </DialogDescription>
         </DialogHeader>
-        <div className="max-h-[60vh] space-y-3 overflow-y-auto">
+        <div className="flex max-h-[60vh] min-h-0 flex-col">
           {err && <p className="text-sm text-destructive">{err}</p>}
           {!rows && !err && <p className="text-sm text-muted-foreground">Loading crew…</p>}
           {rows && rows.length === 0 && <p className="text-sm text-muted-foreground">No one else on this store's schedule.</p>}
-          {rows && section('Off that day', rows.filter((r) => r.group === 'clear'))}
-          {rows && section('Already working that day', rows.filter((r) => r.group === 'working'))}
-          {rows && section("Can't (you can still assign)", rows.filter((r) => r.group === 'blocked'))}
+          {rows && rows.length > 0 && (
+            <CoverListScroller>
+              {claimers.length > 0 && <div className={groupLabel}>Claimed · {claimers.length}</div>}
+              {claimers.map((c) => person(c, true))}
+              {others.length > 0 && (
+                <button type="button" data-plain="" onClick={() => setShowOthers((v) => !v)}
+                  className="flex h-11 w-full shrink-0 items-center gap-2 px-1 text-left text-[12px] font-bold uppercase tracking-wide text-muted-foreground">
+                  <ChevronDown className={`h-4 w-4 transition-transform ${showOthers || claimers.length === 0 ? 'rotate-180' : ''}`} />
+                  Everyone else ({others.length})
+                </button>
+              )}
+              {(showOthers || claimers.length === 0) && others.map((c) => person(c, false))}
+            </CoverListScroller>
+          )}
         </div>
       </DialogContent>
     </Dialog>
