@@ -11,7 +11,7 @@ import { registerDockControl, unregisterDockControl } from '@/components/dock/do
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { CheckSquare, Users, Calendar, MessageSquare, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, FileText, DoorOpen, LogOut, MapPin, Briefcase, Building2, User, LayoutDashboard, Check, Mic, MicOff, Palette, Package, ArrowLeft, RefreshCw, Type, GraduationCap } from 'lucide-react';
+import { CheckSquare, Users, Calendar, MessageSquare, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, FileText, DoorOpen, LogOut, MapPin, Briefcase, Building2, User, LayoutDashboard, Check, Mic, MicOff, Palette, Package, ArrowLeft, RefreshCw, Type } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -265,7 +265,13 @@ export const Layout = ({
 }: LayoutProps) => {
   // Setup push notifications only in Layout (after auth)
   usePushNotifications();
-  const { runTour, completeTour, replayTour, isEligible: tourEligible } = useOnboardingTour();
+  const { runTour, setRunTour, completeTour, replayTour, isEligible: tourEligible } = useOnboardingTour();
+  useEffect(() => {
+    const startTour = () => { if (tourEligible) void replayTour(); };
+    window.addEventListener('start-croo-tour', startTour);
+    if (tourEligible && sessionStorage.getItem('croo-tour-route-step') !== null) setRunTour(true);
+    return () => window.removeEventListener('start-croo-tour', startTour);
+  }, [tourEligible, replayTour, setRunTour]);
   
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
@@ -1227,8 +1233,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
               <div className="grid gap-2 py-4">
-                {/* Profile + Sign Out row */}
-                <div className="grid grid-cols-[1fr_auto] gap-2 mb-2">
+                {/* Profile + Update + Sign Out row */}
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 mb-2">
                   <div
                     className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors min-w-0"
                     onClick={() => {
@@ -1246,6 +1252,18 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
+                {/* Update App */}
+                <Button size="sm" variant="outline" onClick={() => {
+                  setMenuOpen(false);
+                  const prevVersion = getCurrentAppVersion();
+                  sessionStorage.setItem('pre_update_version', prevVersion);
+                  toast.info('Updating app...');
+                  setTimeout(() => window.location.reload(), 500);
+                }} className="h-auto w-14 flex-col gap-1 px-1" aria-label="Update app">
+                  <RefreshCw className="h-5 w-5" />
+                  <span className="text-xs">Update</span>
+                </Button>
+
                   <Button
                     variant="outline"
                     size="icon"
@@ -1266,13 +1284,13 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     <Button
                       variant="outline"
                       onClick={() => setTimeMenuExpanded(!timeMenuExpanded)}
-                      className={`justify-between h-9 px-3 w-full ${timeMenuExpanded ? 'border-0 bg-transparent hover:bg-transparent rounded-none' : ''}`}
+                      className={`justify-between h-12 px-4 w-full ${timeMenuExpanded ? 'border-0 bg-transparent hover:bg-transparent rounded-none' : ''}`}
                     >
                       <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        <span className="text-sm">Time</span>
+                        <Clock className="h-5 w-5" />
+                        <span className="text-base">Time</span>
                       </div>
-                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${timeMenuExpanded ? 'rotate-180' : ''}`} />
+                      <ChevronDown className={`h-5 w-5 transition-transform ${timeMenuExpanded ? 'rotate-180' : ''}`} />
                     </Button>
                     {timeMenuExpanded && (
                       <div className="px-2 pb-2 pt-1 grid gap-1 border-t">
@@ -1293,10 +1311,10 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                                   setMenuOpen(false);
                                 }
                               }}
-                              className="justify-start gap-2 h-8 w-full"
+                              className="justify-start gap-2 h-11 w-full"
                             >
-                              <Icon className="h-3.5 w-3.5" />
-                              <span className="text-xs">{item.label}</span>
+                              <Icon className="h-5 w-5" />
+                              <span className="text-sm">{item.label}</span>
                             </Button>
                           );
                         })}
@@ -1317,11 +1335,11 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                         navigate(item.path);
                         setMenuOpen(false);
                       }}
-                      className="justify-start gap-2 px-3"
+                      className="justify-start gap-3 h-12 px-4"
                       data-tour={item.path === '/users' ? 'nav-users' : item.path === '/my-team' ? 'nav-users' : undefined}
                     >
-                      <Icon className="h-4 w-4" />
-                      <span className="text-sm">{item.label}</span>
+                      <Icon className="h-5 w-5" />
+                      <span className="text-base">{item.label}</span>
                     </Button>
                   );
                 })}
@@ -1352,11 +1370,11 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                                 setMenuOpen(false);
                               }
                             }}
-                            className="justify-between h-9 px-3"
+                            className="justify-between h-12 px-4"
                           >
                             <span className="flex items-center gap-2">
-                              <Icon className="h-4 w-4" />
-                              <span className="text-sm">{item.label}</span>
+                              <Icon className="h-5 w-5" />
+                              <span className="text-base">{item.label}</span>
                             </span>
                             {item.path.startsWith('/inventory') && (
                               <InventoryModeBadge mode={currentInventoryMode} />
@@ -1367,27 +1385,6 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     </div>
                   );
                 })()}
-
-                {/* Settings (full width) */}
-                {mobileMenuItems.filter(i => i.path === '/settings').map(item => {
-                  const Icon = item.icon;
-                  const isActive = location.pathname === item.path;
-                  return (
-                    <Button size="sm" 
-                      key={item.path} 
-                      variant={isActive ? 'secondary' : 'outline'} 
-                      onClick={() => {
-                        navigate(item.path);
-                        setMenuOpen(false);
-                      }}
-                      className="justify-start gap-2 px-3"
-                      data-tour="nav-settings"
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span className="text-sm">{item.label}</span>
-                    </Button>
-                  );
-                })}
 
                 {/* Messages badge (if exists in menu items) */}
                 {mobileMenuItems.filter(i => i.path === '/messages').map(item => {
@@ -1402,10 +1399,10 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                         navigate(item.path);
                         setMenuOpen(false);
                       }}
-                      className="justify-start gap-2 h-9 relative"
+                      className="justify-start gap-3 h-12 relative"
                     >
-                      <Icon className="h-4 w-4" />
-                      <span className="text-sm">{item.label}</span>
+                      <Icon className="h-5 w-5" />
+                      <span className="text-base">{item.label}</span>
                       {showBadge && (
                         <Badge variant="destructive" className="ml-auto h-4 min-w-4 flex items-center justify-center p-0 text-[9px] rounded-full">
                           {unreadCount > 99 ? '99+' : unreadCount}
@@ -1420,21 +1417,21 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   <Button
                     variant="outline"
                     onClick={() => setDisplaySettingsOpen(!displaySettingsOpen)}
-                    className={`justify-between h-9 px-3 w-full ${displaySettingsOpen ? 'border-0 bg-transparent hover:bg-transparent rounded-none' : ''}`}
+                    className={`justify-between h-12 px-4 w-full ${displaySettingsOpen ? 'border-0 bg-transparent hover:bg-transparent rounded-none' : ''}`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-baseline w-4 h-4 justify-center font-semibold leading-none"><span className="text-sm">T</span><span className="text-[10px]">t</span></span>
-                      <span className="text-sm">Display</span>
+                      <span className="inline-flex items-baseline w-4 h-4 justify-center font-semibold leading-none"><span className="text-base">T</span><span className="text-[10px]">t</span></span>
+                      <span className="text-base">Display</span>
                     </div>
-                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${displaySettingsOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`h-5 w-5 transition-transform ${displaySettingsOpen ? 'rotate-180' : ''}`} />
                   </Button>
                   {displaySettingsOpen && (
                     <div className="px-2 pb-2 pt-1 space-y-2 border-t">
                       <div className="flex items-center gap-2 pl-4 pr-2 h-8">
-                        <Palette className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Theme</span>
+                        <Palette className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Theme</span>
                         <Select value={theme} onValueChange={handleThemeChange}>
-                          <SelectTrigger className="flex-1 h-7 text-xs">
+                          <SelectTrigger className="flex-1 h-7 text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1447,10 +1444,10 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                         </Select>
                       </div>
                       <div className="flex items-center gap-2 pl-4 pr-2 h-8">
-                        <Type className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Text</span>
+                        <Type className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Text</span>
                         <Select value={textSize} onValueChange={handleTextSizeChange}>
-                          <SelectTrigger className="flex-1 h-7 text-xs">
+                          <SelectTrigger className="flex-1 h-7 text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1466,32 +1463,27 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   )}
                 </div>
 
-                {/* Replay Tour (shift_manager+) */}
-                {tourEligible && (
-                  <Button size="sm" 
-                    variant="outline" 
-                    onClick={() => {
-                      setMenuOpen(false);
-                      replayTour();
-                    }}
-                    className="justify-start gap-2 px-3"
-                  >
-                    <GraduationCap className="h-4 w-4" />
-                    <span className="text-sm">Tour CrooHQ</span>
-                  </Button>
-                )}
+                {/* Settings (full width) */}
+                {mobileMenuItems.filter(i => i.path === '/settings').map(item => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <Button size="sm" 
+                      key={item.path} 
+                      variant={isActive ? 'secondary' : 'outline'} 
+                      onClick={() => {
+                        navigate(item.path);
+                        setMenuOpen(false);
+                      }}
+                      className="justify-start gap-3 h-12 px-4 bg-muted/60 hover:bg-muted"
+                      data-tour="nav-settings"
+                    >
+                      <Icon className="h-5 w-5" />
+                      <span className="text-base">{item.label}</span>
+                    </Button>
+                  );
+                })}
 
-                {/* Update App */}
-                <Button size="sm" variant="outline" onClick={() => {
-                  setMenuOpen(false);
-                  const prevVersion = getCurrentAppVersion();
-                  sessionStorage.setItem('pre_update_version', prevVersion);
-                  toast.info('Updating app...');
-                  setTimeout(() => window.location.reload(), 500);
-                }} className="justify-start gap-2 px-3">
-                  <RefreshCw className="h-4 w-4" />
-                  <span className="text-sm">Update</span>
-                </Button>
               </div>
             </SheetContent>
           </Sheet>
