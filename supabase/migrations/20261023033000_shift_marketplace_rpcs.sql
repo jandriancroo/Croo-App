@@ -6,7 +6,7 @@
 
 -- ---------- helpers ----------
 CREATE OR REPLACE FUNCTION public._is_shift_manager_plus(_user_id uuid)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
   SELECT EXISTS (
     SELECT 1 FROM user_roles
     WHERE user_id = _user_id
@@ -22,7 +22,7 @@ ALTER TABLE public.shift_offers ADD COLUMN IF NOT EXISTS approved_via text;  -- 
 
 -- True once the shift has started in the store's timezone (location_settings.timezone, default America/Los_Angeles).
 CREATE OR REPLACE FUNCTION public._shift_has_started(_shift_id uuid)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
   SELECT (ss.shift_date + ss.start_time) <= (now() AT TIME ZONE coalesce(ls.timezone, 'America/Los_Angeles'))
   FROM scheduled_shifts ss
   JOIN schedules sc ON sc.id = ss.schedule_id
@@ -51,7 +51,7 @@ WITH CHECK (
 -- ---------- 2) RPCs ----------
 -- Loads + locks the offer and its shift and checks the caller. Raises on any failure.
 CREATE OR REPLACE FUNCTION public._shift_offer_guard(_offer_id uuid, OUT o public.shift_offers, OUT shift_id uuid, OUT owner_id uuid, OUT loc uuid)
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE s record;
 BEGIN
   IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Not signed in' USING ERRCODE = '42501'; END IF;
@@ -69,7 +69,7 @@ END $$;
 REVOKE ALL ON FUNCTION public._shift_offer_guard(uuid) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.approve_shift_offer(_offer_id uuid, _claimer_id uuid)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE g record;
 BEGIN
   SELECT * INTO g FROM public._shift_offer_guard(_offer_id);
@@ -88,7 +88,7 @@ BEGIN
 END $$;
 
 CREATE OR REPLACE FUNCTION public.assign_shift_offer(_offer_id uuid, _user_id uuid)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE g record;
 BEGIN
   SELECT * INTO g FROM public._shift_offer_guard(_offer_id);
@@ -113,7 +113,7 @@ BEGIN
 END $$;
 
 CREATE OR REPLACE FUNCTION public.deny_shift_offer_claim(_offer_id uuid, _claimer_id uuid)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE g record; nxt uuid;
 BEGIN
   SELECT * INTO g FROM public._shift_offer_guard(_offer_id);
@@ -127,7 +127,7 @@ END $$;
 
 -- Undo within 10 minutes (same window as Theo): the shift goes back to the owner, the offer reopens.
 CREATE OR REPLACE FUNCTION public.undo_shift_offer(_offer_id uuid)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE g record; nxt uuid;
 BEGIN
   SELECT * INTO g FROM public._shift_offer_guard(_offer_id);
@@ -157,7 +157,7 @@ GRANT EXECUTE ON FUNCTION public.deny_shift_offer_claim(uuid,uuid) TO authentica
 GRANT EXECUTE ON FUNCTION public.undo_shift_offer(uuid) TO authenticated;
 
 -- Team members' own claims: refuse once the shift has started (rows stay as history).
-CREATE OR REPLACE FUNCTION public.trg_shift_offer_claim_not_started() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+CREATE OR REPLACE FUNCTION public.trg_shift_offer_claim_not_started() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
   IF public._shift_has_started((SELECT shift_id FROM shift_offers WHERE id = NEW.shift_offer_id)) THEN
     RAISE EXCEPTION 'This shift has already started';
@@ -171,7 +171,7 @@ CREATE TRIGGER shift_offer_claim_not_started BEFORE INSERT ON public.shift_offer
 
 -- ---------- 3) Push ----------
 CREATE OR REPLACE FUNCTION public._shift_offer_push(_offer_id uuid, _kind text, _claimer uuid DEFAULT NULL, _dedup_suffix text DEFAULT '')
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE
   o record; s record; loc uuid; pos text; when_txt text; owner_name text; claimer_name text;
   ids uuid[]; ttl text; bod text;
@@ -225,7 +225,7 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public._shift_offer_push(uuid,text,uuid,text) FROM PUBLIC, anon, authenticated;
 
-CREATE OR REPLACE FUNCTION public.trg_shift_offer_push() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+CREATE OR REPLACE FUNCTION public.trg_shift_offer_push() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE sfx text;
 BEGIN
   IF TG_TABLE_NAME = 'shift_offers' THEN
