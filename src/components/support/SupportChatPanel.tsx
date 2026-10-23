@@ -8,12 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Send, CheckCircle, Image, Loader2, Clock, User, ArrowLeft, Zap, CheckCheck, Check, Ticket, Trash2 } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
