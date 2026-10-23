@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ArrowLeftRight, ChevronDown } from 'lucide-react';
-import { ShiftOfferMessage } from '@/components/messages/ShiftOfferMessage';
+import { OpenShiftCard } from '@/components/feed/OpenShiftCard';
 import type { OpenShiftOffer } from '@/hooks/useOpenShiftOffers';
 import { cn } from '@/lib/utils';
 
@@ -31,7 +31,7 @@ export function ShiftSwapBar({ offers }: { offers: OpenShiftOffer[] }) {
       {open && (
         <div className="divide-y divide-border border-t border-border">
           {sorted.map((o) => (
-            <ShiftOfferMessage key={o.id} offerId={o.id} messageId="" compact />
+            <OpenShiftCard key={o.id} offerId={o.id} compact />
           ))}
         </div>
       )}

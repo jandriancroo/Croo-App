@@ -2,7 +2,7 @@ import { useRef, useState, useCallback } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Users, Pin, PinOff, ArrowLeftRight, ChevronDown } from 'lucide-react';
+import { Users, Pin, PinOff, ChevronDown } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 import {
   Dialog,
@@ -188,12 +188,8 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
           : 'hover:bg-muted/50'
       }`}
     >
-      <Avatar className={`h-12 w-12 flex-shrink-0 ${chat.title === 'Shift Marketplace' ? 'bg-accent/20' : ''}`}>
-        {chat.title === 'Shift Marketplace' ? (
-          <AvatarFallback className="bg-accent/15">
-            <ArrowLeftRight className="h-6 w-6 text-accent" />
-          </AvatarFallback>
-        ) : chat.is_announcement ? (
+      <Avatar className="h-12 w-12 flex-shrink-0">
+        {chat.is_announcement ? (
           <>
             <AvatarImage
               src={
@@ -290,11 +286,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
     </div>
   );
 
-  const sortedPinned = pinnedChats.sort((a, b) => {
-    const aIsShifts = a.title === 'Shift Marketplace' ? 1 : 0;
-    const bIsShifts = b.title === 'Shift Marketplace' ? 1 : 0;
-    return aIsShifts - bIsShifts;
-  });
+  const sortedPinned = pinnedChats;
 
   return (
     <>

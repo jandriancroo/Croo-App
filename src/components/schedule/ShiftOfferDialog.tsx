@@ -107,99 +107,7 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
         .single();
 
       if (offerError) throw offerError;
-      try {
-      // Find existing marketplace chat (unique index prevents duplicates)
-      let { data: marketplaceChats, error: marketplaceChatsError } = await supabase
-        .from("chats")
-        .select("id")
-        .eq("title", "Shift Marketplace")
-        .eq("location_id", locationId)
-        .order("created_at", { ascending: true })
-        .limit(1);
-
-      if (marketplaceChatsError) throw marketplaceChatsError;
-
-      let marketplaceChat = marketplaceChats?.[0] || null;
-
-      if (!marketplaceChat) {
-        // Try to create; unique index will prevent race-condition duplicates
-        const { data: newChat, error: chatError } = await supabase
-          .from("chats")
-          .insert({
-            created_by: user.id,
-            is_group: true,
-            title: "Shift Marketplace",
-            location_id: locationId,
-          })
-          .select()
-          .single();
-
-        if (chatError) {
-          // If unique constraint violation, fetch the existing one
-          if (chatError.code === "23505") {
-            const { data: existing } = await supabase
-              .from("chats")
-              .select("id")
-              .eq("title", "Shift Marketplace")
-              .eq("location_id", locationId)
-              .limit(1)
-              .single();
-            marketplaceChat = existing;
-          } else {
-            throw chatError;
-          }
-        } else {
-          marketplaceChat = newChat;
-        }
-
-        // Add users at this location to the marketplace chat
-        const { data: locationUsers, error: locationUsersError } = await supabase
-          .from("user_locations")
-          .select("user_id")
-          .eq("location_id", locationId);
-
-        if (locationUsersError) throw locationUsersError;
-
-        if (locationUsers?.length) {
-          const { error: addMembersError } = await supabase
-            .from("chat_members")
-            .insert(
-              locationUsers.map((u) => ({
-                chat_id: marketplaceChat.id,
-                user_id: u.user_id,
-              }))
-            );
-
-          if (addMembersError) throw addMembersError;
-        }
-      }
-
-      // Ensure the offering user is actually a member of the marketplace chat (required by messages RLS)
-      const { error: ensureMemberError } = await supabase
-        .from("chat_members")
-        .insert({ chat_id: marketplaceChat.id, user_id: user.id })
-        .select()
-        .maybeSingle();
-
-      // If already exists, ignore; otherwise fail
-      if (ensureMemberError && ensureMemberError.code !== "23505") {
-        throw ensureMemberError;
-      }
-
-      // Post message about the shift offer with offer ID
-      const messageContent = `SHIFT_OFFER:${newOffer.id}`;
-      const { error: messageError } = await supabase.from("messages").insert({
-        chat_id: marketplaceChat.id,
-        sender_id: user.id,
-        content: messageContent,
-      });
-
-      if (messageError) throw messageError;
-      } catch (postErr) {
-        // Don't leave a hidden offer behind if the marketplace post failed.
-        await supabase.from("shift_offers").delete().eq("id", newOffer.id);
-        throw postErr;
-      }
+      // The offer shows up as a card in the feed's Shift Swaps bar (useOpenShiftOffers); no chat post.
 
       toast.success("Shift offered up successfully!");
       onOfferCreated?.();
@@ -224,7 +132,7 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
         <DialogHeader>
           <DialogTitle>Offer Up Shift</DialogTitle>
           <DialogDescription>
-            This will make your shift available for other team members to claim in the Shift Marketplace.
+            This will make your shift available for other team members to claim from the feed.
           </DialogDescription>
         </DialogHeader>
         

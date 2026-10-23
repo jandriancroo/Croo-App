@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { uniqueChannelName } from "@/lib/realtimeChannelName";
 import { toast } from "sonner";
-import { Clock, Calendar, User, Check, X } from "lucide-react";
+import { Clock, Calendar, User, Check, X, UserPlus, Undo2 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { getDisplayName } from "@/utils/displayName";
 import {
@@ -16,10 +16,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ShiftOfferConfirmDialog, AssignShiftDialog, type ConfirmTarget } from "@/components/schedule/ShiftMarketplaceDialogs";
+import { approveShiftOffer, assignShiftOffer, denyShiftOfferClaim, undoShiftOffer, UNDO_MS } from "@/lib/shiftMarketplace";
 
-interface ShiftOfferMessageProps {
+interface OpenShiftCardProps {
   offerId: string;
-  messageId: string;
   /** Feed list row: one line with a small Claim button; tap to open the full card. */
   compact?: boolean;
 }
@@ -36,21 +37,31 @@ interface ShiftClaim {
   };
 }
 
-export function ShiftOfferMessage({ offerId, messageId, compact = false }: ShiftOfferMessageProps) {
+/** Open shift card in the feed's Shift Swaps bar: claim, take, assign, approve, deny, undo. */
+export function OpenShiftCard({ offerId, compact = false }: OpenShiftCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [offer, setOffer] = useState<any>(null);
   const [claims, setClaims] = useState<ShiftClaim[]>([]);
   const [selectedClaimerId, setSelectedClaimerId] = useState<string>("");
   const [loading, setLoading] = useState(true);
-  const [claiming, setClaiming] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const { isAdmin } = useUserRole();
+  const [currentUserName, setCurrentUserName] = useState<string>("You");
+  const { role, isManager } = useUserRole();
+  // Manager+ (manager, general manager, admins): approve, deny, assign; their own claim is instant.
+  const isManagerPlus = isManager || (role as string | null) === "general_manager";
+  const [confirm, setConfirm] = useState<ConfirmTarget | null>(null);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [undoUntil, setUndoUntil] = useState<number>(0);
 
   useEffect(() => {
     const getCurrentUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) setCurrentUserId(user.id);
+      if (user) {
+        setCurrentUserId(user.id);
+        const { data: p } = await supabase.from("profiles").select("full_name, nickname").eq("id", user.id).maybeSingle();
+        if (p) setCurrentUserName(getDisplayName(p.full_name, p.nickname));
+      }
     };
     getCurrentUser();
   }, []);
@@ -169,121 +180,98 @@ export function ShiftOfferMessage({ offerId, messageId, compact = false }: Shift
     return `${displayHour}:${minutes}${ampm}`;
   };
 
-  const handleClaim = async () => {
-    setClaiming(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+  // Tap Claim: always a confirm sheet first (the day as it will be).
+  const handleClaim = () => {
+    if (!currentUserId || !offer) return;
+    if (currentUserId === offer.offered_by.id && !isManagerPlus) {
+      toast.error("You cannot claim your own shift");
+      return;
+    }
+    if (claims.some((c) => c.user_id === currentUserId) && !isManagerPlus) {
+      toast.error("You've already claimed this shift");
+      return;
+    }
+    setConfirm({ verb: "Claim", person: { id: currentUserId, name: currentUserName } });
+  };
 
-      // Only non-admins cannot claim their own shifts
-      if (user.id === offer.offered_by.id && !isAdmin) {
-        toast.error("You cannot claim your own shift");
-        return;
-      }
-
-      // Check if user already claimed this shift
-      const existingClaim = claims.find(c => c.user_id === user.id);
-      if (existingClaim) {
-        toast.error("You've already claimed this shift");
-        return;
-      }
-
-      // Create claim record
-      const { error: claimError } = await supabase
-        .from("shift_offer_claims")
-        .insert({
-          shift_offer_id: offerId,
-          user_id: user.id
-        });
-
-      if (claimError) throw claimError;
-
-      // Update shift_offers status to claimed if this is the first claim
-      if (claims.length === 0) {
-        const { error } = await supabase
-          .from("shift_offers")
-          .update({ 
-            claimed_by_user_id: user.id,
-            status: "claimed" 
-          })
-          .eq("id", offerId);
-
-        if (error) throw error;
-      }
-
-      toast.success("Shift claimed! Awaiting approval.");
-    } catch (error) {
-      console.error("Error claiming shift:", error);
-      toast.error("Failed to claim shift");
-    } finally {
-      setClaiming(false);
+  // Team member claim: a pending claim the managers approve.
+  const savePendingClaim = async (userId: string) => {
+    const { error: claimError } = await supabase
+      .from("shift_offer_claims")
+      .insert({ shift_offer_id: offerId, user_id: userId });
+    if (claimError) throw claimError;
+    if (claims.length === 0) {
+      const { error } = await supabase
+        .from("shift_offers")
+        .update({ claimed_by_user_id: userId, status: "claimed" })
+        .eq("id", offerId);
+      if (error) throw error;
     }
   };
 
-  const handleApprove = async () => {
-    if (!selectedClaimerId) {
-      toast.error("Please select a team member to approve");
-      return;
-    }
+  const offerUndo = (who: string) => {
+    setUndoUntil(Date.now() + UNDO_MS);
+    toast.success(`Shift given to ${who}`, {
+      duration: UNDO_MS,
+      action: { label: "Undo", onClick: () => { void handleUndo(); } },
+    });
+  };
 
+  const handleConfirm = async () => {
+    if (!confirm) return;
     setProcessing(true);
     try {
-      // Update shift_offers status to approved
-      const { error: offerError } = await supabase
-        .from("shift_offers")
-        .update({ 
-          status: "approved",
-          claimed_by_user_id: selectedClaimerId
-        })
-        .eq("id", offerId);
-
-      if (offerError) throw offerError;
-
-      // Update the scheduled_shifts to assign the selected claimer
-      const { error: shiftError } = await supabase
-        .from("scheduled_shifts")
-        .update({ user_id: selectedClaimerId })
-        .eq("id", offer.shift.id);
-
-      if (shiftError) throw shiftError;
-
-      // Phone alerts (claimer + offerer) are sent by the database when the offer is approved.
-
-      toast.success("Shift approved and assigned!");
-    } catch (error) {
-      console.error("Error approving shift:", error);
-      toast.error("Failed to approve shift");
+      if (confirm.verb === "Approve") {
+        await approveShiftOffer(offerId, confirm.person.id);
+        offerUndo(confirm.person.name.split(" ")[0]);
+      } else if (confirm.verb === "Assign" || (confirm.verb === "Claim" && isManagerPlus)) {
+        await assignShiftOffer(offerId, confirm.person.id);
+        offerUndo(confirm.verb === "Claim" ? "you" : confirm.person.name.split(" ")[0]);
+      } else {
+        await savePendingClaim(confirm.person.id);
+        toast.success("Shift claimed! Awaiting approval.");
+      }
+      setConfirm(null);
+    } catch (error: any) {
+      console.error("Shift marketplace action failed:", error);
+      toast.error(error?.message || "Not saved");
     } finally {
       setProcessing(false);
     }
   };
 
-  const handleDeny = async () => {
+  const handleUndo = async () => {
     setProcessing(true);
     try {
-      // Delete all claims
-      const { error: deleteClaimsError } = await supabase
-        .from("shift_offer_claims")
-        .delete()
-        .eq("shift_offer_id", offerId);
+      await undoShiftOffer(offerId);
+      setUndoUntil(0);
+      toast.success("Undone. The shift is back with its owner.");
+    } catch (error: any) {
+      toast.error(error?.message || "Undo failed");
+    } finally {
+      setProcessing(false);
+    }
+  };
 
-      if (deleteClaimsError) throw deleteClaimsError;
+  const handleApprove = () => {
+    const c = claims.find((x) => x.user_id === selectedClaimerId);
+    if (!c) {
+      toast.error("Please select a team member to approve");
+      return;
+    }
+    setConfirm({ verb: "Approve", person: { id: c.user_id, name: getDisplayName(c.profile.full_name, c.profile.nickname) } });
+  };
 
-      // Update shift_offers status to available and clear claimed_by
-      const { error: offerError } = await supabase
-        .from("shift_offers")
-        .update({ 
-          status: "available",
-          claimed_by_user_id: null
-        })
-        .eq("id", offerId);
-
-      if (offerError) throw offerError;
-
-      toast.success("All claims denied - shift is available again");
-    } catch (error) {
-      console.error("Error denying shift:", error);
-      toast.error("Failed to deny shift");
+  const handleDeny = async () => {
+    if (!selectedClaimerId) return;
+    setProcessing(true);
+    try {
+      await denyShiftOfferClaim(offerId, selectedClaimerId);
+      setSelectedClaimerId("");
+      toast.success("Claim denied");
+    } catch (error: any) {
+      console.error("Error denying claim:", error);
+      toast.error(error?.message || "Failed to deny");
     } finally {
       setProcessing(false);
     }
@@ -296,6 +284,27 @@ export function ShiftOfferMessage({ offerId, messageId, compact = false }: Shift
   if (!offer || !offer.shift) {
     return <div className="text-sm text-muted-foreground">Shift no longer available</div>;
   }
+
+  const dialogs = (
+    <>
+      <ShiftOfferConfirmDialog
+        shiftId={offer.shift.id}
+        ownerName={getDisplayName(offer.offered_by.full_name, offer.offered_by.nickname)}
+        target={confirm}
+        busy={processing}
+        onCancel={() => setConfirm(null)}
+        onConfirm={handleConfirm}
+      />
+      {isManagerPlus && (
+        <AssignShiftDialog
+          open={assignOpen}
+          shiftId={offer.shift.id}
+          onClose={() => setAssignOpen(false)}
+          onPick={(p) => { setAssignOpen(false); setConfirm({ verb: "Assign", person: p }); }}
+        />
+      )}
+    </>
+  );
 
   const statusBadge = () => {
     switch (offer.status) {
@@ -333,12 +342,13 @@ export function ShiftOfferMessage({ offerId, messageId, compact = false }: Shift
           {status && <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.c}`}>{status.t}</span>}
         </button>
         {offer.status === 'available' && !isMine ? (
-          <Button size="xs" className="shrink-0 rounded-full px-4" onClick={handleClaim} disabled={claiming}>
-            {claiming ? '…' : 'Claim'}
+          <Button size="xs" className="shrink-0 rounded-full px-4" onClick={handleClaim} disabled={processing}>
+            {isManagerPlus ? 'Take' : 'Claim'}
           </Button>
-        ) : offer.status === 'claimed' && isAdmin ? (
+        ) : offer.status === 'claimed' && isManagerPlus ? (
           <Button size="xs" variant="outline" className="shrink-0 rounded-full px-4" onClick={() => setExpanded(true)}>Review</Button>
         ) : null}
+        {dialogs}
       </div>
     );
   }
@@ -398,13 +408,37 @@ export function ShiftOfferMessage({ offerId, messageId, compact = false }: Shift
           <Button 
             className="w-full bg-white text-[hsl(var(--croo-orange))] hover:bg-white/90 font-semibold" 
             onClick={handleClaim}
-            disabled={claiming}
+            disabled={processing}
           >
-            {claiming ? "Claiming..." : "Claim This Shift"}
+            {isManagerPlus ? "Take This Shift" : "Claim This Shift"}
           </Button>
         )}
 
-        {offer.status === "claimed" && isAdmin && claims.length > 0 && (
+        {isManagerPlus && (offer.status === "available" || offer.status === "claimed") && (
+          <Button
+            variant="outline"
+            className="w-full border-white/60 bg-transparent text-white hover:bg-white/10 hover:text-white font-semibold"
+            onClick={() => setAssignOpen(true)}
+            disabled={processing}
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Assign to…
+          </Button>
+        )}
+
+        {isManagerPlus && offer.status === "approved" && undoUntil > Date.now() && (
+          <Button
+            variant="outline"
+            className="w-full border-white/60 bg-transparent text-white hover:bg-white/10 hover:text-white font-semibold"
+            onClick={handleUndo}
+            disabled={processing}
+          >
+            <Undo2 className="h-4 w-4 mr-2" />
+            Undo
+          </Button>
+        )}
+
+        {offer.status === "claimed" && isManagerPlus && claims.length > 0 && (
           <div className="space-y-3 border-t border-white/20 pt-3">
             <div className="space-y-2">
               <label className="text-sm font-medium text-white">Select who gets the shift:</label>
@@ -428,20 +462,21 @@ export function ShiftOfferMessage({ offerId, messageId, compact = false }: Shift
                 disabled={processing || !selectedClaimerId}
               >
                 <Check className="h-4 w-4 mr-2" />
-                {processing ? "Approving..." : "Approve"}
+                Approve
               </Button>
               <Button 
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white"
                 onClick={handleDeny}
-                disabled={processing}
+                disabled={processing || !selectedClaimerId}
               >
                 <X className="h-4 w-4 mr-2" />
-                {processing ? "Denying..." : "Deny All"}
+                Deny
               </Button>
             </div>
           </div>
         )}
       </div>
+      {dialogs}
     </Card>
   );
 }

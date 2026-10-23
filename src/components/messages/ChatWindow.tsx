@@ -145,12 +145,12 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated, 
                 <span className="hidden sm:inline">Mark all as read</span>
                 <span className="sm:hidden">Mark read</span>
               </Button>
-              {chatDetails.is_group && isAdmin && chatDetails.title !== "Shift Marketplace" && (
+              {chatDetails.is_group && isAdmin && (
                 <Button variant="ghost" size="sm" onClick={() => setSettingsOpen(true)}>
                   <Settings className="h-4 w-4" />
                 </Button>
               )}
-              {!chatDetails.is_group && isAdmin && chatDetails.title !== "Shift Marketplace" && (
+              {!chatDetails.is_group && isAdmin && (
                 <Button variant="ghost" size="sm" onClick={() => setDeleteDialogOpen(true)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -334,7 +334,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated, 
           chatTitle={chatDetails.title || ''}
           groupImageUrl={chatDetails.group_image_url}
           onUpdate={onChatUpdated}
-          canDelete={isAdmin && chatDetails.title !== "Shift Marketplace"}
+          canDelete={isAdmin}
           onRequestDelete={() => {
             setSettingsOpen(false);
             setDeleteDialogOpen(true);

@@ -36,15 +36,15 @@ Previews and outcomes are recorded in `theo_action_log`. Save buttons disable wh
 
 ## Planned: shift marketplace actions (not live yet)
 
-These ship with the shift marketplace redesign. They use the same preview wizard and `DayRows` day view. Until that ship, Theo can only read offers through `query_shift_marketplace`.
+These ship with the shift marketplace redesign. They use the same preview wizard and `DayRows` day view (`src/components/schedule/DayRows.tsx`). The app side is built (feed card `src/components/feed/OpenShiftCard.tsx`, RPCs in `supabase/migrations/20261023033000_shift_marketplace_rpcs.sql`); Theo tools are not. Until that ship, Theo can only read offers through `query_shift_marketplace`.
 
 | Action | Who | Preview card | Tap that saves | Recheck | Undo | Example phrasing |
 |---|---|---|---|---|---|---|
 | `marketplace_status` (read) | Managers and up (crew: own offers only) | Offer, owner, status and every claimer with claim time | None, read only | Store access | n/a | "Did anybody claim John's Friday shift?" |
-| `claim_shift` | Managers and up | Shift, the person claiming it and day view (owner Removed, claimer New) | **Claim shift**, instant for managers and up, one atomic approve | Server rechecks the offer is open, store access, availability, time off, overlaps and sixth-day | 10 minutes: return shift to owner, reopen offer | "Claim Sarah's Saturday shift for me." |
+| `claim_shift` | Managers and up | Shift, the person claiming it and day view (owner Removed, claimer Covering, or New if already on that day) | **Claim shift**, instant for managers and up, one atomic approve | Server (`assign_shift_offer`) rechecks the offer is open, the shift hasn't started and still belongs to the owner, and store access. Availability, time off, overlaps and sixth day are shown in the picker but not enforced. | 10 minutes: return shift to owner, reopen offer | "Claim Sarah's Saturday shift for me." |
 | `assign_shift` | Managers and up | Shift, chosen person (availability and sixth-day tags) and day view | **Assign shift**, one atomic approve | Same as claim; the person must be at this store | 10 minutes: same as claim | "Give John's Friday shift to Dave." |
-| `approve_claim` | Managers and up, including general managers | Offer, chosen claimer, other claimers and day view | **Approve**, one atomic step; pushes winner, owner and losing claimers | Server rechecks the claim is still pending and the shift is unchanged | 10 minutes: same as claim | "Approve Dave's claim on John's shift." |
-| `deny_claim` | Managers and up, including general managers | Offer and the claimer being denied | **Deny**: removes that claim, offer stays open | Server rechecks the claim is still pending | 10 minutes: restore the claim | "Deny Mia's claim on the Sunday shift." |
+| `approve_claim` | Managers and up, including general managers | Offer, chosen claimer, other claimers and day view | **Approve**, one atomic step; pushes winner, owner and losing claimers | Server (`approve_shift_offer`) rechecks the claim is still pending, the shift hasn't started and is unchanged | 10 minutes: same as claim | "Approve Dave's claim on John's shift." |
+| `deny_claim` | Managers and up, including general managers | Offer and the claimer being denied | **Deny**: removes that claim, offer stays open | Server (`deny_shift_offer_claim`) rechecks the offer is still open | None (the person can claim again) | "Deny Mia's claim on the Sunday shift." |
 
 ## Read tools
 

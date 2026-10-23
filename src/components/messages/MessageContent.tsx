@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 
-import { ShiftOfferMessage } from "./ShiftOfferMessage";
 import { SharedTaskMessage } from "./SharedTaskMessage";
 
 interface Profile {
@@ -19,8 +18,8 @@ export function MessageContent({ content, chatId, senderName, chatMembers = [] }
   const renderedContent = useMemo(() => {
     // Check if this is a shift offer message
     if (content?.startsWith("SHIFT_OFFER:")) {
-      const offerId = content.replace("SHIFT_OFFER:", "");
-      return <ShiftOfferMessage offerId={offerId} messageId={chatId} />;
+      // Legacy: the Shift Marketplace chat is gone; open shifts live in the feed's Shift Swaps bar.
+      return <span className="text-sm text-muted-foreground">Shift offer (see Shift Swaps in the feed)</span>;
     }
 
     // Check if this is a shared task message

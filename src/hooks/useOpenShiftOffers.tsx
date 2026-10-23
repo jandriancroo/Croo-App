@@ -11,12 +11,23 @@ export interface OpenShiftOffer {
   shift_date: string | null;
 }
 
+/** "YYYY-MM-DD HH:MM" for now in the store's timezone. */
+export function storeNowKey(timezone: string, now: Date = new Date()): string {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+    .formatToParts(now).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
+}
+/** Pure: true while the shift's start (store-local) is still ahead of nowKey. */
+export function shiftNotStarted(shiftDate: string, startTime: string | null, nowKey: string): boolean {
+  return `${shiftDate} ${(startTime || '00:00').slice(0, 5)}` > nowKey;
+}
+
 const KEY = (locationId: string | null) => ['open-shift-offers', locationId];
 
 /**
  * Open/active shift offers scoped to the current location, joined through
  * scheduled_shifts → schedules to resolve location. Used to render shift
- * swap requests as pinned feed posts (Phase 1 wraps ShiftOfferMessage verbatim).
+ * swap requests as pinned feed posts (rendered by src/components/feed/OpenShiftCard.tsx).
  */
 export function useOpenShiftOffers() {
   const { currentLocation } = useAppLocation();
@@ -42,7 +53,7 @@ export function useOpenShiftOffers() {
 
       const { data: shifts } = await supabase
         .from('scheduled_shifts')
-        .select('id, schedule_id, shift_date')
+        .select('id, schedule_id, shift_date, start_time')
         .in('id', shiftIds);
       if (!shifts?.length) return [];
 
@@ -55,11 +66,12 @@ export function useOpenShiftOffers() {
       const scheduleLocMap = new Map<string, string>();
       (schedules ?? []).forEach((s: any) => scheduleLocMap.set(s.id, s.location_id));
 
-      const shiftMap = new Map<string, { schedule_id: string; shift_date: string | null }>();
-      shifts.forEach((s: any) => shiftMap.set(s.id, { schedule_id: s.schedule_id, shift_date: s.shift_date }));
+      const shiftMap = new Map<string, { schedule_id: string; shift_date: string | null; start_time: string | null }>();
+      shifts.forEach((s: any) => shiftMap.set(s.id, { schedule_id: s.schedule_id, shift_date: s.shift_date, start_time: s.start_time }));
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Store-local "now" (YYYY-MM-DD HH:MM). Past offers stay in the table as history; the feed just hides them.
+      const { data: ls } = await supabase.from('location_settings').select('timezone').eq('location_id', locationId!).maybeSingle();
+      const nowLocal = storeNowKey(ls?.timezone || 'America/Los_Angeles');
 
       return offers
         .map(o => {
@@ -67,11 +79,8 @@ export function useOpenShiftOffers() {
           if (!shift) return null;
           const locId = scheduleLocMap.get(shift.schedule_id);
           if (locId !== locationId) return null;
-          // Drop offers whose shift date has passed
-          if (shift.shift_date) {
-            const d = new Date(shift.shift_date + 'T00:00:00');
-            if (d < today) return null;
-          }
+          // Only shifts that haven't started yet (store time).
+          if (shift.shift_date && !shiftNotStarted(shift.shift_date, shift.start_time, nowLocal)) return null;
           return { id: o.id, shift_id: o.shift_id, status: o.status, created_at: o.created_at, shift_date: shift.shift_date };
         })
         .filter(Boolean) as OpenShiftOffer[];

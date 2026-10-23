@@ -48,8 +48,6 @@ export function useMessagesData() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [isAnnouncementOpen, setIsAnnouncementOpen] = useState(false);
-  const [isMarketplaceIconOpen, setIsMarketplaceIconOpen] = useState(false);
-  const [marketplaceChatId, setMarketplaceChatId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showChatList, setShowChatList] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -66,45 +64,6 @@ export function useMessagesData() {
 
   const chatIdsRef = useRef<Set<string>>(new Set());
   const fetchChatsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Ensure marketplace chat exists — fire-and-forget, only once per session
-  const marketplaceChecked = useRef<string | null>(null);
-  const ensureMarketplaceChat = useCallback(async () => {
-    if (!user || !currentLocation || marketplaceChecked.current === currentLocation.id) return;
-    marketplaceChecked.current = currentLocation.id;
-
-    // One marketplace per store. Never delete chats here — an old "dedupe" step used to
-    // delete other stores' marketplaces (and every shift offer posted in them).
-    const { data: marketplaceChats } = await supabase
-      .from("chats")
-      .select("id, title")
-      .eq("title", "Shift Marketplace")
-      .eq("location_id", currentLocation.id)
-      .order("created_at", { ascending: true })
-      .limit(1);
-
-    if (!marketplaceChats?.length) {
-      const { data: newChat } = await supabase
-        .from("chats")
-        .insert({
-          created_by: user.id,
-          is_group: true,
-          title: "Shift Marketplace",
-          location_id: currentLocation.id,
-        })
-        .select()
-        .single();
-
-      if (newChat) {
-        const { data: locUsers } = await supabase
-          .from("user_locations")
-          .select("user_id")
-          .eq("location_id", currentLocation.id);
-        const ids = Array.from(new Set([user.id, ...(locUsers ?? []).map((u) => u.user_id)]));
-        await supabase.from("chat_members").insert(ids.map((id) => ({ chat_id: newChat.id, user_id: id })));
-      }
-    }
-  }, [user, currentLocation]);
 
   const applyViewFilter = useCallback((chatList: Chat[], mode: ViewMode) => {
     if (mode === 'hiring' || mode === 'support') {
@@ -129,8 +88,6 @@ export function useMessagesData() {
     if (!user) return;
     setLoading(true);
     try {
-      // Wait so a freshly created marketplace shows up in this same load.
-      await ensureMarketplaceChat().catch(() => {});
 
       let query = supabase
         .from('chats')
@@ -201,21 +158,13 @@ export function useMessagesData() {
           title = otherMember?.profiles ? getDisplayName(otherMember.profiles.full_name, otherMember.profiles.nickname) : 'Direct Message';
         }
 
-        const isPinned = currentMember?.is_pinned || chat.title === 'Shift Marketplace' || false;
+        const isPinned = currentMember?.is_pinned || false;
 
         return { ...chat, title, unreadCount, isPinned, messagePreview, updated_at: lastMessageTime };
       });
 
-      const marketplaceItem = chatsWithUnread.find((c: any) => c.title === 'Shift Marketplace');
-      if (marketplaceItem) {
-        setMarketplaceChatId(marketplaceItem.id);
-      }
-
       const sortedChats = chatsWithUnread
         .sort((a: any, b: any) => {
-          // Shift Marketplace always first
-          if (a.title === 'Shift Marketplace') return -1;
-          if (b.title === 'Shift Marketplace') return 1;
           // User-pinned chats next
           if (a.isPinned && !b.isPinned) return -1;
           if (!a.isPinned && b.isPinned) return 1;
@@ -236,7 +185,7 @@ export function useMessagesData() {
     } finally {
       setLoading(false);
     }
-  }, [currentLocation, viewMode, user, ensureMarketplaceChat, applyViewFilter]);
+  }, [currentLocation, viewMode, user, applyViewFilter]);
 
   const debouncedFetchChats = useCallback(() => {
     if (fetchChatsTimerRef.current) return;
@@ -390,19 +339,12 @@ export function useMessagesData() {
       setShowChatList(false);
       urlChatIdProcessed.current = true;
       setSearchParams({}, { replace: true });
-    } else {
-      if (urlChatId === marketplaceChatId) {
-        setViewMode('all');
-        setSelectedChatId(urlChatId);
-        setShowChatList(false);
-        urlChatIdProcessed.current = true;
-        setSearchParams({}, { replace: true });
-      }
     }
-  }, [searchParams, chats, loading, viewMode, marketplaceChatId, setSearchParams, applyViewFilter]);
+  }, [searchParams, chats, loading, viewMode, setSearchParams, applyViewFilter]);
 
   return {
     user,
+    showSupportTab,
     currentUserId,
     currentLocation,
     isMobile,
@@ -410,7 +352,6 @@ export function useMessagesData() {
     isManager,
     isSuperAdmin,
     showHiringTab,
-    showSupportTab,
     chats,
     selectedChatId,
     setSelectedChatId,
@@ -418,9 +359,6 @@ export function useMessagesData() {
     setIsNewChatOpen,
     isAnnouncementOpen,
     setIsAnnouncementOpen,
-    isMarketplaceIconOpen,
-    setIsMarketplaceIconOpen,
-    marketplaceChatId,
     loading,
     roleLoading,
     showChatList,
