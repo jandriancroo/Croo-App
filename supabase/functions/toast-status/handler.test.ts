@@ -58,8 +58,8 @@ Deno.test('all protected routes enforce their exact scope', async () => {
     equal(response.status, 401); equal(await response.text(), '');
   }
 });
-Deno.test('OPTIONS 405, unknown route 404, public latest empty 404; no CORS', async () => {
-  const cases: [string, string, number][] = [['/', 'OPTIONS', 405], ['/unknown', 'GET', 404], ['/latest', 'GET', 404]];
+Deno.test('OPTIONS 405, unknown route 404; no CORS', async () => {
+  const cases: [string, string, number][] = [['/', 'OPTIONS', 405], ['/unknown', 'GET', 404]];
   for (const [path, method, status] of cases) {
     const response = await (await fixture()).handler(request(path, method));
     equal(response.status, status); equal(await response.text(), '');
@@ -99,4 +99,8 @@ Deno.test('release exact size passes limit but fails closed while bucket is priv
 Deno.test('release validates version and restart ack validates id', async () => {
   equal((await (await fixture('publish')).handler(request('/release?version=../unsafe', 'POST'))).status, 400);
   equal((await (await fixture('mini')).handler(request('/restart-ack', 'POST', '{"id":"bad"}'))).status, 400);
+});Deno.test('public latest returns hardcoded 3.1.0 release', async () => {
+  const response = await (await fixture()).handler(request('/latest'));
+  equal(response.status, 200);
+  const body = await response.json(); equal(body.version, '3.1.0'); equal(body.sha256, 'c677fe8ea7db869714ac78a91e33c895c76cb4fc21e3ae4f8e6668306e65db75');
 });

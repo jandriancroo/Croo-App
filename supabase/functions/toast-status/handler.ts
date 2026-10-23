@@ -148,9 +148,12 @@ export function createHandler(db: SupabaseClient, clock: () => DateTime = () => 
     if (!path) return empty(404);
     try {
       if (req.method === 'GET' && path === '/latest') {
-        const row = unwrap(await db.from('app_releases').select('version,download_url,sha256,notes')
-          .eq('app', 'toast-status').order('created_at', { ascending: false, nullsFirst: false }).limit(1).maybeSingle());
-        return row ? json(row) : empty(404);
+        // Hardcoded: only a code deploy can change what clients self-update to.
+        return json({
+          version: '3.1.0',
+          download_url: 'https://github.com/jandriancroo/toast-status/releases/download/v3.1.0/toast-status-src.zip',
+          sha256: 'c677fe8ea7db869714ac78a91e33c895c76cb4fc21e3ae4f8e6668306e65db75',
+        });
       }
       const scope = routeScope(req.method, path);
       if (!scope) return empty(404);
