@@ -150,7 +150,7 @@ function TicketRow({
         </Avatar>
         {resolved && (
           <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-success ring-2 ring-background" title="Resolved">
-            <Check className="h-2.5 w-2.5 text-success-foreground" strokeWidth={3.5} />
+            <Check className="h-2.5 w-2.5 text-background" strokeWidth={3.5} />
           </span>
         )}
       </div>
