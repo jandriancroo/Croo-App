@@ -106,7 +106,6 @@ export function AssignShiftDialog(props: {
   const [rows, setRows] = useState<AssignCandidate[] | null>(null);
   const [shift, setShift] = useState<OfferShift | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [showOthers, setShowOthers] = useState(false);
   useEffect(() => {
     if (!props.open) return;
     let live = true;
