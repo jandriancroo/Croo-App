@@ -109,7 +109,7 @@ export function AssignShiftDialog(props: {
   useEffect(() => {
     if (!props.open) return;
     let live = true;
-    setRows(null); setErr(null); setShowOthers(false);
+    setRows(null); setErr(null);
     (async () => {
       try {
         const s = await loadOfferShift(props.shiftId);
