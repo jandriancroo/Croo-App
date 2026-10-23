@@ -16478,6 +16478,10 @@ export type Database = {
         Args: { _state: string; _tz: string }
         Returns: boolean
       }
+      _update_marketplace_publication: {
+        Args: { _shift_id: string }
+        Returns: undefined
+      }
       _us_state_list: {
         Args: never
         Returns: {
