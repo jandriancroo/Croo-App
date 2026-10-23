@@ -155,7 +155,7 @@ export function AssignShiftDialog(props: {
             <CoverListScroller>
               {claimers.length > 0 && <div className={groupLabel}>Claimed · {claimers.length}</div>}
               {claimers.map((c) => person(c, true))}
-              {others.length > 0 && <div className={groupLabel}>Everyone else ({others.length})</div>}
+              {claimers.length > 0 && others.length > 0 && <div className={groupLabel}>Everyone else ({others.length})</div>}
               {others.map((c) => person(c, false))}
             </CoverListScroller>
           )}
