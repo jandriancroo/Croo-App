@@ -2,7 +2,7 @@
 // and the "Assign to…" picker (Theo cover-list style: claimers first, then "Everyone else").
 import { useEffect, useState } from 'react';
 import { DateTime } from 'luxon';
-import { AlertTriangle, Check, ChevronDown, ChevronRight } from 'lucide-react';
+import { AlertTriangle, Check, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { CoverListScroller, DayRows, NEW_GREEN, type DayView } from '@/components/schedule/DayRows';
@@ -71,7 +71,7 @@ export function ShiftOfferConfirmDialog(props: {
   }
   return (
     <Dialog open={!!target} onOpenChange={(o) => { if (!o && !props.busy) props.onCancel(); }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md grid-cols-[minmax(0,1fr)]">
         <DialogHeader>
           <DialogTitle>{heading}</DialogTitle>
           <DialogDescription>{view ? `${view.title} as it will be` : err || 'Loading the day…'}</DialogDescription>
@@ -106,11 +106,10 @@ export function AssignShiftDialog(props: {
   const [rows, setRows] = useState<AssignCandidate[] | null>(null);
   const [shift, setShift] = useState<OfferShift | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [showOthers, setShowOthers] = useState(false);
   useEffect(() => {
     if (!props.open) return;
     let live = true;
-    setRows(null); setErr(null); setShowOthers(false);
+    setRows(null); setErr(null);
     (async () => {
       try {
         const s = await loadOfferShift(props.shiftId);
@@ -141,7 +140,7 @@ export function AssignShiftDialog(props: {
 
   return (
     <Dialog open={props.open} onOpenChange={(o) => { if (!o) props.onClose(); }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md grid-cols-[minmax(0,1fr)]">
         <DialogHeader>
           <DialogTitle>Assign to…</DialogTitle>
           <DialogDescription>
@@ -156,14 +155,8 @@ export function AssignShiftDialog(props: {
             <CoverListScroller>
               {claimers.length > 0 && <div className={groupLabel}>Claimed · {claimers.length}</div>}
               {claimers.map((c) => person(c, true))}
-              {others.length > 0 && (
-                <button type="button" data-plain="" onClick={() => setShowOthers((v) => !v)}
-                  className="flex h-11 w-full shrink-0 items-center gap-2 px-1 text-left text-[12px] font-bold uppercase tracking-wide text-muted-foreground">
-                  <ChevronDown className={`h-4 w-4 transition-transform ${showOthers || claimers.length === 0 ? 'rotate-180' : ''}`} />
-                  Everyone else ({others.length})
-                </button>
-              )}
-              {(showOthers || claimers.length === 0) && others.map((c) => person(c, false))}
+              {others.length > 0 && <div className={groupLabel}>Everyone else ({others.length})</div>}
+              {others.map((c) => person(c, false))}
             </CoverListScroller>
           )}
         </div>

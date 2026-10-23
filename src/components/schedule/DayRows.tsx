@@ -38,7 +38,7 @@ export function CoverListScroller({ children }: { children: ReactNode }) {
         className={`min-h-[60px] max-h-[354px] flex-1 overflow-y-auto overscroll-contain p-3 text-foreground [-webkit-overflow-scrolling:touch] touch-pan-y md:max-h-[474px] flex flex-col gap-1 ${HAIRLINE}`}>
         {children}
       </div>
-      {moreBelow && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent" />}
+      {moreBelow && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-12 rounded-b-[20px] bg-gradient-to-t from-card via-card/80 to-transparent" />}
     </div>
   );
 }
