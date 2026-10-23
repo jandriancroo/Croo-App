@@ -488,20 +488,21 @@ export function EditPunchDialog({
 
               {/* Time Inputs */}
               <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+                  <div className="min-w-0 space-y-2">
                     <div className="flex items-center justify-between h-5">
                       <Label>Clock In</Label>
                     </div>
                     <Input
                       type="time"
+                      className="w-full min-w-0"
                       value={clockInTime}
                       onChange={(e) => setClockInTime(e.target.value)}
                     />
                   </div>
 
                   {showClockOut ? (
-                    <div className="space-y-2">
+                    <div className="min-w-0 space-y-2">
                       <div className="flex items-center justify-between h-5">
                         <Label>Clock Out</Label>
                         <Button
@@ -520,12 +521,13 @@ export function EditPunchDialog({
 
                       <Input
                         type="time"
+                        className="w-full min-w-0"
                         value={clockOutTime}
                         onChange={(e) => setClockOutTime(e.target.value)}
                       />
                     </div>
                   ) : (
-                    <div className="flex items-end">
+                    <div className="flex min-w-0 items-end">
                       <Button
                         type="button"
                         variant="outline"
@@ -590,21 +592,21 @@ export function EditPunchDialog({
                       </SelectContent>
                     </Select>
                     
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
+                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+                      <div className="min-w-0 space-y-1">
                         <Label className="text-xs">Start</Label>
                         <Input
                           type="time"
-                          className="h-8 text-sm"
+                          className="h-8 w-full min-w-0 text-sm"
                           value={brk.startTime}
                           onChange={(e) => updateBreak(index, 'startTime', e.target.value)}
                         />
                       </div>
-                      <div className="space-y-1">
+                      <div className="min-w-0 space-y-1">
                         <Label className="text-xs">End</Label>
                         <Input
                           type="time"
-                          className="h-8 text-sm"
+                          className="h-8 w-full min-w-0 text-sm"
                           value={brk.endTime}
                           onChange={(e) => updateBreak(index, 'endTime', e.target.value)}
                         />

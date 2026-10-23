@@ -4,6 +4,7 @@
 (none)
 
 ## In progress
+- Requested presentation/navigation polish (Oct 23): Events gaps, punch-input fit, compact sandbox row, larger menu and Settings-only tour start; no publishing or data changes.
 - Shift marketplace + support chats batch (Oct 23): built, waiting for Jordan's "ship". Not published.
 - Toast Status public downloads: blocked by workspace public-bucket restriction. Owner/admin must allow public buckets under Settings → Privacy & Security, then make toast-status-releases public. Release publishing deliberately returns 503 until then.
 
