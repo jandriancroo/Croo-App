@@ -71,7 +71,7 @@ export function ShiftOfferConfirmDialog(props: {
   }
   return (
     <Dialog open={!!target} onOpenChange={(o) => { if (!o && !props.busy) props.onCancel(); }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md grid-cols-[minmax(0,1fr)]">
         <DialogHeader>
           <DialogTitle>{heading}</DialogTitle>
           <DialogDescription>{view ? `${view.title} as it will be` : err || 'Loading the day…'}</DialogDescription>
