@@ -13,7 +13,7 @@ import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard, Copy, Monitor, Radio, Loader2, FileText } from 'lucide-react';
+import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard, Copy, Monitor, Radio, Loader2, FileText, GraduationCap } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -546,6 +546,12 @@ export default function Settings() {
         )}
 
         <div className="grid gap-3 w-full">
+          {isShiftManager && (
+            <Button variant="outline" className="h-14 w-full justify-between px-4" onClick={() => window.dispatchEvent(new Event('start-croo-tour'))}>
+              <span className="flex items-center gap-3"><GraduationCap className="h-5 w-5" /><span className="text-base font-semibold">Tour CrooHQ</span></span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          )}
           {visibleSections.map((sectionId) => {
             const sectionInfo = SECTION_TITLES[sectionId];
 

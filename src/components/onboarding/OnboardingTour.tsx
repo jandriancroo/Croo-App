@@ -4,6 +4,8 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { getTourStepsForRole } from './tourSteps';
 import { openMenuForTour, closeMenuForTour } from './tourMenuBridge';
 import { openDockForTour, closeDockForTour } from '@/components/dock/dockBridge';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { tourStepDestination } from './tourNavigation';
 
 interface OnboardingTourProps {
   run: boolean;
@@ -15,9 +17,11 @@ const MENU_CLOSE_MS = 150;
 const DOCK_ANIMATION_MS = 450;
 
 export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { role } = useUserRole();
   const steps = getTourStepsForRole(role) as Step[];
-  const [stepIndex, setStepIndex] = useState(0);
+  const [stepIndex, setStepIndex] = useState(() => Number(sessionStorage.getItem('croo-tour-route-step') || 0));
   const menuOpenedByTour = useRef(false);
   const dockOpenedByTour = useRef(false);
   const transitionTimer = useRef<number | null>(null);
@@ -55,7 +59,14 @@ export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
 
     clearTransitionTimer();
 
-    const stepData = (steps[nextIndex] as Step & { data?: { requiresMenu?: boolean; requiresDock?: boolean } }).data;
+    const stepData = (steps[nextIndex] as Step & { data?: { page?: string; requiresMenu?: boolean; requiresDock?: boolean } }).data;
+    const destination = tourStepDestination(nextIndex, stepData?.page);
+    if (destination && location.pathname !== destination) {
+      cleanupMenu();
+      sessionStorage.setItem('croo-tour-route-step', String(nextIndex));
+      navigate(destination);
+      return;
+    }
     const needsMenu = Boolean(stepData?.requiresMenu);
     const needsDock = Boolean(stepData?.requiresDock);
 
@@ -99,7 +110,9 @@ export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
 
   useEffect(() => {
     if (run) {
-      setStepIndex(0);
+      const resumeIndex = Number(sessionStorage.getItem('croo-tour-route-step') || 0);
+      sessionStorage.removeItem('croo-tour-route-step');
+      setStepIndex(resumeIndex);
     } else {
       cleanupMenu();
     }
@@ -133,7 +146,7 @@ export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
     }
   };
 
-  if (!steps.length) return null;
+  if (!run || !steps.length) return null;
 
   return (
     <Joyride
