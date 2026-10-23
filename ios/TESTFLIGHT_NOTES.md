@@ -6,6 +6,16 @@ Croo Builder's Ship button shows this for editing, posts it to TestFlight, then 
 
 ## Next build
 
+## Build 20 · Oct 23, 2026
+
+What's new:
+- TestFlight notes for build 19
+
+- UI Improvements across the board (Swipe Up Dock Updated, FIxed event bar glitch on mobile schedule page, fixed time boxes on edit shift page, rearranged menu and organized.)
+
+- Removed SHIFT MARKETPLACE CHAT THREAD
+- NOW shift claims sit on chat page above the announcement feed with Claim optoin for a team member and “Claim and Assign” options for MANAGER ROLE AND HIGHER. When assigning, flags help you quickly determine the best fit.
+
 ## Build 19 · Oct 21, 2026
 
 - Talk to Theo without opening the app: use the Action Button, Siri ("Talk to Theo") or the Theo button in Control Center. Theo shows up in the Dynamic Island and on the Lock Screen, with Mute and End.
