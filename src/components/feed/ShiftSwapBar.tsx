@@ -1,12 +1,9 @@
-import { useState } from 'react';
-import { ArrowLeftRight, ChevronDown } from 'lucide-react';
+import { ArrowLeftRight } from 'lucide-react';
 import { OpenShiftCard } from '@/components/feed/OpenShiftCard';
 import type { OpenShiftOffer } from '@/hooks/useOpenShiftOffers';
-import { cn } from '@/lib/utils';
 
-/** Collapsible "Shift Swaps" bar at the top of the activity feed. */
+/** "Shift Swaps" bar at the top of the activity feed. Always expanded. */
 export function ShiftSwapBar({ offers }: { offers: OpenShiftOffer[] }) {
-  const [open, setOpen] = useState(false);
   if (!offers.length) return null;
   const openCount = offers.filter((o) => o.status === 'available').length;
   const pending = offers.filter((o) => o.status === 'claimed').length;
@@ -17,8 +14,7 @@ export function ShiftSwapBar({ offers }: { offers: OpenShiftOffer[] }) {
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
-        className="flex min-h-[52px] w-full items-center gap-3 px-3 py-2.5 text-left">
+      <div className="flex min-h-[52px] items-center gap-3 px-3 py-2.5">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/15">
           <ArrowLeftRight className="h-4 w-4 text-accent" />
         </span>
@@ -26,15 +22,12 @@ export function ShiftSwapBar({ offers }: { offers: OpenShiftOffer[] }) {
           <span className="block text-sm font-semibold text-foreground">Shift Swaps</span>
           <span className="block truncate text-xs text-muted-foreground">{summary}</span>
         </span>
-        <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', open && 'rotate-180')} />
-      </button>
-      {open && (
-        <div className="divide-y divide-border border-t border-border">
-          {sorted.map((o) => (
-            <OpenShiftCard key={o.id} offerId={o.id} compact />
-          ))}
-        </div>
-      )}
+      </div>
+      <div className="divide-y divide-border border-t border-border">
+        {sorted.map((o) => (
+          <OpenShiftCard key={o.id} offerId={o.id} compact />
+        ))}
+      </div>
     </div>
   );
 }
