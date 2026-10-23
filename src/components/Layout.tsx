@@ -1233,8 +1233,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
               <div className="grid gap-2 py-4">
-                {/* Profile + Update + Sign Out row */}
-                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2 mb-2">
+                {/* Profile + Update row (Sign Out now sits beside Settings) */}
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 mb-2">
                   <div
                     className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors min-w-0"
                     onClick={() => {
@@ -1252,28 +1252,17 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
-                {/* Update App */}
+                {/* Update App — takes the space Sign Out left behind */}
                 <Button size="sm" variant="outline" onClick={() => {
                   setMenuOpen(false);
                   const prevVersion = getCurrentAppVersion();
                   sessionStorage.setItem('pre_update_version', prevVersion);
                   toast.info('Updating app...');
                   setTimeout(() => window.location.reload(), 500);
-                }} className="h-auto w-14 flex-col gap-1 px-1" aria-label="Update app">
-                  <RefreshCw className="h-5 w-5" />
+                }} className="h-auto w-[120px] flex-col gap-1 px-1" aria-label="Update app">
+                  <RefreshCw className="h-5 w-5 text-success" />
                   <span className="text-xs">Update</span>
                 </Button>
-
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setSignOutConfirmOpen(true)}
-                    data-allow-during-count="logout"
-                    aria-label="Sign out"
-                    className="h-auto w-14 text-destructive hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <LogOut className="h-5 w-5" />
-                  </Button>
                 </div>
 
 
@@ -1463,26 +1452,38 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   )}
                 </div>
 
-                {/* Settings (full width) */}
-                {mobileMenuItems.filter(i => i.path === '/settings').map(item => {
-                  const Icon = item.icon;
-                  const isActive = location.pathname === item.path;
-                  return (
-                    <Button size="sm" 
-                      key={item.path} 
-                      variant={isActive ? 'secondary' : 'outline'} 
-                      onClick={() => {
-                        navigate(item.path);
-                        setMenuOpen(false);
-                      }}
-                      className="justify-start gap-3 h-12 px-4 bg-muted/60 hover:bg-muted"
-                      data-tour="nav-settings"
-                    >
-                      <Icon className="h-5 w-5" />
-                      <span className="text-base">{item.label}</span>
-                    </Button>
-                  );
-                })}
+                {/* Settings + Sign out row */}
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                  {mobileMenuItems.filter(i => i.path === '/settings').map(item => {
+                    const Icon = item.icon;
+                    const isActive = location.pathname === item.path;
+                    return (
+                      <Button size="sm"
+                        key={item.path}
+                        variant={isActive ? 'secondary' : 'outline'}
+                        onClick={() => {
+                          navigate(item.path);
+                          setMenuOpen(false);
+                        }}
+                        className="justify-start gap-3 h-12 px-4 bg-muted/60 hover:bg-muted w-full"
+                        data-tour="nav-settings"
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span className="text-base">{item.label}</span>
+                      </Button>
+                    );
+                  })}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setSignOutConfirmOpen(true)}
+                    data-allow-during-count="logout"
+                    aria-label="Sign out"
+                    className="h-12 w-14 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <LogOut className="h-5 w-5" />
+                  </Button>
+                </div>
 
               </div>
             </SheetContent>

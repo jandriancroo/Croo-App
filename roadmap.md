@@ -15,6 +15,7 @@
 - Announcements pop up on Dash after system alerts (read via Chat or popup, optional required "I've read this", who's-read list, out of Quick Tasks). Not yet tried live with test data.
 
 ## Done
+- Menu sheet rows (Oct 23): Sign Out now shares the bottom row with Settings; Update button widened into the freed space with a green arrow icon. Quick Fill (shift edit dialog) shows one full line — "AM Manager · 9:00 AM – 4:00 PM" — instead of the clipped two-line option; "None" shows as None. Phone-verified; New Shift sheet uses the same fix but wasn't reached live. Typecheck and build clean; nothing published.
 - Presentation/navigation polish: Events gaps retained, equal punch-input columns, compact expandable sandbox row, larger menu, and manual Settings tour entry. Typecheck and navigation tests passed; no publishing or data changes.
 - Marketplace Assign/Approve/Undo now update only the selected published shift atomically; repaired Jaysen's Hemet Saturday assignment and verified it live on the phone schedule without draft styling. Other published shifts unchanged; 4 isolated SQL regression tests and 13 marketplace tests passed. No app publishing, punch, kiosk or cache changes.
 - System Alerts: reusable theme/feature/system popups with optional training video; super-admin draft/preview/ship/retire screen in Settings. Private live delivery/dismissal/reload/retirement verified, test alert deleted, eight tests passed, build clean. Old Spookify invite no longer mounted; public rollout of app changes not requested.

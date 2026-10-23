@@ -540,7 +540,29 @@ export function MobileShiftDialog({
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select quick fill option" />
+                  <SelectValue placeholder="Select quick fill option">
+                    {(() => {
+                      const fmt = (time?: string | null) => {
+                        if (!time) return '';
+                        const [h, m] = time.split(':');
+                        const hour = parseInt(h, 10);
+                        return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
+                      };
+                      const id = selectedTemplateId || '';
+                      if (id.startsWith('offer-')) {
+                        const offer = offeredShifts.find(o => String(o.id) === id.replace('offer-', ''));
+                        const sd = offer?.scheduled_shifts;
+                        if (!sd) return undefined;
+                        const rawName = sd.shift_templates?.template_name;
+                        const name = sd.shift_templates?.position || (rawName ? rawName.split(/\d{1,2}:\d{2}/)[0].trim() : 'Shift');
+                        return `${name} · ${fmt(sd.start_time)} – ${fmt(sd.end_time)}`;
+                      }
+                      if (!id || id === 'none') return 'None';
+                      const tpl = templates.find(t => t.id === id);
+                      if (!tpl) return 'None';
+                      return `${tpl.template_name.split(/\d{1,2}:\d{2}/)[0].trim()} · ${fmt(tpl.start_time)} – ${fmt(tpl.end_time)}`;
+                    })()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="max-w-[calc(100vw-2rem)]">
                   <SelectItem value="none">None</SelectItem>
