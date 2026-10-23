@@ -45,8 +45,8 @@ import { computePace, laborPct, storeNow } from '../../../supabase/functions/_sh
 // Swipe-up panel palette. "Ink" = theme primary darkened for text on the light
 // page background; dark themes lighten it instead so it stays readable.
 const CD_STYLE = `
-.cd-panel{--cd-ink:color-mix(in srgb,hsl(var(--primary)) 75%,black);--cd-solid:color-mix(in srgb,hsl(var(--primary)) 75%,black);--cd-good:hsl(142 70% 28%);--cd-warn:hsl(32 90% 32%);--cd-bad:hsl(0 72% 42%);--cd-good-solid:hsl(142 70% 28%);--cd-bad-solid:hsl(0 72% 42%);--cd-line:color-mix(in srgb,var(--cd-ink) 25%,transparent);--cd-pill:#fff}
-.dark .cd-panel,[data-theme="oled"] .cd-panel,.dark.cd-panel,[data-theme="oled"].cd-panel{--cd-ink:color-mix(in srgb,hsl(var(--primary)) 45%,white);--cd-good:hsl(142 62% 55%);--cd-warn:hsl(38 92% 60%);--cd-bad:hsl(0 80% 66%);--cd-pill:hsl(var(--background))}
+.cd-panel{--cd-ink:color-mix(in srgb,hsl(var(--primary)) 75%,black);--cd-solid:color-mix(in srgb,hsl(var(--primary)) 75%,black);--cd-good:hsl(142 70% 28%);--cd-warn:hsl(32 90% 32%);--cd-bad:hsl(0 72% 42%);--cd-good-solid:hsl(142 70% 28%);--cd-bad-solid:hsl(0 72% 42%);--cd-line:color-mix(in srgb,var(--cd-ink) 25%,transparent);--cd-pill:#fff;--cd-pill-accent:hsl(var(--accent))}
+.dark .cd-panel,[data-theme="oled"] .cd-panel,.dark.cd-panel,[data-theme="oled"].cd-panel{--cd-ink:color-mix(in srgb,hsl(var(--primary)) 45%,white);--cd-good:hsl(142 62% 55%);--cd-warn:hsl(38 92% 60%);--cd-bad:hsl(0 80% 66%);--cd-pill:hsl(var(--background));--cd-pill-accent:color-mix(in srgb,hsl(var(--accent)) 45%,white)}
 `;
 const PACE_PILL_BG: Record<string, string> = {
   'On Track': 'var(--cd-solid)',
@@ -696,14 +696,14 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                       <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">
                         {hasUnreadTheo ? (
                           <>
-                            <span className="font-extrabold text-accent">Theo:</span>{' '}
+                            <span className="font-extrabold" style={{ color: 'var(--cd-pill-accent)' }}>Theo:</span>{' '}
                             {theoUnreadPreview || 'Theo has an update for you'}
                           </>
                         ) : (
                           "Hey, I'm Theo 👋 Tap me anytime!"
                         )}
                       </span>
-                      <span className="shrink-0 text-[13px] font-extrabold text-accent">
+                      <span className="shrink-0 text-[13px] font-extrabold" style={{ color: 'var(--cd-pill-accent)' }}>
                         {hasUnreadTheo ? 'Read ›' : '›'}
                       </span>
                     </button>
