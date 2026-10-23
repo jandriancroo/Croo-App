@@ -45,8 +45,8 @@ import { computePace, laborPct, storeNow } from '../../../supabase/functions/_sh
 // Swipe-up panel palette. "Ink" = theme primary darkened for text on the light
 // page background; dark themes lighten it instead so it stays readable.
 const CD_STYLE = `
-.cd-panel{--cd-ink:color-mix(in srgb,hsl(var(--primary)) 75%,black);--cd-solid:color-mix(in srgb,hsl(var(--primary)) 75%,black);--cd-good:hsl(142 70% 28%);--cd-warn:hsl(32 90% 32%);--cd-bad:hsl(0 72% 42%);--cd-good-solid:hsl(142 70% 28%);--cd-bad-solid:hsl(0 72% 42%);--cd-line:color-mix(in srgb,var(--cd-ink) 25%,transparent)}
-.dark .cd-panel,[data-theme="oled"] .cd-panel,.dark.cd-panel,[data-theme="oled"].cd-panel{--cd-ink:color-mix(in srgb,hsl(var(--primary)) 45%,white);--cd-good:hsl(142 62% 55%);--cd-warn:hsl(38 92% 60%);--cd-bad:hsl(0 80% 66%)}
+.cd-panel{--cd-ink:color-mix(in srgb,hsl(var(--primary)) 75%,black);--cd-solid:color-mix(in srgb,hsl(var(--primary)) 75%,black);--cd-good:hsl(142 70% 28%);--cd-warn:hsl(32 90% 32%);--cd-bad:hsl(0 72% 42%);--cd-good-solid:hsl(142 70% 28%);--cd-bad-solid:hsl(0 72% 42%);--cd-line:color-mix(in srgb,var(--cd-ink) 25%,transparent);--cd-pill:#fff;--cd-pill-accent:hsl(var(--accent))}
+.dark .cd-panel,[data-theme="oled"] .cd-panel,.dark.cd-panel,[data-theme="oled"].cd-panel{--cd-ink:color-mix(in srgb,hsl(var(--primary)) 45%,white);--cd-good:hsl(142 62% 55%);--cd-warn:hsl(38 92% 60%);--cd-bad:hsl(0 80% 66%);--cd-pill:hsl(var(--background));--cd-pill-accent:color-mix(in srgb,hsl(var(--accent)) 45%,white)}
 `;
 const PACE_PILL_BG: Record<string, string> = {
   'On Track': 'var(--cd-solid)',
@@ -644,14 +644,14 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                 <>
                   <div className="flex items-start gap-3 mb-1">
                     <div className="flex-1 min-w-0 text-accent-foreground">
-                      <p className="text-[13px] font-bold tabular-nums leading-none mb-1.5">
+                      <p className="text-[12px] font-bold tabular-nums leading-none mb-1.5">
                         {formattedTime}
                       </p>
-                      <h2 className="text-[30px] font-extrabold tracking-[-0.02em] leading-[1.1] truncate">
+                      <h2 className="text-[26px] font-extrabold tracking-[-0.02em] leading-[1.1] truncate">
                         Hey {firstName}
                       </h2>
                       {paceStatus && (
-                        <p className="text-[15px] font-semibold mt-1 leading-snug">
+                        <p className="text-[13.5px] font-semibold mt-1 leading-[1.3]">
                           {paceStatus.greeting}
                         </p>
                       )}
@@ -676,49 +676,37 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                     </div>
                   </div>
 
-                  {/* Theo speech bubble — centered under the orb, in-flow so cards push down.
+                  {/* Theo slim line — one full-width pill under the greeting row.
                       Unread message always wins over the static greeting. */}
                   {(hasUnreadTheo || teaching) && (
-                    <div className="flex justify-end mr-10 -mt-2 mb-3 animate-scale-in">
-                      {/* Wider when showing a message preview, tight when static greeting */}
-                      <div
-                        className="relative flex justify-center"
-                        style={{ width: hasUnreadTheo ? 180 : 58 }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => window.dispatchEvent(new CustomEvent('open-theo'))}
-                          className="relative px-3 py-2 rounded-2xl bg-accent-foreground text-accent shadow-lg text-left transition-transform active:scale-[0.97] hover:brightness-110"
-                          aria-label="Open Theo"
-                        >
-                          {/* Tail pointing up to the orb above */}
-                          <div className="absolute -top-1 right-[15px] w-3 h-3 rotate-45 bg-accent-foreground" />
-                          {hasUnreadTheo ? (
-                            <>
-                              <p className="text-[9px] font-bold tracking-[0.12em] uppercase text-red-500 leading-none mb-0.5">
-                                New message
-                              </p>
-                              <p className="text-[11px] font-semibold leading-snug line-clamp-2">
-                                {theoUnreadPreview || 'Theo has an update for you'}
-                              </p>
-                              <p className="text-[10px] font-medium leading-tight opacity-70 mt-0.5">
-                                Tap to read
-                              </p>
-                            </>
-                          ) : (
-                            <>
-                              <p className="text-[11px] font-semibold leading-tight whitespace-nowrap">
-                                Hey, I'm Theo 👋
-                              </p>
-                              <p className="text-[10px] font-medium leading-tight opacity-90 mt-0.5 whitespace-nowrap">
-                                Tap me anytime!
-                              </p>
-                            </>
-                          )}
-                        </button>
-
-                      </div>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => window.dispatchEvent(new CustomEvent('open-theo'))}
+                      aria-label="Open Theo"
+                      className="mt-[10px] flex h-9 w-full items-center gap-2 rounded-full px-3 text-left transition-transform active:scale-[0.98] hover:brightness-110 animate-scale-in"
+                      style={{
+                        background: 'var(--cd-pill)',
+                        color: 'var(--cd-ink)',
+                        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--cd-ink) 22%, transparent)',
+                      }}
+                    >
+                      {hasUnreadTheo && (
+                        <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: 'var(--cd-bad)' }} />
+                      )}
+                      <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">
+                        {hasUnreadTheo ? (
+                          <>
+                            <span className="font-extrabold" style={{ color: 'var(--cd-pill-accent)' }}>Theo:</span>{' '}
+                            {theoUnreadPreview || 'Theo has an update for you'}
+                          </>
+                        ) : (
+                          "Hey, I'm Theo 👋 Tap me anytime!"
+                        )}
+                      </span>
+                      <span className="shrink-0 text-[13px] font-extrabold" style={{ color: 'var(--cd-pill-accent)' }}>
+                        {hasUnreadTheo ? 'Read ›' : '›'}
+                      </span>
+                    </button>
                   )}
                 </>
               );
