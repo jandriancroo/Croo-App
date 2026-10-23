@@ -860,17 +860,22 @@ export function MobileScheduleView({
         })}
       </div>
 
-      {/* Events for selected day — collapsible teal section */}
-      <EventsSection
-        events={dayEvents}
-        storageKey="croo:schedule:events-collapsed"
-        nowHHMM={isSelectedDateToday && timezone ? new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()) : null}
-        dayWord={isSelectedDateToday ? 'today' : 'this day'}
-        onSelect={(e) => setPreviewEvent(e)}
-      />
+      {/* Events for selected day — collapsible teal section.
+          mt-2 keeps the teal bar off the week strip above it. */}
+      {dayEvents.length > 0 && (
+        <div className="mt-2">
+          <EventsSection
+            events={dayEvents}
+            storageKey="croo:schedule:events-collapsed"
+            nowHHMM={isSelectedDateToday && timezone ? new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()) : null}
+            dayWord={isSelectedDateToday ? 'today' : 'this day'}
+            onSelect={(e) => setPreviewEvent(e)}
+          />
+        </div>
+      )}
 
       {/* Shifts for selected day */}
-      <div className="space-y-2">
+      <div className="mt-2 space-y-2">
         {(isAdmin || isManager) && <ScheduleApprovalBanner approval={approval} isPublished={isPublished} onChanged={onApprovalChanged} />}
         <div className="flex items-center justify-between">
           <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
@@ -1022,14 +1027,19 @@ export function MobileScheduleView({
                 })}
               </div>
 
-              {/* Events — collapsible teal section (quick tasks live on the Dash only) */}
-              <EventsSection
-                events={dayEvents}
-                storageKey="croo:schedule:events-collapsed"
-                nowHHMM={isSelectedDateToday && timezone ? new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()) : null}
-                dayWord={isSelectedDateToday ? 'today' : 'this day'}
-                onSelect={(e) => setPreviewEvent(e)}
-              />
+              {/* Events — collapsible teal section (quick tasks live on the Dash only).
+                  mt-2 keeps the teal bar off the week strip above it. */}
+              {dayEvents.length > 0 && (
+                <div className="mt-2">
+                  <EventsSection
+                    events={dayEvents}
+                    storageKey="croo:schedule:events-collapsed"
+                    nowHHMM={isSelectedDateToday && timezone ? new Intl.DateTimeFormat('en-GB', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()) : null}
+                    dayWord={isSelectedDateToday ? 'today' : 'this day'}
+                    onSelect={(e) => setPreviewEvent(e)}
+                  />
+                </div>
+              )}
 
               {/* 5. TODAY: NOW + LATER sections with punch tracking */}
               {isSelectedDateToday ? ((() => {
@@ -1042,7 +1052,7 @@ export function MobileScheduleView({
                   <>
 
                     {/* NOW header — always rendered so LIVE status has a home */}
-                    <div className="space-y-1.5">
+                    <div className="mt-2 space-y-1.5">
                       <h4 className="text-xs font-semibold uppercase tracking-wide flex items-center gap-1.5">
                         <Circle className={`h-2 w-2 ${activePunches.length > 0 ? 'fill-green-500 text-green-500' : 'fill-muted-foreground text-muted-foreground'}`} />
                         <span className={activePunches.length > 0 ? 'text-green-600' : 'text-muted-foreground'}>Now</span>
@@ -1242,7 +1252,7 @@ export function MobileScheduleView({
                 );
               })()) : isPastDate && allDayPunches.length > 0 ? (
                 /* Past days with punch data — show completed-style cards */
-                <div className="space-y-1.5">
+                <div className="mt-2 space-y-1.5">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                     {`Completed (${allDayPunches.length})`}
                     <div className="flex items-center gap-1 ml-auto">
@@ -1290,7 +1300,7 @@ export function MobileScheduleView({
                 </div>
               ) : (
                 /* Future days or past without punches — show all scheduled shifts */
-                <div className="space-y-1.5">
+                <div className="mt-2 space-y-1.5">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                     Scheduled
                     <span className="text-muted-foreground">({dayShifts.filter(s => getProfileForShift(s)).length})</span>
