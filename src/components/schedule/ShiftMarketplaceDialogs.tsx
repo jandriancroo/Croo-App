@@ -155,14 +155,8 @@ export function AssignShiftDialog(props: {
             <CoverListScroller>
               {claimers.length > 0 && <div className={groupLabel}>Claimed · {claimers.length}</div>}
               {claimers.map((c) => person(c, true))}
-              {others.length > 0 && (
-                <button type="button" data-plain="" onClick={() => setShowOthers((v) => !v)}
-                  className="flex h-11 w-full shrink-0 items-center gap-2 px-1 text-left text-[12px] font-bold uppercase tracking-wide text-muted-foreground">
-                  <ChevronDown className={`h-4 w-4 transition-transform ${showOthers || claimers.length === 0 ? 'rotate-180' : ''}`} />
-                  Everyone else ({others.length})
-                </button>
-              )}
-              {(showOthers || claimers.length === 0) && others.map((c) => person(c, false))}
+              {others.length > 0 && <div className={groupLabel}>Everyone else ({others.length})</div>}
+              {others.map((c) => person(c, false))}
             </CoverListScroller>
           )}
         </div>
