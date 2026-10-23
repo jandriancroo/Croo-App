@@ -41,3 +41,30 @@ describe('feed hides started shifts', () => {
     expect(shiftNotStarted('2026-10-21', '23:00:00', '2026-10-22 20:30')).toBe(false);
   });
 });
+
+import { weekDaysAfterTaking, assignFlags, splitClaimersFirst } from './shiftMarketplace';
+describe('sixth vs seventh day flag', () => {
+  const days = ['2026-09-27', '2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02'];
+  const wk = (n: number) => days.slice(0, n).map((d, i) => ({ id: `w${i}`, user_id: 'bob', shift_date: d, is_time_off: false }));
+  it('5 other days + this one = Sixth day', () => {
+    expect(assignFlags({ dayCount: weekDaysAfterTaking('bob', SHIFT, wk(5)), blocked: null })).toEqual(['Sixth day']);
+  });
+  it('6 other days + this one = Seventh day (not Sixth)', () => {
+    expect(assignFlags({ dayCount: weekDaysAfterTaking('bob', SHIFT, wk(6)), blocked: null })).toEqual(['Seventh day']);
+  });
+  it('4 other days = no day flag', () => {
+    expect(assignFlags({ dayCount: weekDaysAfterTaking('bob', SHIFT, wk(4)), blocked: null })).toEqual([]);
+  });
+  it('unavailable is a flag, never a block', () => {
+    expect(assignFlags({ dayCount: 6, blocked: 'Off Saturdays' })).toEqual(['Sixth day', 'Unavailable']);
+  });
+});
+
+describe('assign picker order', () => {
+  it('claimers first in claim order, then everyone else in cover order', () => {
+    const list = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }];
+    const r = splitClaimersFirst(list, ['d', 'b']);
+    expect(r.claimers.map((x) => x.id)).toEqual(['d', 'b']);
+    expect(r.others.map((x) => x.id)).toEqual(['a', 'c']);
+  });
+});
