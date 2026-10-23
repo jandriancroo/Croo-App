@@ -1,4 +1,5 @@
 import { Layout } from '@/components/Layout';
+import { SupportInboxSheet } from '@/components/support/SupportInboxSheet';
 import { PageTitle } from '@/components/PageTitle';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -90,7 +91,7 @@ const LOCATION_SECTIONS = ['theme', 'theo-voice', 'notifications', 'nudge-templa
 // Sections that belong to the org tab
 const ORG_SECTIONS = ['billing', 'reporting', 'org-members', 'org-roles'];
 // Sections only super admins see
-const SUPER_ADMIN_SECTIONS = ['system-alerts', 'support-chats', 'theo-usage', 'pin-migration', 'plan-catalogs', 'brands', 'organizations', 'maintenance'];
+const SUPER_ADMIN_SECTIONS = ['support-chats', 'system-alerts', 'theo-usage', 'pin-migration', 'plan-catalogs', 'brands', 'organizations', 'maintenance'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
   'system-alerts': { title: 'System Alerts', icon: <Bell className="h-4 w-4" /> },
@@ -124,6 +125,7 @@ export default function Settings() {
   const { isChecklistOnlyLocation, currentLocation, organizationId } = useAppLocation();
   const { counts: chatCounts } = useChatUnreadCounts(isSuperAdmin ? currentLocation?.id || null : null);
   const supportUnread = isSuperAdmin ? chatCounts.support ?? 0 : 0;
+  const [supportInboxOpen, setSupportInboxOpen] = useState(false);
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'default');
   const [locations, setLocations] = useState<any[]>([]);
@@ -530,6 +532,7 @@ export default function Settings() {
     <Layout>
       <div className="w-full">
         <PageTitle color="slate" status={null}>Settings</PageTitle>
+        {isSuperAdmin && <SupportInboxSheet open={supportInboxOpen} onOpenChange={setSupportInboxOpen} />}
 
         {/* Pill selector — only for org_admin and above */}
         {showPillSelector && (
@@ -557,6 +560,26 @@ export default function Settings() {
               'plan-catalogs': () => navigate('/super-admin/plans'),
               'system-alerts': () => navigate('/super-admin/system-alerts'),
             };
+
+            // Support chats: opens the DM-style slide-up Inbox and stays on Settings.
+            if (sectionId === 'support-chats') {
+              return (
+                <button
+                  key={sectionId}
+                  onClick={() => setSupportInboxOpen(true)}
+                  className="w-full flex items-center justify-between px-4 py-4 rounded-xl bg-primary text-primary-foreground active:scale-[0.98] transition-all duration-150 shadow-sm"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="opacity-80">{sectionInfo.icon}</span>
+                    <span className="font-semibold text-base truncate">{sectionInfo.title}</span>
+                    {supportUnread > 0 && (
+                      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-bold text-destructive-foreground">{supportUnread > 99 ? '99+' : supportUnread}</span>
+                    )}
+                  </div>
+                  <ChevronRight className="h-4 w-4 opacity-60" />
+                </button>
+              );
+            }
 
             if (navLinks[sectionId]) {
               return (
