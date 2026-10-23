@@ -1,27 +1,17 @@
 import { DateTime } from "luxon";
 import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { uniqueChannelName } from "@/lib/realtimeChannelName";
 import { toast } from "sonner";
-import { Clock, Calendar, User, Check, X, UserPlus, Undo2 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { getDisplayName } from "@/utils/displayName";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ShiftOfferConfirmDialog, AssignShiftDialog, type ConfirmTarget } from "@/components/schedule/ShiftMarketplaceDialogs";
-import { approveShiftOffer, assignShiftOffer, denyShiftOfferClaim, undoShiftOffer, UNDO_MS } from "@/lib/shiftMarketplace";
+import { approveShiftOffer, assignShiftOffer, undoShiftOffer, UNDO_MS } from "@/lib/shiftMarketplace";
 
 interface OpenShiftCardProps {
   offerId: string;
-  /** Feed list row: one line with a small Claim button; tap to open the full card. */
+  /** Kept for callers; the card is always the slim feed row now. */
   compact?: boolean;
 }
 
@@ -37,22 +27,19 @@ interface ShiftClaim {
   };
 }
 
-/** Open shift card in the feed's Shift Swaps bar: claim, take, assign, approve, deny, undo. */
-export function OpenShiftCard({ offerId, compact = false }: OpenShiftCardProps) {
-  const [expanded, setExpanded] = useState(false);
+/** Open shift slim row in the feed's Open Shifts card: Claim (everyone), Assign (manager+), Undo via toast. */
+export function OpenShiftCard({ offerId }: OpenShiftCardProps) {
   const [offer, setOffer] = useState<any>(null);
   const [claims, setClaims] = useState<ShiftClaim[]>([]);
-  const [selectedClaimerId, setSelectedClaimerId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState<string>("You");
   const { role, isManager } = useUserRole();
-  // Manager+ (manager, general manager, admins): approve, deny, assign; their own claim is instant.
+  // Manager+ (manager, general manager, admins): assign; their own claim is instant. Shift managers are not manager+.
   const isManagerPlus = isManager || (role as string | null) === "general_manager";
   const [confirm, setConfirm] = useState<ConfirmTarget | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
-  const [undoUntil, setUndoUntil] = useState<number>(0);
 
   useEffect(() => {
     const getCurrentUser = async () => {
@@ -164,9 +151,6 @@ export function OpenShiftCard({ offerId, compact = false }: OpenShiftCardProps) 
 
       if (error) throw error;
       setClaims(data || []);
-      if (data && data.length > 0 && !selectedClaimerId) {
-        setSelectedClaimerId(data[0].user_id);
-      }
     } catch (error) {
       console.error("Error fetching claims:", error);
     }
