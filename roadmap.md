@@ -4,6 +4,8 @@
 (none)
 
 ## In progress
+- Menu sheet rows (Oct 23): Sign Out moved to share the Settings row at the bottom; Update button widened into the freed space, its icon green.
+- Quick Fill cut-off text (Oct 23): the box shows one compact line (name · times) instead of the clipped two-line option.
 - Shift marketplace + support chats batch (Oct 23): built, waiting for Jordan's "ship". Not published.
 - Toast Status public downloads: blocked by workspace public-bucket restriction. Owner/admin must allow public buckets under Settings → Privacy & Security, then make toast-status-releases public. Release publishing deliberately returns 503 until then.
 
