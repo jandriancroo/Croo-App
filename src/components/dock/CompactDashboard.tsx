@@ -687,7 +687,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                       style={{ color: 'var(--cd-ink)' }}
                     >
                       {hasUnreadTheo && (
-                        <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                        <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: 'var(--cd-bad)' }} />
                       )}
                       <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">
                         {hasUnreadTheo ? (
