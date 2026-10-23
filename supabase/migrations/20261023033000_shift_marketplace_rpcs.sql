@@ -220,7 +220,7 @@ BEGIN
   INSERT INTO alert_queue (alert_type, dedup_key, location_id, payload)
   VALUES ('shift_offer', 'shift_offer:' || _kind || ':' || _offer_id || ':' || coalesce(_claimer::text,'') || _dedup_suffix, loc,
     jsonb_build_object('user_ids', to_jsonb(ids), 'title', ttl, 'body', bod, 'notification_type', 'shift_approvals',
-      'data', jsonb_build_object('type','shift_offer','offer_id',_offer_id,'shift_id',o.shift_id,'url','/messages')  -- /messages opens on the feed; the Shift Swaps bar sits at its top))
+      'data', jsonb_build_object('type','shift_offer','offer_id',_offer_id,'shift_id',o.shift_id,'url','/messages')))  -- /messages opens on the feed; the Shift Swaps bar sits at its top
   ON CONFLICT (dedup_key) DO NOTHING;
 END $$;
 REVOKE ALL ON FUNCTION public._shift_offer_push(uuid,text,uuid,text) FROM PUBLIC, anon, authenticated;
