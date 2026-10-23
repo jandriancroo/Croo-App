@@ -11,14 +11,14 @@ import { PageTitle } from '@/components/PageTitle';
 
 /**
  * Chat page = single-column Team Feed.
- * DMs, hiring and support live behind the chat bubble in the top-right (DmPanel).
+ * DMs and hiring live behind the chat bubble in the top-right (DmPanel).
  * Route + label stay "Chat" so a future rename is a one-line change.
  */
 
 export default function Messages() {
   const { currentLocation } = useAppLocation();
   const { counts: unreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
-  const dmBadge = (unreadCounts.chats ?? 0) + (unreadCounts.hiring ?? 0) + (unreadCounts.support ?? 0);
+  const dmBadge = (unreadCounts.chats ?? 0) + (unreadCounts.hiring ?? 0);
 
   const [dmOpen, setDmOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);

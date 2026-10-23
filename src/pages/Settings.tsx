@@ -17,7 +17,8 @@ import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TheoUsageSection } from '@/components/settings/TheoUsageSection';
-import { BarChart3, AudioLines, BellRing } from 'lucide-react';
+import { BarChart3, AudioLines, BellRing, Headphones } from 'lucide-react';
+import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
 import { NudgeTemplatesSection } from '@/components/settings/NudgeTemplatesSection';
 import { TheoVoiceSection } from '@/components/settings/TheoVoiceSection';
 import { syncChromeColor } from '@/utils/syncChrome';
@@ -44,6 +45,9 @@ const CloneLocationSettings = lazy(() =>
 );
 const DataStreamStatus = lazy(() =>
   import('@/components/settings/DataStreamStatus').then(m => ({ default: m.DataStreamStatus }))
+);
+const SupportChatPanel = lazy(() =>
+  import('@/components/support/SupportChatPanel').then((m) => ({ default: m.SupportChatPanel })),
 );
 const PinMigrationHealthPanel = lazy(() =>
   import('@/components/users/PinMigrationHealthPanel').then(m => ({ default: m.PinMigrationHealthPanel }))
@@ -86,11 +90,12 @@ const LOCATION_SECTIONS = ['theme', 'theo-voice', 'notifications', 'nudge-templa
 // Sections that belong to the org tab
 const ORG_SECTIONS = ['billing', 'reporting', 'org-members', 'org-roles'];
 // Sections only super admins see
-const SUPER_ADMIN_SECTIONS = ['system-alerts', 'theo-usage', 'pin-migration', 'plan-catalogs', 'brands', 'organizations', 'maintenance'];
+const SUPER_ADMIN_SECTIONS = ['system-alerts', 'support-chats', 'theo-usage', 'pin-migration', 'plan-catalogs', 'brands', 'organizations', 'maintenance'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
   'system-alerts': { title: 'System Alerts', icon: <Bell className="h-4 w-4" /> },
   'theo-voice': { title: 'Theo Voice', icon: <AudioLines className="h-4 w-4" /> },
+  'support-chats': { title: 'Support chats', icon: <Headphones className="h-4 w-4" /> },
   'theo-usage': { title: 'Theo Usage', icon: <BarChart3 className="h-4 w-4" /> },
   billing: { title: 'Plans & Billing', icon: <CreditCard className="h-4 w-4" /> },
   reporting: { title: 'Reporting', icon: <FileText className="h-4 w-4" /> },
@@ -117,6 +122,8 @@ export default function Settings() {
   const { isAdmin, isSuperAdmin, isOrgAdmin, isBrandAdmin, isShiftManager, isManager, role } = useUserRole();
   const { hasPermission } = useRolePermissions();
   const { isChecklistOnlyLocation, currentLocation, organizationId } = useAppLocation();
+  const { counts: chatCounts } = useChatUnreadCounts(isSuperAdmin ? currentLocation?.id || null : null);
+  const supportUnread = isSuperAdmin ? chatCounts.support ?? 0 : 0;
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'default');
   const [locations, setLocations] = useState<any[]>([]);
@@ -232,6 +239,7 @@ export default function Settings() {
       case 'org-positions':
         return !!currentOrgId;
       case 'clone-settings':
+      case 'support-chats':
       case 'brands':
       case 'organizations':
         return isSuperAdmin;
@@ -319,6 +327,10 @@ export default function Settings() {
       case 'theo-voice':
         if (!isShiftManager) return null;
         return <TheoVoiceSection />;
+
+      case 'support-chats':
+        if (!isSuperAdmin) return null;
+        return <div className="h-[70vh] min-h-[420px]"><SupportChatPanel /></div>;
 
       case 'theo-usage':
         if (!isSuperAdmin) return null;
@@ -587,6 +599,9 @@ export default function Settings() {
                         <div className="flex items-center gap-2 min-w-0">
                           {sectionInfo.icon}
                           <CardTitle className="text-base truncate">{sectionInfo.title}</CardTitle>
+                          {sectionId === 'support-chats' && supportUnread > 0 && (
+                            <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-bold text-destructive-foreground">{supportUnread > 99 ? '99+' : supportUnread}</span>
+                          )}
                         </div>
                         <ChevronDown
                           className={`h-4 w-4 text-muted-foreground transition-transform duration-200 flex-shrink-0 ${

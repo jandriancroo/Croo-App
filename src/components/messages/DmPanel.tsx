@@ -4,19 +4,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { ensureHiringConversation } from '@/lib/hiring/interviewActions';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Briefcase, Headphones, ArrowLeft, Plus } from 'lucide-react';
+import { MessageCircle, Briefcase, ArrowLeft, Plus } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { ChatList } from '@/components/messages/ChatList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
 import { NewChatDialog } from '@/components/messages/NewChatDialog';
 import { HiringChatList } from '@/components/messages/HiringChatList';
 import { HiringChatPanel } from '@/components/hiring/HiringChatPanel';
-import { SupportChatPanel } from '@/components/support/SupportChatPanel';
 import { ChatSearch } from '@/components/messages/ChatSearch';
 import { useMessagesData } from '@/hooks/useMessagesData';
 import { useIsMobile } from '@/hooks/use-mobile';
 
-type Step = 'dms' | 'hiring' | 'support';
+type Step = 'dms' | 'hiring';
 
 interface DmPanelProps {
   open: boolean;
@@ -35,7 +34,7 @@ export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplic
   const isMobile = useIsMobile();
   const {
     currentUserId, currentLocation, isAdmin, isManager, isSuperAdmin,
-    showHiringTab, showSupportTab,
+    showHiringTab,
     chats, selectedChatId, setSelectedChatId,
     isNewChatOpen, setIsNewChatOpen,
     loading, roleLoading,
@@ -59,8 +58,7 @@ export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplic
   const steps = useMemo<{ id: Step; label: string; icon: LucideIcon }[]>(() => [
     { id: 'dms', label: "DM's", icon: MessageCircle },
     ...(showHiringTab ? [{ id: 'hiring' as Step, label: 'Hiring', icon: Briefcase }] : []),
-    ...(showSupportTab ? [{ id: 'support' as Step, label: 'Support', icon: Headphones }] : []),
-  ], [showHiringTab, showSupportTab]);
+  ], [showHiringTab]);
 
   const [step, setStep] = useState<Step>('dms');
 
@@ -199,15 +197,10 @@ export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplic
     </div>
   );
 
-  const supportPanel = (
-    <div className="h-full"><SupportChatPanel /></div>
-  );
-
   const body = (
     <div className="flex-1 min-h-0 flex flex-col">
       {step === 'dms' && (selectedChatId ? dmDetail : dmListPanel)}
       {step === 'hiring' && hiringPanel}
-      {step === 'support' && supportPanel}
     </div>
   );
 

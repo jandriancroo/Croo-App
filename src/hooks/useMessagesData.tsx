@@ -42,7 +42,6 @@ export function useMessagesData() {
   const { currentLocation } = useAppLocation();
   const isMobile = useIsMobile();
   const showHiringTab = isAdmin || isManager;
-  const showSupportTab = isSuperAdmin;
 
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -344,7 +343,6 @@ export function useMessagesData() {
 
   return {
     user,
-    showSupportTab,
     currentUserId,
     currentLocation,
     isMobile,
