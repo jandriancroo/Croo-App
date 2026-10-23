@@ -469,7 +469,7 @@ export function SupportChatPanel() {
           </div>
 
           {/* Messages */}
-          <ScrollArea className="flex-1 min-h-0 bg-secondary/40">
+          <ScrollArea className="flex-1 min-h-0 bg-background">
             <div className="p-3 space-y-2">
               {/* Initial ticket as first message from user */}
               <div className="flex justify-start">
