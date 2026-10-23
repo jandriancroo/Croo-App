@@ -2,7 +2,7 @@
 // and the "Assign to…" picker (Theo cover-list style: claimers first, then "Everyone else").
 import { useEffect, useState } from 'react';
 import { DateTime } from 'luxon';
-import { AlertTriangle, Check, ChevronDown, ChevronRight } from 'lucide-react';
+import { AlertTriangle, Check, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { CoverListScroller, DayRows, NEW_GREEN, type DayView } from '@/components/schedule/DayRows';
