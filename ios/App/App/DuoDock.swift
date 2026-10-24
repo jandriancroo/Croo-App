@@ -225,6 +225,11 @@ final class DuoDockController: UINavigationController {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in self?.updateRings() }
     }
 
+    /// JS that sends real pointer events to the element the selector finds (Radix and React listen for these).
+    private static func pressJS(_ find: String) -> String {
+        "(function(){var b=\(find);if(!b)return;['pointerdown','mousedown','pointerup','mouseup','click'].forEach(function(t){b.dispatchEvent(new (t.indexOf('pointer')==0?PointerEvent:MouseEvent)(t,{bubbles:true,cancelable:true,button:0,pointerType:'mouse'}))})})()"
+    }
+
     private func rebuildItems() {
         // Collapsed: only one circle stays, and tapping it brings the dock back.
         if collapsed {
@@ -272,6 +277,21 @@ final class DuoDockController: UINavigationController {
         )
         // Open Duo: the manager dash is closed-mode only, so the arrow leaves the dock.
         var items: [UIBarButtonItem] = duoOpen ? [profile] : [arrow, profile]
+        if duoOpen {
+            // Open Duo: location picker, Ask Theo and Nudge live in the dock (above the profile and tabs).
+            // They press the same buttons the web header has today, so they work before the web header changes.
+            func control(_ title: String, _ symbol: String, _ js: String) -> UIBarButtonItem {
+                let b = UIBarButtonItem(title: title, image: icon(symbol), primaryAction: UIAction { [weak self] _ in self?.runJS(js) })
+                if #available(iOS 27.1, *) { b.visibilityPriority = .high }
+                return b
+            }
+            items = [
+                control("Location", "mappin.and.ellipse", Self.pressJS(#"document.querySelector('[data-tour="location-picker"]')"#)),
+                control("Ask Theo", "sparkles", #"window.dispatchEvent(new Event('open-theo'))"#),
+                control("Nudge", "hand.point.up.left.fill", Self.pressJS(#"document.querySelector('button[aria-label^="Nudge"]')"#)),
+                profile,
+            ]
+        }
         tabItems = [:]
         for tab in tabs {
             let item = UIBarButtonItem(
