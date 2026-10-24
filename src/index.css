@@ -2669,7 +2669,8 @@ html.duo-open .duo-open-header-row > .duo-open-brand-cell {
 }
 html.duo-open .duo-open-header-row > .duo-title-slot-right {
   padding-left: 0;
-  padding-right: 12px;
+  padding-right: 0;
+  margin-right: 12px;
 }
 html.duo.duo-open .duo-title-slot {
   height: 72px;
@@ -2699,7 +2700,7 @@ html.duo.duo-open .duo-page-title h2 {
   letter-spacing: 0;
 }
 html.duo.duo-open .duo-panel,
-html.duo.duo-open .duo-page-scroll {
+html.duo.duo-open body:has(.duo-page-title) .duo-page-scroll {
   padding-top: 0;
 }
 html.duo.duo-open .duo-page-subtitle {
