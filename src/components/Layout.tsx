@@ -320,6 +320,14 @@ export const Layout = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
 
+  useEffect(() => {
+    const openNativeProfileMenu = () => {
+      if (document.documentElement.classList.contains('duo')) setMenuOpen(true);
+    };
+    window.addEventListener('open-profile-menu', openNativeProfileMenu);
+    return () => window.removeEventListener('open-profile-menu', openNativeProfileMenu);
+  }, []);
+
   // Register menu control so the onboarding tour can auto-open the menu
   useEffect(() => {
     registerMenuControl(setMenuOpen);
@@ -939,14 +947,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         <header
           className="duo-open-header fixed top-0 left-0 z-50 bg-primary"
           style={{
-            right: 'var(--duo-col-right, 0px)',
+            right: 0,
             paddingTop: 'env(safe-area-inset-top)',
             background: 'var(--chrome-bg, hsl(var(--header-bg)))',
-            borderRadius: '0 0 1.25rem 1.25rem',
-            boxShadow: '0 4px 16px hsl(0 0% 0% / 0.10)',
           }}
         >
-          <div className="grid grid-cols-2 h-14">
+          <div className="duo-open-header-row grid grid-cols-2 h-14">
             <div className="flex items-center justify-center gap-1 min-w-0 px-2">
               <div className="nav-logo-inline flex-shrink-0">
                 {headerLogo ? (
@@ -1234,7 +1240,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       {/* Mobile Header — Full Bleed + Bottom Curve (fixed to prevent pull-to-refresh detach) */}
       <header
         ref={mobileHeaderRef}
-        className={`duo-phone-header fixed top-0 left-0 right-0 z-50 bg-primary ${isMobile && !duo.isOpen ? 'block' : 'hidden'}`}
+        className={`duo-phone-header fixed top-0 left-0 right-0 z-50 bg-primary ${(isMobile || duo.isFolded) && !duo.isOpen ? 'block' : 'hidden'}`}
         style={{ paddingTop: 'env(safe-area-inset-top)', background: 'var(--chrome-bg, hsl(var(--header-bg)))', borderRadius: '0 0 1.25rem 1.25rem', boxShadow: '0 4px 16px hsl(0 0% 0% / 0.10)' }}
       >
         <div className="duo-header-row flex items-center relative h-14 px-4">

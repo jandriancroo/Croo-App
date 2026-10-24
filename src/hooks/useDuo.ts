@@ -33,6 +33,9 @@ export function useDuo(): DuoState {
     const update = () => setState(readDuoState());
     const observer = new MutationObserver(update);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    // The shell can set classes between the initial render and this effect.
+    // Subscribe first, then read again so that startup change cannot be missed.
+    update();
     return () => observer.disconnect();
   }, []);
 

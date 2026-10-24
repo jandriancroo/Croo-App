@@ -2633,20 +2633,25 @@ html[data-theme="spookified"] .spookified-orb-lightning { display: block; positi
 
 /* ===== iPhone Duo (shell sets html.duo + duo-folded/duo-open, --duo-col-left/right) =====
    Everything here is inert unless the shell adds the duo class. */
-html.duo {
-  --duo-corner-radius: 48px;
+/* Both modes: straight full-screen chrome behind the status area and column. */
+html.duo .duo-phone-header,
+html.duo .duo-open-header {
+  top: 0;
+  left: 0;
+  right: 0;
+  margin: 0;
+  border-radius: 0 !important; /* override the normal phone's inline curve */
+  box-shadow: none;
 }
-
-/* Folded: the phone header runs to the right edge, past Apple's column;
-   its top-right corner follows the screen curve and buttons clear the column. */
-html.duo-folded .duo-phone-header {
-  /* !important: the header carries an inline borderRadius for its bottom curve */
-  border-top-right-radius: var(--duo-corner-radius, 48px) !important;
-}
-html.duo-folded .duo-phone-header .duo-header-row {
+html.duo .duo-header-row,
+html.duo .duo-open-header-row {
+  padding-left: calc(var(--duo-col-left, 0px) + 12px);
   padding-right: calc(var(--duo-col-right, 0px) + 12px);
 }
-html.duo-folded .duo-folded-hide {
+html.duo .duo-header-row > .absolute {
+  left: calc(50% + (var(--duo-col-left, 0px) - var(--duo-col-right, 0px)) / 2);
+}
+html.duo .duo-folded-hide {
   display: none;
 }
 
@@ -2658,7 +2663,7 @@ html.duo-open .duo-open-main {
   width: 100%;
   padding-top: calc(env(safe-area-inset-top) + 3.5rem);
   padding-right: var(--duo-col-right, 0px);
-  padding-left: 0;
+  padding-left: var(--duo-col-left, 0px);
   padding-bottom: 0;
   height: 100dvh;
   overflow: hidden;
