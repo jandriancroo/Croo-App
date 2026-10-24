@@ -35,7 +35,7 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 AUTH=()
 # The key lives in ~/.croo-builder, or in iCloud Drive (folder "Croo Builder") so both Macs share it.
 ASC_DIR=""
-for d in "$HOME/.croo-builder" "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Croo Builder"; do
+for d in "$HOME/.croo-builder" "$HOME/Library/Mobile Documents/com~apple~CloudDocs/CrooHQ/Apple Dev" "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Croo Builder"; do
   if [[ -f "$d/asc.env" ]]; then ASC_DIR="$d"; break; fi
 done
 if [[ -n "$ASC_DIR" ]]; then

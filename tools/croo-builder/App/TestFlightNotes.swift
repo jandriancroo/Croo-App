@@ -69,7 +69,8 @@ enum TestFlightNotes {
     /// ~/.croo-builder/asc.env with ASC_KEY_PATH, ASC_KEY_ID, ASC_ISSUER_ID (same file Ship uses).
     static func apiKey() -> Key? {
         // ~/.croo-builder, or iCloud Drive's "Croo Builder" folder so both Macs share one key.
-        let dirs = [NSHomeDirectory() + "/.croo-builder", NSHomeDirectory() + "/Library/Mobile Documents/com~apple~CloudDocs/Croo Builder"]
+        let icloud = NSHomeDirectory() + "/Library/Mobile Documents/com~apple~CloudDocs"
+        let dirs = [NSHomeDirectory() + "/.croo-builder", icloud + "/CrooHQ/Apple Dev", icloud + "/Croo Builder"]
         guard let dir = dirs.first(where: { FileManager.default.fileExists(atPath: $0 + "/asc.env") }),
               let text = try? String(contentsOfFile: dir + "/asc.env", encoding: .utf8) else { return nil }
         var v: [String: String] = [:]
