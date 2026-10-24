@@ -368,7 +368,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-sm duo-punch-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {mode === 'punchout' ? (

@@ -455,7 +455,7 @@ export function EditPunchDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
-          className="max-w-sm"
+          className="max-w-sm duo-edit-punch"
           onOpenAutoFocus={(e) => {
             // Prevent Radix from auto-focusing the first input (iOS opens the native time picker immediately)
             e.preventDefault();
