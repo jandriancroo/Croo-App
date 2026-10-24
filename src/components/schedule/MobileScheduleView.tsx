@@ -818,7 +818,7 @@ export function MobileScheduleView({
   // Content for Schedule tab
   const renderScheduleContent = () => (
     <div>
-      <PageTitle color="teal">Schedule</PageTitle>
+      <PageTitle color="teal" duoSlot="right">Schedule</PageTitle>
       {/* Week Header - Centered with week label */}
       <div className="flex flex-col items-center gap-0.5">
         <DateNavigator
@@ -966,7 +966,7 @@ export function MobileScheduleView({
           <div className="flex flex-col h-full">
             <div className="flex-1 overflow-auto px-[max(1rem,env(safe-area-inset-left))] pt-0 pb-3">
               {/* Date header */}
-              <PageTitle color="teal" status={isSelectedDateToday ? (() => {
+              <PageTitle color="teal" duoSlot="right" status={isSelectedDateToday ? (() => {
                   const n = allDayPunches.filter(p => p.isActive).length;
                   return { text: n ? `${n} ON THE CLOCK` : 'NO ONE ON THE CLOCK' };
                 })() : undefined} action={

@@ -15,6 +15,7 @@
 - Announcements pop up on Dash after system alerts (read via Chat or popup, optional required "I've read this", who's-read list, out of Quick Tasks). Not yet tried live with test data.
 
 ## Done
+- Duo Part B: Layout slots receive existing Dash/Schedule PageTitle trees; white 30px titles, 72px+inset bar, Theo below. At 951px/84px: left 106–455.5, right 495.5–855, panels start y72. Punch/New Shift open correctly; Settings in-page title and phone/folded titles preserved; nine tests pass. No locked file edits or publishing.
 - Open Duo cubes: content-sized equal heights, all eight faces verified signed-in at 951px/84px column with no text overlap/clipping; phone/folded/iPad/desktop sizing unchanged. Only DataCube3D presentation changed; no publishing.
 - Duo native header controls: open header shows only brand/location text; native location/Theo/Nudge events verified signed-in at 951px/84px column. Late badge shares existing Nudge query; panel edges 495.5–867px, outside/Escape/toggle verified. Seven tests passed, normal-device/folded checks passed. Part B title placement remains report-only; nothing published.
 - Duo open Nudge: right-panel bounds measured 495.5–867px at 951px/84px column; outside tap, Escape, finger toggle and 44px close verified signed-in. Folded presentation and sending logic unchanged; nothing published.

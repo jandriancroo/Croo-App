@@ -87,6 +87,7 @@ All colors MUST be HSL.
      /* Deep accent — header bar; matches the lighter teal ring tone used in checklist progress */
      --header-bg: 190 38% 45%;            /* #4a899b */
      --header-fg: 38 38% 97%;
+    --duo-title-foreground: 0 0% 100%;
 
      --radius: 0.75rem;
 
@@ -2648,6 +2649,7 @@ html.duo .duo-header-row {
   padding-right: calc(var(--duo-col-right, 0px) + 12px);
 }
 html.duo-open .duo-open-header-row {
+  height: 72px;
   padding-left: var(--duo-col-left, 0px);
   padding-right: var(--duo-col-right, 0px);
   grid-template-columns: calc(50vw - var(--duo-col-left, 0px) - var(--duo-crease-gutter, 40px) / 2) minmax(0, 1fr);
@@ -2659,6 +2661,50 @@ html.duo-open .duo-open-header-row > div {
 }
 html.duo-open .duo-open-header-row > .duo-open-brand-cell {
   padding-left: 14px;
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  column-gap: 12px;
+  align-items: center;
+  padding-right: 0;
+}
+html.duo-open .duo-open-header-row > .duo-title-slot-right {
+  padding-left: 0;
+  padding-right: 0;
+  margin-right: 12px;
+}
+html.duo.duo-open .duo-title-slot {
+  height: 72px;
+  min-width: 0;
+}
+html.duo.duo-open .duo-page-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 100%;
+  color: hsl(var(--duo-title-foreground));
+}
+html.duo.duo-open .duo-page-title-copy {
+  min-width: 0;
+  flex: 1;
+}
+html.duo.duo-open .duo-page-title-copy > div {
+  color: inherit;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+html.duo.duo-open .duo-page-title h1,
+html.duo.duo-open .duo-page-title h2 {
+  font-size: 30px;
+  line-height: 36px;
+  letter-spacing: 0;
+}
+html.duo.duo-open .duo-panel,
+html.duo.duo-open body:has(.duo-page-title) .duo-page-scroll {
+  padding-top: 0;
+}
+html.duo.duo-open .duo-page-subtitle {
+  margin: 0;
 }
 html.duo-open .duo-open-brand-column {
   width: 80px;
@@ -2684,7 +2730,7 @@ html.duo-open .duo-open-main {
   flex: none; /* override flex-1: flex-basis would ignore the 100dvh height */
   max-width: none;
   width: 100%;
-  padding-top: calc(env(safe-area-inset-top) + 3.5rem);
+  padding-top: calc(env(safe-area-inset-top) + 72px);
   padding-right: var(--duo-col-right, 0px);
   padding-left: var(--duo-col-left, 0px);
   padding-bottom: 0;
