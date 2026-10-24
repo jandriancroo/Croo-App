@@ -2688,6 +2688,9 @@ html.duo-open .duo-page-scroll {
 html.duo-open .mobile-dock-container {
   display: none !important;
 }
+html.duo-open footer {
+  display: none;
+}
 
 /* Popups stay out of the column and fit the visible screen above the keyboard. */
 html.duo .duo-dialog {
