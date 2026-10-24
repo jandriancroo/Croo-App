@@ -13,8 +13,8 @@ import Capacitor
 // - On a Duo: the web dock is hidden and the native dock takes over. Its buttons drive the web app
 //   (route change, manager dash, profile menu), so no web change is needed for this test.
 //
-// Long-press the arrow button to switch dock looks and compare them on the device:
-//   Orange selected tab · Orange icons · Apple default.
+// Look (decided after the device test, Oct 23): Apple's grey glass holder, white icons, the selected
+// tab in orange. Apple ignores bar background and bar tint in its column; icon and item tint work.
 
 enum DuoDock {
     /// The window's root: the plain Capacitor screen, or (Xcode 27.1+) that screen inside the dock controller.
@@ -66,8 +66,9 @@ final class DuoDockController: UINavigationController {
     private var loggedEdge = ""
 
     private var look: Look {
-        get { Look(rawValue: UserDefaults.standard.integer(forKey: Self.lookKey)) ?? .orangeSelected }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: Self.lookKey) }
+        // Decided Oct 23 after the device test: white icons, the selected tab in orange.
+        get { .orangeSelected }
+        set { }
     }
 
     init(bridge: CrooBridgeViewController) {
@@ -170,8 +171,7 @@ final class DuoDockController: UINavigationController {
             primaryAction: UIAction { [weak self] _ in
                 // Same as tapping the dock's swipe handle today.
                 self?.runJS("document.querySelector('.glass-dock .cursor-pointer')?.click()")
-            },
-            menu: lookMenu()
+            }
         )
         let profile = UIBarButtonItem(
             title: "Profile",
@@ -181,7 +181,7 @@ final class DuoDockController: UINavigationController {
                 self?.runJS("document.querySelector('button[title=\"More options\"]')?.click()")
             }
         )
-        var items: [UIBarButtonItem] = [arrow, profile, .fixedSpace(12)]
+        var items: [UIBarButtonItem] = [arrow, profile]
         tabItems = [:]
         for tab in tabs {
             let item = UIBarButtonItem(
@@ -189,6 +189,10 @@ final class DuoDockController: UINavigationController {
                 image: icon(tab.symbol),
                 primaryAction: UIAction { [weak self] _ in self?.go(to: tab.path) }
             )
+            if #available(iOS 27.1, *) {
+                // Keep every tab in the column; let Apple shrink spacing before it hides tabs behind "…".
+                item.visibilityPriority = .high
+            }
             tabItems[tab.path] = item
             items.append(item)
         }
