@@ -256,7 +256,7 @@ final class DuoDockController: UINavigationController {
             image: icon("person.crop.circle"),
             primaryAction: UIAction { [weak self] _ in
                 // Same as tapping the avatar in the header today.
-                self?.runJS("(function(){var m=document.querySelector('button[title=\"More options\"]');if(m&&m.offsetParent!==null){m.click();return}var t=document.querySelector('header.sticky .nav-bar-unified button[aria-haspopup=\"menu\"]');if(t){t.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,button:0,pointerType:'mouse'}))}else if(m){m.click()}})()")
+                self?.runJS("(function(){var m=document.querySelector('button[title=\"More options\"]');if(m&&m.offsetParent!==null){m.click();return}var t=Array.prototype.slice.call(document.querySelectorAll('header.sticky .nav-bar-unified button[aria-haspopup=\"menu\"]')).filter(function(x){return x.querySelector('.h-7.w-7')})[0];if(t){t.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,button:0,pointerType:'mouse'}))}else if(m){m.click()}})()")
             }
         )
         var items: [UIBarButtonItem] = [arrow, profile]
