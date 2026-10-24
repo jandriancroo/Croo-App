@@ -2643,10 +2643,19 @@ html.duo .duo-open-header {
   border-radius: 0 !important; /* override the normal phone's inline curve */
   box-shadow: none;
 }
-html.duo .duo-header-row,
-html.duo .duo-open-header-row {
+html.duo .duo-header-row {
   padding-left: calc(var(--duo-col-left, 0px) + 12px);
   padding-right: calc(var(--duo-col-right, 0px) + 12px);
+}
+html.duo-open .duo-open-header-row {
+  padding-left: var(--duo-col-left, 0px);
+  padding-right: var(--duo-col-right, 0px);
+  grid-template-columns: calc(50vw - var(--duo-col-left, 0px) - var(--duo-crease-gutter, 40px) / 2) minmax(0, 1fr);
+  column-gap: var(--duo-crease-gutter, 40px);
+}
+html.duo-open .duo-open-header-row > div {
+  padding-inline: 12px;
+  overflow: hidden;
 }
 html.duo .duo-header-row > .absolute {
   left: calc(50% + (var(--duo-col-left, 0px) - var(--duo-col-right, 0px)) / 2);
@@ -2670,13 +2679,17 @@ html.duo-open .duo-open-main {
 }
 html.duo-open .duo-split {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* The crease is at half the viewport, independent of either native column. */
+  grid-template-columns: calc(50vw - var(--duo-col-left, 0px) - var(--duo-crease-gutter, 40px) / 2) minmax(0, 1fr);
+  column-gap: var(--duo-crease-gutter, 40px);
   grid-template-rows: minmax(0, 1fr);
   height: 100%;
 }
 html.duo-open .duo-panel {
   height: 100%;
+  min-width: 0;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
