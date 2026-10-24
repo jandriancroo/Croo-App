@@ -4,7 +4,6 @@
 (none)
 
 ## In progress
-- Duo phase 1 follow-up: straight full-width headers, investigate live open split, and native profile event to mobile menu; Duo-only, do not publish.
 - Shift marketplace + support chats batch (Oct 23): built, waiting for Jordan's "ship". Not published.
 - Toast Status public downloads: blocked by workspace public-bucket restriction. Owner/admin must allow public buckets under Settings → Privacy & Security, then make toast-status-releases public. Release publishing deliberately returns 503 until then.
 
@@ -16,6 +15,7 @@
 - Announcements pop up on Dash after system alerts (read via Chat or popup, optional required "I've read this", who's-read list, out of Quick Tasks). Not yet tried live with test data.
 
 ## Done
+- Duo follow-up: straight edge-to-edge headers, native profile event opens mobile menu in both modes, startup class observation gap covered by four passing tests. Signed-in preview verified open Dash/Schedule panels and independent scroll, both menus, and unchanged non-Duo header measurements at phone/iPad/desktop. Real-device missing split was not reproduced; no hiding/stacking conflict found. Nothing published.
 - Menu sheet rows (Oct 23): Sign Out now shares the bottom row with Settings; Update button widened into the freed space with a green arrow icon. Quick Fill (shift edit dialog) shows one full line — "AM Manager · 9:00 AM – 4:00 PM" — instead of the clipped two-line option; "None" shows as None. Phone-verified; New Shift sheet uses the same fix but wasn't reached live. Typecheck and build clean; nothing published.
 - Presentation/navigation polish: Events gaps retained, equal punch-input columns, compact expandable sandbox row, larger menu, and manual Settings tour entry. Typecheck and navigation tests passed; no publishing or data changes.
 - Marketplace Assign/Approve/Undo now update only the selected published shift atomically; repaired Jaysen's Hemet Saturday assignment and verified it live on the phone schedule without draft styling. Other published shifts unchanged; 4 isolated SQL regression tests and 13 marketplace tests passed. No app publishing, punch, kiosk or cache changes.
