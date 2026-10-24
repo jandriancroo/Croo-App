@@ -15,7 +15,9 @@ import { CheckSquare, Users, Calendar, MessageSquare, Clock, CalendarCheck, Doll
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile, DuoPanelContext } from '@/hooks/use-mobile';
+import { useDuo } from '@/hooks/useDuo';
+import { DuoSchedulePanel } from '@/components/duo/DuoSchedulePanel';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -290,6 +292,8 @@ export const Layout = ({
     role
   } = useUserRole();
   const isMobile = useIsMobile();
+  // iPhone Duo: the shell sets html.duo + duo-folded/duo-open. All Duo behavior is additive.
+  const duo = useDuo();
   const mobileHeaderRef = useRef<HTMLElement>(null);
   // Measure the phone header and dock wrapper (outside DockContent) so pages
   // and floating bars can clear them via --app-header-h / --app-dock-h.
@@ -928,8 +932,100 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     }];
 
   return <div className="flex min-h-screen flex-col bg-background">
+      {/* Duo open header — one floating bar split into two halves at the fold.
+          Left half (over the Dash panel): brand + location + Ovation.
+          Right half (over the Schedule panel): Ask Theo + Nudge (icon only). */}
+      {duo.isOpen && (
+        <header
+          className="fixed top-0 left-0 z-50 bg-primary"
+          style={{
+            right: 'var(--duo-col-right, 0px)',
+            paddingTop: 'env(safe-area-inset-top)',
+            background: 'var(--chrome-bg, hsl(var(--header-bg)))',
+            borderRadius: '0 0 1.25rem 1.25rem',
+            boxShadow: '0 4px 16px hsl(0 0% 0% / 0.10)',
+          }}
+        >
+          <div className="grid grid-cols-2 h-14">
+            <div className="flex items-center justify-center gap-1 min-w-0 px-2">
+              <div className="nav-logo-inline flex-shrink-0">
+                {headerLogo ? (
+                  <img
+                    src={headerLogo}
+                    alt={headerLogoAlt}
+                    decoding="async"
+                    onError={() => setBrandLogoBroken(true)}
+                  />
+                ) : (
+                  <div className="h-8 w-8 rounded-lg bg-white/20" />
+                )}
+              </div>
+              {(() => {
+                const showOvation = canViewOvation !== false && location.pathname === '/dashboard' && ovationHasContent;
+                const showLocation = !!(currentLocation || isOnOrgDash);
+                if (!showLocation && !showOvation) return null;
+                const locationLabel = isOnOrgDash ? (orgDashName || 'Select Location') : currentLocation?.name;
+                return (
+                  <div className={cn('relative flex items-center min-w-0', showOvation && showLocation && 'bg-white/15 rounded-lg')}>
+                    {showLocation && (
+                      <button
+                        type="button"
+                        onClick={() => setLocationDialogOpen(true)}
+                        data-tour="location-picker"
+                        className={cn(
+                          'flex items-center gap-1.5 px-3 py-1.5 h-10 text-base font-medium text-primary-foreground transition-colors min-w-0',
+                          showOvation ? 'rounded-l-lg hover:bg-white/10' : 'rounded-lg hover:bg-white/15'
+                        )}
+                      >
+                        <MapPin className="h-4 w-4 flex-shrink-0" />
+                        <span className="flex flex-col items-start leading-tight min-w-0">
+                          <span className="truncate max-w-[120px]">{locationLabel}</span>
+                        </span>
+                        <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
+                      </button>
+                    )}
+                    {showOvation && showLocation && (
+                      <span aria-hidden className="h-5 w-px bg-white/20" />
+                    )}
+                    {showOvation && (
+                      <OvationTriggerWithPanel
+                        bare={showLocation}
+                        desktop={!showLocation}
+                        className={showLocation ? 'rounded-r-lg' : undefined}
+                        expanded={ovationExpanded}
+                        onToggle={() => setOvationExpanded(prev => !prev)}
+                        onClose={() => setOvationExpanded(false)}
+                      />
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="flex items-center justify-center gap-2 min-w-0 px-2">
+              {!roleLoading && isShiftManager && (
+                <button
+                  onClick={() => window.dispatchEvent(new Event('open-theo'))}
+                  className="group relative flex h-8 items-center justify-center gap-2 whitespace-nowrap px-3.5 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 transition-all duration-200"
+                  aria-label="Ask Theo"
+                >
+                  <span className="relative flex items-center justify-center h-5 w-5 shrink-0">
+                    <span className="absolute inset-0 rounded-full bg-white/40 animate-ping opacity-75" />
+                    <span className="absolute inset-0 rounded-full bg-white/20 animate-pulse" />
+                    <TheoOrb size={20} className="relative text-white pointer-events-none" />
+                  </span>
+                  <span className="text-sm font-bold text-white tracking-tight">Ask Theo</span>
+                </button>
+              )}
+              {!roleLoading && !!role && NUDGE_ROLES_CLIENT.includes(role) && currentLocation?.id && (
+                <NudgeHeaderButton locationId={currentLocation.id} iconOnly />
+              )}
+            </div>
+          </div>
+        </header>
+      )}
+
       {/* Desktop/Tablet Header with unified teal nav bar */}
-      <header className={`sticky top-0 z-50 bg-background pt-2 ${isMobile ? 'hidden' : 'block'}`} style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}>
+      <header className={`sticky top-0 z-50 bg-background pt-2 ${isMobile || duo.isDuo ? 'hidden' : 'block'}`} style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}>
         <div className="container max-w-7xl mx-auto px-3 md:px-4">
           <div className="nav-bar-unified rounded-md flex items-center px-2">
             {/* Logo */}
@@ -1138,10 +1234,10 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       {/* Mobile Header — Full Bleed + Bottom Curve (fixed to prevent pull-to-refresh detach) */}
       <header
         ref={mobileHeaderRef}
-        className={`fixed top-0 left-0 right-0 z-50 bg-primary ${isMobile ? 'block' : 'hidden'}`}
+        className={`duo-phone-header fixed top-0 left-0 right-0 z-50 bg-primary ${isMobile && !duo.isOpen ? 'block' : 'hidden'}`}
         style={{ paddingTop: 'env(safe-area-inset-top)', background: 'var(--chrome-bg, hsl(var(--header-bg)))', borderRadius: '0 0 1.25rem 1.25rem', boxShadow: '0 4px 16px hsl(0 0% 0% / 0.10)' }}
       >
-        <div className="flex items-center relative h-14 px-4">
+        <div className="duo-header-row flex items-center relative h-14 px-4">
           <div className="flex items-center gap-2 flex-shrink-0">
             <div className="nav-logo-inline">
               {headerLogo ? (
