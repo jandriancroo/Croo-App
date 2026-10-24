@@ -33,13 +33,20 @@ LOG="$OUT/xcodebuild.log"
 rm -rf "$OUT"; mkdir -p "$OUT"
 
 AUTH=()
-if [[ -f "$HOME/.croo-builder/asc.env" ]]; then
-  source "$HOME/.croo-builder/asc.env"
+# The key lives in ~/.croo-builder, or in iCloud Drive (folder "Croo Builder") so both Macs share it.
+ASC_DIR=""
+for d in "$HOME/.croo-builder" "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Croo Builder"; do
+  if [[ -f "$d/asc.env" ]]; then ASC_DIR="$d"; break; fi
+done
+if [[ -n "$ASC_DIR" ]]; then
+  source "$ASC_DIR/asc.env"
   ASC_KEY_PATH="${ASC_KEY_PATH/#\~/$HOME}"
-  [[ -f "$ASC_KEY_PATH" ]] || fail "Your App Store Connect key file isn't at $ASC_KEY_PATH. Put the AuthKey_XXXX.p8 file there (or fix ASC_KEY_PATH in ~/.croo-builder/asc.env), then Ship again."
+  # If the path in asc.env came from the other Mac, look for the same file beside asc.env.
+  [[ -f "$ASC_KEY_PATH" ]] || ASC_KEY_PATH="$ASC_DIR/$(basename "$ASC_KEY_PATH")"
+  [[ -f "$ASC_KEY_PATH" ]] || fail "Your App Store Connect key file wasn't found next to $ASC_DIR/asc.env. Put the AuthKey_XXXX.p8 file in that folder, then Ship again."
   AUTH=(-authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
 else
-  fail "This Mac has no App Store Connect key yet (~/.croo-builder/asc.env). Uploading needs it. Copy the AuthKey .p8 and asc.env from your other Mac, or create a key in App Store Connect → Users and Access → Integrations (role: App Manager). See the Croo Builder README."
+  fail "This Mac has no App Store Connect key yet. Put asc.env and the AuthKey .p8 in ~/.croo-builder or in iCloud Drive in a folder named Croo Builder (iCloud lets both Macs share it), or create a key in App Store Connect → Users and Access → Integrations (role: App Manager). See the Croo Builder README."
 fi
 
 ensure_pods

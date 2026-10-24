@@ -18,5 +18,5 @@ It appears in your Applications folder (Home › Applications) and the menu bar.
 
 ## Notes
 - The buttons only run the scripts in `scripts/`, so the same steps work from Terminal (`bash tools/croo-builder/scripts/ship.sh`) or, later, from Ferris.
-- Optional: an App Store Connect API key at `~/.croo-builder/asc.env` (`ASC_KEY_PATH`, `ASC_KEY_ID`, `ASC_ISSUER_ID`) posts the What to Test notes automatically and lets uploads work even if Xcode's account sign-in expires. Make it in App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys (role: App Manager), download the .p8 once, put it in `~/.croo-builder/`, then write the three lines.
+- Optional: an App Store Connect API key at `~/.croo-builder/asc.env` (`ASC_KEY_PATH`, `ASC_KEY_ID`, `ASC_ISSUER_ID`) posts the What to Test notes automatically and lets uploads work even if Xcode's account sign-in expires. Make it in App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys (role: App Manager), download the .p8 once, put it in `~/.croo-builder/` (or, to share one key between Macs, in iCloud Drive in a folder named `Croo Builder`), then write the three lines.
 - Logs: `~/Library/Caches/CrooBuilder/`.

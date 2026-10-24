@@ -68,8 +68,10 @@ enum TestFlightNotes {
 
     /// ~/.croo-builder/asc.env with ASC_KEY_PATH, ASC_KEY_ID, ASC_ISSUER_ID (same file Ship uses).
     static func apiKey() -> Key? {
-        let file = NSHomeDirectory() + "/.croo-builder/asc.env"
-        guard let text = try? String(contentsOfFile: file, encoding: .utf8) else { return nil }
+        // ~/.croo-builder, or iCloud Drive's "Croo Builder" folder so both Macs share one key.
+        let dirs = [NSHomeDirectory() + "/.croo-builder", NSHomeDirectory() + "/Library/Mobile Documents/com~apple~CloudDocs/Croo Builder"]
+        guard let dir = dirs.first(where: { FileManager.default.fileExists(atPath: $0 + "/asc.env") }),
+              let text = try? String(contentsOfFile: dir + "/asc.env", encoding: .utf8) else { return nil }
         var v: [String: String] = [:]
         for raw in text.components(separatedBy: "\n") {
             var line = raw.trimmingCharacters(in: .whitespaces)
@@ -82,7 +84,9 @@ enum TestFlightNotes {
             v[k] = val
         }
         guard let p = v["ASC_KEY_PATH"], let i = v["ASC_KEY_ID"], let s = v["ASC_ISSUER_ID"], !p.isEmpty, !i.isEmpty, !s.isEmpty else { return nil }
-        return Key(path: p, id: i, issuer: s)
+        // A path copied from the other Mac may not exist here; fall back to the same file beside asc.env.
+        let path = FileManager.default.fileExists(atPath: p) ? p : dir + "/" + (p as NSString).lastPathComponent
+        return Key(path: path, id: i, issuer: s)
     }
 
     enum PostError: LocalizedError {
