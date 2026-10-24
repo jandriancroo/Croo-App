@@ -6,6 +6,8 @@ Croo Builder's Ship button shows this for editing, posts it to TestFlight, then 
 
 ## Next build
 
+## Build 23 · Oct 24, 2026
+
 - iPhone Duo (test): when open sideways, the dock now also holds the location picker, Ask Theo and Nudge, above the profile and tabs; Nudge shows its late count as a badge.
 - iPhone Duo (test): the dock sits in Apple's side column (folded or open sideways) and floats at the bottom when open upright. The arrow is its own circle: tap to slide the manager dash up, tap again to push it down; press and hold to collapse the dock. Dialogs and sheets stay out of the column and above the keyboard.
 
