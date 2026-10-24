@@ -208,6 +208,8 @@ final class DuoDockController: UINavigationController {
     private static let openManagerDashJS = "document.querySelector('.glass-dock .cursor-pointer')?.click()"
     private static let toggleManagerDashJS = "(function(){var c=document.querySelector('.cd-panel button[aria-label=\"Close\"]');if(c){c.click()}else{document.querySelector('.glass-dock .cursor-pointer')?.click()}})()"
     private var arrowItem: UIBarButtonItem?
+    private var nudgeItem: UIBarButtonItem?
+    private var lastNudgeLate = -1
     private var dashOpen = false
 
     /// Arrow points up while the manager dash is closed, down while it's open (it slides up and down).
@@ -266,6 +268,7 @@ final class DuoDockController: UINavigationController {
         )
         if #available(iOS 26.0, *) { arrow.sharesBackground = false }
         arrowItem = arrow
+        nudgeItem = nil
         let profile = UIBarButtonItem(
             title: "Profile",
             image: icon("person.crop.circle"),
@@ -285,10 +288,12 @@ final class DuoDockController: UINavigationController {
                 if #available(iOS 27.1, *) { b.visibilityPriority = .high }
                 return b
             }
+            let nudge = control("Nudge", "hand.point.up.left.fill", #"window.dispatchEvent(new Event('open-nudge'))"#)
+            nudgeItem = nudge
             items = [
-                control("Location", "mappin.and.ellipse", Self.pressJS(#"document.querySelector('[data-tour="location-picker"]')"#)),
+                control("Location", "mappin.and.ellipse", #"window.dispatchEvent(new Event('open-location-picker'))"#),
                 control("Ask Theo", "sparkles", #"window.dispatchEvent(new Event('open-theo'))"#),
-                control("Nudge", "hand.point.up.left.fill", Self.pressJS(#"document.querySelector('button[aria-label^="Nudge"]')"#)),
+                nudge,
                 profile,
             ]
         }
@@ -471,15 +476,23 @@ final class DuoDockController: UINavigationController {
         pollTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.updateRings()
-            self.runJS(Self.hideDockJS + ";" + self.duoClassesJS(folded: !self.duoOpen, open: self.duoOpen) + ";" + self.lastColumnJS + ";location.pathname+'|'+(document.querySelector('.cd-panel')?1:0)") { result in
-                guard let parts = (result as? String)?.split(separator: "|", omittingEmptySubsequences: false), parts.count == 2 else { return }
+            self.runJS(Self.hideDockJS + ";" + self.duoClassesJS(folded: !self.duoOpen, open: self.duoOpen) + ";" + self.lastColumnJS + ";location.pathname+'|'+(document.querySelector('.cd-panel')?1:0)+'|'+(document.documentElement.dataset.nudgeLate||'0')") { result in
+                guard let parts = (result as? String)?.split(separator: "|", omittingEmptySubsequences: false), parts.count == 3 else { return }
                 self.setDashOpen(parts[1] == "1")
+                self.setNudgeBadge(Int(parts[2]) ?? 0)
                 let path = String(parts[0])
                 guard path != self.currentPath else { return }
                 self.currentPath = path
                 self.markSelected(path)
             }
         }
+    }
+
+    /// Late-nudge count on the dock's Nudge button (web publishes it as html[data-nudge-late]).
+    private func setNudgeBadge(_ n: Int) {
+        guard n != lastNudgeLate, let item = nudgeItem else { return }
+        lastNudgeLate = n
+        if #available(iOS 26.0, *) { item.badge = n > 0 ? .count(n) : nil }
     }
 
     private func stopPolling() {
