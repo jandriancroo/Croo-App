@@ -2721,6 +2721,7 @@ html.duo-open .duo-sheet.duo-nudge-panel {
   height: auto;
   max-height: calc(var(--duo-visible-height, 100dvh) - env(safe-area-inset-top) - 4.5rem);
   overflow-x: hidden;
+  box-shadow: none;
   animation: none;
 }
 html.duo-open .duo-nudge-panel > button:last-child {

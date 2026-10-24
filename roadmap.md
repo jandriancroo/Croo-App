@@ -4,7 +4,6 @@
 (none)
 
 ## In progress
-- Duo open Nudge: constrain to right panel and verify outside tap, finger toggle, Escape and 44px close.
 - Shift marketplace + support chats batch (Oct 23): built, waiting for Jordan's "ship". Not published.
 - Toast Status public downloads: blocked by workspace public-bucket restriction. Owner/admin must allow public buckets under Settings → Privacy & Security, then make toast-status-releases public. Release publishing deliberately returns 503 until then.
 
@@ -16,6 +15,7 @@
 - Announcements pop up on Dash after system alerts (read via Chat or popup, optional required "I've read this", who's-read list, out of Quick Tasks). Not yet tried live with test data.
 
 ## Done
+- Duo open Nudge: right-panel bounds measured 495.5–867px at 951px/84px column; outside tap, Escape, finger toggle and 44px close verified signed-in. Folded presentation and sending logic unchanged; nothing published.
 - Duo crease alignment: panels and header share 50vw minus the left column and half the gutter; signed-in 951px preview with 84px right column measured edges 455.5px/495.5px, 40px empty gutter, header groups aligned, no page errors, and Duo-off restored. Build clean; nothing published.
 - Duo follow-up: straight edge-to-edge headers, native profile event opens mobile menu in both modes, startup class observation gap covered by four passing tests. Signed-in preview verified open Dash/Schedule panels and independent scroll, both menus, and unchanged non-Duo header measurements at phone/iPad/desktop. Real-device missing split was not reproduced; no hiding/stacking conflict found. Nothing published.
 - Menu sheet rows (Oct 23): Sign Out now shares the bottom row with Settings; Update button widened into the freed space with a green arrow icon. Quick Fill (shift edit dialog) shows one full line — "AM Manager · 9:00 AM – 4:00 PM" — instead of the clipped two-line option; "None" shows as None. Phone-verified; New Shift sheet uses the same fix but wasn't reached live. Typecheck and build clean; nothing published.
