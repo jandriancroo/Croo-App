@@ -13,6 +13,9 @@ step "Building $SCHEME for your device (first build takes a few minutes)"
 if ! xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Debug \
      -destination "id=$UDID" -derivedDataPath "$DD" -allowProvisioningUpdates build >"$LOG" 2>&1; then
   grep -E "error:|BUILD FAILED" "$LOG" | head -20
+  if grep -q "isn't registered in your developer account" "$LOG"; then
+    fail "This device isn't added to your Apple developer account yet. One time: open Xcode → Settings → Apple Accounts and make sure you're signed in on this Mac, then press Run again (Xcode adds the device). If it still fails, press Open in Xcode, pick this device at the top, and press Xcode's Play button once."
+  fi
   fail "Build failed. Press “Copy error” and paste it to Claude. Full log: $LOG"
 fi
 ok "Built"
