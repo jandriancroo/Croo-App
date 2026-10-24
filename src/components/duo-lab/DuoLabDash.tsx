@@ -30,7 +30,7 @@ function TopBar({ d, variant }: { d: DuoLabData; variant: Variant }) {
         <span className="mt-1 text-[10px] font-semibold truncate max-w-[58px]">{d.currentLocation?.name}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-[11px] font-semibold tracking-wider opacity-85">{date}</div>
+        <div className="truncate whitespace-nowrap text-[11px] font-semibold tracking-wider opacity-85">{date}</div>
         <div className="text-2xl font-bold leading-tight">Dash</div>
       </div>
       {variant === 'front' && (
