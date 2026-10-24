@@ -465,6 +465,10 @@ export function DataCube3D({
     <div className={cn("data-cube-3d relative group h-full", className)}>
       <style>{`
         /* Only the open Duo panel uses intrinsic, equal-height cube faces. */
+        html.duo.duo-open [data-tour="dashboard-cubes"] > div:has(.data-cube-3d) {
+          display: grid;
+          min-width: 0;
+        }
         html.duo.duo-open div:has(> .data-cube-3d) {
           aspect-ratio: auto;
           display: grid;

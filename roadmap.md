@@ -4,6 +4,7 @@
 (none)
 
 ## In progress
+- Open Duo cube sizing: verify all faces at 951px with the 84px native column; presentation only, no publishing.
 - Shift marketplace + support chats batch (Oct 23): built, waiting for Jordan's "ship". Not published.
 - Toast Status public downloads: blocked by workspace public-bucket restriction. Owner/admin must allow public buckets under Settings → Privacy & Security, then make toast-status-releases public. Release publishing deliberately returns 503 until then.
 
