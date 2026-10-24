@@ -75,6 +75,7 @@ final class DuoDockController: UINavigationController {
         super.init(rootViewController: bridge)
         setNavigationBarHidden(true, animated: false)
         setToolbarHidden(true, animated: false)
+        print("[DuoDock] dock controller is active (built with Swift 6.4+)")
     }
 
     required init?(coder: NSCoder) { fatalError("DuoDockController is created in code") }
@@ -122,13 +123,19 @@ final class DuoDockController: UINavigationController {
     /// The Duo is open (the screen has a fold), held either way.
     private var isUnfolded: Bool {
         if #available(iOS 27.1, *) {
-            return !view.reservedRegions(kind: .division).isEmpty
+            let regions = view.reservedRegions(kind: .division)
+            return !regions.isEmpty
         }
         return false
     }
 
+    private var lastReport = ""
+
     private func refresh() {
-        let show = hasSideColumn || isUnfolded
+        let side = hasSideColumn, open = isUnfolded
+        let report = "side column: \(side), unfolded: \(open), size: \(Int(view.bounds.width))x\(Int(view.bounds.height))"
+        if report != lastReport { lastReport = report; print("[DuoDock] \(report)") }
+        let show = side || open
         guard show != dockShowing else { return }
         dockShowing = show
         print("[DuoDock] native dock \(show ? "on" : "off")")
