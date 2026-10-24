@@ -279,11 +279,11 @@ final class DuoDockController: UINavigationController {
         runJS(js)
     }
 
-    // Also (test of Jordan's gutter idea): a teal strip over Apple's column, sized by the page's own
-    // env(safe-area-inset-right), with a rounded inner corner at the top. It sits above every web layer,
+    // Also (test of Jordan's gutter idea): a rounded capsule in the header's own color over Apple's column, sized by the page's
+    // env(safe-area-inset-right), on a strip of the page background. It sits above every web layer,
     // so nothing in the web app shows behind the column. The real build does this in the web app.
     private static let hideDockJS = """
-    (function(){var id='croo-duo-dock';if(!document.getElementById(id)){var s=document.createElement('style');s.id=id;s.textContent='nav.mobile-dock-container{display:none!important}html::before{content:"";position:fixed;top:0;bottom:0;right:0;width:env(safe-area-inset-right);background:#4A899B;z-index:2147483646;pointer-events:none}html::after{content:"";position:fixed;top:0;right:env(safe-area-inset-right);width:28px;height:28px;background:radial-gradient(circle at 0 100%,transparent 27.5px,#4A899B 28px);z-index:2147483646;pointer-events:none}';document.head.appendChild(s);}})()
+    (function(){var id='croo-duo-dock';if(!document.getElementById(id)){var s=document.createElement('style');s.id=id;s.textContent='nav.mobile-dock-container{display:none!important}html::before{content:"";position:fixed;top:6px;bottom:6px;right:4px;width:calc(env(safe-area-inset-right) - 8px);border-radius:999px;background:var(--chrome-bg,hsl(var(--header-bg)));box-shadow:0 0 0 6px hsl(var(--background)),0 0 0 9999px transparent;z-index:2147483646;pointer-events:none}html::after{content:"";position:fixed;top:0;bottom:0;right:0;width:env(safe-area-inset-right);background:hsl(var(--background));z-index:2147483645;pointer-events:none}';document.head.appendChild(s);}})()
     """
 
     private func hideWebDock(_ hide: Bool) {
