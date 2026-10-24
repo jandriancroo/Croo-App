@@ -79,6 +79,7 @@ const OrganizationProfile = lazyWithRetry(() => import("./pages/OrganizationProf
 const BrandManagement = lazyWithRetry(() => import("./pages/BrandManagement"));
 const SuperAdminPlans = lazyWithRetry(() => import("./pages/SuperAdminPlans"));
 const SystemAlertsAdmin = lazyWithRetry(() => import("./pages/SystemAlertsAdmin"));
+const DuoLabPage = lazyWithRetry(() => import("./components/duo-lab/DuoLabPage"));
 const Hiring = lazyWithRetry(() => import("./pages/Hiring"));
 const PublicApplication = lazyWithRetry(() => import("./pages/PublicApplication"));
 const PublicJobs = lazyWithRetry(() => import("./pages/PublicJobs"));
@@ -256,6 +257,7 @@ const AppContent = () => {
         <Route path="/brands" element={<ProtectedRoute><BrandManagement /></ProtectedRoute>} />
         <Route path="/super-admin/plans" element={<ProtectedRoute><SuperAdminPlans /></ProtectedRoute>} />
         <Route path="/super-admin/system-alerts" element={<ProtectedRoute><SystemAlertsAdmin /></ProtectedRoute>} />
+        <Route path="/duo-lab" element={<ProtectedRoute><DuoLabPage /></ProtectedRoute>} />
         <Route path="/brand/:brandId/inventory" element={<ProtectedRoute><BrandInventory /></ProtectedRoute>} />
         <Route path="/brand/:brandId/inventory/unpriced" element={<ProtectedRoute><BrandUnpricedIngredients /></ProtectedRoute>} />
         <Route path="/brand/:brandId/inventory/pack-configs" element={<ProtectedRoute><BrandPackConfigApprovals /></ProtectedRoute>} />
