@@ -19,7 +19,7 @@ export function TonightGauge({ salesSoFar, projection, pace, laborPct, behind, c
   const r = 80;
   const len = Math.PI * r;
   const arc = `M 20 100 A ${r} ${r} 0 0 1 180 100`;
-  const sideNum = large ? 'text-2xl' : 'text-xl';
+  const sideNum = large ? 'text-xl' : 'text-lg';
 
   return (
     <Card className="rounded-2xl p-4 border-border/60 shadow-sm">
@@ -29,12 +29,12 @@ export function TonightGauge({ salesSoFar, projection, pace, laborPct, behind, c
           <span className="text-xs font-semibold text-muted-foreground">{Math.round(ratio * 100)}% of projection</span>
         )}
       </div>
-      <div className={`grid items-end gap-2 ${large ? 'grid-cols-[1fr_auto_1fr] mt-2' : 'grid-cols-[1fr_auto_1fr] mt-1'}`}>
+      <div className={`grid items-end gap-2 grid-cols-[minmax(0,1fr)_minmax(0,1.8fr)_minmax(0,1fr)] ${large ? 'mt-2' : 'mt-1'}`}>
         <div className="text-left pb-2">
-          <div className="text-xs uppercase tracking-wide text-muted-foreground">Pace</div>
+          <div className="truncate text-xs uppercase tracking-wide text-muted-foreground">Pace</div>
           <div className={`${sideNum} font-bold tabular-nums text-foreground`}>{money(pace)}</div>
         </div>
-        <div className={`relative ${large ? 'w-[260px]' : 'w-[180px]'}`}>
+        <div className={`relative w-full`}>
           <svg viewBox="0 0 200 110" className="w-full h-auto" aria-hidden="true">
             <path d={arc} fill="none" stroke="hsl(var(--muted))" strokeWidth="16" strokeLinecap="round" />
             <path
@@ -54,7 +54,7 @@ export function TonightGauge({ salesSoFar, projection, pace, laborPct, behind, c
           </div>
         </div>
         <div className="text-right pb-2">
-          <div className="text-xs uppercase tracking-wide text-muted-foreground">Projection</div>
+          <div className="truncate text-xs uppercase tracking-wide text-muted-foreground">Projection</div>
           <div className={`${sideNum} font-bold tabular-nums text-foreground`}>{money(projection)}</div>
         </div>
       </div>
