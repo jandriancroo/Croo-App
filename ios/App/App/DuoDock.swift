@@ -124,6 +124,8 @@ final class DuoDockController: UINavigationController {
                 frame.size.width = full.width - column
             }
         }
+        // Never leave the screen blank: if the math looks wrong, give the web app the full screen.
+        if frame.width < full.width * 0.6 { frame = full }
         if content.frame != frame {
             content.frame = frame
             print("[DuoDock] web area \(Int(frame.minX))-\(Int(frame.maxX)) of \(Int(full.width)); safe area L\(Int(insets.left)) R\(Int(insets.right)) T\(Int(insets.top)) B\(Int(insets.bottom)); edge \(lastEdgeRaw)")
