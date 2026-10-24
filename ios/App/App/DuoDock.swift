@@ -61,7 +61,7 @@ final class DuoDockController: UINavigationController {
     private let bridgeVC: CrooBridgeViewController
     private var tabItems: [String: UIBarButtonItem] = [:]
     private var dockShowing = false
-    /// Open (unfolded) Duo: no side column, but still a Duo. Folded: Apple's column is showing.
+    /// Open (unfolded) Duo = the app is wide (600+ points). Folded = narrow. Both have the side column.
     private var duoOpen = false
     private var pollTimer: Timer?
     private var currentPath = ""
@@ -172,12 +172,14 @@ final class DuoDockController: UINavigationController {
         // Side column → Apple puts the toolbar in it. Duo without one (open, held wide) → Apple
         // shows the same toolbar floating at the bottom. Any other iPhone → hidden, web dock stays.
         let show = side || open || isDuo
-        let nowOpen = isDuo && !side
+        // Folded vs open is decided by width, not by the side column: the column is there in both
+        // (seen on the device: 466 wide folded, 951 wide open, both with the column).
+        let nowOpen = (isDuo || side) && view.bounds.width >= 600
         if nowOpen != duoOpen {
             duoOpen = nowOpen
             rebuildItems()
         }
-        runJS(duoClassesJS(folded: isDuo && side, open: nowOpen))
+        runJS(duoClassesJS(folded: (isDuo || side) && !nowOpen, open: nowOpen))
         guard show != dockShowing else { return }
         dockShowing = show
         print("[DuoDock] native dock \(show ? "on" : "off")")
@@ -449,7 +451,7 @@ final class DuoDockController: UINavigationController {
         pollTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.updateRings()
-            self.runJS(Self.hideDockJS + ";" + self.duoClassesJS(folded: self.hasSideColumn, open: self.duoOpen) + ";" + self.lastColumnJS + ";location.pathname+'|'+(document.querySelector('.cd-panel')?1:0)") { result in
+            self.runJS(Self.hideDockJS + ";" + self.duoClassesJS(folded: !self.duoOpen, open: self.duoOpen) + ";" + self.lastColumnJS + ";location.pathname+'|'+(document.querySelector('.cd-panel')?1:0)") { result in
                 guard let parts = (result as? String)?.split(separator: "|", omittingEmptySubsequences: false), parts.count == 2 else { return }
                 self.setDashOpen(parts[1] == "1")
                 let path = String(parts[0])
