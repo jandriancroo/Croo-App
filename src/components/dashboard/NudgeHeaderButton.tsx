@@ -1,19 +1,23 @@
 // iPad/desktop home for Quick Nudge: header icon with a late-count badge that opens the shared Nudge list.
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { NudgeTapIcon } from '@/components/icons/NudgeTapIcon';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { NudgeListPanel, useNudgeList } from '@/components/dashboard/NudgeSection';
 import { cn } from '@/lib/utils';
+import { useDuo } from '@/hooks/useDuo';
 
 export function NudgeHeaderButton({ locationId, iconOnly = false }: { locationId: string | null | undefined; iconOnly?: boolean }) {
   const [open, setOpen] = useState(false);
+  const duo = useDuo();
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const { data: items = [], isLoading } = useNudgeList(locationId, true);
   const late = items.filter((i) => i.group === 'overdue').length;
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => setOpen(duo.isOpen ? !open : true)}
         className={cn(
           'relative flex h-8 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 transition-all duration-200',
           iconOnly ? 'w-9 px-0' : 'px-3.5 md:min-w-[7.5rem]',
@@ -28,9 +32,18 @@ export function NudgeHeaderButton({ locationId, iconOnly = false }: { locationId
           </span>
         )}
       </button>
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
-          <SheetHeader className="mb-3"><SheetTitle>Nudge</SheetTitle></SheetHeader>
+      <Sheet open={open} onOpenChange={setOpen} modal={!duo.isOpen}>
+        <SheetContent
+          side="right"
+          className={cn('w-full sm:max-w-md overflow-y-auto', duo.isOpen && 'duo-nudge-panel')}
+          onInteractOutside={(event) => {
+            // The non-modal Duo trigger toggles itself; avoid closing twice on that press.
+            if (duo.isOpen && event.target instanceof Node && triggerRef.current?.contains(event.target)) {
+              event.preventDefault();
+            }
+          }}
+        >
+          <SheetHeader className={cn('mb-3', duo.isOpen && 'pr-12')}><SheetTitle>Nudge</SheetTitle></SheetHeader>
           {open && <NudgeListPanel locationId={locationId} items={items} isLoading={isLoading} />}
         </SheetContent>
       </Sheet>

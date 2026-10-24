@@ -2711,6 +2711,22 @@ html.duo-open footer {
 }
 
 /* Popups stay out of the column and fit the visible screen above the keyboard. */
+html.duo-open .duo-sheet.duo-nudge-panel {
+  left: calc(50vw + var(--duo-crease-gutter, 40px) / 2);
+  right: var(--duo-col-right, 0px);
+  top: calc(env(safe-area-inset-top) + 3.5rem);
+  bottom: auto;
+  width: auto;
+  max-width: none;
+  height: auto;
+  max-height: calc(var(--duo-visible-height, 100dvh) - env(safe-area-inset-top) - 4.5rem);
+  overflow-x: hidden;
+  animation: none;
+}
+html.duo-open .duo-nudge-panel > button:last-child {
+  width: 44px;
+  height: 44px;
+}
 html.duo .duo-dialog {
   left: calc(50% + (var(--duo-col-left, 0px) - var(--duo-col-right, 0px)) / 2);
   max-width: calc(100vw - var(--duo-col-left, 0px) - var(--duo-col-right, 0px) - 1.5rem);
