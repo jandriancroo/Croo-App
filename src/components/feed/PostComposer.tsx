@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Image as ImageIcon, X, Loader2, Pin, Paperclip, FileText, Plus, Megaphone } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { useDuoSafeAutoFocus } from '@/hooks/useDuo';
 import { toast } from 'sonner';
 import type { FeedBadge, FeedChannel, FeedMedia } from '@/hooks/useAnnouncementFeed';
 
@@ -37,6 +38,7 @@ export function PostComposer({
   onSubmit, onCreateBadge,
 }: PostComposerProps) {
   const { user } = useAuth();
+  const allowAutoFocus = useDuoSafeAutoFocus();
   const photoRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -158,7 +160,7 @@ export function PostComposer({
               </div>
             )}
             <Textarea
-              autoFocus
+              autoFocus={allowAutoFocus}
               value={body}
               onChange={e => setBody(e.target.value)}
               placeholder="Share something with the team..."
