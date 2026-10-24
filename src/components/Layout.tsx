@@ -1314,7 +1314,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
               <button
-                className="p-1 rounded-full transition-colors ml-auto"
+                className="duo-folded-hide p-1 rounded-full transition-colors ml-auto"
                 title="More options"
               >
                 <Avatar className="h-9 w-9 ring-2 ring-white/30">
@@ -1348,17 +1348,29 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
-                {/* Update App — takes the space Sign Out left behind */}
-                <Button size="sm" variant="outline" onClick={() => {
-                  setMenuOpen(false);
-                  const prevVersion = getCurrentAppVersion();
-                  sessionStorage.setItem('pre_update_version', prevVersion);
-                  toast.info('Updating app...');
-                  setTimeout(() => window.location.reload(), 500);
-                }} className="h-auto w-[120px] flex-col gap-1 px-1" aria-label="Update app">
-                  <RefreshCw className="h-5 w-5 text-success" />
-                  <span className="text-xs">Update</span>
-                </Button>
+                {/* Update App — takes the space Sign Out left behind; round icon-only on the Duo */}
+                {duo.isDuo ? (
+                  <Button size="icon" variant="outline" onClick={() => {
+                    setMenuOpen(false);
+                    const prevVersion = getCurrentAppVersion();
+                    sessionStorage.setItem('pre_update_version', prevVersion);
+                    toast.info('Updating app...');
+                    setTimeout(() => window.location.reload(), 500);
+                  }} className="h-12 w-14 rounded-full" aria-label="Update app">
+                    <RefreshCw className="h-5 w-5 text-success" />
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setMenuOpen(false);
+                    const prevVersion = getCurrentAppVersion();
+                    sessionStorage.setItem('pre_update_version', prevVersion);
+                    toast.info('Updating app...');
+                    setTimeout(() => window.location.reload(), 500);
+                  }} className="h-auto w-[120px] flex-col gap-1 px-1" aria-label="Update app">
+                    <RefreshCw className="h-5 w-5 text-success" />
+                    <span className="text-xs">Update</span>
+                  </Button>
+                )}
                 </div>
 
 
@@ -1612,8 +1624,21 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       </header>
       
       
-      <main className={`container max-w-7xl mx-auto flex-1 px-safe pb-0 relative ${isMobile ? 'pt-[var(--app-header-h,calc(env(safe-area-inset-top)+3.5rem))] pb-[calc(var(--app-dock-h,6rem)+0.75rem)]' : 'pt-1 py-8 pb-8'}`}>
-        {children}
+      <main className={`container max-w-7xl mx-auto flex-1 px-safe pb-0 relative ${duo.isOpen ? 'duo-open-main' : isMobile ? 'pt-[var(--app-header-h,calc(env(safe-area-inset-top)+3.5rem))] pb-[calc(var(--app-dock-h,6rem)+0.75rem)]' : 'pt-1 py-8 pb-8'}`}>
+        {duo.isOpen && (location.pathname === '/dashboard' || location.pathname === '/') ? (
+          /* Duo open, Dash tab: phone Dash on the left, phone Schedule on the right.
+             Each panel scrolls on its own and renders the phone layout. */
+          <DuoPanelContext.Provider value={true}>
+            <div className="duo-split">
+              <div className="duo-panel duo-panel-left">{children}</div>
+              <div className="duo-panel duo-panel-right"><DuoSchedulePanel /></div>
+            </div>
+          </DuoPanelContext.Provider>
+        ) : duo.isOpen ? (
+          <div className="duo-page-scroll">{children}</div>
+        ) : (
+          children
+        )}
       </main>
       
       {/* Footer - desktop only */}
@@ -1665,8 +1690,9 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       )}
 
 
-      {/* Compact Dashboard - Swipe Up from Dock (shift_manager+ only) */}
-      {isMobile && canViewSalesAndLabor && (
+      {/* Compact Dashboard - Swipe Up from Dock (shift_manager+ only). Duo: folded mode only —
+          in open mode there is no manager dash and no dock arrow. */}
+      {isMobile && canViewSalesAndLabor && !duo.isOpen && (
         <CompactDashboard
           isExpanded={showCompactDashboard}
           onClose={() => setShowCompactDashboard(false)}
