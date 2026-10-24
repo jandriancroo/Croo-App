@@ -106,25 +106,31 @@ final class DuoDockController: UINavigationController {
 
     // MARK: Is this a Duo right now?
 
-    /// Apple's side column is showing (folded, or open and sideways).
+    /// Apple's side column is showing. Apple reports UIVerticalBarEdge: 0 = no side column,
+    /// 1 and 2 = one edge or the other (seen on Jordan's Duo: folded upright 2, folded sideways 1).
     private var hasSideColumn: Bool {
         if #available(iOS 27.1, *) {
-            // Read without naming the enum's cases, so this compiles whatever Apple called them.
-            let edge = String(describing: traitCollection.verticalBarEdge).lowercased()
+            let raw = traitCollection.verticalBarEdge.rawValue
+            let edge = "\(raw)"
             if edge != loggedEdge {
                 loggedEdge = edge
-                print("[DuoDock] verticalBarEdge = \(edge)")
+                print("[DuoDock] verticalBarEdge raw = \(raw)")
             }
-            return edge.contains("leading") || edge.contains("trailing") || edge.contains("left") || edge.contains("right")
+            if raw != 0 { UserDefaults.standard.set(true, forKey: Self.seenDuoKey) }
+            return raw != 0
         }
         return false
     }
 
-    /// The Duo is open (the screen has a fold), held either way.
+    /// Once this phone has shown Apple's side column, it's a Duo. (The open Duo held wide has no
+    /// side column, and the fold check below came back empty on the device, so we remember instead.)
+    private static let seenDuoKey = "duoDockSeenSideColumn"
+    private var isDuo: Bool { UserDefaults.standard.bool(forKey: Self.seenDuoKey) }
+
+    /// The screen has a fold right now (kept for the log; empty on Jordan's Duo so far).
     private var isUnfolded: Bool {
         if #available(iOS 27.1, *) {
-            let regions = view.reservedRegions(kind: .division)
-            return !regions.isEmpty
+            return !view.reservedRegions(kind: .division).isEmpty
         }
         return false
     }
@@ -133,9 +139,11 @@ final class DuoDockController: UINavigationController {
 
     private func refresh() {
         let side = hasSideColumn, open = isUnfolded
-        let report = "side column: \(side), unfolded: \(open), size: \(Int(view.bounds.width))x\(Int(view.bounds.height))"
+        let report = "side column: \(side), fold: \(open), duo: \(isDuo), size: \(Int(view.bounds.width))x\(Int(view.bounds.height))"
         if report != lastReport { lastReport = report; print("[DuoDock] \(report)") }
-        let show = side || open
+        // Side column → Apple puts the toolbar in it. Duo without one (open, held wide) → Apple
+        // shows the same toolbar floating at the bottom. Any other iPhone → hidden, web dock stays.
+        let show = side || open || isDuo
         guard show != dockShowing else { return }
         dockShowing = show
         print("[DuoDock] native dock \(show ? "on" : "off")")
