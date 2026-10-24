@@ -468,20 +468,23 @@ export function DataCube3D({
         html.duo.duo-open [data-tour="dashboard-cubes"] > div:has(.data-cube-3d) {
           display: grid;
           min-width: 0;
+          grid-template-rows: minmax(min-content, 1fr);
         }
         html.duo.duo-open div:has(> .data-cube-3d) {
           aspect-ratio: auto;
           display: grid;
+          grid-template-rows: minmax(min-content, 1fr);
         }
         html.duo.duo-open .data-cube-3d,
         html.duo.duo-open .data-cube-viewport {
           height: auto;
           display: grid;
           min-width: 0;
+          grid-template-rows: minmax(min-content, 1fr);
         }
         html.duo.duo-open .data-cube-rotation {
           height: auto;
-          min-height: 170px;
+          min-height: 130px;
           display: grid;
         }
         html.duo.duo-open .data-cube-face {
@@ -489,39 +492,55 @@ export function DataCube3D({
           inset: auto;
           grid-area: 1 / 1;
           min-width: 0;
+          justify-content: center;
         }
         html.duo.duo-open .data-cube-title {
-          padding: 12px 12px 0;
+          padding: 10px 10px 0;
+          font-size: 14px;
+          line-height: 20px;
         }
         html.duo.duo-open .data-cube-content {
-          padding: 12px;
+          padding: 4px 10px;
           display: grid;
-          flex: 1 0 auto;
+          flex: 0 0 auto;
         }
         html.duo.duo-open .data-cube-content .h-full {
           height: auto;
         }
         html.duo.duo-open .data-cube-quadrants {
           grid-template-rows: repeat(2, minmax(min-content, 1fr));
-          gap: 16px 8px;
+          gap: 4px 8px;
         }
         html.duo.duo-open .data-cube-three-rows {
-          gap: 16px;
+          gap: 6px;
         }
         html.duo.duo-open .data-cube-center {
           position: relative;
           inset: auto;
-          margin-top: 12px;
+          margin-top: 2px;
+        }
+        html.duo.duo-open .data-cube-center > div {
+          padding-block: 0;
+        }
+        html.duo.duo-open .data-cube-content .font-bold {
+          font-size: 16px;
+          line-height: 16px;
         }
         html.duo.duo-open .data-cube-content .font-semibold {
-          margin-top: 2px;
+          margin-top: 0;
           white-space: normal;
           overflow: visible;
-          line-height: 1.3;
+          font-size: 10px;
+          line-height: 12px;
+        }
+        html.duo.duo-open .data-cube-content svg {
+          width: 10px;
+          height: 10px;
+          margin-top: 0;
         }
         html.duo.duo-open .data-cube-dots {
           flex-shrink: 0;
-          padding-bottom: 10px;
+          padding-bottom: 6px;
         }
       `}</style>
       {/* 3D Cube Container - fills parent, uses perspective */}
