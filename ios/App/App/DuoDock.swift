@@ -279,11 +279,11 @@ final class DuoDockController: UINavigationController {
         runJS(js)
     }
 
-    // Also (test of Jordan's gutter idea): a tab in the header's own color attached to the screen edge over Apple's
-    // column (sized by the page's env(safe-area-inset-right)), and the header as a rounded bar short of it. It sits above every web layer,
+    // Also (test of Jordan's gutter idea): the header runs full width into Apple's column and the column continues
+    // in the header's color top to bottom (Apple HIG: a header may span the full width; content stays inset). It sits above every web layer,
     // so nothing in the web app shows behind the column. The real build does this in the web app.
     private static let hideDockJS = """
-    (function(){var id='croo-duo-dock';if(!document.getElementById(id)){var s=document.createElement('style');s.id=id;s.textContent='nav.mobile-dock-container{display:none!important}html::before{content:"";position:fixed;top:8px;bottom:8px;right:0;width:calc(env(safe-area-inset-right) - 2px);border-radius:34px 0 0 34px;background:var(--chrome-bg,hsl(var(--header-bg)));box-shadow:-2px 0 10px rgba(0,0,0,.10);z-index:2147483646;pointer-events:none}html::after{content:"";position:fixed;top:0;bottom:0;right:0;width:env(safe-area-inset-right);background:hsl(var(--background));z-index:2147483645;pointer-events:none}header.fixed{top:8px!important;left:8px!important;right:calc(env(safe-area-inset-right) + 10px)!important;border-radius:20px!important}header.sticky>.container{padding-right:calc(env(safe-area-inset-right) + 12px)!important}';document.head.appendChild(s);}})()
+    (function(){var id='croo-duo-dock';if(!document.getElementById(id)){var s=document.createElement('style');s.id=id;s.textContent='nav.mobile-dock-container{display:none!important}html::before{content:"";position:fixed;top:0;bottom:0;right:0;width:env(safe-area-inset-right);background:var(--chrome-bg,hsl(var(--header-bg)));z-index:2147483646;pointer-events:none}html::after{content:"";position:fixed;top:var(--app-header-h,-200px);right:env(safe-area-inset-right);width:24px;height:24px;background:radial-gradient(circle at 0 100%,transparent 23.5px,var(--chrome-bg,hsl(var(--header-bg))) 24px);z-index:2147483646;pointer-events:none}header.fixed{border-radius:0 0 0 20px!important}header.fixed>div{padding-right:calc(env(safe-area-inset-right) + 1rem)!important}header.fixed button[title="More options"]{visibility:hidden!important}header.sticky>.container{padding-right:calc(env(safe-area-inset-right) + 12px)!important}';document.head.appendChild(s);}})()
     """
 
     private func hideWebDock(_ hide: Bool) {
