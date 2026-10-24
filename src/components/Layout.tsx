@@ -18,6 +18,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile, DuoPanelContext } from '@/hooks/use-mobile';
 import { useDuo } from '@/hooks/useDuo';
 import { DuoSchedulePanel } from '@/components/duo/DuoSchedulePanel';
+import { DuoTitleSlotsContext } from '@/components/duo/DuoTitleSlots';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -294,6 +295,8 @@ export const Layout = ({
   const isMobile = useIsMobile();
   // iPhone Duo: the shell sets html.duo + duo-folded/duo-open. All Duo behavior is additive.
   const duo = useDuo();
+  const [duoLeftTitleSlot, setDuoLeftTitleSlot] = useState<HTMLDivElement | null>(null);
+  const [duoRightTitleSlot, setDuoRightTitleSlot] = useState<HTMLDivElement | null>(null);
   const mobileHeaderRef = useRef<HTMLElement>(null);
   // Measure the phone header and dock wrapper (outside DockContent) so pages
   // and floating bars can clear them via --app-header-h / --app-dock-h.
@@ -961,7 +964,10 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       icon: SettingsIcon
     }];
 
-  return <div className="flex min-h-screen flex-col bg-background">
+  return <DuoTitleSlotsContext.Provider value={{
+    left: duo.isOpen ? duoLeftTitleSlot : null,
+    right: duo.isOpen ? duoRightTitleSlot : null,
+  }}><div className="flex min-h-screen flex-col bg-background">
       {/* Native Duo controls retain the shared Nudge state without a visible web trigger. */}
       {duo.isDuo && !roleLoading && !!role && NUDGE_ROLES_CLIENT.includes(role) && (
         <NudgeHeaderButton
@@ -1002,8 +1008,9 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 {isOnOrgDash ? orgDashName : currentLocation?.name}
               </span>
               </div>
+              <div className="duo-title-slot duo-title-slot-left" ref={setDuoLeftTitleSlot} />
             </div>
-            <div aria-hidden="true" />
+            <div className="duo-title-slot duo-title-slot-right" ref={setDuoRightTitleSlot} />
           </div>
         </header>
       )}
@@ -1722,5 +1729,5 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       <OnboardingTour run={runTour} onComplete={completeTour} />
       <QuickNudgeTutorial />
 
-    </div>;
+    </div></DuoTitleSlotsContext.Provider>;
 };

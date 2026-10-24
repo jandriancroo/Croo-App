@@ -1,4 +1,6 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
+import { DuoTitleSlotsContext } from '@/components/duo/DuoTitleSlots';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { cn } from '@/lib/utils';
@@ -57,6 +59,8 @@ interface PageTitleProps {
   leading?: React.ReactNode;
   /** Status line above the title. Omit = today's date (store timezone). null = no line (Settings). */
   status?: PageTitleStatus | null;
+  /** Approved open-Duo destination; other pages retain their in-page titles. */
+  duoSlot?: 'left' | 'right';
 }
 
 export interface PageTitleStatus {
@@ -113,7 +117,26 @@ export const PageTitle = React.memo(function PageTitle({
   subtitle,
   leading,
   status,
+  duoSlot,
 }: PageTitleProps) {
+  const slots = React.useContext(DuoTitleSlotsContext);
+  const target = duoSlot ? slots[duoSlot] : null;
+  if (target) {
+    return <>
+      {createPortal(
+        <div className="duo-page-title">
+          <div className="duo-page-title-copy">
+            {status !== null && <StatusLine status={status} />}
+            <Tag className="font-apple-system font-bold min-w-0 my-0">
+              <span className="block truncate">{children}</span>
+            </Tag>
+          </div>
+          {action && <div className="page-title-action flex items-center gap-2 shrink-0">{action}</div>}
+        </div>, target,
+      )}
+      {subtitle && <div className="duo-page-subtitle text-sm text-muted-foreground">{subtitle}</div>}
+    </>;
+  }
   return (
     <div className={cn('mt-3.5 mb-3', className)}>
       {status !== null && <StatusLine status={status} />}

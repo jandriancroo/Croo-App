@@ -637,6 +637,7 @@ export default function Dashboard() {
           <div className="space-y-4 spookified-dashboard-content">
             <PageTitle
               color="teal"
+              duoSlot="left"
               subtitle={dashSentence}
             >
               Dash
