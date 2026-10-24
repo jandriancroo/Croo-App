@@ -4,7 +4,6 @@
 (none)
 
 ## In progress
-- Duo-open follow-up: compact equal-height cubes, 14px below-bar spacing, Schedule title alignment; verify all faces at 951px/84px and preserve phone/folded.
 - Shift marketplace + support chats batch (Oct 23): built, waiting for Jordan's "ship". Not published.
 - Toast Status public downloads: blocked by workspace public-bucket restriction. Owner/admin must allow public buckets under Settings → Privacy & Security, then make toast-status-releases public. Release publishing deliberately returns 503 until then.
 
@@ -16,6 +15,7 @@
 - Announcements pop up on Dash after system alerts (read via Chat or popup, optional required "I've read this", who's-read list, out of Quick Tasks). Not yet tried live with test data.
 
 ## Done
+- Duo-open follow-up: both cubes 140px, intrinsic faces with no flex-fill, balanced content/dots; all eight faces readable at 951px/84px. Below-bar gaps 14px on both panels, Schedule title x507.5 aligns with content; Dash title retains icon clearance. Phone/folded unchanged; nine tests passed; nothing published.
 - Duo Part B: Layout slots receive existing Dash/Schedule PageTitle trees; white 30px titles, 72px+inset bar, Theo below. At 951px/84px: left 106–455.5, right 495.5–855, panels start y72. Punch/New Shift open correctly; Settings in-page title and phone/folded titles preserved; nine tests pass. No locked file edits or publishing.
 - Open Duo cubes: content-sized equal heights, all eight faces verified signed-in at 951px/84px column with no text overlap/clipping; phone/folded/iPad/desktop sizing unchanged. Only DataCube3D presentation changed; no publishing.
 - Duo native header controls: open header shows only brand/location text; native location/Theo/Nudge events verified signed-in at 951px/84px column. Late badge shares existing Nudge query; panel edges 495.5–867px, outside/Escape/toggle verified. Seven tests passed, normal-device/folded checks passed. Part B title placement remains report-only; nothing published.
