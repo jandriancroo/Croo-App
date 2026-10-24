@@ -8,6 +8,7 @@ import { ScheduleApprovalBanner } from "@/components/schedule/ScheduleApprovalBa
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useDuo } from "@/hooks/useDuo";
 import { useScheduleData } from "@/hooks/useScheduleData";
 import { useSchedulePreferences } from "@/hooks/useSchedulePreferences";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,7 +51,9 @@ import { StationGroupSection } from "@/components/schedule/StationGroupSection";
 
 export default function Schedule() {
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
+  const phoneLayout = useIsMobile();
+  const duo = useDuo();
+  const isMobile = phoneLayout || duo.isOpen;
 
   const data = useScheduleData();
   const {
