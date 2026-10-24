@@ -4,6 +4,7 @@
 (none)
 
 ## In progress
+- Duo crease alignment: center the 40px gutter on the full viewport; align header groups and verify at 951px with an 84px column.
 - Shift marketplace + support chats batch (Oct 23): built, waiting for Jordan's "ship". Not published.
 - Toast Status public downloads: blocked by workspace public-bucket restriction. Owner/admin must allow public buckets under Settings → Privacy & Security, then make toast-status-releases public. Release publishing deliberately returns 503 until then.
 
