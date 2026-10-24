@@ -540,7 +540,7 @@ export function DataCube3D({
         }
         html.duo.duo-open .data-cube-dots {
           flex-shrink: 0;
-          padding-bottom: 8px;
+          padding-bottom: 6px;
         }
       `}</style>
       {/* 3D Cube Container - fills parent, uses perspective */}
