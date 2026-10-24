@@ -94,42 +94,34 @@ final class DuoDockController: UINavigationController {
         super.viewDidLoad()
         rebuildItems()
         applyLook()
-        view.backgroundColor = UIColor(red: 244 / 255, green: 239 / 255, blue: 230 / 255, alpha: 1)
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         refresh()
-        keepWebOutOfColumn()
+        // Resizing the web view here fought Apple's layout on the device (header jumped, dock vanished),
+        // so column avoidance moves to the web app: see reportColumn() and the Duo build plan.
+        reportColumn()
     }
 
-    /// Shrinks the web view so it ends where Apple's column begins. Nothing in the web app (pages,
-    /// manager dash, sheets, menus, location switcher, Ovation, toasts) can then sit behind the column,
-    /// with no change to any web screen. The column itself shows the app background behind the dock.
-    private func keepWebOutOfColumn() {
-        guard let content = topViewController?.view else { return }
-        let full = view.bounds
-        var frame = full
+    /// Tells the web app how wide Apple's column is and which side it's on, as CSS variables
+    /// --duo-col-left / --duo-col-right on <html> (0px when there's no column). The web app will use
+    /// them to keep pages and overlays out of the column. Nothing in the web app reads them yet.
+    private var lastColumnJS = ""
+    private func reportColumn() {
         let insets = view.safeAreaInsets
+        var left: CGFloat = 0, right: CGFloat = 0
         if dockShowing, lastEdgeRaw != 0 {
-            // Apple's column on the device measured about 74 pt wide (folded and open). Use Apple's
-            // safe-area inset for that side when it reports one; otherwise that measured width.
             let onLeft = insets.left > insets.right + 20 || (insets.left == insets.right && lastEdgeRaw == 1)
             let reported = onLeft ? insets.left : insets.right
             let column = reported > 40 ? reported : 74
-            if onLeft {
-                frame.origin.x = column
-                frame.size.width = full.width - column
-            } else {
-                frame.size.width = full.width - column
-            }
+            if onLeft { left = column } else { right = column }
         }
-        // Never leave the screen blank: if the math looks wrong, give the web app the full screen.
-        if frame.width < full.width * 0.6 { frame = full }
-        if content.frame != frame {
-            content.frame = frame
-            print("[DuoDock] web area \(Int(frame.minX))-\(Int(frame.maxX)) of \(Int(full.width)); safe area L\(Int(insets.left)) R\(Int(insets.right)) T\(Int(insets.top)) B\(Int(insets.bottom)); edge \(lastEdgeRaw)")
-        }
+        let js = "document.documentElement.style.setProperty('--duo-col-left','\(Int(left))px');document.documentElement.style.setProperty('--duo-col-right','\(Int(right))px')"
+        guard js != lastColumnJS else { return }
+        lastColumnJS = js
+        runJS(js)
+        print("[DuoDock] column left \(Int(left)) right \(Int(right)); safe area L\(Int(insets.left)) R\(Int(insets.right)); edge \(lastEdgeRaw)")
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -305,7 +297,7 @@ final class DuoDockController: UINavigationController {
         stopPolling()
         pollTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self else { return }
-            self.runJS(Self.hideDockJS + ";location.pathname") { result in
+            self.runJS(Self.hideDockJS + ";" + self.lastColumnJS + ";location.pathname") { result in
                 guard let path = result as? String, path != self.currentPath else { return }
                 self.currentPath = path
                 self.markSelected(path)
