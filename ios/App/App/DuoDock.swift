@@ -74,10 +74,6 @@ final class DuoDockController: UINavigationController {
 
     init(bridge: CrooBridgeViewController) {
         bridgeVC = bridge
-        // Lay the web view out next to the bars, never under them. On the device the web view sometimes
-        // stopped at Apple's column and sometimes ran under it; this makes UIKit always keep it out.
-        bridge.edgesForExtendedLayout = []
-        bridge.extendedLayoutIncludesOpaqueBars = false
         super.init(rootViewController: bridge)
         setNavigationBarHidden(true, animated: false)
         setToolbarHidden(true, animated: false)
@@ -103,30 +99,9 @@ final class DuoDockController: UINavigationController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         refresh()
-        styleGutter()
         // Resizing the web view here fought Apple's layout on the device (header jumped, dock vanished),
         // so column avoidance moves to the web app: see reportColumn() and the Duo build plan.
         reportColumn()
-    }
-
-    /// Jordan's idea: color the column (behind Apple's data pill and our dock) in the header teal and
-    /// round the content's corners where it meets the column, so the strip reads as one native gutter.
-    /// This colors the app's own background; Apple's pill and dock draw on top of it untouched.
-    private static let gutterTeal = UIColor(red: 74 / 255, green: 137 / 255, blue: 155 / 255, alpha: 1)
-    private func styleGutter() {
-        guard let content = topViewController?.view else { return }
-        let on = dockShowing && lastEdgeRaw != 0
-        view.backgroundColor = on ? Self.gutterTeal : .systemBackground
-        content.layer.cornerRadius = on ? 28 : 0
-        content.layer.cornerCurve = .continuous
-        content.layer.masksToBounds = on
-        if on {
-            let insets = view.safeAreaInsets
-            let onLeft = insets.left > insets.right + 20 || (insets.left == insets.right && lastEdgeRaw == 1)
-            content.layer.maskedCorners = onLeft
-                ? [.layerMinXMinYCorner, .layerMinXMaxYCorner]
-                : [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
-        }
     }
 
     /// Tells the web app how wide Apple's column is and which side it's on, as CSS variables
@@ -304,10 +279,11 @@ final class DuoDockController: UINavigationController {
         runJS(js)
     }
 
-    // Also: Apple already narrows the web view to stop at its column, but env(safe-area-inset-*) still
-    // counts the column, so .px-safe padded it twice (squeezed cubes). On the Duo the gutter is 1rem.
+    // Also (test of Jordan's gutter idea): a teal strip over Apple's column, sized by the page's own
+    // env(safe-area-inset-right), with a rounded inner corner at the top. It sits above every web layer,
+    // so nothing in the web app shows behind the column. The real build does this in the web app.
     private static let hideDockJS = """
-    (function(){var id='croo-duo-dock';if(!document.getElementById(id)){var s=document.createElement('style');s.id=id;s.textContent='nav.mobile-dock-container{display:none!important}.px-safe{padding-left:1rem!important;padding-right:1rem!important}';document.head.appendChild(s);}})()
+    (function(){var id='croo-duo-dock';if(!document.getElementById(id)){var s=document.createElement('style');s.id=id;s.textContent='nav.mobile-dock-container{display:none!important}html::before{content:"";position:fixed;top:0;bottom:0;right:0;width:env(safe-area-inset-right);background:#4A899B;z-index:2147483646;pointer-events:none}html::after{content:"";position:fixed;top:0;right:env(safe-area-inset-right);width:28px;height:28px;background:radial-gradient(circle at 0 100%,transparent 27.5px,#4A899B 28px);z-index:2147483646;pointer-events:none}';document.head.appendChild(s);}})()
     """
 
     private func hideWebDock(_ hide: Bool) {
