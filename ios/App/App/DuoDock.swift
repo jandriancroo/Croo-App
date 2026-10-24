@@ -14,7 +14,7 @@ import Capacitor
 //   (route change, manager dash, profile menu), so no web change is needed for this test.
 //
 // Long-press the arrow button to switch dock looks and compare them on the device:
-//   Orange bar · Orange icons · Apple default.
+//   Orange selected tab · Orange icons · Apple default.
 
 enum DuoDock {
     /// The window's root: the plain Capacitor screen, or (Xcode 27.1+) that screen inside the dock controller.
@@ -45,10 +45,10 @@ final class DuoDockController: UINavigationController {
         Tab(path: "/schedule", title: "Schedule", symbol: "calendar"),
     ]
     private enum Look: Int, CaseIterable {
-        case orangeBar, orangeIcons, appleDefault
+        case orangeSelected, orangeIcons, appleDefault
         var name: String {
             switch self {
-            case .orangeBar: return "Orange bar"
+            case .orangeSelected: return "Orange selected tab"
             case .orangeIcons: return "Orange icons"
             case .appleDefault: return "Apple default"
             }
@@ -66,7 +66,7 @@ final class DuoDockController: UINavigationController {
     private var loggedEdge = ""
 
     private var look: Look {
-        get { Look(rawValue: UserDefaults.standard.integer(forKey: Self.lookKey)) ?? .orangeBar }
+        get { Look(rawValue: UserDefaults.standard.integer(forKey: Self.lookKey)) ?? .orangeSelected }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: Self.lookKey) }
     }
 
@@ -154,10 +154,19 @@ final class DuoDockController: UINavigationController {
 
     // MARK: Items
 
+    /// Apple ignored the bar color and tint (first test), so color is applied to the icons and the
+    /// selected tab directly: "Orange icons" draws the icons orange; "Orange selected tab" fills the
+    /// selected tab with orange glass (Apple's prominent style).
+    private func icon(_ name: String) -> UIImage? {
+        let image = UIImage(systemName: name)
+        if look == .orangeIcons { return image?.withTintColor(Self.orange, renderingMode: .alwaysOriginal) }
+        return image
+    }
+
     private func rebuildItems() {
         let arrow = UIBarButtonItem(
             title: "Manager dash",
-            image: UIImage(systemName: "chevron.left.circle"),
+            image: icon("chevron.left.circle"),
             primaryAction: UIAction { [weak self] _ in
                 // Same as tapping the dock's swipe handle today.
                 self?.runJS("document.querySelector('.glass-dock .cursor-pointer')?.click()")
@@ -166,7 +175,7 @@ final class DuoDockController: UINavigationController {
         )
         let profile = UIBarButtonItem(
             title: "Profile",
-            image: UIImage(systemName: "person.crop.circle"),
+            image: icon("person.crop.circle"),
             primaryAction: UIAction { [weak self] _ in
                 // Same as tapping the avatar in the header today.
                 self?.runJS("document.querySelector('button[title=\"More options\"]')?.click()")
@@ -177,7 +186,7 @@ final class DuoDockController: UINavigationController {
         for tab in tabs {
             let item = UIBarButtonItem(
                 title: tab.title,
-                image: UIImage(systemName: tab.symbol),
+                image: icon(tab.symbol),
                 primaryAction: UIAction { [weak self] _ in self?.go(to: tab.path) }
             )
             tabItems[tab.path] = item
@@ -199,28 +208,28 @@ final class DuoDockController: UINavigationController {
 
     private func applyLook() {
         let appearance = UIToolbarAppearance()
-        switch look {
-        case .orangeBar:
-            appearance.configureWithDefaultBackground()
-            appearance.backgroundColor = Self.orange.withAlphaComponent(0.92)
-            toolbar.tintColor = .white
-        case .orangeIcons:
-            appearance.configureWithDefaultBackground()
-            toolbar.tintColor = Self.orange
-        case .appleDefault:
-            appearance.configureWithDefaultBackground()
-            toolbar.tintColor = nil
-        }
+        appearance.configureWithDefaultBackground()
         toolbar.standardAppearance = appearance
         toolbar.compactAppearance = appearance
         toolbar.scrollEdgeAppearance = appearance
         toolbar.compactScrollEdgeAppearance = appearance
+        let tint: UIColor? = look == .appleDefault ? nil : Self.orange
+        toolbar.tintColor = tint
+        view.tintColor = tint
     }
 
     private func markSelected(_ path: String) {
         let key = path.hasPrefix("/org-dash") ? "/dashboard" : path
         for (tabPath, item) in tabItems {
-            item.isSelected = key == tabPath || key.hasPrefix(tabPath + "/")
+            let on = key == tabPath || key.hasPrefix(tabPath + "/")
+            item.isSelected = on
+            if #available(iOS 26.0, *), look == .orangeSelected {
+                item.style = on ? .prominent : .plain
+                item.tintColor = on ? Self.orange : nil
+            } else {
+                item.style = .plain
+                item.tintColor = nil
+            }
         }
     }
 
