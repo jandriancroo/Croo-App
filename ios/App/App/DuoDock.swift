@@ -67,8 +67,8 @@ final class DuoDockController: UINavigationController {
     private var lastEdgeRaw = 0
 
     private var look: Look {
-        // Decided Oct 23 after the device test: white icons, the selected tab in orange.
-        get { .orangeSelected }
+        // Oct 23 (later): Jordan wants a static dock — no selected-tab highlight. Orange moves to rings around the glass.
+        get { .appleDefault }
         set { }
     }
 
@@ -99,6 +99,7 @@ final class DuoDockController: UINavigationController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         refresh()
+        updateRings()
         // Resizing the web view here fought Apple's layout on the device (header jumped, dock vanished),
         // so column avoidance moves to the web app: see reportColumn() and the Duo build plan.
         reportColumn()
@@ -188,15 +189,51 @@ final class DuoDockController: UINavigationController {
         return image
     }
 
+    private static let collapsedKey = "duoDockCollapsed"
+    private var collapsed: Bool {
+        get { UserDefaults.standard.bool(forKey: Self.collapsedKey) }
+        set { UserDefaults.standard.set(newValue, forKey: Self.collapsedKey) }
+    }
+
+    private static let openManagerDashJS = "document.querySelector('.glass-dock .cursor-pointer')?.click()"
+
+    private func setCollapsed(_ value: Bool) {
+        collapsed = value
+        print("[DuoDock] dock \(value ? "collapsed" : "expanded")")
+        rebuildItems()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in self?.updateRings() }
+    }
+
     private func rebuildItems() {
+        // Collapsed: only one circle stays, and tapping it brings the dock back.
+        if collapsed {
+            let expand = UIBarButtonItem(
+                title: "Show dock",
+                image: icon("chevron.left.2"),
+                primaryAction: UIAction { [weak self] _ in self?.setCollapsed(false) }
+            )
+            expand.menu = UIMenu(children: [
+                UIAction(title: "Show dock", image: UIImage(systemName: "chevron.left.2")) { [weak self] _ in self?.setCollapsed(false) },
+                UIAction(title: "Open manager dash", image: UIImage(systemName: "chevron.left.circle")) { [weak self] _ in self?.runJS(Self.openManagerDashJS) },
+            ])
+            if #available(iOS 26.0, *) { expand.sharesBackground = false }
+            tabItems = [:]
+            bridgeVC.toolbarItems = [expand]
+            return
+        }
+
+        // The arrow is its own circle. Tap = manager dash (same as the swipe handle today).
+        // Press and hold = menu with "Collapse dock".
         let arrow = UIBarButtonItem(
             title: "Manager dash",
             image: icon("chevron.left.circle"),
-            primaryAction: UIAction { [weak self] _ in
-                // Same as tapping the dock's swipe handle today.
-                self?.runJS("document.querySelector('.glass-dock .cursor-pointer')?.click()")
-            }
+            primaryAction: UIAction { [weak self] _ in self?.runJS(Self.openManagerDashJS) },
+            menu: UIMenu(children: [
+                UIAction(title: "Open manager dash", image: UIImage(systemName: "chevron.left.circle")) { [weak self] _ in self?.runJS(Self.openManagerDashJS) },
+                UIAction(title: "Collapse dock", image: UIImage(systemName: "chevron.right.2")) { [weak self] _ in self?.setCollapsed(true) },
+            ])
         )
+        if #available(iOS 26.0, *) { arrow.sharesBackground = false }
         let profile = UIBarButtonItem(
             title: "Profile",
             image: icon("person.crop.circle"),
@@ -222,6 +259,63 @@ final class DuoDockController: UINavigationController {
         }
         bridgeVC.toolbarItems = items
         markSelected(currentPath)
+    }
+
+    // MARK: Orange rings (test of Jordan's Oct 23 idea)
+
+    /// A few points of CrooHQ orange hugging each glass shape in the column (our dock, the arrow circle)
+    /// and Apple's status cluster. Apple doesn't hand us these shapes, so we find the glass views inside
+    /// the toolbar and ask for the status bar frame. The log lines show what was found.
+    private var rings: [UIView] = []
+    private var lastRingLog = ""
+    private static let ringWidth: CGFloat = 5
+
+    private func collectGlass(in v: UIView, host: UIView, into frames: inout [CGRect], names: inout [String]) {
+        for sub in v.subviews where !sub.isHidden && sub.alpha > 0.01 {
+            let name = String(describing: type(of: sub))
+            let f = sub.convert(sub.bounds, to: host)
+            let isGlass = (name.contains("Glass") || sub is UIVisualEffectView) && !name.contains("Background")
+            if isGlass, f.width >= 30, f.height >= 30, !(f.width >= toolbar.bounds.width - 1 && f.height >= toolbar.bounds.height - 1) {
+                frames.append(f)
+                names.append("\(name) \(Int(f.minX)),\(Int(f.minY)) \(Int(f.width))x\(Int(f.height))")
+            } else {
+                collectGlass(in: sub, host: host, into: &frames, names: &names)
+            }
+        }
+    }
+
+    private func updateRings() {
+        guard let host = toolbar.superview else { return }
+        var frames: [CGRect] = []
+        var names: [String] = []
+        if dockShowing, !isToolbarHidden, hasSideColumn {
+            collectGlass(in: toolbar, host: host, into: &frames, names: &names)
+            // Apple's time/battery cluster, if the system reports it inside the column.
+            if let sb = view.window?.windowScene?.statusBarManager?.statusBarFrame {
+                let f = view.window!.convert(sb, to: host)
+                names.append("statusBar \(Int(f.minX)),\(Int(f.minY)) \(Int(f.width))x\(Int(f.height))")
+                if f.width > 20, f.width < 140, f.height > 60 { frames.append(f) }
+            }
+        }
+        let log = names.joined(separator: " | ")
+        if log != lastRingLog { lastRingLog = log; print("[DuoDock] rings: \(log.isEmpty ? "none" : log)") }
+        while rings.count < frames.count {
+            let r = UIView()
+            r.isUserInteractionEnabled = false
+            r.backgroundColor = .clear
+            r.layer.borderColor = Self.orange.cgColor
+            r.layer.borderWidth = Self.ringWidth
+            r.layer.cornerCurve = .continuous
+            host.insertSubview(r, belowSubview: toolbar)
+            rings.append(r)
+        }
+        for (i, r) in rings.enumerated() {
+            guard i < frames.count else { r.isHidden = true; continue }
+            let f = frames[i].insetBy(dx: -Self.ringWidth, dy: -Self.ringWidth)
+            r.frame = f
+            r.layer.cornerRadius = min(f.width, f.height) / 2
+            r.isHidden = false
+        }
     }
 
     private func lookMenu() -> UIMenu {
@@ -281,15 +375,18 @@ final class DuoDockController: UINavigationController {
     // Also (test of Jordan's gutter idea): the header runs full width into Apple's column and the column continues
     // in the header's color top to bottom (Apple HIG: a header may span the full width; content stays inset). It sits above every web layer,
     // so nothing in the web app shows behind the column. The real build does this in the web app.
+    // Test of Jordan's Oct 23 (later) direction: floating headers again (folded: rounded bar short of the column;
+    // open: one bar across both panels with logo, location/Ovation, Ask Theo and Theo's Dash line), no colored
+    // column, and dialogs/sheets/manager dash kept out of the column. The real build does this in the web app.
     private static let hideDockJS = """
-    (function(){var id='croo-duo-dock';if(!document.getElementById(id)){var s=document.createElement('style');s.id=id;s.textContent='nav.mobile-dock-container{display:none!important}html::before{content:"";position:fixed;top:0;bottom:0;right:0;width:env(safe-area-inset-right);background:var(--chrome-bg,hsl(var(--header-bg)));z-index:2147483646;pointer-events:none}html::after{content:"";position:fixed;top:var(--app-header-h,-200px);right:env(safe-area-inset-right);width:24px;height:24px;background:radial-gradient(circle at 0 100%,transparent 23.5px,var(--chrome-bg,hsl(var(--header-bg))) 24px);z-index:2147483646;pointer-events:none}header.fixed{border-radius:0 0 0 20px!important}header.fixed>div{padding-right:calc(env(safe-area-inset-right) + 1rem)!important}header.fixed button[title="More options"]{visibility:hidden!important}header.sticky>.container{padding-right:0!important}header.sticky .nav-bar-unified{border-top-right-radius:0!important;border-bottom-right-radius:0!important;padding-right:calc(env(safe-area-inset-right) + 8px)!important;overflow:visible!important}header.sticky .nav-bar-unified::before,header.sticky .nav-bar-unified::after{content:"";position:absolute;right:env(safe-area-inset-right);width:16px;height:16px;pointer-events:none}header.sticky .nav-bar-unified::before{top:-16px;background:radial-gradient(circle at 0 0,transparent 15.5px,var(--chrome-bg,hsl(var(--header-bg))) 16px)}header.sticky .nav-bar-unified::after{bottom:-16px;background:radial-gradient(circle at 0 100%,transparent 15.5px,var(--chrome-bg,hsl(var(--header-bg))) 16px)}header.sticky .nav-bar-unified button[aria-haspopup="menu"]:has(.h-7.w-7){visibility:hidden!important;width:0!important;padding:0!important;overflow:hidden!important}main.px-safe{padding-left:max(1rem,env(safe-area-inset-left))!important;padding-right:calc(env(safe-area-inset-right) + 1rem)!important}';document.head.appendChild(s);}})()
+    (function(){var id='croo-duo-dock';if(!document.getElementById(id)){var s=document.createElement('style');s.id=id;s.textContent='nav.mobile-dock-container{display:none!important}header.fixed{top:max(8px,env(safe-area-inset-top))!important;left:max(8px,env(safe-area-inset-left))!important;right:calc(env(safe-area-inset-right) + 8px)!important;width:auto!important;border-radius:20px!important}header.fixed button[title="More options"]{visibility:hidden!important}main.px-safe{padding-left:max(1rem,env(safe-area-inset-left))!important;padding-right:calc(env(safe-area-inset-right) + 1rem)!important}header.sticky>.container{max-width:none!important;padding-right:calc(env(safe-area-inset-right) + 12px)!important}header.sticky .nav-bar-unified>div[class~="gap-0.5"],header.sticky .nav-bar-unified>div.flex-1{display:none!important}header.sticky .nav-bar-unified button[aria-haspopup="menu"]:has(.h-7.w-7){display:none!important}header.sticky .nav-bar-unified>div.px-2{flex:1 1 auto;min-width:0}header.sticky .nav-bar-unified>div.px-2>button[aria-label="Ask Theo"]{order:2}#duo-theo-line{order:3;flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;font-weight:500;padding:0 10px}header.sticky .nav-bar-unified>div.px-2>button[aria-label^="Nudge"]{order:4}@media (min-width:768px){.spookified-dashboard-content>div:first-child>div.text-sm.text-muted-foreground{display:none!important}}[role="dialog"][class*="left-[50%]"]{left:calc(50% - env(safe-area-inset-right) / 2)!important}@media (max-width:767px){[role="dialog"][class*="left-[50%]"]{max-width:calc(100vw - env(safe-area-inset-right) - 24px)!important}}[role="dialog"][class*="right-0"],[role="dialog"][class*="inset-x-0"],[data-vaul-drawer],.cd-panel{right:env(safe-area-inset-right)!important}[role="dialog"][class*="inset-y-0"][class*="right-0"]{max-width:calc(100vw - env(safe-area-inset-right))!important}';document.head.appendChild(s);}})();(function(){var b=document.querySelector('header.sticky .nav-bar-unified>div.px-2');var el=document.getElementById('duo-theo-line');var src=document.querySelector('.spookified-dashboard-content>div:first-child>div.text-sm.text-muted-foreground');if(!b||!src||innerWidth<768||!document.getElementById('croo-duo-dock')){if(el)el.remove();return}if(!el){el=document.createElement('div');el.id='duo-theo-line';b.appendChild(el)}if(el.innerHTML!==src.innerHTML)el.innerHTML=src.innerHTML})()
     """
 
     private func hideWebDock(_ hide: Bool) {
         if hide {
             runJS(Self.hideDockJS)
         } else {
-            runJS("document.getElementById('croo-duo-dock')?.remove()")
+            runJS("document.getElementById('croo-duo-dock')?.remove();document.getElementById('duo-theo-line')?.remove()")
         }
     }
 
@@ -299,6 +396,7 @@ final class DuoDockController: UINavigationController {
         stopPolling()
         pollTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self else { return }
+            self.updateRings()
             self.runJS(Self.hideDockJS + ";" + self.lastColumnJS + ";location.pathname") { result in
                 guard let path = result as? String, path != self.currentPath else { return }
                 self.currentPath = path

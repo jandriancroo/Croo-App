@@ -6,7 +6,7 @@ Croo Builder's Ship button shows this for editing, posts it to TestFlight, then 
 
 ## Next build
 
-- iPhone Duo (test): the dock moves into Apple's side column when folded or open sideways, and floats at the bottom when open and upright. Long-press the arrow to try the three dock looks.
+- iPhone Duo (test): the dock moves into Apple's side column when folded or open sideways, and floats at the bottom when open and upright. The arrow is its own circle; press and hold it to collapse the dock. Thin orange rings hug the dock and Apple's status icons, the header floats again, and dialogs stay out of the column.
 
 ## Build 20 · Oct 23, 2026
 
