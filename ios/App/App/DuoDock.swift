@@ -279,11 +279,11 @@ final class DuoDockController: UINavigationController {
         runJS(js)
     }
 
-    // Also (test of Jordan's gutter idea): a rounded capsule in the header's own color over Apple's column, sized by the page's
-    // env(safe-area-inset-right), on a strip of the page background. It sits above every web layer,
+    // Also (test of Jordan's gutter idea): a tab in the header's own color attached to the screen edge over Apple's
+    // column (sized by the page's env(safe-area-inset-right)), and the header as a rounded bar short of it. It sits above every web layer,
     // so nothing in the web app shows behind the column. The real build does this in the web app.
     private static let hideDockJS = """
-    (function(){var id='croo-duo-dock';if(!document.getElementById(id)){var s=document.createElement('style');s.id=id;s.textContent='nav.mobile-dock-container{display:none!important}html::before{content:"";position:fixed;top:6px;bottom:6px;right:4px;width:calc(env(safe-area-inset-right) - 8px);border-radius:999px;background:var(--chrome-bg,hsl(var(--header-bg)));box-shadow:0 0 0 6px hsl(var(--background)),0 0 0 9999px transparent;z-index:2147483646;pointer-events:none}html::after{content:"";position:fixed;top:0;bottom:0;right:0;width:env(safe-area-inset-right);background:hsl(var(--background));z-index:2147483645;pointer-events:none}';document.head.appendChild(s);}})()
+    (function(){var id='croo-duo-dock';if(!document.getElementById(id)){var s=document.createElement('style');s.id=id;s.textContent='nav.mobile-dock-container{display:none!important}html::before{content:"";position:fixed;top:8px;bottom:8px;right:0;width:calc(env(safe-area-inset-right) - 2px);border-radius:34px 0 0 34px;background:var(--chrome-bg,hsl(var(--header-bg)));box-shadow:-2px 0 10px rgba(0,0,0,.10);z-index:2147483646;pointer-events:none}html::after{content:"";position:fixed;top:0;bottom:0;right:0;width:env(safe-area-inset-right);background:hsl(var(--background));z-index:2147483645;pointer-events:none}header.fixed{top:8px!important;left:8px!important;right:calc(env(safe-area-inset-right) + 10px)!important;border-radius:20px!important}header.sticky>.container{padding-right:calc(env(safe-area-inset-right) + 12px)!important}';document.head.appendChild(s);}})()
     """
 
     private func hideWebDock(_ hide: Bool) {
