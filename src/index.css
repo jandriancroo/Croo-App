@@ -2653,6 +2653,7 @@ html.duo-folded .duo-folded-hide {
 /* Open: content fills both screens under the floating header; web dock is hidden
    (the shell provides native tabs). */
 html.duo-open .duo-open-main {
+  flex: none; /* override flex-1: flex-basis would ignore the 100dvh height */
   max-width: none;
   width: 100%;
   padding-top: calc(env(safe-area-inset-top) + 3.5rem);
