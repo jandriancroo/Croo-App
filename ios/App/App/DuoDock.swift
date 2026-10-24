@@ -64,6 +64,7 @@ final class DuoDockController: UINavigationController {
     private var pollTimer: Timer?
     private var currentPath = ""
     private var loggedEdge = ""
+    private var lastEdgeRaw = 0
 
     private var look: Look {
         // Decided Oct 23 after the device test: white icons, the selected tab in orange.
@@ -109,19 +110,23 @@ final class DuoDockController: UINavigationController {
         guard let content = topViewController?.view else { return }
         let full = view.bounds
         var frame = full
-        let bar = toolbar.frame
-        if dockShowing, hasSideColumn, !toolbar.isHidden, bar.height > bar.width {
-            let gap: CGFloat = 6
-            if bar.midX > full.midX {
-                frame.size.width = max(0, bar.minX - gap)          // column on the right
+        let insets = view.safeAreaInsets
+        if dockShowing, lastEdgeRaw != 0 {
+            // Apple's column on the device measured about 74 pt wide (folded and open). Use Apple's
+            // safe-area inset for that side when it reports one; otherwise that measured width.
+            let onLeft = insets.left > insets.right + 20 || (insets.left == insets.right && lastEdgeRaw == 1)
+            let reported = onLeft ? insets.left : insets.right
+            let column = reported > 40 ? reported : 74
+            if onLeft {
+                frame.origin.x = column
+                frame.size.width = full.width - column
             } else {
-                frame.origin.x = bar.maxX + gap                    // column on the left
-                frame.size.width = max(0, full.maxX - frame.origin.x)
+                frame.size.width = full.width - column
             }
         }
         if content.frame != frame {
             content.frame = frame
-            print("[DuoDock] web area \(Int(frame.minX))-\(Int(frame.maxX)) of \(Int(full.width)), bar \(Int(bar.minX))-\(Int(bar.maxX))")
+            print("[DuoDock] web area \(Int(frame.minX))-\(Int(frame.maxX)) of \(Int(full.width)); safe area L\(Int(insets.left)) R\(Int(insets.right)) T\(Int(insets.top)) B\(Int(insets.bottom)); edge \(lastEdgeRaw)")
         }
     }
 
@@ -137,6 +142,7 @@ final class DuoDockController: UINavigationController {
     private var hasSideColumn: Bool {
         if #available(iOS 27.1, *) {
             let raw = traitCollection.verticalBarEdge.rawValue
+            lastEdgeRaw = Int(raw)
             let edge = "\(raw)"
             if edge != loggedEdge {
                 loggedEdge = edge
