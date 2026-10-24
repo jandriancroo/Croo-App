@@ -28,8 +28,15 @@ const SheetOverlay = React.forwardRef<
 ));
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName;
 
+/** On a Duo, popups must not grab focus on open (the keyboard would cover the screen). */
+const duoBlockOpenAutoFocus = (e: Event) => {
+  if (typeof document !== 'undefined' && document.documentElement.classList.contains('duo')) {
+    e.preventDefault();
+  }
+};
+
 const sheetVariants = cva(
-  "fixed z-[100] gap-4 p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.18)] transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500 bg-background",
+  "duo-sheet fixed z-[100] gap-4 p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.18)] transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500 bg-background",
   {
     variants: {
       side: {
@@ -52,10 +59,18 @@ interface SheetContentProps
     VariantProps<typeof sheetVariants> {}
 
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, children, ...props }, ref) => (
+  ({ side = "right", className, children, onOpenAutoFocus, ...props }, ref) => (
     <SheetPortal>
       <SheetOverlay />
-      <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
+      <SheetPrimitive.Content
+        ref={ref}
+        className={cn(sheetVariants({ side }), className)}
+        onOpenAutoFocus={(e) => {
+          duoBlockOpenAutoFocus(e);
+          onOpenAutoFocus?.(e);
+        }}
+        {...props}
+      >
         {children}
         <SheetPrimitive.Close className="absolute right-4 top-4 h-8 w-8 rounded-full bg-foreground/[0.08] opacity-100 flex items-center justify-center ring-offset-background transition-colors hover:bg-foreground/[0.12] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none after:absolute after:-inset-[6px] after:content-['']">
           <X className="h-3.5 w-3.5" strokeWidth={3} />

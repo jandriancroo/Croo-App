@@ -49,7 +49,14 @@ function isLargePhoneLandscape(): boolean {
   return window.innerWidth > window.innerHeight;
 }
 
+/**
+ * True inside a Duo open-mode panel: each panel renders the phone layout even
+ * though the open Duo viewport is wide. Defaults to false everywhere else.
+ */
+export const DuoPanelContext = React.createContext(false);
+
 export function useIsMobile() {
+  const inDuoPanel = React.useContext(DuoPanelContext);
   const [isMobile, setIsMobile] = React.useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     
@@ -147,5 +154,5 @@ export function useIsMobile() {
     };
   }, []);
 
-  return isMobile;
+  return inDuoPanel || isMobile;
 }

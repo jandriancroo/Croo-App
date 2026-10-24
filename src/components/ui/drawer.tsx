@@ -22,18 +22,29 @@ const DrawerOverlay = React.forwardRef<
 ));
 DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName;
 
+/** On a Duo, popups must not grab focus on open (the keyboard would cover the screen). */
+const duoBlockOpenAutoFocus = (e: Event) => {
+  if (typeof document !== 'undefined' && document.documentElement.classList.contains('duo')) {
+    e.preventDefault();
+  }
+};
+
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+>(({ className, children, onOpenAutoFocus, ...props }, ref) => (
   <DrawerPortal>
     <DrawerOverlay />
     <DrawerPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed inset-x-0 bottom-0 z-[100] mt-24 flex h-auto flex-col rounded-t-[10px] border border-border/20 bg-background shadow-neumorphic-lg",
+        "duo-drawer fixed inset-x-0 bottom-0 z-[100] mt-24 flex h-auto flex-col rounded-t-[10px] border border-border/20 bg-background shadow-neumorphic-lg",
         className,
       )}
+      onOpenAutoFocus={(e) => {
+        duoBlockOpenAutoFocus(e);
+        onOpenAutoFocus?.(e);
+      }}
       {...props}
     >
       <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
