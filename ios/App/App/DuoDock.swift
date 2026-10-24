@@ -103,9 +103,30 @@ final class DuoDockController: UINavigationController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         refresh()
+        styleGutter()
         // Resizing the web view here fought Apple's layout on the device (header jumped, dock vanished),
         // so column avoidance moves to the web app: see reportColumn() and the Duo build plan.
         reportColumn()
+    }
+
+    /// Jordan's idea: color the column (behind Apple's data pill and our dock) in the header teal and
+    /// round the content's corners where it meets the column, so the strip reads as one native gutter.
+    /// This colors the app's own background; Apple's pill and dock draw on top of it untouched.
+    private static let gutterTeal = UIColor(red: 74 / 255, green: 137 / 255, blue: 155 / 255, alpha: 1)
+    private func styleGutter() {
+        guard let content = topViewController?.view else { return }
+        let on = dockShowing && lastEdgeRaw != 0
+        view.backgroundColor = on ? Self.gutterTeal : .systemBackground
+        content.layer.cornerRadius = on ? 28 : 0
+        content.layer.cornerCurve = .continuous
+        content.layer.masksToBounds = on
+        if on {
+            let insets = view.safeAreaInsets
+            let onLeft = insets.left > insets.right + 20 || (insets.left == insets.right && lastEdgeRaw == 1)
+            content.layer.maskedCorners = onLeft
+                ? [.layerMinXMinYCorner, .layerMinXMaxYCorner]
+                : [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
+        }
     }
 
     /// Tells the web app how wide Apple's column is and which side it's on, as CSS variables
