@@ -87,7 +87,7 @@ ensure_pods() {
   local lock="ios/App/Podfile.lock" manifest="ios/App/Pods/Manifest.lock"
   if [[ ! -f "$manifest" ]] || ! cmp -s "$lock" "$manifest"; then
     step "Syncing the iPhone app's libraries (CocoaPods)"
-    (cd ios/App && pod install --silent) >"$CACHE/pod-install.log" 2>&1 || { tail -20 "$CACHE/pod-install.log"; fail "pod install failed."; }
+    (cd ios/App && pod install --silent) >"$CACHE/pod-install.log" 2>&1 || { tail -20 "$CACHE/pod-install.log"; grep -q "Unable to find compatibility version string" "$CACHE/pod-install.log" && fail "This Mac's CocoaPods is too old for the Xcode project. Update it once in Terminal: brew upgrade cocoapods (or: sudo gem install cocoapods)."; fail "pod install failed."; }
     ok "Libraries in sync"
   fi
 }

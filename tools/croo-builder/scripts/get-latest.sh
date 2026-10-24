@@ -15,7 +15,13 @@ npm run build --silent >"$CACHE/web-build.log" 2>&1 || { tail -30 "$CACHE/web-bu
 ok "Web app built"
 
 step "Copying the web app into the iPhone app"
-npx cap sync ios >"$CACHE/cap-sync.log" 2>&1 || { tail -30 "$CACHE/cap-sync.log"; fail "cap sync failed."; }
+if ! npx cap sync ios >"$CACHE/cap-sync.log" 2>&1; then
+  tail -30 "$CACHE/cap-sync.log"
+  if grep -q "Unable to find compatibility version string" "$CACHE/cap-sync.log"; then
+    fail "This Mac's CocoaPods is too old for the Xcode project. Update it once in Terminal: brew upgrade cocoapods (or, if that says it isn't installed with brew: sudo gem install cocoapods). Then press Get latest again."
+  fi
+  fail "cap sync failed."
+fi
 reset_auto_files quiet
 ensure_pods
 ok "Ready: this Mac has the newest app. Open Xcode or press Run / Ship."
