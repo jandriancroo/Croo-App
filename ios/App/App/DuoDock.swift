@@ -279,8 +279,10 @@ final class DuoDockController: UINavigationController {
         runJS(js)
     }
 
+    // Also: Apple already narrows the web view to stop at its column, but env(safe-area-inset-*) still
+    // counts the column, so .px-safe padded it twice (squeezed cubes). On the Duo the gutter is 1rem.
     private static let hideDockJS = """
-    (function(){var id='croo-duo-dock';if(!document.getElementById(id)){var s=document.createElement('style');s.id=id;s.textContent='nav.mobile-dock-container{display:none!important}';document.head.appendChild(s);}})()
+    (function(){var id='croo-duo-dock';if(!document.getElementById(id)){var s=document.createElement('style');s.id=id;s.textContent='nav.mobile-dock-container{display:none!important}.px-safe{padding-left:1rem!important;padding-right:1rem!important}';document.head.appendChild(s);}})()
     """
 
     private func hideWebDock(_ hide: Bool) {
