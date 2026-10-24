@@ -397,13 +397,14 @@ export const Layout = ({
       window.removeEventListener('open-nudge', toggleNativeNudge);
     };
   }, []);
-  useEffect(() => {
-    if (!duo.isDuo) return;
-    document.documentElement.dataset.nudgeLate = String(nativeNudgeLate);
-    return () => { delete document.documentElement.dataset.nudgeLate; };
-  }, [duo.isDuo, nativeNudgeLate]);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo, locations: allUserLocations } = useAppLocation();
+  useEffect(() => {
+    if (!duo.isDuo) return;
+    const canNudge = !roleLoading && !!role && NUDGE_ROLES_CLIENT.includes(role) && !!currentLocation?.id;
+    document.documentElement.dataset.nudgeLate = String(canNudge ? nativeNudgeLate : 0);
+    return () => { delete document.documentElement.dataset.nudgeLate; };
+  }, [duo.isDuo, nativeNudgeLate, roleLoading, role, currentLocation?.id]);
   const { mode: currentInventoryMode, isConfigured: inventoryConfigured } = useInventoryMode(currentLocation?.id);
   
   
