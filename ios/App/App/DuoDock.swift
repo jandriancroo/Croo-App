@@ -93,11 +93,36 @@ final class DuoDockController: UINavigationController {
         super.viewDidLoad()
         rebuildItems()
         applyLook()
+        view.backgroundColor = UIColor(red: 244 / 255, green: 239 / 255, blue: 230 / 255, alpha: 1)
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         refresh()
+        keepWebOutOfColumn()
+    }
+
+    /// Shrinks the web view so it ends where Apple's column begins. Nothing in the web app (pages,
+    /// manager dash, sheets, menus, location switcher, Ovation, toasts) can then sit behind the column,
+    /// with no change to any web screen. The column itself shows the app background behind the dock.
+    private func keepWebOutOfColumn() {
+        guard let content = topViewController?.view else { return }
+        let full = view.bounds
+        var frame = full
+        let bar = toolbar.frame
+        if dockShowing, hasSideColumn, !toolbar.isHidden, bar.height > bar.width {
+            let gap: CGFloat = 6
+            if bar.midX > full.midX {
+                frame.size.width = max(0, bar.minX - gap)          // column on the right
+            } else {
+                frame.origin.x = bar.maxX + gap                    // column on the left
+                frame.size.width = max(0, full.maxX - frame.origin.x)
+            }
+        }
+        if content.frame != frame {
+            content.frame = frame
+            print("[DuoDock] web area \(Int(frame.minX))-\(Int(frame.maxX)) of \(Int(full.width)), bar \(Int(bar.minX))-\(Int(bar.maxX))")
+        }
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
