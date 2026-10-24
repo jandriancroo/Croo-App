@@ -61,6 +61,8 @@ final class DuoDockController: UINavigationController {
     private let bridgeVC: CrooBridgeViewController
     private var tabItems: [String: UIBarButtonItem] = [:]
     private var dockShowing = false
+    /// Open (unfolded) Duo: no side column, but still a Duo. Folded: Apple's column is showing.
+    private var duoOpen = false
     private var pollTimer: Timer?
     private var currentPath = ""
     private var loggedEdge = ""
@@ -170,6 +172,12 @@ final class DuoDockController: UINavigationController {
         // Side column → Apple puts the toolbar in it. Duo without one (open, held wide) → Apple
         // shows the same toolbar floating at the bottom. Any other iPhone → hidden, web dock stays.
         let show = side || open || isDuo
+        let nowOpen = isDuo && !side
+        if nowOpen != duoOpen {
+            duoOpen = nowOpen
+            rebuildItems()
+        }
+        runJS(duoClassesJS(folded: isDuo && side, open: nowOpen))
         guard show != dockShowing else { return }
         dockShowing = show
         print("[DuoDock] native dock \(show ? "on" : "off")")
@@ -259,7 +267,8 @@ final class DuoDockController: UINavigationController {
                 self?.runJS("(function(){var m=document.querySelector('button[title=\"More options\"]');if(m&&m.offsetParent!==null){m.click();return}var t=Array.prototype.slice.call(document.querySelectorAll('header.sticky .nav-bar-unified button[aria-haspopup=\"menu\"]')).filter(function(x){return x.querySelector('.h-7.w-7')})[0];if(t){t.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,button:0,pointerType:'mouse'}))}else if(m){m.click()}})()")
             }
         )
-        var items: [UIBarButtonItem] = [arrow, profile]
+        // Open Duo: the manager dash is closed-mode only, so the arrow leaves the dock.
+        var items: [UIBarButtonItem] = duoOpen ? [profile] : [arrow, profile]
         tabItems = [:]
         for tab in tabs {
             let item = UIBarButtonItem(
@@ -416,6 +425,15 @@ final class DuoDockController: UINavigationController {
     private static let hideDockJS = """
     (function(){var id='croo-duo-dock';if(!document.getElementById(id)){var s=document.createElement('style');s.id=id;s.textContent='nav.mobile-dock-container{display:none!important}header.fixed{top:max(8px,env(safe-area-inset-top))!important;left:max(8px,env(safe-area-inset-left))!important;right:0!important;width:auto!important;border-radius:20px var(--duo-corner,48px) 20px 20px!important}header.fixed>div{padding-right:calc(env(safe-area-inset-right) + 12px)!important}header.fixed button[title="More options"]{visibility:hidden!important}main.px-safe{padding-left:max(1rem,env(safe-area-inset-left))!important;padding-right:calc(env(safe-area-inset-right) + 1rem)!important}header.sticky>.container{max-width:none!important;padding-right:calc(env(safe-area-inset-right) + 12px)!important}header.sticky .nav-bar-unified>div[class~="gap-0.5"],header.sticky .nav-bar-unified>div.flex-1{display:none!important}header.sticky .nav-bar-unified button[aria-haspopup="menu"]:has(.h-7.w-7),header.sticky .nav-bar-unified button[aria-label^="Nudge"]{display:none!important}header.sticky .nav-bar-unified>div.px-2{flex:1 1 auto;min-width:0}header.sticky .nav-bar-unified button[aria-label="Ask Theo"]{order:2}#duo-theo-line{order:3;flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;font-weight:500;padding:0 10px}html.duo-theo-moved [data-duo-theo-src]{display:none!important}button[aria-label="Update app"]{width:56px!important;height:48px!important;align-self:center!important;border-radius:9999px!important;padding:0!important}button[aria-label="Update app"] span{display:none!important}.cd-panel button[aria-label="Close"]{display:none!important}[role="dialog"][class*="left-[50%]"]{left:calc(50% - env(safe-area-inset-right) / 2)!important;top:calc(var(--vvt,0px) + var(--vvh,100dvh) / 2)!important;max-height:calc(var(--vvh,100dvh) - 16px)!important;overflow-y:auto!important}@media (max-width:767px){[role="dialog"][class*="left-[50%]"]{max-width:calc(100vw - env(safe-area-inset-right) - 16px)!important}}[role="dialog"][class*="right-0"],[role="dialog"][class*="inset-x-0"],[data-vaul-drawer],.cd-panel{right:env(safe-area-inset-right)!important}[role="dialog"][class*="inset-y-0"][class*="right-0"]{max-width:calc(100vw - env(safe-area-inset-right))!important}[role="dialog"][class*="bottom-0"],[data-vaul-drawer]{bottom:var(--vvb,0px)!important;max-height:calc(var(--vvh,100dvh) - 12px)!important}[role="dialog"][class*="bottom-0"]{overflow-y:auto!important}';document.head.appendChild(s);}})();(function(){if(window.__duoVV)return;window.__duoVV=1;var v=window.visualViewport;if(!v)return;var r=document.documentElement;var u=function(){r.style.setProperty('--vvh',v.height+'px');r.style.setProperty('--vvt',v.offsetTop+'px');r.style.setProperty('--vvb',Math.max(0,innerHeight-v.height-v.offsetTop)+'px')};v.addEventListener('resize',u);v.addEventListener('scroll',u);u();document.addEventListener('pointerdown',function(){window.__duoTap=Date.now()},true);document.addEventListener('focusin',function(e){var t=e.target;if(!t||!t.closest||!document.getElementById('croo-duo-dock'))return;if(!t.matches('input,textarea,[contenteditable="true"]')||!t.closest('[role=dialog],[data-vaul-drawer]'))return;if(Date.now()-(window.__duoTap||0)>400){setTimeout(function(){t.blur()},0)}},true)})();(function(){var on=!!document.getElementById('croo-duo-dock')&&innerWidth>=768;var at=document.querySelector('header.sticky .nav-bar-unified button[aria-label="Ask Theo"]');var b=at?at.parentElement:document.querySelector('header.sticky .nav-bar-unified>div.px-2');var el=document.getElementById('duo-theo-line');var h=document.querySelector('.spookified-dashboard-content h1');var box=h&&h.closest('.spookified-dashboard-content>div');var src=box&&box.querySelector(':scope>div.text-sm');if(!on||!b||!src){if(el)el.remove();document.documentElement.classList.remove('duo-theo-moved');return}src.setAttribute('data-duo-theo-src','');document.documentElement.classList.add('duo-theo-moved');if(!el){el=document.createElement('div');el.id='duo-theo-line';b.appendChild(el)}if(el.innerHTML!==src.innerHTML)el.innerHTML=src.innerHTML})()
     """
+
+    /// Tells the web app which Duo state we're in: html.duo, plus duo-folded or duo-open.
+    private func duoClassesJS(folded: Bool, open: Bool) -> String {
+        let on = isDuo || folded || open
+        return """
+        (function(){var c=document.documentElement.classList;\
+        c.toggle('duo',\(on));c.toggle('duo-folded',\(folded));c.toggle('duo-open',\(open));})()
+        """
+    }
 
     private func hideWebDock(_ hide: Bool) {
         if hide {
