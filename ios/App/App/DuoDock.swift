@@ -134,8 +134,10 @@ final class DuoDockController: UINavigationController {
     /// Apple's side column is showing. Apple reports UIVerticalBarEdge: 0 = no side column,
     /// 1 and 2 = one edge or the other (seen on Jordan's Duo: folded upright 2, folded sideways 1).
     private var hasSideColumn: Bool {
-        if #available(iOS 27.1, *) {
-            let raw = traitCollection.verticalBarEdge.rawValue
+        // Read by name so this builds on any Xcode 27 (the Studio's SDK doesn't list it yet).
+        let tc = traitCollection
+        if tc.responds(to: NSSelectorFromString("verticalBarEdge")),
+           let raw = (tc.value(forKey: "verticalBarEdge") as? NSNumber)?.intValue {
             lastEdgeRaw = Int(raw)
             let edge = "\(raw)"
             if edge != loggedEdge {
@@ -155,10 +157,7 @@ final class DuoDockController: UINavigationController {
 
     /// The screen has a fold right now (kept for the log; empty on Jordan's Duo so far).
     private var isUnfolded: Bool {
-        if #available(iOS 27.1, *) {
-            return !view.reservedRegions(kind: .division).isEmpty
-        }
-        return false
+        false // fold check removed: it came back empty on the Duo, and older SDKs lack it
     }
 
     private var lastReport = ""
