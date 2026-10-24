@@ -462,11 +462,72 @@ export function DataCube3D({
   };
 
   return (
-    <div className={cn("relative group h-full", className)}>
+    <div className={cn("data-cube-3d relative group h-full", className)}>
+      <style>{`
+        /* Only the open Duo panel uses intrinsic, equal-height cube faces. */
+        html.duo.duo-open [data-tour="dashboard-cubes"] > div:has(.data-cube-3d) {
+          display: grid;
+          min-width: 0;
+        }
+        html.duo.duo-open div:has(> .data-cube-3d) {
+          aspect-ratio: auto;
+          display: grid;
+        }
+        html.duo.duo-open .data-cube-3d,
+        html.duo.duo-open .data-cube-viewport {
+          height: auto;
+          display: grid;
+          min-width: 0;
+        }
+        html.duo.duo-open .data-cube-rotation {
+          height: auto;
+          min-height: 170px;
+          display: grid;
+        }
+        html.duo.duo-open .data-cube-face {
+          position: relative;
+          inset: auto;
+          grid-area: 1 / 1;
+          min-width: 0;
+        }
+        html.duo.duo-open .data-cube-title {
+          padding: 12px 12px 0;
+        }
+        html.duo.duo-open .data-cube-content {
+          padding: 12px;
+          display: grid;
+          flex: 1 0 auto;
+        }
+        html.duo.duo-open .data-cube-content .h-full {
+          height: auto;
+        }
+        html.duo.duo-open .data-cube-quadrants {
+          grid-template-rows: repeat(2, minmax(min-content, 1fr));
+          gap: 16px 8px;
+        }
+        html.duo.duo-open .data-cube-three-rows {
+          gap: 16px;
+        }
+        html.duo.duo-open .data-cube-center {
+          position: relative;
+          inset: auto;
+          margin-top: 12px;
+        }
+        html.duo.duo-open .data-cube-content .font-semibold {
+          margin-top: 2px;
+          white-space: normal;
+          overflow: visible;
+          line-height: 1.3;
+        }
+        html.duo.duo-open .data-cube-dots {
+          flex-shrink: 0;
+          padding-bottom: 10px;
+        }
+      `}</style>
       {/* 3D Cube Container - fills parent, uses perspective */}
       <div 
         ref={containerRef}
-        className="relative w-full h-full cursor-pointer overflow-visible select-none"
+        className="data-cube-viewport relative w-full h-full cursor-pointer overflow-visible select-none"
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
@@ -479,7 +540,7 @@ export function DataCube3D({
       >
         {/* The actual 3D rotating cube */}
         <div
-          className="relative w-full h-full transition-transform duration-700 ease-[cubic-bezier(0.4,0,0.2,1)]"
+          className="data-cube-rotation relative w-full h-full transition-transform duration-700 ease-[cubic-bezier(0.4,0,0.2,1)]"
           style={{
             transformStyle: 'preserve-3d',
             transform: `translateZ(-${cubeDepth}px) rotateY(${getRotationY()}deg)`,
@@ -616,7 +677,7 @@ function CubeFaceComponent({
     return (
       <div
         className={cn(
-          "absolute inset-0 rounded-[8px] shadow-lg flex items-center justify-center backface-hidden",
+          "data-cube-face absolute inset-0 rounded-[8px] shadow-lg flex items-center justify-center backface-hidden",
           bgClass
         )}
         style={{
@@ -632,7 +693,7 @@ function CubeFaceComponent({
   return (
     <div
       className={cn(
-        "absolute inset-0 rounded-[8px] overflow-hidden flex flex-col",
+        "data-cube-face absolute inset-0 rounded-[8px] overflow-hidden flex flex-col",
         bgClass
       )}
       style={{
@@ -652,7 +713,7 @@ function CubeFaceComponent({
       {title && (
         <div 
           className={cn(
-            "text-sm md:text-base font-bold px-2.5 md:px-3 pt-2 md:pt-2.5 truncate uppercase tracking-wide relative z-10",
+            "data-cube-title text-sm md:text-base font-bold px-2.5 md:px-3 pt-2 md:pt-2.5 truncate uppercase tracking-wide relative z-10",
             isLightBg ? "text-foreground" : "text-white"
           )}
         >
@@ -662,7 +723,7 @@ function CubeFaceComponent({
       
       {/* Content - positioned layout for metrics */}
       <div className={cn(
-        "flex-1 relative z-10",
+        "data-cube-content flex-1 relative z-10",
         (metricCount === 4 || metricCount === 5) ? "p-2 md:p-3" : "px-2.5 md:px-3 py-1"
       )}>
         {(metricCount === 4 || metricCount === 5) ? (
@@ -688,7 +749,7 @@ function CubeFaceComponent({
               }}
             />
             
-            <div className="grid grid-cols-2 grid-rows-2 h-full gap-1">
+            <div className="data-cube-quadrants grid grid-cols-2 grid-rows-2 h-full gap-1">
               {cornerMetrics.map((metricType, index) => {
                 const config = METRIC_CONFIGS[metricType];
                 if (!config) return null;
@@ -743,7 +804,7 @@ function CubeFaceComponent({
               const textColorClass = getPacingTextColor(pacingStatus, isLightBg, pacingDisplay);
               
               return (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="data-cube-center absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div 
                     className={cn(
                       "flex flex-col items-center text-center px-2 py-1 rounded-lg",
@@ -798,7 +859,7 @@ function CubeFaceComponent({
               }}
             />
             
-            <div className="h-full flex flex-col">
+            <div className="data-cube-three-rows h-full flex flex-col">
               {/* Top row: 2 items */}
               <div className="flex-1 grid grid-cols-2 gap-1">
                 {displayMetrics.slice(0, 2).map((metricType, index) => {
@@ -983,7 +1044,7 @@ function CubeFaceComponent({
       
       {/* Face Indicator dots */}
       {totalFaces > 1 && (
-        <div className="flex justify-center items-center gap-1 pb-1.5 md:pb-2">
+        <div className="data-cube-dots flex justify-center items-center gap-1 pb-1.5 md:pb-2">
           {Array.from({ length: totalFaces }).map((_, index) => (
             <button
               key={index}
