@@ -263,8 +263,9 @@ final class DuoDockController: UINavigationController {
             title: "Profile",
             image: icon("person.crop.circle"),
             primaryAction: UIAction { [weak self] _ in
-                // Same as tapping the avatar in the header today.
-                self?.runJS("(function(){var m=document.querySelector('button[title=\"More options\"]');if(m&&m.offsetParent!==null){m.click();return}var t=Array.prototype.slice.call(document.querySelectorAll('header.sticky .nav-bar-unified button[aria-haspopup=\"menu\"]')).filter(function(x){return x.querySelector('.h-7.w-7')})[0];if(t){t.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,button:0,pointerType:'mouse'}))}else if(m){m.click()}})()")
+                // Opens the profile menu: the phone menu sheet when it exists (folded), else the header's avatar menu.
+                // Radix triggers listen for pointer events, so send those, not just click().
+                self?.runJS("(function(){var f=function(b){['pointerdown','mousedown','pointerup','mouseup','click'].forEach(function(t){b.dispatchEvent(new (t.indexOf('pointer')==0?PointerEvent:MouseEvent)(t,{bubbles:true,cancelable:true,button:0,pointerType:'mouse'}))})};window.dispatchEvent(new Event('open-profile-menu'));var m=document.querySelector('button[title=\"More options\"]');if(m){f(m);return}var t=Array.prototype.slice.call(document.querySelectorAll('header button[aria-haspopup=\"menu\"]')).filter(function(x){return x.querySelector('.h-7.w-7')})[0];if(t)f(t)})()")
             }
         )
         // Open Duo: the manager dash is closed-mode only, so the arrow leaves the dock.
@@ -418,12 +419,10 @@ final class DuoDockController: UINavigationController {
     // Test of Jordan's Oct 23 (later) direction: floating headers again (folded: rounded bar short of the column;
     // open: one bar across both panels with logo, location/Ovation, Ask Theo and Theo's Dash line), no colored
     // column, and dialogs/sheets/manager dash kept out of the column. The real build does this in the web app.
-    // Test build only (the real Duo pages come from the web app): floating headers (folded: runs past the column
-    // into the screen corner; open: one bar with logo, location/Ovation, Ask Theo, Theo's Dash line), the menu's
-    // Update as a round button, the manager dash without its own close chevron, and dialogs/sheets that stay out of
-    // the column, fit the visible screen and ride above the keyboard (no auto-keyboard when a dialog opens).
+    // The web app (Lovable) now owns every Duo layout: headers, splits, dialogs, menu. The shell only hides the
+    // web dock (native tabs replace it) and tells the page which Duo state it's in.
     private static let hideDockJS = """
-    (function(){var id='croo-duo-dock';if(!document.getElementById(id)){var s=document.createElement('style');s.id=id;s.textContent='nav.mobile-dock-container{display:none!important}header.fixed{top:max(8px,env(safe-area-inset-top))!important;left:max(8px,env(safe-area-inset-left))!important;right:0!important;width:auto!important;border-radius:20px var(--duo-corner,48px) 20px 20px!important}header.fixed>div{padding-right:calc(env(safe-area-inset-right) + 12px)!important}header.fixed button[title="More options"]{visibility:hidden!important}main.px-safe{padding-left:max(1rem,env(safe-area-inset-left))!important;padding-right:calc(env(safe-area-inset-right) + 1rem)!important}header.sticky>.container{max-width:none!important;padding-right:calc(env(safe-area-inset-right) + 12px)!important}header.sticky .nav-bar-unified>div[class~="gap-0.5"],header.sticky .nav-bar-unified>div.flex-1{display:none!important}header.sticky .nav-bar-unified button[aria-haspopup="menu"]:has(.h-7.w-7),header.sticky .nav-bar-unified button[aria-label^="Nudge"]{display:none!important}header.sticky .nav-bar-unified>div.px-2{flex:1 1 auto;min-width:0}header.sticky .nav-bar-unified button[aria-label="Ask Theo"]{order:2}#duo-theo-line{order:3;flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;font-weight:500;padding:0 10px}html.duo-theo-moved [data-duo-theo-src]{display:none!important}button[aria-label="Update app"]{width:56px!important;height:48px!important;align-self:center!important;border-radius:9999px!important;padding:0!important}button[aria-label="Update app"] span{display:none!important}.cd-panel button[aria-label="Close"]{display:none!important}[role="dialog"][class*="left-[50%]"]{left:calc(50% - env(safe-area-inset-right) / 2)!important;top:calc(var(--vvt,0px) + var(--vvh,100dvh) / 2)!important;max-height:calc(var(--vvh,100dvh) - 16px)!important;overflow-y:auto!important}@media (max-width:767px){[role="dialog"][class*="left-[50%]"]{max-width:calc(100vw - env(safe-area-inset-right) - 16px)!important}}[role="dialog"][class*="right-0"],[role="dialog"][class*="inset-x-0"],[data-vaul-drawer],.cd-panel{right:env(safe-area-inset-right)!important}[role="dialog"][class*="inset-y-0"][class*="right-0"]{max-width:calc(100vw - env(safe-area-inset-right))!important}[role="dialog"][class*="bottom-0"],[data-vaul-drawer]{bottom:var(--vvb,0px)!important;max-height:calc(var(--vvh,100dvh) - 12px)!important}[role="dialog"][class*="bottom-0"]{overflow-y:auto!important}';document.head.appendChild(s);}})();(function(){if(window.__duoVV)return;window.__duoVV=1;var v=window.visualViewport;if(!v)return;var r=document.documentElement;var u=function(){r.style.setProperty('--vvh',v.height+'px');r.style.setProperty('--vvt',v.offsetTop+'px');r.style.setProperty('--vvb',Math.max(0,innerHeight-v.height-v.offsetTop)+'px')};v.addEventListener('resize',u);v.addEventListener('scroll',u);u();document.addEventListener('pointerdown',function(){window.__duoTap=Date.now()},true);document.addEventListener('focusin',function(e){var t=e.target;if(!t||!t.closest||!document.getElementById('croo-duo-dock'))return;if(!t.matches('input,textarea,[contenteditable="true"]')||!t.closest('[role=dialog],[data-vaul-drawer]'))return;if(Date.now()-(window.__duoTap||0)>400){setTimeout(function(){t.blur()},0)}},true)})();(function(){var on=!!document.getElementById('croo-duo-dock')&&innerWidth>=768;var at=document.querySelector('header.sticky .nav-bar-unified button[aria-label="Ask Theo"]');var b=at?at.parentElement:document.querySelector('header.sticky .nav-bar-unified>div.px-2');var el=document.getElementById('duo-theo-line');var h=document.querySelector('.spookified-dashboard-content h1');var box=h&&h.closest('.spookified-dashboard-content>div');var src=box&&box.querySelector(':scope>div.text-sm');if(!on||!b||!src){if(el)el.remove();document.documentElement.classList.remove('duo-theo-moved');return}src.setAttribute('data-duo-theo-src','');document.documentElement.classList.add('duo-theo-moved');if(!el){el=document.createElement('div');el.id='duo-theo-line';b.appendChild(el)}if(el.innerHTML!==src.innerHTML)el.innerHTML=src.innerHTML})()
+    (function(){var id='croo-duo-dock';if(!document.getElementById(id)){var s=document.createElement('style');s.id=id;s.textContent='nav.mobile-dock-container{display:none!important}';document.head.appendChild(s);}})()
     """
 
     /// Tells the web app which Duo state we're in: html.duo, plus duo-folded or duo-open.
@@ -439,7 +438,7 @@ final class DuoDockController: UINavigationController {
         if hide {
             runJS(Self.hideDockJS)
         } else {
-            runJS("document.getElementById('croo-duo-dock')?.remove();document.getElementById('duo-theo-line')?.remove();document.documentElement.classList.remove('duo-theo-moved')")
+            runJS("document.getElementById('croo-duo-dock')?.remove();document.documentElement.classList.remove('duo','duo-folded','duo-open')")
         }
     }
 
@@ -450,7 +449,7 @@ final class DuoDockController: UINavigationController {
         pollTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.updateRings()
-            self.runJS(Self.hideDockJS + ";" + self.lastColumnJS + ";location.pathname+'|'+(document.querySelector('.cd-panel')?1:0)") { result in
+            self.runJS(Self.hideDockJS + ";" + self.duoClassesJS(folded: self.hasSideColumn, open: self.duoOpen) + ";" + self.lastColumnJS + ";location.pathname+'|'+(document.querySelector('.cd-panel')?1:0)") { result in
                 guard let parts = (result as? String)?.split(separator: "|", omittingEmptySubsequences: false), parts.count == 2 else { return }
                 self.setDashOpen(parts[1] == "1")
                 let path = String(parts[0])
