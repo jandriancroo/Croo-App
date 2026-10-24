@@ -2630,3 +2630,100 @@ html[data-theme="spookified"] .spookified-orb-lightning { display: block; positi
 .promo-border-swatch-purple { background: hsl(var(--promo-border-purple)); }
 .promo-border-swatch-orange { background: hsl(var(--promo-border-orange)); }
 .promo-border-swatch-pink { background: hsl(var(--promo-border-pink)); }
+
+/* ===== iPhone Duo (shell sets html.duo + duo-folded/duo-open, --duo-col-left/right) =====
+   Everything here is inert unless the shell adds the duo class. */
+html.duo {
+  --duo-corner-radius: 48px;
+}
+
+/* Folded: the phone header runs to the right edge, past Apple's column;
+   its top-right corner follows the screen curve and buttons clear the column. */
+html.duo-folded .duo-phone-header {
+  border-top-right-radius: var(--duo-corner-radius, 48px);
+}
+html.duo-folded .duo-phone-header .duo-header-row {
+  padding-right: calc(var(--duo-col-right, 0px) + 12px);
+}
+html.duo-folded .duo-folded-hide {
+  display: none;
+}
+
+/* Open: content fills both screens under the floating header; web dock is hidden
+   (the shell provides native tabs). */
+html.duo-open .duo-open-main {
+  max-width: none;
+  width: 100%;
+  padding-top: calc(env(safe-area-inset-top) + 3.5rem);
+  padding-right: var(--duo-col-right, 0px);
+  padding-left: 0;
+  padding-bottom: 0;
+  height: 100dvh;
+  overflow: hidden;
+}
+html.duo-open .duo-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 100%;
+}
+html.duo-open .duo-panel {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.75rem;
+}
+html.duo-open .duo-panel-left {
+  border-right: 1px solid hsl(var(--border) / 0.5);
+}
+html.duo-open .duo-page-scroll {
+  height: 100%;
+  overflow-y: auto;
+  padding: 0.75rem 1rem 1.5rem;
+}
+html.duo-open .mobile-dock-container {
+  display: none !important;
+}
+
+/* Popups stay out of the column and fit the visible screen above the keyboard. */
+html.duo .duo-dialog {
+  left: calc(50% + (var(--duo-col-left, 0px) - var(--duo-col-right, 0px)) / 2);
+  max-width: calc(100vw - var(--duo-col-left, 0px) - var(--duo-col-right, 0px) - 1.5rem);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+}
+html.duo .duo-sheet[data-side='bottom'],
+html.duo .duo-sheet[data-side='top'] {
+  left: var(--duo-col-left, 0px);
+  right: var(--duo-col-right, 0px);
+}
+html.duo .duo-sheet[data-side='right'] {
+  right: var(--duo-col-right, 0px);
+}
+html.duo .duo-sheet[data-side='left'] {
+  left: var(--duo-col-left, 0px);
+}
+html.duo .duo-sheet[data-side='bottom'],
+html.duo .duo-drawer {
+  max-height: calc(100dvh - env(safe-area-inset-top) - 1rem);
+}
+html.duo .duo-drawer {
+  left: var(--duo-col-left, 0px);
+  right: var(--duo-col-right, 0px);
+}
+
+/* Named dialogs: Edit Punch wider; Quick Punch / New Shift scroll instead of
+   cutting off; Quick Task wraps instead of truncating. */
+html.duo .duo-edit-punch {
+  max-width: min(36rem, calc(100vw - var(--duo-col-left, 0px) - var(--duo-col-right, 0px) - 3rem));
+}
+html.duo .duo-punch-dialog,
+html.duo .duo-new-shift {
+  max-height: calc(100dvh - 3rem);
+  overflow-y: auto;
+}
+html.duo .duo-quick-task .truncate {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
