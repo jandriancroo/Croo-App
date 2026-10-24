@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
 import { QuickNudgeTutorial } from '@/components/dashboard/QuickNudgeTutorial';
-import { NudgeHeaderButton } from '@/components/dashboard/NudgeHeaderButton';
+import { NudgeHeaderButton, type NudgeHeaderHandle } from '@/components/dashboard/NudgeHeaderButton';
 import { NUDGE_ROLES_CLIENT } from '@/lib/quickNudges';
 import { registerMenuControl, unregisterMenuControl } from '@/components/onboarding/tourMenuBridge';
 import { registerDockControl, unregisterDockControl } from '@/components/dock/dockBridge';
@@ -381,8 +381,30 @@ export const Layout = ({
   }, []);
   const [timeMenuExpanded, setTimeMenuExpanded] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
+  const nativeNudgeRef = useRef<NudgeHeaderHandle>(null);
+  const [nativeNudgeLate, setNativeNudgeLate] = useState(0);
+  useEffect(() => {
+    const openLocationPicker = () => {
+      if (document.documentElement.classList.contains('duo-open')) setLocationDialogOpen(true);
+    };
+    const toggleNativeNudge = () => {
+      if (document.documentElement.classList.contains('duo-open')) nativeNudgeRef.current?.toggle();
+    };
+    window.addEventListener('open-location-picker', openLocationPicker);
+    window.addEventListener('open-nudge', toggleNativeNudge);
+    return () => {
+      window.removeEventListener('open-location-picker', openLocationPicker);
+      window.removeEventListener('open-nudge', toggleNativeNudge);
+    };
+  }, []);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, isSwitching, switchingTo, locations: allUserLocations } = useAppLocation();
+  useEffect(() => {
+    if (!duo.isDuo) return;
+    const canNudge = !roleLoading && !!role && NUDGE_ROLES_CLIENT.includes(role) && !!currentLocation?.id;
+    document.documentElement.dataset.nudgeLate = String(canNudge ? nativeNudgeLate : 0);
+    return () => { delete document.documentElement.dataset.nudgeLate; };
+  }, [duo.isDuo, nativeNudgeLate, roleLoading, role, currentLocation?.id]);
   const { mode: currentInventoryMode, isConfigured: inventoryConfigured } = useInventoryMode(currentLocation?.id);
   
   
@@ -940,9 +962,18 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     }];
 
   return <div className="flex min-h-screen flex-col bg-background">
-      {/* Duo open header — one floating bar split into two halves at the fold.
-          Left half (over the Dash panel): brand + location + Ovation.
-          Right half (over the Schedule panel): Ask Theo + Nudge (icon only). */}
+      {/* Native Duo controls retain the shared Nudge state without a visible web trigger. */}
+      {duo.isDuo && !roleLoading && !!role && NUDGE_ROLES_CLIENT.includes(role) && (
+        <NudgeHeaderButton
+          key={currentLocation?.id || 'no-location'}
+          ref={nativeNudgeRef}
+          locationId={currentLocation?.id}
+          iconOnly
+          nativeOnly
+          onLateCountChange={setNativeNudgeLate}
+        />
+      )}
+      {/* Duo open header — native dock owns location, Theo and Nudge controls. */}
       {duo.isOpen && (
         <header
           className="duo-open-header fixed top-0 left-0 z-50 bg-primary"
@@ -953,7 +984,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           }}
         >
           <div className="duo-open-header-row grid grid-cols-2 h-14">
-            <div className="flex items-center justify-center gap-1 min-w-0 px-2">
+            <div className="duo-open-brand-cell flex items-start justify-start min-w-0">
+              <div className="duo-open-brand-column flex flex-col items-start justify-center h-full min-w-0">
               <div className="nav-logo-inline flex-shrink-0">
                 {headerLogo ? (
                   <img
@@ -963,69 +995,15 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     onError={() => setBrandLogoBroken(true)}
                   />
                 ) : (
-                  <div className="h-8 w-8 rounded-lg bg-white/20" />
+                  <div className="h-8 w-8 rounded-lg bg-primary-foreground/20" />
                 )}
               </div>
-              {(() => {
-                const showOvation = canViewOvation !== false && location.pathname === '/dashboard' && ovationHasContent;
-                const showLocation = !!(currentLocation || isOnOrgDash);
-                if (!showLocation && !showOvation) return null;
-                const locationLabel = isOnOrgDash ? (orgDashName || 'Select Location') : currentLocation?.name;
-                return (
-                  <div className={cn('relative flex items-center min-w-0', showOvation && showLocation && 'bg-white/15 rounded-lg')}>
-                    {showLocation && (
-                      <button
-                        type="button"
-                        onClick={() => setLocationDialogOpen(true)}
-                        data-tour="location-picker"
-                        className={cn(
-                          'flex items-center gap-1.5 px-3 py-1.5 h-10 text-base font-medium text-primary-foreground transition-colors min-w-0',
-                          showOvation ? 'rounded-l-lg hover:bg-white/10' : 'rounded-lg hover:bg-white/15'
-                        )}
-                      >
-                        <MapPin className="h-4 w-4 flex-shrink-0" />
-                        <span className="flex flex-col items-start leading-tight min-w-0">
-                          <span className="truncate max-w-[120px]">{locationLabel}</span>
-                        </span>
-                        <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
-                      </button>
-                    )}
-                    {showOvation && showLocation && (
-                      <span aria-hidden className="h-5 w-px bg-white/20" />
-                    )}
-                    {showOvation && (
-                      <OvationTriggerWithPanel
-                        bare={showLocation}
-                        desktop={!showLocation}
-                        className={showLocation ? 'rounded-r-lg' : undefined}
-                        expanded={ovationExpanded}
-                        onToggle={() => setOvationExpanded(prev => !prev)}
-                        onClose={() => setOvationExpanded(false)}
-                      />
-                    )}
-                  </div>
-                );
-              })()}
+              <span className="w-full truncate text-xs font-bold text-primary-foreground leading-4">
+                {isOnOrgDash ? orgDashName : currentLocation?.name}
+              </span>
+              </div>
             </div>
-            <div className="flex items-center justify-center gap-2 min-w-0 px-2">
-              {!roleLoading && isShiftManager && (
-                <button
-                  onClick={() => window.dispatchEvent(new Event('open-theo'))}
-                  className="group relative flex h-8 items-center justify-center gap-2 whitespace-nowrap px-3.5 rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 transition-all duration-200"
-                  aria-label="Ask Theo"
-                >
-                  <span className="relative flex items-center justify-center h-5 w-5 shrink-0">
-                    <span className="absolute inset-0 rounded-full bg-white/40 animate-ping opacity-75" />
-                    <span className="absolute inset-0 rounded-full bg-white/20 animate-pulse" />
-                    <TheoOrb size={20} className="relative text-white pointer-events-none" />
-                  </span>
-                  <span className="text-sm font-bold text-white tracking-tight">Ask Theo</span>
-                </button>
-              )}
-              {!roleLoading && !!role && NUDGE_ROLES_CLIENT.includes(role) && currentLocation?.id && (
-                <NudgeHeaderButton locationId={currentLocation.id} iconOnly />
-              )}
-            </div>
+            <div aria-hidden="true" />
           </div>
         </header>
       )}

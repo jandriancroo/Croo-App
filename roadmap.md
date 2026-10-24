@@ -15,6 +15,7 @@
 - Announcements pop up on Dash after system alerts (read via Chat or popup, optional required "I've read this", who's-read list, out of Quick Tasks). Not yet tried live with test data.
 
 ## Done
+- Duo native header controls: open header shows only brand/location text; native location/Theo/Nudge events verified signed-in at 951px/84px column. Late badge shares existing Nudge query; panel edges 495.5–867px, outside/Escape/toggle verified. Seven tests passed, normal-device/folded checks passed. Part B title placement remains report-only; nothing published.
 - Duo open Nudge: right-panel bounds measured 495.5–867px at 951px/84px column; outside tap, Escape, finger toggle and 44px close verified signed-in. Folded presentation and sending logic unchanged; nothing published.
 - Duo crease alignment: panels and header share 50vw minus the left column and half the gutter; signed-in 951px preview with 84px right column measured edges 455.5px/495.5px, 40px empty gutter, header groups aligned, no page errors, and Duo-off restored. Build clean; nothing published.
 - Duo follow-up: straight edge-to-edge headers, native profile event opens mobile menu in both modes, startup class observation gap covered by four passing tests. Signed-in preview verified open Dash/Schedule panels and independent scroll, both menus, and unchanged non-Duo header measurements at phone/iPad/desktop. Real-device missing split was not reproduced; no hiding/stacking conflict found. Nothing published.

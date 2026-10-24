@@ -1,26 +1,40 @@
 // iPad/desktop home for Quick Nudge: header icon with a late-count badge that opens the shared Nudge list.
-import { useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { NudgeTapIcon } from '@/components/icons/NudgeTapIcon';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { NudgeListPanel, useNudgeList } from '@/components/dashboard/NudgeSection';
 import { cn } from '@/lib/utils';
 import { useDuo } from '@/hooks/useDuo';
 
-export function NudgeHeaderButton({ locationId, iconOnly = false }: { locationId: string | null | undefined; iconOnly?: boolean }) {
+export interface NudgeHeaderHandle {
+  toggle: () => void;
+}
+
+export const NudgeHeaderButton = forwardRef<NudgeHeaderHandle, {
+  locationId: string | null | undefined;
+  iconOnly?: boolean;
+  nativeOnly?: boolean;
+  onLateCountChange?: (count: number) => void;
+}>(function NudgeHeaderButton({ locationId, iconOnly = false, nativeOnly = false, onLateCountChange }, ref) {
   const [open, setOpen] = useState(false);
   const duo = useDuo();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const { data: items = [], isLoading } = useNudgeList(locationId, true);
   const late = items.filter((i) => i.group === 'overdue').length;
+  useImperativeHandle(ref, () => ({ toggle: () => setOpen((current) => !current) }), []);
+  useEffect(() => { onLateCountChange?.(late); }, [late, onLateCountChange]);
   return (
     <>
       <button
         ref={triggerRef}
         type="button"
+        tabIndex={nativeOnly ? -1 : undefined}
+        aria-hidden={nativeOnly || undefined}
         onClick={() => setOpen(duo.isOpen ? !open : true)}
         className={cn(
           'relative flex h-8 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-white/15 hover:bg-white/25 active:scale-95 transition-all duration-200',
           iconOnly ? 'w-9 px-0' : 'px-3.5 md:min-w-[7.5rem]',
+          nativeOnly && 'duo-native-nudge-trigger',
         )}
         aria-label={late > 0 ? `Nudge, ${late} late` : 'Nudge'}
       >
@@ -49,4 +63,4 @@ export function NudgeHeaderButton({ locationId, iconOnly = false }: { locationId
       </Sheet>
     </>
   );
-}
+});

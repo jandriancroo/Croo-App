@@ -2657,6 +2657,20 @@ html.duo-open .duo-open-header-row > div {
   padding-inline: 12px;
   overflow: hidden;
 }
+html.duo-open .duo-open-header-row > .duo-open-brand-cell {
+  padding-left: 14px;
+}
+html.duo-open .duo-open-brand-column {
+  width: 80px;
+}
+html.duo .duo-native-nudge-trigger {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  pointer-events: none;
+}
 html.duo .duo-header-row > .absolute {
   left: calc(50% + (var(--duo-col-left, 0px) - var(--duo-col-right, 0px)) / 2);
 }
