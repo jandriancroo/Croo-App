@@ -196,6 +196,17 @@ final class DuoDockController: UINavigationController {
     }
 
     private static let openManagerDashJS = "document.querySelector('.glass-dock .cursor-pointer')?.click()"
+    private static let toggleManagerDashJS = "(function(){var c=document.querySelector('.cd-panel button[aria-label=\"Close\"]');if(c){c.click()}else{document.querySelector('.glass-dock .cursor-pointer')?.click()}})()"
+    private var arrowItem: UIBarButtonItem?
+    private var dashOpen = false
+
+    /// Arrow points up while the manager dash is closed, down while it's open (it slides up and down).
+    private func setDashOpen(_ open: Bool) {
+        guard open != dashOpen else { return }
+        dashOpen = open
+        arrowItem?.image = icon(open ? "chevron.down.circle" : "chevron.up.circle")
+        arrowItem?.title = open ? "Close manager dash" : "Manager dash"
+    }
 
     private func setCollapsed(_ value: Bool) {
         collapsed = value
@@ -214,9 +225,10 @@ final class DuoDockController: UINavigationController {
             )
             expand.menu = UIMenu(children: [
                 UIAction(title: "Show dock", image: UIImage(systemName: "chevron.left.2")) { [weak self] _ in self?.setCollapsed(false) },
-                UIAction(title: "Open manager dash", image: UIImage(systemName: "chevron.left.circle")) { [weak self] _ in self?.runJS(Self.openManagerDashJS) },
+                UIAction(title: "Open manager dash", image: UIImage(systemName: "chevron.up.circle")) { [weak self] _ in self?.runJS(Self.openManagerDashJS) },
             ])
             if #available(iOS 26.0, *) { expand.sharesBackground = false }
+            arrowItem = nil
             tabItems = [:]
             bridgeVC.toolbarItems = [expand]
             return
@@ -225,15 +237,20 @@ final class DuoDockController: UINavigationController {
         // The arrow is its own circle. Tap = manager dash (same as the swipe handle today).
         // Press and hold = menu with "Collapse dock".
         let arrow = UIBarButtonItem(
-            title: "Manager dash",
-            image: icon("chevron.left.circle"),
-            primaryAction: UIAction { [weak self] _ in self?.runJS(Self.openManagerDashJS) },
+            title: dashOpen ? "Close manager dash" : "Manager dash",
+            image: icon(dashOpen ? "chevron.down.circle" : "chevron.up.circle"),
+            primaryAction: UIAction { [weak self] _ in
+                guard let self else { return }
+                self.runJS(Self.toggleManagerDashJS)
+                self.setDashOpen(!self.dashOpen) // flip right away; the poll corrects it within a second
+            },
             menu: UIMenu(children: [
-                UIAction(title: "Open manager dash", image: UIImage(systemName: "chevron.left.circle")) { [weak self] _ in self?.runJS(Self.openManagerDashJS) },
+                UIAction(title: "Open manager dash", image: UIImage(systemName: "chevron.up.circle")) { [weak self] _ in self?.runJS(Self.openManagerDashJS) },
                 UIAction(title: "Collapse dock", image: UIImage(systemName: "chevron.right.2")) { [weak self] _ in self?.setCollapsed(true) },
             ])
         )
         if #available(iOS 26.0, *) { arrow.sharesBackground = false }
+        arrowItem = arrow
         let profile = UIBarButtonItem(
             title: "Profile",
             image: icon("person.crop.circle"),
@@ -284,6 +301,17 @@ final class DuoDockController: UINavigationController {
         }
     }
 
+    private var dumpedTree = false
+    /// One-time list of the views inside the toolbar, so the rings can be aimed if the first guess misses.
+    private func dumpTree(_ v: UIView, host: UIView, depth: Int) {
+        guard depth < 9 else { return }
+        for sub in v.subviews {
+            let f = sub.convert(sub.bounds, to: host)
+            print("[DuoDock] tree \(String(repeating: "  ", count: depth))\(String(describing: type(of: sub))) \(Int(f.minX)),\(Int(f.minY)) \(Int(f.width))x\(Int(f.height))\(sub.isHidden ? " hidden" : "")")
+            dumpTree(sub, host: host, depth: depth + 1)
+        }
+    }
+
     private func updateRings() {
         guard let host = toolbar.superview else { return }
         var frames: [CGRect] = []
@@ -296,6 +324,11 @@ final class DuoDockController: UINavigationController {
                 names.append("statusBar \(Int(f.minX)),\(Int(f.minY)) \(Int(f.width))x\(Int(f.height))")
                 if f.width > 20, f.width < 140, f.height > 60 { frames.append(f) }
             }
+        }
+        if dockShowing, hasSideColumn, !dumpedTree, toolbar.bounds.height > 0 {
+            dumpedTree = true
+            print("[DuoDock] toolbar frame \(toolbar.frame) in \(String(describing: type(of: host)))")
+            dumpTree(toolbar, host: host, depth: 0)
         }
         let log = names.joined(separator: " | ")
         if log != lastRingLog { lastRingLog = log; print("[DuoDock] rings: \(log.isEmpty ? "none" : log)") }
@@ -344,13 +377,11 @@ final class DuoDockController: UINavigationController {
         let key = path.hasPrefix("/org-dash") ? "/dashboard" : path
         for (tabPath, item) in tabItems {
             let on = key == tabPath || key.hasPrefix(tabPath + "/")
-            item.isSelected = on
-            if #available(iOS 26.0, *), look == .orangeSelected {
+            // Oct 23: no color, just a soft lighter glass bubble behind the selected tab.
+            item.isSelected = false
+            if #available(iOS 26.0, *) {
                 item.style = on ? .prominent : .plain
-                item.tintColor = on ? Self.orange : nil
-            } else {
-                item.style = .plain
-                item.tintColor = nil
+                item.tintColor = on ? UIColor.white.withAlphaComponent(0.28) : nil
             }
         }
     }
@@ -378,15 +409,19 @@ final class DuoDockController: UINavigationController {
     // Test of Jordan's Oct 23 (later) direction: floating headers again (folded: rounded bar short of the column;
     // open: one bar across both panels with logo, location/Ovation, Ask Theo and Theo's Dash line), no colored
     // column, and dialogs/sheets/manager dash kept out of the column. The real build does this in the web app.
+    // Test build only (the real Duo pages come from the web app): floating headers (folded: runs past the column
+    // into the screen corner; open: one bar with logo, location/Ovation, Ask Theo, Theo's Dash line), the menu's
+    // Update as a round button, the manager dash without its own close chevron, and dialogs/sheets that stay out of
+    // the column, fit the visible screen and ride above the keyboard (no auto-keyboard when a dialog opens).
     private static let hideDockJS = """
-    (function(){var id='croo-duo-dock';if(!document.getElementById(id)){var s=document.createElement('style');s.id=id;s.textContent='nav.mobile-dock-container{display:none!important}header.fixed{top:max(8px,env(safe-area-inset-top))!important;left:max(8px,env(safe-area-inset-left))!important;right:calc(env(safe-area-inset-right) + 8px)!important;width:auto!important;border-radius:20px!important}header.fixed button[title="More options"]{visibility:hidden!important}main.px-safe{padding-left:max(1rem,env(safe-area-inset-left))!important;padding-right:calc(env(safe-area-inset-right) + 1rem)!important}header.sticky>.container{max-width:none!important;padding-right:calc(env(safe-area-inset-right) + 12px)!important}header.sticky .nav-bar-unified>div[class~="gap-0.5"],header.sticky .nav-bar-unified>div.flex-1{display:none!important}header.sticky .nav-bar-unified button[aria-haspopup="menu"]:has(.h-7.w-7){display:none!important}header.sticky .nav-bar-unified>div.px-2{flex:1 1 auto;min-width:0}header.sticky .nav-bar-unified>div.px-2>button[aria-label="Ask Theo"]{order:2}#duo-theo-line{order:3;flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;font-weight:500;padding:0 10px}header.sticky .nav-bar-unified>div.px-2>button[aria-label^="Nudge"]{order:4}@media (min-width:768px){.spookified-dashboard-content>div:first-child>div.text-sm.text-muted-foreground{display:none!important}}[role="dialog"][class*="left-[50%]"]{left:calc(50% - env(safe-area-inset-right) / 2)!important}@media (max-width:767px){[role="dialog"][class*="left-[50%]"]{max-width:calc(100vw - env(safe-area-inset-right) - 24px)!important}}[role="dialog"][class*="right-0"],[role="dialog"][class*="inset-x-0"],[data-vaul-drawer],.cd-panel{right:env(safe-area-inset-right)!important}[role="dialog"][class*="inset-y-0"][class*="right-0"]{max-width:calc(100vw - env(safe-area-inset-right))!important}';document.head.appendChild(s);}})();(function(){var b=document.querySelector('header.sticky .nav-bar-unified>div.px-2');var el=document.getElementById('duo-theo-line');var src=document.querySelector('.spookified-dashboard-content>div:first-child>div.text-sm.text-muted-foreground');if(!b||!src||innerWidth<768||!document.getElementById('croo-duo-dock')){if(el)el.remove();return}if(!el){el=document.createElement('div');el.id='duo-theo-line';b.appendChild(el)}if(el.innerHTML!==src.innerHTML)el.innerHTML=src.innerHTML})()
+    (function(){var id='croo-duo-dock';if(!document.getElementById(id)){var s=document.createElement('style');s.id=id;s.textContent='nav.mobile-dock-container{display:none!important}header.fixed{top:max(8px,env(safe-area-inset-top))!important;left:max(8px,env(safe-area-inset-left))!important;right:0!important;width:auto!important;border-radius:20px var(--duo-corner,48px) 20px 20px!important}header.fixed>div{padding-right:calc(env(safe-area-inset-right) + 12px)!important}header.fixed button[title="More options"]{visibility:hidden!important}main.px-safe{padding-left:max(1rem,env(safe-area-inset-left))!important;padding-right:calc(env(safe-area-inset-right) + 1rem)!important}header.sticky>.container{max-width:none!important;padding-right:calc(env(safe-area-inset-right) + 12px)!important}header.sticky .nav-bar-unified>div[class~="gap-0.5"],header.sticky .nav-bar-unified>div.flex-1{display:none!important}header.sticky .nav-bar-unified button[aria-haspopup="menu"]:has(.h-7.w-7),header.sticky .nav-bar-unified button[aria-label^="Nudge"]{display:none!important}header.sticky .nav-bar-unified>div.px-2{flex:1 1 auto;min-width:0}header.sticky .nav-bar-unified button[aria-label="Ask Theo"]{order:2}#duo-theo-line{order:3;flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;font-weight:500;padding:0 10px}html.duo-theo-moved [data-duo-theo-src]{display:none!important}button[aria-label="Update app"]{width:56px!important;height:48px!important;align-self:center!important;border-radius:9999px!important;padding:0!important}button[aria-label="Update app"] span{display:none!important}.cd-panel button[aria-label="Close"]{display:none!important}[role="dialog"][class*="left-[50%]"]{left:calc(50% - env(safe-area-inset-right) / 2)!important;top:calc(var(--vvt,0px) + var(--vvh,100dvh) / 2)!important;max-height:calc(var(--vvh,100dvh) - 16px)!important;overflow-y:auto!important}@media (max-width:767px){[role="dialog"][class*="left-[50%]"]{max-width:calc(100vw - env(safe-area-inset-right) - 16px)!important}}[role="dialog"][class*="right-0"],[role="dialog"][class*="inset-x-0"],[data-vaul-drawer],.cd-panel{right:env(safe-area-inset-right)!important}[role="dialog"][class*="inset-y-0"][class*="right-0"]{max-width:calc(100vw - env(safe-area-inset-right))!important}[role="dialog"][class*="bottom-0"],[data-vaul-drawer]{bottom:var(--vvb,0px)!important;max-height:calc(var(--vvh,100dvh) - 12px)!important}[role="dialog"][class*="bottom-0"]{overflow-y:auto!important}';document.head.appendChild(s);}})();(function(){if(window.__duoVV)return;window.__duoVV=1;var v=window.visualViewport;if(!v)return;var r=document.documentElement;var u=function(){r.style.setProperty('--vvh',v.height+'px');r.style.setProperty('--vvt',v.offsetTop+'px');r.style.setProperty('--vvb',Math.max(0,innerHeight-v.height-v.offsetTop)+'px')};v.addEventListener('resize',u);v.addEventListener('scroll',u);u();document.addEventListener('pointerdown',function(){window.__duoTap=Date.now()},true);document.addEventListener('focusin',function(e){var t=e.target;if(!t||!t.closest||!document.getElementById('croo-duo-dock'))return;if(!t.matches('input,textarea,[contenteditable="true"]')||!t.closest('[role=dialog],[data-vaul-drawer]'))return;if(Date.now()-(window.__duoTap||0)>400){setTimeout(function(){t.blur()},0)}},true)})();(function(){var on=!!document.getElementById('croo-duo-dock')&&innerWidth>=768;var at=document.querySelector('header.sticky .nav-bar-unified button[aria-label="Ask Theo"]');var b=at?at.parentElement:document.querySelector('header.sticky .nav-bar-unified>div.px-2');var el=document.getElementById('duo-theo-line');var h=document.querySelector('.spookified-dashboard-content h1');var box=h&&h.closest('.spookified-dashboard-content>div');var src=box&&box.querySelector(':scope>div.text-sm');if(!on||!b||!src){if(el)el.remove();document.documentElement.classList.remove('duo-theo-moved');return}src.setAttribute('data-duo-theo-src','');document.documentElement.classList.add('duo-theo-moved');if(!el){el=document.createElement('div');el.id='duo-theo-line';b.appendChild(el)}if(el.innerHTML!==src.innerHTML)el.innerHTML=src.innerHTML})()
     """
 
     private func hideWebDock(_ hide: Bool) {
         if hide {
             runJS(Self.hideDockJS)
         } else {
-            runJS("document.getElementById('croo-duo-dock')?.remove();document.getElementById('duo-theo-line')?.remove()")
+            runJS("document.getElementById('croo-duo-dock')?.remove();document.getElementById('duo-theo-line')?.remove();document.documentElement.classList.remove('duo-theo-moved')")
         }
     }
 
@@ -397,8 +432,11 @@ final class DuoDockController: UINavigationController {
         pollTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.updateRings()
-            self.runJS(Self.hideDockJS + ";" + self.lastColumnJS + ";location.pathname") { result in
-                guard let path = result as? String, path != self.currentPath else { return }
+            self.runJS(Self.hideDockJS + ";" + self.lastColumnJS + ";location.pathname+'|'+(document.querySelector('.cd-panel')?1:0)") { result in
+                guard let parts = (result as? String)?.split(separator: "|", omittingEmptySubsequences: false), parts.count == 2 else { return }
+                self.setDashOpen(parts[1] == "1")
+                let path = String(parts[0])
+                guard path != self.currentPath else { return }
                 self.currentPath = path
                 self.markSelected(path)
             }
