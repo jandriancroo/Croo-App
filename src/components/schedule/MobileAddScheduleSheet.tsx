@@ -528,7 +528,7 @@ export function MobileAddScheduleSheet({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
+        <DialogContent className="max-w-md duo-new-shift" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>{lockTab && defaultTab === 'shift' ? 'New Shift' : 'Employee Schedule'}</DialogTitle>
           </DialogHeader>
