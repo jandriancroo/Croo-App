@@ -2640,7 +2640,8 @@ html.duo {
 /* Folded: the phone header runs to the right edge, past Apple's column;
    its top-right corner follows the screen curve and buttons clear the column. */
 html.duo-folded .duo-phone-header {
-  border-top-right-radius: var(--duo-corner-radius, 48px);
+  /* !important: the header carries an inline borderRadius for its bottom curve */
+  border-top-right-radius: var(--duo-corner-radius, 48px) !important;
 }
 html.duo-folded .duo-phone-header .duo-header-row {
   padding-right: calc(var(--duo-col-right, 0px) + 12px);
@@ -2664,10 +2665,12 @@ html.duo-open .duo-open-main {
 html.duo-open .duo-split {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: minmax(0, 1fr);
   height: 100%;
 }
 html.duo-open .duo-panel {
   height: 100%;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;

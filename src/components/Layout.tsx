@@ -937,7 +937,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           Right half (over the Schedule panel): Ask Theo + Nudge (icon only). */}
       {duo.isOpen && (
         <header
-          className="fixed top-0 left-0 z-50 bg-primary"
+          className="duo-open-header fixed top-0 left-0 z-50 bg-primary"
           style={{
             right: 'var(--duo-col-right, 0px)',
             paddingTop: 'env(safe-area-inset-top)',
