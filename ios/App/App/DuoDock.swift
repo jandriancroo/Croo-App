@@ -74,6 +74,10 @@ final class DuoDockController: UINavigationController {
 
     init(bridge: CrooBridgeViewController) {
         bridgeVC = bridge
+        // Lay the web view out next to the bars, never under them. On the device the web view sometimes
+        // stopped at Apple's column and sometimes ran under it; this makes UIKit always keep it out.
+        bridge.edgesForExtendedLayout = []
+        bridge.extendedLayoutIncludesOpaqueBars = false
         super.init(rootViewController: bridge)
         setNavigationBarHidden(true, animated: false)
         setToolbarHidden(true, animated: false)
