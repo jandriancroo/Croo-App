@@ -59,7 +59,7 @@ enum TheoLauncher {
         // Coming from the Theo call card: hang that call up so the app's Theo gets the mic.
         if attempt == 0, #available(iOS 18.0, *) { Task { @MainActor in TheoCallManager.shared.end() } }
         let js = "(function(){if(window.__theoReady){window.dispatchEvent(new Event('open-theo-voice'));return true;}return false;})()"
-        let web = (root as? CAPBridgeViewController)?.bridge?.webView
+        let web = DuoDock.bridgeController(in: root)?.bridge?.webView
         web?.evaluateJavaScript(js) { result, _ in
             if (result as? Bool) == true { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { open(in: root, attempt: attempt + 1) }
@@ -77,7 +77,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         let appWindow = UIWindow(windowScene: windowScene)
-        appWindow.rootViewController = CrooBridgeViewController()
+        // On an iPhone Duo (Xcode 27.1 builds) the screen sits inside the Duo dock; elsewhere it's unchanged.
+        appWindow.rootViewController = DuoDock.root(for: CrooBridgeViewController())
         appWindow.makeKeyAndVisible()
         window = appWindow
 
