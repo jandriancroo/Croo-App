@@ -1348,7 +1348,7 @@ export function EditDashboardDialog({
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="duo-popup">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this widget?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1364,7 +1364,7 @@ export function EditDashboardDialog({
 
       {/* Visibility downgrade confirmation */}
       <AlertDialog open={pendingDowngradeOpen} onOpenChange={setPendingDowngradeOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="duo-popup">
           <AlertDialogHeader>
             <AlertDialogTitle>Narrow this widget's visibility?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1387,7 +1387,7 @@ export function EditDashboardDialog({
 
       {/* End Promo confirmation */}
       <AlertDialog open={endPromoOpen} onOpenChange={setEndPromoOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="duo-popup">
           <AlertDialogHeader>
             <AlertDialogTitle>End this promo?</AlertDialogTitle>
             <AlertDialogDescription>
