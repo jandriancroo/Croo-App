@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { TheoOrb } from '@/components/dock/TheoOrb';
 import { DuoOvation } from '@/components/duo/DuoOvation';
 import { useOvationData } from '@/components/dashboard/OvationScorePopover';
-import { Pencil, Mail, Inbox, ChevronRight, MapPin, X, Sparkles, Hand, SlidersHorizontal, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock, Gauge, Zap, ClipboardList, FileText as FileTextIcon, Copy } from 'lucide-react';
+import { Pencil, Mail, Inbox, ChevronRight, MapPin, X, Sparkles, Hand, SlidersHorizontal, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock, Gauge, Zap, ClipboardList, FileText as FileTextIcon, Copy, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -90,6 +90,7 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
   const active = (path: string) => path === '/dashboard' ? (route.pathname === '/dashboard' || route.pathname === '/') : (route.pathname.startsWith(path) || (path === '/tasks' && onChecklist));
   const pageName = menu.find(m => active(m.path))?.title;
   const onTasks = route.pathname.startsWith('/tasks');
+  const onLogs = route.pathname.startsWith('/logbook');
   const pageStatus = onChat ? (chat ? `${chat} unread` : 'All caught up') : pageNote;
   const ovation = useOvationData().displayScore;
   const showOvation = (isManager || hasPermission('view_ovation_reviews')) && !!ovation;
@@ -102,6 +103,8 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
       ...(onTasks && (isAdmin || isManager) ? [{ label: 'New Quick Task', icon: Zap, action: () => fire('open-new-quick-task') }] : []),
       ...(onTasks && (isAdmin || isManager) ? [{ label: 'Templates', icon: FileTextIcon, action: () => fire('open-quick-task-templates') }] : []),
       ...(onTasks && isAdmin ? [{ label: 'New Checklist', icon: ClipboardList, action: () => fire('open-new-checklist') }, { label: 'Copy All', icon: Copy, action: () => fire('open-copy-all-checklists') }] : []),
+      ...(onLogs && isShiftManager ? [{ label: 'New log', icon: Plus, action: () => fire('open-new-log') }] : []),
+      ...(onLogs && isAdmin ? [{ label: 'Manage categories', icon: Settings, action: () => fire('open-manage-categories') }] : []),
       ...(onDash ? [{ label: 'Edit layout', icon: SlidersHorizontal, action: () => fire('open-edit-layout') }] : []),
   ];
   return <div className="duo-navroot" data-duo-theme={theme}>

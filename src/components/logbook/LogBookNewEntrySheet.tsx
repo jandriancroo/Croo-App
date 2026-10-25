@@ -1,3 +1,4 @@
+import { useEffect, useRef, type ReactNode } from "react";
 import { format, startOfWeek, endOfWeek, getDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { CalendarIcon, Paperclip, Plus, ChevronLeft, ChevronRight, DollarSign, ClipboardList, ClipboardCheck, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck, ToggleLeft, Wrench, CalendarRange, PenLine, Calculator } from "lucide-react";
 import { Building2 } from "lucide-react";
@@ -32,6 +34,8 @@ type LogBookData = ReturnType<typeof useLogBookData>;
 
 interface LogBookNewEntrySheetProps {
   data: LogBookData;
+  /** Duo only: "dock" renders inline in the right pane, "slide" as a right slide-over. */
+  duoMode?: 'dock' | 'slide';
 }
 
 const getCategoryIcon = (name: string) => {
@@ -53,7 +57,7 @@ const getCategoryIcon = (name: string) => {
   return <ClipboardList className="h-5 w-5" />;
 };
 
-export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
+export function LogBookNewEntrySheet({ data, duoMode }: LogBookNewEntrySheetProps) {
   const {
     user, currentLocation, categories, selectedCategory, setSelectedCategory,
     showNewEntrySheet, setShowNewEntrySheet, wizardStep, setWizardStep,
@@ -65,6 +69,14 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
     handleFileUpload, uploadingFiles, saveEntryMutation, employees,
     toast, queryClient, setActiveTab, isAdmin, isManager, isShiftManager,
   } = data;
+
+  // Dock mode has no Sheet close event: reset the wizard when a save/back closes the flow.
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (duoMode !== 'dock') return;
+    if (wasOpen.current && !showNewEntrySheet) { setWizardStep('category'); setSelectedCategory(''); setPreselectedShift(null); }
+    wasOpen.current = showNewEntrySheet;
+  }, [duoMode, showNewEntrySheet]);
 
   const currentCategoryName = categories.find((c: any) => c.id === selectedCategory)?.name?.toLowerCase();
   const isDrawerCount = currentCategoryName === 'drawer count';
@@ -842,22 +854,19 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
 
   if (!isShiftManager && !isManager && !isAdmin) return null;
 
-  return (
-    <Sheet open={showNewEntrySheet} onOpenChange={(open) => {
-      setShowNewEntrySheet(open);
-      if (!open) { setWizardStep('category'); setSelectedCategory(''); setPreselectedShift(null); }
-    }}>
-      <SheetTrigger asChild>
-        <Button size="icon" variant="default">
-          <Plus className="h-4 w-4" />
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="bottom" className="h-[92vh] overflow-y-auto">
+  const plain = duoMode === 'dock';
+  const Head = ({ children, className }: { children: ReactNode; className?: string }) =>
+    plain ? <div className={className}>{children}</div> : duoMode === 'slide' ? <DialogHeader className={className}>{children}</DialogHeader> : <SheetHeader className={className}>{children}</SheetHeader>;
+  const Title = ({ children, className }: { children: ReactNode; className?: string }) =>
+    plain ? <h2 className={`text-lg font-semibold leading-none tracking-tight ${className || ''}`}>{children}</h2> : duoMode === 'slide' ? <DialogTitle className={className}>{children}</DialogTitle> : <SheetTitle className={className}>{children}</SheetTitle>;
+
+  const content = (
+    <>
         {wizardStep === 'category' ? (
           <>
-            <SheetHeader>
-              <SheetTitle>New Log Entry</SheetTitle>
-            </SheetHeader>
+            <Head>
+              <Title>New Log Entry</Title>
+            </Head>
             {(() => {
               const all = [
                 ...[...categories].sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0)),
@@ -872,7 +881,7 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
               const Row = ({ category, cashStyle }: { category: any; cashStyle: boolean }) => (
                 <button
                   key={category.id}
-                  onClick={() => { setSelectedCategory(category.id); setWizardStep('form'); }}
+                  onClick={() => { setSelectedCategory(category.id); setWizardStep('form'); if (duoMode) setShowNewEntrySheet(true); }}
                   className="w-full flex items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/60 active:bg-muted"
                 >
                   <div className={`shrink-0 flex items-center justify-center h-8 w-8 rounded-lg ${cashStyle ? "bg-teal-500/10 text-teal-500" : "bg-primary/10 text-primary"}`}>
@@ -905,19 +914,47 @@ export function LogBookNewEntrySheet({ data }: LogBookNewEntrySheetProps) {
           </>
         ) : (
           <>
-            <SheetHeader className="flex flex-row items-center gap-2">
-              <Button size="icon-sm" variant="ghost" onClick={() => setWizardStep('category')} className="-ml-2">
+            <Head className="flex flex-row items-center gap-2">
+              <Button size="icon-sm" variant="ghost" onClick={() => { setWizardStep('category'); if (duoMode) setShowNewEntrySheet(false); }} className="-ml-2">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <SheetTitle className="!mt-0">
+              <Title className="!mt-0">
                 {selectedCategory === 'bank-deposit' ? 'Bank Deposit' : selectedCategory === 'cash-count-tool' ? 'Cash Count Tool' : selectedCategory === 'catering-order' ? 'Catering Order' : categories.find((c: any) => c.id === selectedCategory)?.name || 'New Entry'}
-              </SheetTitle>
-            </SheetHeader>
+              </Title>
+            </Head>
             <div className="mt-4 space-y-4">
               {renderFormContent()}
             </div>
           </>
         )}
+    </>
+  );
+
+  if (duoMode === 'dock') return <div className="duo-log-new">{content}</div>;
+
+  if (duoMode === 'slide') {
+    return (
+      <Dialog open={showNewEntrySheet} onOpenChange={(open) => {
+        setShowNewEntrySheet(open);
+        if (!open) { setWizardStep('category'); setSelectedCategory(''); setPreselectedShift(null); }
+      }}>
+        <DialogContent className="duo-slide duo-log-new overflow-y-auto">{content}</DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Sheet open={showNewEntrySheet} onOpenChange={(open) => {
+      setShowNewEntrySheet(open);
+      if (!open) { setWizardStep('category'); setSelectedCategory(''); setPreselectedShift(null); }
+    }}>
+      <SheetTrigger asChild>
+        <Button size="icon" variant="default">
+          <Plus className="h-4 w-4" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="bottom" className="h-[92vh] overflow-y-auto">
+        {content}
       </SheetContent>
     </Sheet>
   );

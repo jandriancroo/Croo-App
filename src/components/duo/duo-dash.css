@@ -636,3 +636,27 @@ html.duo .duo-tasks-ctl .duo-ctl svg{display:none}
 html.duo .duo-editor-head [aria-label="Editor section"]{width:auto!important;flex:none}
 html.duo .duo-editor-head [aria-label="Editor section"] button{flex:none!important;padding-left:14px!important;padding-right:14px!important}
 html.duo .duo-editor-head [aria-label="Editor section"] span{overflow:visible!important;text-overflow:clip!important;white-space:nowrap}
+
+/* v47 — Logs page: list left, New Log / inspector right */
+html.duo:has(.duo-log-rows) .duo-tasks-page{padding-bottom:96px}
+html.duo .duo-logs-ctl{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+html.duo .duo-logs-ctl>.relative,html.duo .duo-logs-ctl .relative.flex-1{min-width:0;flex:1}
+html.duo .duo-logs-ctl [role=tablist]{height:36px}
+html.duo .duo-logs-ctl [role=tab]{padding-left:12px;padding-right:12px;font-size:15px}
+html.duo .duo-logs-ctl input{height:36px;font-size:16px}
+html.duo .duo-log-rows{margin:0 -16px}
+html.duo .duo-log-day{position:sticky;top:0;z-index:5;margin:0;padding:12px 16px 6px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:hsl(var(--muted-foreground));background:hsl(var(--background))}
+html.duo .duo-log-row{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:left;padding:11px 16px;background:transparent;border:0;border-bottom:1px solid hsl(var(--border));color:hsl(var(--foreground));cursor:pointer}
+html.duo .duo-log-row>span:last-child{display:flex;flex-direction:column;gap:1px}
+html.duo .duo-log-top{display:flex;align-items:baseline;gap:8px}
+html.duo .duo-log-top b{font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.duo .duo-log-top small{margin-left:auto;font-size:13px;color:hsl(var(--muted-foreground));white-space:nowrap}
+html.duo .duo-log-cat{font-size:14px;color:hsl(var(--muted-foreground))}
+html.duo .duo-log-prev{font-size:15px;color:hsl(var(--foreground)/.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.duo:not(.duo-open) .duo-log-rows{margin-right:-16px}
+html.duo:not(.duo-open) .duo-logs-ctl{max-width:calc(100% - max(var(--duo-col-right,0px),104px))}
+html.duo .duo-log-newbtn{margin:0 0 12px -8px}
+html.duo .duo-log-new,html.duo .duo-log-insp{color:hsl(var(--foreground))}
+html.duo .duo-log-new [class*="bg-card"]{background:transparent!important}
+html.duo .duo-log-new [class*="rounded-xl"]{border-radius:0!important;border-left:0!important;border-right:0!important}
+html.duo .duo-log-dock .duo-log-new h2{font-size:20px}
