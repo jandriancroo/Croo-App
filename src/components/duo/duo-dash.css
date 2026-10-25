@@ -370,3 +370,7 @@ html.duo .duo-slide .bg-primary,html.duo .duo-dm-dock .bg-primary{background:tra
 html.duo .duo-slide [class*="text-primary-foreground"],html.duo .duo-dm-dock [class*="text-primary-foreground"]{color:hsl(var(--foreground))!important}
 html.duo .duo-slide [class*="bg-primary-foreground/10"],html.duo .duo-dm-dock [class*="bg-primary-foreground/10"]{background:hsl(var(--muted))!important}
 html.duo .duo-dm-dock>div:first-child{padding-right:104px!important}
+
+/* v18: no teal page header on the Duo (the left menu names the page; location switching lives on the Dash); Chat has no "share something" bar — New post is on the action button */
+html.duo .duo-open-header,html.duo .duo-phone-header{display:none!important}
+html.duo .duo-composer-trigger{display:none!important}

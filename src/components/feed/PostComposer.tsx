@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useDuo } from '@/hooks/useDuo';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -37,6 +38,7 @@ export function PostComposer({
   open, onOpenChange, channels, badges, canAnnounce, canCreateBadges,
   onSubmit, onCreateBadge,
 }: PostComposerProps) {
+  const duo = useDuo();
   const { user } = useAuth();
   const allowAutoFocus = useDuoSafeAutoFocus();
   const photoRef = useRef<HTMLInputElement>(null);
@@ -138,7 +140,7 @@ export function PostComposer({
   return (
     <>
       <Sheet open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
-        <SheetContent side="bottom" className="h-[90vh] rounded-t-2xl p-0 flex flex-col">
+        <SheetContent side={duo.isDuo ? 'right' : 'bottom'} className={duo.isDuo ? 'duo-slide p-0 flex flex-col' : 'h-[90vh] rounded-t-2xl p-0 flex flex-col'}>
           <SheetHeader className="px-4 pt-4 pb-2 shrink-0 flex-row items-center justify-between">
             <SheetTitle>{isAnnouncement ? 'New announcement' : 'New post'}</SheetTitle>
             <Button size="sm" onClick={handleSubmit} disabled={!canSubmit}>
@@ -314,7 +316,7 @@ export function PostComposer({
       </Sheet>
 
       <Dialog open={badgeDialogOpen} onOpenChange={setBadgeDialogOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="duo-popup max-w-sm">
           <DialogHeader>
             <DialogTitle>New badge</DialogTitle>
           </DialogHeader>

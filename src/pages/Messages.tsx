@@ -25,6 +25,14 @@ export default function Messages() {
   const [dmOpen, setDmOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  // Duo action button: New post / Inbox (New DM is handled inside DmPanel).
+  useEffect(() => {
+    const post = () => setComposerOpen(true);
+    const inbox = () => setDmOpen(true);
+    window.addEventListener('open-new-post', post);
+    window.addEventListener('open-inbox', inbox);
+    return () => { window.removeEventListener('open-new-post', post); window.removeEventListener('open-inbox', inbox); };
+  }, []);
 
   // Deep link from push notification: /messages?chat=<id> → open DM panel to that chat.
   // ?msg=<id> (chat push) scrolls to that message, then both params are cleared.
@@ -66,7 +74,7 @@ export default function Messages() {
     <Layout>
       <div className={duo.isOpen ? 'duo-chat-left w-full pb-8' : 'mx-auto w-full max-w-[640px] pb-8'}>
         {/* Page header — Chats title + DM button */}
-        <PageTitle
+        {!duo.isDuo && <PageTitle
           color="orange"
           status={(() => {
             const c = unreadCounts.chats ?? 0, a = unreadCounts.announcements ?? 0;
@@ -91,7 +99,7 @@ export default function Messages() {
           }
         >
           Chats
-        </PageTitle>
+        </PageTitle>}
 
         {/* The feed itself */}
         <AnnouncementFeed
