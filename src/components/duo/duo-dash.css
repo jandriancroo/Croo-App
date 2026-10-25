@@ -349,3 +349,7 @@ html.duo [data-radix-popper-content-wrapper]{--background:40 36% 91%;--foregroun
 html.duo[data-duo-theme=oled] [data-radix-popper-content-wrapper]{--background:0 0% 9%;--foreground:0 0% 93%;--card:0 0% 11%;--card-foreground:0 0% 93%;--popover:0 0% 11%;--popover-foreground:0 0% 93%;--border:0 0% 20%;--input:0 0% 20%;--muted:0 0% 15%;--muted-foreground:0 0% 62%;--accent:0 0% 16%;--accent-foreground:0 0% 93%;--primary:0 0% 93%;--primary-foreground:0 0% 9%;--ring:0 0% 60%}
 html.duo [data-radix-popper-content-wrapper]>*{border-radius:16px}
 html.duo .duo-popup{z-index:101}
+
+/* v15: manager dash close button sits in the panel's top-left strip, not over the greeting */
+html.duo .duo-dock>div:nth-child(2){position:static!important}
+html.duo .duo-dock button[aria-label=Close]{position:absolute!important;left:16px!important;top:6px!important;height:44px;width:44px;z-index:5}
