@@ -1,4 +1,5 @@
 import React from 'react';
+import { useDuo } from '@/hooks/useDuo';
 import { createPortal } from 'react-dom';
 import { DuoTitleSlotsContext } from '@/components/duo/DuoTitleSlots';
 import { useQuery } from '@tanstack/react-query';
@@ -95,7 +96,7 @@ function StatusLine({ status }: { status?: PageTitleStatus }) {
   return (
     <div
       className={cn(
-        'h-4 text-xs leading-4 font-semibold uppercase tracking-[0.06em] truncate',
+        'duo-pt-status h-4 text-xs leading-4 font-semibold uppercase tracking-[0.06em] truncate',
         status?.tone === 'warning' ? 'text-[hsl(var(--warning))]' : 'text-muted-foreground',
       )}
     >
@@ -121,6 +122,18 @@ export const PageTitle = React.memo(function PageTitle({
 }: PageTitleProps) {
   const slots = React.useContext(DuoTitleSlotsContext);
   const target = duoSlot ? slots[duoSlot] : null;
+  // Duo: the shared top band shows this page's name + status (themed pages hide the in-page title via CSS).
+  const duo = useDuo();
+  const tz = useStoreTimezone();
+  const nameText = typeof children === 'string' ? children : '';
+  const statusText = status === null ? '' : (status?.text || todayStatusText(tz));
+  React.useEffect(() => {
+    if (!duo.isDuo || target) return;
+    const root = document.documentElement;
+    if (nameText) root.dataset.duoPage = nameText;
+    if (statusText) root.dataset.duoStatus = statusText; else delete root.dataset.duoStatus;
+    return () => { delete root.dataset.duoPage; delete root.dataset.duoStatus; };
+  }, [duo.isDuo, target, nameText, statusText]);
   if (target) {
     return <>
       {createPortal(
@@ -138,12 +151,12 @@ export const PageTitle = React.memo(function PageTitle({
     </>;
   }
   return (
-    <div className={cn('mt-3.5 mb-3', className)}>
+    <div className={cn('duo-pt mt-3.5 mb-3', !leading && !action && 'duo-pt-empty', className)}>
       {status !== null && <StatusLine status={status} />}
       <div className="min-h-10 md:min-h-11 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1 min-w-0">
           {leading && <div className="flex items-center shrink-0 -ml-2">{leading}</div>}
-          <Tag className="font-apple-system text-[22px] md:text-[29px] font-bold leading-[1.2] tracking-tight flex items-center gap-0 min-w-0 my-0">
+          <Tag className="duo-pt-h font-apple-system text-[22px] md:text-[29px] font-bold leading-[1.2] tracking-tight flex items-center gap-0 min-w-0 my-0">
             <span className="truncate">{children}</span>
           </Tag>
         </div>

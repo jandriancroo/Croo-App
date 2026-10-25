@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useDuo } from '@/hooks/useDuo';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -30,6 +31,7 @@ const parseDateOnlyToLocalDate = (dateStr: string): Date => {
 const MyProfile = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const duo = useDuo();
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [saving, setSaving] = useState(false);
@@ -168,6 +170,14 @@ const MyProfile = () => {
     }
   };
 
+  // Duo: the orb's "Save changes" action.
+  useEffect(() => {
+    if (!duo.isDuo) return;
+    const save = () => { handleSave(); };
+    window.addEventListener('profile-save', save);
+    return () => window.removeEventListener('profile-save', save);
+  });
+
   if (loading) {
     return (
       <Layout>
@@ -180,19 +190,23 @@ const MyProfile = () => {
 
   return (
     <Layout>
-      <div className="max-w-lg mx-auto">
+      <div className={duo.isDuo ? (duo.isOpen ? 'duo-tasks-page duo-tasks-left' : 'duo-tasks-page') : 'max-w-lg mx-auto'}>
+        {!duo.isDuo && (
         <div className="mb-4">
           <Button variant="ghost" onClick={() => navigate(-1)} className="gap-2">
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
         </div>
+        )}
 
-        <Card>
+        <Card className={duo.isDuo ? 'duo-profile-card' : undefined}>
+          {!duo.isDuo && (
           <CardHeader>
             <CardTitle>My Profile</CardTitle>
             <CardDescription>Update your personal information</CardDescription>
           </CardHeader>
+          )}
           <CardContent className="space-y-6">
             {/* Profile Photo */}
             <div className="flex flex-col items-center gap-4">
@@ -305,8 +319,8 @@ const MyProfile = () => {
               </Popover>
             </div>
 
-            {/* Save Button */}
-            <Button onClick={handleSave} className="w-full" disabled={saving}>
+            {/* Save Button (Duo: the orb carries Save changes) */}
+            {!duo.isDuo && <Button onClick={handleSave} className="w-full" disabled={saving}>
               {saving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -318,11 +332,11 @@ const MyProfile = () => {
                   Save Changes
                 </>
               )}
-            </Button>
+            </Button>}
           </CardContent>
         </Card>
 
-        <MyPunchPinCard />
+        {duo.isDuo && duo.isOpen ? <aside className="duo-tasks-dock duo-profile-dock"><MyPunchPinCard /></aside> : <MyPunchPinCard />}
       </div>
 
       {/* Crop Dialog */}

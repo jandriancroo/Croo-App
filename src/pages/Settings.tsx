@@ -23,6 +23,8 @@ import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
 import { NudgeTemplatesSection } from '@/components/settings/NudgeTemplatesSection';
 import { TheoVoiceSection } from '@/components/settings/TheoVoiceSection';
 import { syncChromeColor } from '@/utils/syncChrome';
+import { useDuo } from '@/hooks/useDuo';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // Lazy-load heavy sub-panels — only fetched when their section is opened.
 // Prior to this, all panels (~5,000+ lines combined) shipped in the Settings chunk.
@@ -120,6 +122,8 @@ const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> =
 
 export default function Settings() {
   const navigate = useNavigate();
+  const duo = useDuo();
+  const [duoSel, setDuoSel] = useState<string | null>(null);
   const { isAdmin, isSuperAdmin, isOrgAdmin, isBrandAdmin, isShiftManager, isManager, role } = useUserRole();
   const { hasPermission } = useRolePermissions();
   const { isChecklistOnlyLocation, currentLocation, organizationId } = useAppLocation();
@@ -527,6 +531,97 @@ export default function Settings() {
   };
 
   const visibleSections = getSectionsForTab(activeTab);
+
+  // ---- Duo: list left, panel right (open) / slide-over (folded) ----
+  const duoNavLinks: Record<string, () => void> = {
+    'location-profile': () => navigate(`/location/${currentLocation?.id}`),
+    'inventory': () => navigate(`/inventory/${currentLocation?.id}`),
+    'punch-clock': () => navigate(`/location/${currentLocation?.id}/punch-clock`),
+    'billing': () => navigate('/billing'),
+    'reporting': () => navigate('/reporting'),
+    'kds-board': () => navigate('/kds'),
+    'plan-catalogs': () => navigate('/super-admin/plans'),
+    'system-alerts': () => navigate('/super-admin/system-alerts'),
+  };
+  const duoPanelIds = visibleSections.filter((id) => !duoNavLinks[id] && id !== 'support-chats' && isSectionAvailable(id));
+  const duoDockId = duo.isDuo && duo.isOpen ? (duoSel && duoPanelIds.includes(duoSel) ? duoSel : duoPanelIds[0] ?? null) : null;
+  const duoSlideId = duo.isDuo && !duo.isOpen && duoSel && duoPanelIds.includes(duoSel) ? duoSel : null;
+  useEffect(() => {
+    if (!duo.isDuo) return;
+    const root = document.documentElement;
+    root.dataset.duoStatus = (activeTab === 'location' ? locationLabel : activeTab === 'org' ? orgLabel : 'Super Admin').toUpperCase();
+    return () => { delete root.dataset.duoStatus; };
+  }, [duo.isDuo, activeTab, locationLabel, orgLabel]);
+  useEffect(() => {
+    if (!duo.isDuo) return;
+    const tour = () => window.dispatchEvent(new Event('start-croo-tour'));
+    window.addEventListener('open-settings-tour', tour);
+    return () => window.removeEventListener('open-settings-tour', tour);
+  }, [duo.isDuo]);
+
+  if (duo.isDuo) {
+    const Row = ({ icon, title, onClick, selected, badge, chevron = true }: { icon: React.ReactNode; title: string; onClick: () => void; selected?: boolean; badge?: number; chevron?: boolean }) => (
+      <button type="button" onClick={onClick} className={`duo-set-row${selected ? ' duo-row-sel' : ''}`}>
+        <span className="duo-set-ico">{icon}</span>
+        <span className="duo-set-title">{title}</span>
+        {!!badge && badge > 0 && <b className="duo-set-badge">{badge > 99 ? '99+' : badge}</b>}
+        {chevron && <ChevronRight className="h-4 w-4 opacity-50 shrink-0" />}
+      </button>
+    );
+    const panel = (id: string) => (
+      <Suspense fallback={<PanelFallback />}>
+        <div className="duo-set-panel">{renderSectionContent(id)}</div>
+      </Suspense>
+    );
+    return (
+      <Layout>
+        <div className={duo.isOpen ? 'duo-tasks-page duo-tasks-left duo-settings-page' : 'duo-tasks-page duo-settings-page'}>
+          <PageTitle color="slate" status={null}>Settings</PageTitle>
+          {isSuperAdmin && <SupportInboxSheet open={supportInboxOpen} onOpenChange={setSupportInboxOpen} />}
+
+          {showPillSelector && (
+            <div className="duo-tasks-ctl duo-ctl mb-2">
+              <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as 'location' | 'org' | 'super'); setDuoSel(null); }}>
+                <TabsList>
+                  <TabsTrigger value="location"><span className="truncate max-w-[22vw]">{locationLabel}</span></TabsTrigger>
+                  <TabsTrigger value="org"><span className="truncate max-w-[22vw]">{orgLabel}</span></TabsTrigger>
+                  {isSuperAdmin && <TabsTrigger value="super"><span className="truncate">Super Admin</span></TabsTrigger>}
+                </TabsList>
+              </Tabs>
+            </div>
+          )}
+
+          <div className="duo-set-list">
+            {isShiftManager && <Row icon={<GraduationCap className="h-5 w-5" />} title="Tour CrooHQ" onClick={() => window.dispatchEvent(new Event('start-croo-tour'))} />}
+            {visibleSections.map((id) => {
+              const info = SECTION_TITLES[id];
+              if (!info) return null;
+              if (id === 'support-chats') return <Row key={id} icon={info.icon} title={info.title} badge={supportUnread} onClick={() => setSupportInboxOpen(true)} />;
+              if (duoNavLinks[id]) return <Row key={id} icon={info.icon} title={info.title} onClick={duoNavLinks[id]} />;
+              if (!isSectionAvailable(id)) return null;
+              return <Row key={id} icon={info.icon} title={info.title} selected={duoDockId === id} onClick={() => setDuoSel(id)} />;
+            })}
+            {activeTab === 'org' && currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin) && (
+              <Row icon={<Building2 className="h-4 w-4" />} title="Edit Org Settings" onClick={() => navigate(`/organization/${currentOrgId}`)} />
+            )}
+          </div>
+
+          {duoDockId && (
+            <aside className="duo-tasks-dock duo-settings-dock">
+              <h2 className="duo-set-h">{SECTION_TITLES[duoDockId]?.title}</h2>
+              {panel(duoDockId)}
+            </aside>
+          )}
+          <Dialog open={!!duoSlideId} onOpenChange={(o) => !o && setDuoSel(null)}>
+            <DialogContent className="duo-slide overflow-y-auto">
+              <DialogHeader><DialogTitle>{duoSlideId ? SECTION_TITLES[duoSlideId]?.title : ''}</DialogTitle></DialogHeader>
+              {duoSlideId && panel(duoSlideId)}
+            </DialogContent>
+          </Dialog>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
