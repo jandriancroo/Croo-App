@@ -683,3 +683,27 @@ html.duo.duo-theo-launch .theo-voice-orb-btn{will-change:transform,opacity;anima
 @keyframes duo-voice-fade{from{opacity:0}to{opacity:1}}
 @keyframes duo-voice-grow{0%{opacity:0;transform:translate3d(calc(50vw - 50px),calc(50vh - 50px),0) scale(.23)}25%{opacity:1}100%{opacity:1;transform:translate3d(0,0,0) scale(1)}}
 @media (prefers-reduced-motion:reduce){html.duo.duo-theo-launch .theo-voice-root,html.duo.duo-theo-launch .theo-voice-orb-btn{animation:none}}
+
+/* v52 — generic page title on themed Duo pages: the top band owns name + status; keep only leading/action controls */
+html.duo:has(.duo-tasks-page) .duo-pt-h,html.duo:has(.duo-tasks-page) .duo-pt-status{display:none}
+html.duo:has(.duo-tasks-page) .duo-pt{margin-top:0;margin-bottom:8px}
+html.duo:has(.duo-tasks-page) .duo-pt.duo-pt-empty{display:none}
+html.duo:has(.duo-tasks-page) .duo-pt>div{min-height:0}
+
+/* v53 — Settings: list left, panel right */
+html.duo .duo-set-list{margin:0 -16px}
+html.duo .duo-set-row{display:flex;align-items:center;gap:14px;width:100%;min-height:56px;padding:0 16px;background:transparent;border:0;border-bottom:1px solid hsl(var(--border));color:hsl(var(--foreground));text-align:left;cursor:pointer}
+html.duo .duo-set-ico{display:flex;width:28px;justify-content:center;color:hsl(var(--muted-foreground))}
+html.duo .duo-set-title{flex:1;font-size:17px;font-weight:500}
+html.duo .duo-set-badge{min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:hsl(var(--destructive));color:hsl(var(--destructive-foreground));font-size:12px;display:flex;align-items:center;justify-content:center}
+html.duo:not(.duo-open) .duo-set-list{margin-right:-16px}
+html.duo .duo-set-h{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin:0 0 14px;color:hsl(var(--foreground))}
+html.duo .duo-set-panel{min-width:0}
+html.duo .duo-settings-dock{color:hsl(var(--foreground))}
+
+/* v54 — My Profile / Users docks */
+html.duo .duo-profile-card{background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important}
+html.duo .duo-profile-card>div{padding-left:0!important;padding-right:0!important}
+html.duo .duo-profile-dock{color:hsl(var(--foreground))}
+html.duo .duo-users-dock{padding-top:92px}
+html.duo .duo-user-all{display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:15px;border-bottom:1px solid hsl(var(--border));color:hsl(var(--muted-foreground))}

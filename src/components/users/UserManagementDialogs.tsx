@@ -17,9 +17,28 @@ import { type AppRole } from '@/hooks/useUserRole';
 
 interface UserManagementDialogsProps {
   data: ReturnType<typeof import('@/hooks/useUserManagementData').useUserManagementData>;
+  /** Duo open mode: the employee profile is docked in the right pane instead of a dialog. */
+  duoDock?: boolean;
 }
 
-export const UserManagementDialogs = ({ data }: UserManagementDialogsProps) => {
+export const UserManagementDialogs = ({ data, duoDock = false }: UserManagementDialogsProps) => {
+  const profileDialog = (
+    <EmployeeProfileDialog
+        dock={duoDock}
+        open={duoDock ? true : data.isProfileDialogOpen}
+        onOpenChange={data.setIsProfileDialogOpen}
+        user={data.viewingUser}
+        availableLocations={data.availableLocations}
+        currentLocationId={data.currentLocation?.id}
+        onUserUpdated={data.fetchUsers}
+        onResetPassword={data.handleResetPassword}
+        onSetTempPassword={(u) => { data.setTempPasswordUser(u); data.setTempPassword(''); data.setIsTempPasswordDialogOpen(true); }}
+        onOpenWageDialog={(u) => { data.setEditingWageUser(u); data.setNewWage(u.hourly_wage?.toString() || '15.00'); data.setIsWageDialogOpen(true); }}
+        onOpenWageHistory={(userId) => { data.setViewingWageHistory(userId); data.setIsWageHistoryDialogOpen(true); }}
+        onResendInvite={data.handleOpenResendDialog}
+      />
+  );
+
   return (
     <>
       {/* Invite Dialog */}
@@ -81,20 +100,8 @@ export const UserManagementDialogs = ({ data }: UserManagementDialogsProps) => {
         </DialogContent>
       </Dialog>
 
-      {/* Employee Profile Dialog */}
-      <EmployeeProfileDialog
-        open={data.isProfileDialogOpen}
-        onOpenChange={data.setIsProfileDialogOpen}
-        user={data.viewingUser}
-        availableLocations={data.availableLocations}
-        currentLocationId={data.currentLocation?.id}
-        onUserUpdated={data.fetchUsers}
-        onResetPassword={data.handleResetPassword}
-        onSetTempPassword={(u) => { data.setTempPasswordUser(u); data.setTempPassword(''); data.setIsTempPasswordDialogOpen(true); }}
-        onOpenWageDialog={(u) => { data.setEditingWageUser(u); data.setNewWage(u.hourly_wage?.toString() || '15.00'); data.setIsWageDialogOpen(true); }}
-        onOpenWageHistory={(userId) => { data.setViewingWageHistory(userId); data.setIsWageHistoryDialogOpen(true); }}
-        onResendInvite={data.handleOpenResendDialog}
-      />
+      {/* Employee Profile Dialog (Duo open: docked) */}
+      {duoDock ? (data.viewingUser && <aside className="duo-tasks-dock duo-users-dock">{profileDialog}</aside>) : profileDialog}
 
       {/* Resend Invite Dialog */}
       <Dialog open={data.isResendDialogOpen} onOpenChange={data.setIsResendDialogOpen}>

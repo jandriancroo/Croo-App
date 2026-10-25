@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { TheoOrb } from '@/components/dock/TheoOrb';
 import { DuoOvation } from '@/components/duo/DuoOvation';
 import { useOvationData } from '@/components/dashboard/OvationScorePopover';
-import { Pencil, Mail, Inbox, ChevronRight, MapPin, X, Sparkles, Hand, SlidersHorizontal, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock, Gauge, Zap, ClipboardList, FileText as FileTextIcon, Copy, Plus, BookOpen, Upload } from 'lucide-react';
+import { Pencil, Mail, Inbox, ChevronRight, MapPin, X, Sparkles, Hand, SlidersHorizontal, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock, Gauge, Zap, ClipboardList, FileText as FileTextIcon, Copy, Plus, BookOpen, Upload, UserPlus, RefreshCw, FlaskConical, Save, Award, ListChecks } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -59,14 +59,15 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
   const holdTimer = useRef<number | undefined>(undefined);
   const held = useRef(false);
   const [pageNote, setPageNote] = useState('');
+  const [pageTitleName, setPageTitleName] = useState('');
   const [libTab, setLibTab] = useState(false);
   const [libEdit, setLibEdit] = useState(false);
   useEffect(() => {
     const root = document.documentElement;
-    const update = () => { setPageNote(root.dataset.duoStatus || ''); setLibTab(root.dataset.duoTab === 'library'); setLibEdit(!!root.dataset.duoLibEdit); };
+    const update = () => { setPageNote(root.dataset.duoStatus || ''); setPageTitleName(root.dataset.duoPage || ''); setLibTab(root.dataset.duoTab === 'library'); setLibEdit(!!root.dataset.duoLibEdit); };
     update();
     const observer = new MutationObserver(update);
-    observer.observe(root, { attributes: true, attributeFilter: ['data-duo-status', 'data-duo-tab', 'data-duo-lib-edit'] });
+    observer.observe(root, { attributes: true, attributeFilter: ['data-duo-status', 'data-duo-tab', 'data-duo-lib-edit', 'data-duo-page'] });
     return () => observer.disconnect();
   }, []);
   const menu = [
@@ -95,9 +96,11 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
   const onDash = route.pathname === '/dashboard' || route.pathname === '/';
   const onChecklist = /^\/(complete-checklist|edit-checklist|create-checklist|dynamic-checklist|testing-checklist)/.test(route.pathname);
   const active = (path: string) => path === '/dashboard' ? (route.pathname === '/dashboard' || route.pathname === '/') : (route.pathname.startsWith(path) || (path === '/tasks' && onChecklist));
-  const pageName = menu.find(m => active(m.path))?.title;
+  const pageName = menu.find(m => active(m.path))?.title || pageTitleName;
   const onTasks = route.pathname.startsWith('/tasks');
   const onLogs = route.pathname.startsWith('/logbook');
+  const onUsers = route.pathname.startsWith('/users');
+  const onProfile = route.pathname.startsWith('/my-profile');
   const pageStatus = onChat ? (chat ? `${chat} unread` : 'All caught up') : pageNote;
   const ovation = useOvationData().displayScore;
   const showOvation = (isManager || hasPermission('view_ovation_reviews')) && !!ovation;
@@ -137,6 +140,10 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
       ...(onLogs && libTab && libEdit ? [{ label: 'New recipe', icon: BookOpen, action: () => fire('open-new-recipe') }, { label: 'Upload document', icon: Upload, action: () => fire('open-upload-document') }] : []),
       ...(onLogs && !libTab && isShiftManager ? [{ label: 'New log', icon: Plus, action: () => fire('open-new-log') }] : []),
       ...(onLogs && isAdmin ? [{ label: 'Manage categories', icon: Settings, action: () => fire('open-manage-categories') }] : []),
+      ...(onUsers && isAdmin ? [{ label: 'Invite user', icon: UserPlus, action: () => fire('open-invite-user') }, { label: 'Select users', icon: ListChecks, action: () => fire('users-bulk-select') }, { label: 'Update outdated', icon: RefreshCw, action: () => fire('users-update-outdated') }] : []),
+      ...(onUsers && isAdmin && currentLocation?.name?.toLowerCase() === 'hemet' ? [{ label: 'Add test employee', icon: FlaskConical, action: () => fire('users-test-employee') }] : []),
+      ...(onUsers ? [{ label: 'Certifications', icon: Award, action: () => { setFan(false); navigate('/certifications'); } }] : []),
+      ...(onProfile ? [{ label: 'Save changes', icon: Save, action: () => fire('profile-save') }] : []),
       ...(onDash ? [{ label: 'Edit layout', icon: SlidersHorizontal, action: () => fire('open-edit-layout') }] : []),
   ];
   return <div className="duo-navroot" data-duo-theme={theme}>

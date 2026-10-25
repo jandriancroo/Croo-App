@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -58,6 +58,8 @@ interface UserProfile {
 }
 
 interface EmployeeProfileDialogProps {
+  /** Duo open mode: render inline in the docked right pane. */
+  dock?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   user: UserProfile | null;
@@ -147,6 +149,7 @@ export function EmployeeProfileDialog({
   onOpenWageDialog,
   onOpenWageHistory,
   onResendInvite,
+  dock = false,
 }: EmployeeProfileDialogProps) {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
@@ -470,13 +473,13 @@ export function EmployeeProfileDialog({
   const canEdit = canEditUser(user.id);
   const statusDisplay = getUserStatusDisplay(user);
 
-  return (
+  const Head = ({ children, className }: { children: ReactNode; className?: string }) => dock ? <div className={className}>{children}</div> : <DialogHeader className={className}>{children}</DialogHeader>;
+  const Title = ({ children, className }: { children: ReactNode; className?: string }) => dock ? <h2 className={`font-semibold leading-none tracking-tight ${className || ''}`}>{children}</h2> : <DialogTitle className={className}>{children}</DialogTitle>;
+  const inner = (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-          <DialogHeader className="flex-shrink-0 pb-4 border-b border-border">
-            <DialogTitle className="text-lg">Employee Profile</DialogTitle>
-          </DialogHeader>
+          <Head className="flex-shrink-0 pb-4 border-b border-border">
+            <Title className="text-lg">Employee Profile</Title>
+          </Head>
 
           <div className="flex-1 overflow-y-auto overscroll-contain py-4 space-y-6">
             {/* Header with Avatar and Basic Info */}
@@ -863,7 +866,7 @@ export function EmployeeProfileDialog({
 
           {/* Save Button */}
           {canEdit && (
-            <div className="flex-shrink-0 pt-4 border-t border-border">
+            <div className={`flex-shrink-0 pt-4 border-t border-border${dock ? " sticky bottom-0 bg-background pb-2" : ""}`}>
               <Button
                 className="w-full"
                 onClick={handleSave}
@@ -880,8 +883,18 @@ export function EmployeeProfileDialog({
               </Button>
             </div>
           )}
+    </>
+  );
+
+  return (
+    <>
+      {dock ? <div className="duo-emp-dock flex flex-col">{inner}</div> : (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="duo-slide max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+          {inner}
         </DialogContent>
       </Dialog>
+      )}
 
       <ImageCropDialog
         open={cropDialogOpen}
