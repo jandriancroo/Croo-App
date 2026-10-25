@@ -193,14 +193,15 @@ export function LogBookEntryList({ data }: LogBookEntryListProps) {
 }
 
 /** Full body of an entry (values, special entry types, follow-up buttons). Shared by the list card and the Duo inspector. */
-export function EntryBody({ data, entry }: { data: LogBookData; entry: any }) {
+export function EntryBody({ data, entry, mode = 'card' }: { data: LogBookData; entry: any; mode?: 'card' | 'inline' | 'tags' }) {
+  const tags = mode === 'tags';
   const { locationSettings, checkPreviousNightNeededBankRun, followupMutation } = data;
   return (
     <>
                     <div className="mt-2 space-y-1">
-                      {entry._isWriteUp && entry._writeUpData && <EmployeeWriteUpEntry writeUp={entry._writeUpData} />}
+                      {!tags && entry._isWriteUp && entry._writeUpData && <EmployeeWriteUpEntry writeUp={entry._writeUpData} />}
 
-                      {entry._isReadAndSign && entry._readAndSignData && (
+                      {!tags && entry._isReadAndSign && entry._readAndSignData && (
                         <ReadAndSignEntry
                           documentId={entry._readAndSignData.id}
                           title={entry._readAndSignData.title}
@@ -211,7 +212,7 @@ export function EntryBody({ data, entry }: { data: LogBookData; entry: any }) {
                         />
                       )}
 
-                      {entry._isPerformanceReview && entry._performanceReviewData && (
+                      {!tags && entry._isPerformanceReview && entry._performanceReviewData && (
                         <PerformanceReviewEntry
                           reviewId={entry._performanceReviewData.id}
                           employeeName={entry._performanceReviewData.employee?.full_name || 'Unknown'}
@@ -225,20 +226,21 @@ export function EntryBody({ data, entry }: { data: LogBookData; entry: any }) {
 
                       {!entry._isWriteUp && !entry._isReadAndSign && !entry._isPerformanceReview && entry.logbook_entry_values?.map((val: any) => {
                         const bankDepositData = val.value_text ? parseBankDepositData(val.value_text) : null;
-                        if (bankDepositData) return <BankDepositEntry key={val.id} data={bankDepositData} createdAt={entry.created_at} />;
+                        if (bankDepositData) return <BankDepositEntry mode={mode} key={val.id} data={bankDepositData} createdAt={entry.created_at} />;
 
                         const drawerData = val.value_text ? parseDrawerCountData(val.value_text) : null;
-                        if (drawerData && drawerData.actualDeposit !== undefined) return <DrawerCountEntry key={val.id} data={drawerData} createdAt={entry.created_at} drawerBank={locationSettings?.drawer_bank || 200} createdByName={getDisplayName(entry.profiles?.full_name, entry.profiles?.nickname)} />;
+                        if (drawerData && drawerData.actualDeposit !== undefined) return <DrawerCountEntry mode={mode} key={val.id} data={drawerData} createdAt={entry.created_at} drawerBank={locationSettings?.drawer_bank || 200} createdByName={getDisplayName(entry.profiles?.full_name, entry.profiles?.nickname)} />;
 
                         const safeData = val.value_text ? parseSafeCountData(val.value_text) : null;
                         if (safeData) {
                           const bankRunCompleted = safeData.shift === 'AM' && checkPreviousNightNeededBankRun(entry.entry_date) && checkBankRunCompleted(safeData);
-                          return <SafeCountEntry key={val.id} data={safeData} createdAt={entry.created_at} bankRunCompleted={bankRunCompleted} safeTarget={locationSettings?.safe_target ?? 300} />;
+                          return <SafeCountEntry mode={mode} key={val.id} data={safeData} createdAt={entry.created_at} bankRunCompleted={bankRunCompleted} safeTarget={locationSettings?.safe_target ?? 300} />;
                         }
 
                         const summaryData = val.value_text ? parseWeeklySummaryData(val.value_text) : null;
-                        if (summaryData) return <WeeklySummaryEntry key={val.id} data={summaryData} createdAt={entry.created_at} />;
+                        if (summaryData) return <WeeklySummaryEntry mode={mode} key={val.id} data={summaryData} createdAt={entry.created_at} />;
 
+                        if (tags) return null;
                         return (
                           <div key={val.id} className="text-sm">
                             {val.value_text || val.value_number || val.value_date ||
@@ -252,7 +254,7 @@ export function EntryBody({ data, entry }: { data: LogBookData; entry: any }) {
                       })}
                     </div>
 
-                    {entry.logbook_categories?.name === 'Guest Remakes' && (
+                    {!tags && entry.logbook_categories?.name === 'Guest Remakes' && (
                       <div className="mt-3 pt-3 border-t border-border">
                         {entry.followup_completed_at ? (
                           <div className="flex items-center gap-2">
@@ -265,7 +267,7 @@ export function EntryBody({ data, entry }: { data: LogBookData; entry: any }) {
                       </div>
                     )}
 
-                    {entry.logbook_categories?.name === 'Online Refunds' && (
+                    {!tags && entry.logbook_categories?.name === 'Online Refunds' && (
                       <div className="mt-3 pt-3 border-t border-border">
                         {entry.followup_completed_at ? (
                           <div className="flex items-center gap-2">
@@ -331,6 +333,7 @@ export function DuoLogRows({ data, selectedKey, onSelect }: { data: LogBookData;
               <span className="min-w-0 flex-1">
                 <span className="duo-log-top"><b>{getDisplayName(entry.profiles?.full_name, entry.profiles?.nickname) || 'Unknown'}</b><small>{format(new Date(entry.created_at), 'h:mm a')}</small></span>
                 <span className="duo-log-cat">{entry.logbook_categories?.name || (entry._isWriteUp ? 'Corrective Action' : entry._isReadAndSign ? 'Read & Sign' : entry._isPerformanceReview ? 'Performance Review' : '')}</span>
+                <span className="duo-log-tags"><EntryBody data={data} entry={entry} mode="tags" /></span>
                 {previewOf(entry) && <span className="duo-log-prev">{previewOf(entry)}</span>}
               </span>
             </button>
@@ -400,7 +403,7 @@ export function LogEntryInspector({ data, entry, onEdit, onDone }: { data: LogBo
           <p className="text-sm text-muted-foreground">{entry.logbook_categories?.name} • {format(new Date(entry.created_at), 'EEE, MMM d • h:mm a')}</p>
         </div>
       </div>
-      <div className="space-y-2"><EntryBody data={data} entry={entry} /></div>
+      <div className="space-y-2"><EntryBody data={data} entry={entry} mode="inline" /></div>
       {(canEdit || rm) && (
         <div className="duo-log-actions flex items-center gap-2 pt-2">
           {canEdit && <Button variant="outline" onClick={onEdit}><Pencil className="h-4 w-4 mr-2" />Edit</Button>}

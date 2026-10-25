@@ -645,7 +645,7 @@ html.duo .duo-logs-ctl [role=tablist]{height:36px}
 html.duo .duo-logs-ctl [role=tab]{padding-left:12px;padding-right:12px;font-size:15px}
 html.duo .duo-logs-ctl input{height:36px;font-size:16px}
 html.duo .duo-log-rows{margin:0 -16px}
-html.duo .duo-log-day{position:sticky;top:0;z-index:5;margin:0;padding:12px 16px 6px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:hsl(var(--muted-foreground));background:hsl(var(--background))}
+html.duo .duo-log-day{margin:0;padding:12px 16px 6px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:hsl(var(--muted-foreground));background:hsl(var(--background))}
 html.duo .duo-log-row{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:left;padding:11px 16px;background:transparent;border:0;border-bottom:1px solid hsl(var(--border));color:hsl(var(--foreground));cursor:pointer}
 html.duo .duo-log-row>span:last-child{display:flex;flex-direction:column;gap:1px}
 html.duo .duo-log-top{display:flex;align-items:baseline;gap:8px}
@@ -660,3 +660,13 @@ html.duo .duo-log-new,html.duo .duo-log-insp{color:hsl(var(--foreground))}
 html.duo .duo-log-new [class*="bg-card"]{background:transparent!important}
 html.duo .duo-log-new [class*="rounded-xl"]{border-radius:0!important;border-left:0!important;border-right:0!important}
 html.duo .duo-log-dock .duo-log-new h2{font-size:20px}
+
+/* v48 — Logs: tags live in list rows; inspector shows details inline */
+html.duo .duo-log-tags:empty{display:none}
+html.duo .duo-log-tags>*{margin-top:4px}
+html.duo .duo-log-insp .space-y-4>.text-sm.text-muted-foreground:first-child{display:none}
+
+/* v49 — Library: rows + docked recipe */
+html.duo .duo-lib-thumb{width:44px;height:44px;border-radius:8px;object-fit:cover;flex:none;background:hsl(var(--muted))}
+html.duo .duo-lib-thumb-ph{display:flex;align-items:center;justify-content:center;color:hsl(var(--muted-foreground))}
+html.duo .duo-recipe-dock{color:hsl(var(--foreground))}

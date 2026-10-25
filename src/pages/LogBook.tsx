@@ -110,7 +110,8 @@ export default function LogBook() {
   useEffect(() => {
     if (!duo.isDuo) return;
     document.documentElement.dataset.duoStatus = activeTab === 'library' ? 'LIBRARY' : (logsText || '');
-    return () => { delete document.documentElement.dataset.duoStatus; };
+    document.documentElement.dataset.duoTab = activeTab;
+    return () => { delete document.documentElement.dataset.duoStatus; delete document.documentElement.dataset.duoTab; };
   }, [duo.isDuo, logsText, activeTab]);
   const editSelected = () => {
     if (!selectedEntry) return;

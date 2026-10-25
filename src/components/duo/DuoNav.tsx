@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { TheoOrb } from '@/components/dock/TheoOrb';
 import { DuoOvation } from '@/components/duo/DuoOvation';
 import { useOvationData } from '@/components/dashboard/OvationScorePopover';
-import { Pencil, Mail, Inbox, ChevronRight, MapPin, X, Sparkles, Hand, SlidersHorizontal, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock, Gauge, Zap, ClipboardList, FileText as FileTextIcon, Copy, Plus } from 'lucide-react';
+import { Pencil, Mail, Inbox, ChevronRight, MapPin, X, Sparkles, Hand, SlidersHorizontal, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock, Gauge, Zap, ClipboardList, FileText as FileTextIcon, Copy, Plus, BookOpen, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -54,12 +54,14 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
     return () => observer.disconnect();
   }, []);
   const [pageNote, setPageNote] = useState('');
+  const [libTab, setLibTab] = useState(false);
+  const [libEdit, setLibEdit] = useState(false);
   useEffect(() => {
     const root = document.documentElement;
-    const update = () => setPageNote(root.dataset.duoStatus || '');
+    const update = () => { setPageNote(root.dataset.duoStatus || ''); setLibTab(root.dataset.duoTab === 'library'); setLibEdit(!!root.dataset.duoLibEdit); };
     update();
     const observer = new MutationObserver(update);
-    observer.observe(root, { attributes: true, attributeFilter: ['data-duo-status'] });
+    observer.observe(root, { attributes: true, attributeFilter: ['data-duo-status', 'data-duo-tab', 'data-duo-lib-edit'] });
     return () => observer.disconnect();
   }, []);
   const menu = [
@@ -103,7 +105,8 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
       ...(onTasks && (isAdmin || isManager) ? [{ label: 'New Quick Task', icon: Zap, action: () => fire('open-new-quick-task') }] : []),
       ...(onTasks && (isAdmin || isManager) ? [{ label: 'Templates', icon: FileTextIcon, action: () => fire('open-quick-task-templates') }] : []),
       ...(onTasks && isAdmin ? [{ label: 'New Checklist', icon: ClipboardList, action: () => fire('open-new-checklist') }, { label: 'Copy All', icon: Copy, action: () => fire('open-copy-all-checklists') }] : []),
-      ...(onLogs && isShiftManager ? [{ label: 'New log', icon: Plus, action: () => fire('open-new-log') }] : []),
+      ...(onLogs && libTab && libEdit ? [{ label: 'New recipe', icon: BookOpen, action: () => fire('open-new-recipe') }, { label: 'Upload document', icon: Upload, action: () => fire('open-upload-document') }] : []),
+      ...(onLogs && !libTab && isShiftManager ? [{ label: 'New log', icon: Plus, action: () => fire('open-new-log') }] : []),
       ...(onLogs && isAdmin ? [{ label: 'Manage categories', icon: Settings, action: () => fire('open-manage-categories') }] : []),
       ...(onDash ? [{ label: 'Edit layout', icon: SlidersHorizontal, action: () => fire('open-edit-layout') }] : []),
   ];

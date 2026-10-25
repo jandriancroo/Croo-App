@@ -68,7 +68,7 @@ export function DocumentUploader({ open, onOpenChange, scope, brandId, organizat
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="duo-popup max-w-md">
         <DialogHeader><DialogTitle>Upload Document</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div className="space-y-2">

@@ -255,7 +255,7 @@ export function RecipeBuilder({ open, onOpenChange, recipeId, scope, brandId, or
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="duo-slide max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{recipeId ? "Edit Recipe" : "New Recipe"}</DialogTitle>
         </DialogHeader>

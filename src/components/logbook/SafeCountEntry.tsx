@@ -10,6 +10,8 @@ import { SafeCountData } from "@/components/logbook/SafeCountForm";
 export type { SafeCountData };
 
 interface SafeCountEntryProps {
+  /** Duo: 'inline' = details only (no Details button), 'tags' = compact summary for list rows. */
+  mode?: 'card' | 'inline' | 'tags';
   data: SafeCountData;
   createdAt: string;
   bankRunCompleted?: boolean;
@@ -41,70 +43,13 @@ export function checkBankRunCompleted(data: SafeCountData): boolean {
   return onesCount > 100;
 }
 
-export function SafeCountEntry({ data, createdAt, bankRunCompleted, safeTarget = 300 }: SafeCountEntryProps) {
+export function SafeCountEntry({ data, createdAt, bankRunCompleted, safeTarget = 300, mode = 'card' }: SafeCountEntryProps) {
   const [open, setOpen] = useState(false);
   
   // Check if safe count needs bank run (< $30 in $1 bills)
   const needsBankRun = checkNeedsBankRun(data);
 
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-3 flex-wrap">
-          <Badge 
-            className={cn(
-              "text-xs",
-              data.shift === 'AM' 
-                ? "bg-amber-100 text-amber-900 border-amber-300" 
-                : "bg-indigo-900 text-indigo-100 border-indigo-700"
-            )}
-          >
-            {data.shift === 'AM' ? <Sun className="h-3 w-3 mr-1" /> : <Moon className="h-3 w-3 mr-1" />}
-            {data.shift}
-          </Badge>
-          <div className="flex items-center gap-1 text-sm">
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-            <span className="font-medium">{formatCurrency(data.totalSafe)}</span>
-          </div>
-          {/* Bank Run Completed - only shows on AM when previous night PM needed run AND current AM has > $100 */}
-          {data.shift === 'AM' && bankRunCompleted && (
-            <Badge className="text-xs bg-green-100 text-green-800 border-green-300">
-              <Banknote className="h-3 w-3 mr-1" />
-              Bank Run Completed
-            </Badge>
-          )}
-          {/* Bank Run Needed - shows on ANY shift (AM or PM) when < $30 in $1 bills, but not on AM if completed */}
-          {needsBankRun && !(data.shift === 'AM' && bankRunCompleted) && (
-            <Badge variant="destructive" className="text-xs">
-              Bank Run Needed
-            </Badge>
-          )}
-        </div>
-        
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="w-full sm:w-auto">
-              <Eye className="h-4 w-4 mr-1" />
-              Details
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                Safe Count Details
-                <Badge 
-                  className={cn(
-                    "text-xs",
-                    data.shift === 'AM' 
-                      ? "bg-amber-100 text-amber-900 border-amber-300" 
-                      : "bg-indigo-900 text-indigo-100 border-indigo-700"
-                  )}
-                >
-                  {data.shift === 'AM' ? <Sun className="h-3 w-3 mr-1" /> : <Moon className="h-3 w-3 mr-1" />}
-                  {data.shift}
-                </Badge>
-              </DialogTitle>
-            </DialogHeader>
+  const details = (<>
             
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground">
@@ -157,8 +102,70 @@ export function SafeCountEntry({ data, createdAt, bankRunCompleted, safeTarget =
                 </div>
               </div>
             </div>
+          </>);
+  if (mode === 'inline') return <div className="space-y-4">{details}</div>;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <Badge 
+            className={cn(
+              "text-xs",
+              data.shift === 'AM' 
+                ? "bg-amber-100 text-amber-900 border-amber-300" 
+                : "bg-indigo-900 text-indigo-100 border-indigo-700"
+            )}
+          >
+            {data.shift === 'AM' ? <Sun className="h-3 w-3 mr-1" /> : <Moon className="h-3 w-3 mr-1" />}
+            {data.shift}
+          </Badge>
+          <div className="flex items-center gap-1 text-sm">
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <span className="font-medium">{formatCurrency(data.totalSafe)}</span>
+          </div>
+          {/* Bank Run Completed - only shows on AM when previous night PM needed run AND current AM has > $100 */}
+          {data.shift === 'AM' && bankRunCompleted && (
+            <Badge className="text-xs bg-green-100 text-green-800 border-green-300">
+              <Banknote className="h-3 w-3 mr-1" />
+              Bank Run Completed
+            </Badge>
+          )}
+          {/* Bank Run Needed - shows on ANY shift (AM or PM) when < $30 in $1 bills, but not on AM if completed */}
+          {needsBankRun && !(data.shift === 'AM' && bankRunCompleted) && (
+            <Badge variant="destructive" className="text-xs">
+              Bank Run Needed
+            </Badge>
+          )}
+        </div>
+        
+        {mode === 'card' && <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="w-full sm:w-auto">
+              <Eye className="h-4 w-4 mr-1" />
+              Details
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                Safe Count Details
+                <Badge 
+                  className={cn(
+                    "text-xs",
+                    data.shift === 'AM' 
+                      ? "bg-amber-100 text-amber-900 border-amber-300" 
+                      : "bg-indigo-900 text-indigo-100 border-indigo-700"
+                  )}
+                >
+                  {data.shift === 'AM' ? <Sun className="h-3 w-3 mr-1" /> : <Moon className="h-3 w-3 mr-1" />}
+                  {data.shift}
+                </Badge>
+              </DialogTitle>
+            </DialogHeader>
+            {details}
           </DialogContent>
-        </Dialog>
+        </Dialog>}
       </div>
     </div>
   );
