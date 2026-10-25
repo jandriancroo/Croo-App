@@ -61,7 +61,6 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
       <div className="duo-brand">{brandLogo ? <img src={brandLogo} alt="" /> : <i aria-hidden />}<span>{brandName}</span></div>
       <Button variant="ghost" className="duo-store duo-glass" onClick={openLocation}><MapPin size={16} />{currentLocation?.name}<ChevronRight size={14} /></Button>
     </div>}
-    {onDash && <div className="duo-wordmark" aria-hidden><img src="/croohq-wordmark.png" alt="" /></div>}
     {open && <Button variant="ghost" aria-label="Close page menu" className="duo-dim" onClick={() => setOpen(false)} />}
     <Button variant="ghost" className="duo-handle duo-glass" aria-label="Open page menu" onClick={() => setOpen(true)}><ChevronRight size={13} /></Button>
     {open && <aside className="duo-menu duo-glass" aria-label="Page menu"><div className="duo-menu-title">CrooHQ <Button variant="ghost" aria-label="Close page menu" onClick={() => setOpen(false)}><X /></Button></div>
