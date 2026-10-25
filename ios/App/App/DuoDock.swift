@@ -183,7 +183,8 @@ final class DuoDockController: UINavigationController {
         guard show != dockShowing else { return }
         dockShowing = show
         print("[DuoDock] native dock \(show ? "on" : "off")")
-        setToolbarHidden(!show, animated: false)
+        // Jordan, Oct 24: no native dock on Duo. The web action orb and slide-out menu replace it.
+        setToolbarHidden(true, animated: false)
         hideWebDock(show)
         if show { startPolling() } else { stopPolling() }
     }
