@@ -83,7 +83,7 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh]">
+      <DialogContent className="duo-slide max-w-2xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>{checklistDetails?.title}</DialogTitle>
         </DialogHeader>

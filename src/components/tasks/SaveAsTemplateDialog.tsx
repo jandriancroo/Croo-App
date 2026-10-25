@@ -112,7 +112,7 @@ export function SaveAsTemplateDialog({ open, onOpenChange, task }: SaveAsTemplat
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="duo-popup max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Save className="h-5 w-5" />

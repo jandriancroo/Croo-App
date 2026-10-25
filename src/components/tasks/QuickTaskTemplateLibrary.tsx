@@ -104,7 +104,7 @@ export function QuickTaskTemplateLibrary({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="duo-slide max-w-md max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
@@ -181,7 +181,7 @@ export function QuickTaskTemplateLibrary({
       </Dialog>
 
       <AlertDialog open={!!deleteTemplateId} onOpenChange={(open) => !open && setDeleteTemplateId(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="duo-popup">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Template</AlertDialogTitle>
             <AlertDialogDescription>

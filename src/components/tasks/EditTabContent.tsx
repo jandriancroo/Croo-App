@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Zap, ClipboardList, Copy, GraduationCap, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -21,6 +21,8 @@ import { ChecklistTypeDialog } from "@/components/checklists/ChecklistTypeDialog
 
 
 interface EditTabContentProps {
+  duoAction?: string | null;
+  onDuoActionDone?: () => void;
   checklists: any[];
   isAdmin: boolean;
   isManager: boolean;
@@ -29,6 +31,8 @@ interface EditTabContentProps {
 export default function EditTabContent({
   checklists,
   isAdmin,
+  duoAction,
+  onDuoActionDone,
 }: EditTabContentProps) {
   const navigate = useNavigate();
   const { timezone } = useLocationTimezone();
@@ -40,6 +44,12 @@ export default function EditTabContent({
   const [activeTab, setActiveTab] = useState("quick-tasks");
   const [assignChecklist, setAssignChecklist] = useState<{ id: string; title: string } | null>(null);
   const [typeDialogOpen, setTypeDialogOpen] = useState(false);
+  // Duo orb: New Quick Task switches to that sub-tab (its section opens the dialog); New Checklist opens the type chooser.
+  useEffect(() => {
+    if (duoAction === 'open-new-quick-task') setActiveTab('quick-tasks');
+    if (duoAction === 'open-new-checklist') { setActiveTab('templates'); if (isAdmin) setTypeDialogOpen(true); onDuoActionDone?.(); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duoAction]);
   const [duplicateChecklist, setDuplicateChecklist] = useState<any | null>(null);
   const [scheduleDraft, setScheduleDraft] = useState<any | null>(null);
 
@@ -187,7 +197,7 @@ export default function EditTabContent({
 
       {/* Quick Tasks Tab Content */}
       {activeTab === "quick-tasks" && (
-        <TemporaryTasksSection />
+        <TemporaryTasksSection autoCreate={duoAction === 'open-new-quick-task'} onAutoCreateDone={onDuoActionDone} />
       )}
 
       {/* Templates Tab Content */}

@@ -85,7 +85,7 @@ export function SortableChecklistItem({
       style={style}
     >
       <div
-        className={`border rounded-lg p-3 transition-colors cursor-pointer ${
+        className={`duo-tasks-card border rounded-lg p-3 transition-colors cursor-pointer ${
           !checklist.is_active 
             ? 'opacity-40 border-dashed bg-muted/30' 
             : 'hover:bg-accent/50'

@@ -273,7 +273,7 @@ export function CopyChecklistDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="duo-slide max-w-md">
         <DialogHeader>
           <DialogTitle>Copy To Locations</DialogTitle>
           <DialogDescription>

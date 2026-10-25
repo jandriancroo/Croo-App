@@ -11,11 +11,8 @@ interface CompletedTaskDetailsDialogProps {
   task: any;
 }
 
-export function CompletedTaskDetailsDialog({
-  open,
-  onOpenChange,
-  task,
-}: CompletedTaskDetailsDialogProps) {
+/** Header + body of a completed task. Shared by the dialog and the Duo docked pane. */
+export function CompletedTaskContent({ task, enabled = true, dock = false }: { task: any; enabled?: boolean; dock?: boolean }) {
   // Fetch subtasks with completion details
   const { data: subtasks = [] } = useQuery({
     queryKey: ["completed-task-subtasks", task?.id],
@@ -33,26 +30,33 @@ export function CompletedTaskDetailsDialog({
       if (error) throw error;
       return data || [];
     },
-    enabled: open && !!task?.id,
+    enabled: enabled && !!task?.id,
   });
 
   if (!task) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <div
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: task.accent_color || "#8B5CF6" }}
-            />
+    <>
+        {dock ? (
+          <div className="flex items-center gap-2 text-lg font-semibold leading-none tracking-tight">
+            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: task.accent_color || "#8B5CF6" }} />
             {task.title}
-            <Badge variant="secondary" className="ml-auto text-xs">
-              Completed
-            </Badge>
-          </DialogTitle>
-        </DialogHeader>
+            <Badge variant="secondary" className="ml-auto text-xs">Completed</Badge>
+          </div>
+        ) : (
+        <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: task.accent_color || "#8B5CF6" }}
+              />
+              {task.title}
+              <Badge variant="secondary" className="ml-auto text-xs">
+                Completed
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+        )}
 
         <div className="space-y-4 py-2">
           {/* Description */}
@@ -165,6 +169,20 @@ export function CompletedTaskDetailsDialog({
             </div>
           )}
         </div>
+    </>
+  );
+}
+
+export function CompletedTaskDetailsDialog({
+  open,
+  onOpenChange,
+  task,
+}: CompletedTaskDetailsDialogProps) {
+  if (!task) return null;
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="duo-slide max-w-md max-h-[80vh] overflow-y-auto">
+        <CompletedTaskContent task={task} enabled={open} />
       </DialogContent>
     </Dialog>
   );
