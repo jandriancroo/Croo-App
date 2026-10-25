@@ -86,7 +86,8 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
   };
   const onChat = route.pathname.startsWith('/messages');
   const onDash = route.pathname === '/dashboard' || route.pathname === '/';
-  const active = (path: string) => path === '/dashboard' ? (route.pathname === '/dashboard' || route.pathname === '/') : route.pathname.startsWith(path);
+  const onChecklist = /^\/(complete-checklist|edit-checklist|create-checklist|dynamic-checklist|testing-checklist)/.test(route.pathname);
+  const active = (path: string) => path === '/dashboard' ? (route.pathname === '/dashboard' || route.pathname === '/') : (route.pathname.startsWith(path) || (path === '/tasks' && onChecklist));
   const pageName = menu.find(m => active(m.path))?.title;
   const onTasks = route.pathname.startsWith('/tasks');
   const pageStatus = onChat ? (chat ? `${chat} unread` : 'All caught up') : pageNote;

@@ -1,6 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { checklistScorePeriod, checklistShowsOn } from '@/lib/taskHistory/schedule';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useDuo } from '@/hooks/useDuo';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format, addDays, startOfWeek, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
@@ -298,6 +300,10 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
   });
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  // Duo open mode: day details live in the right-hand dock instead of under the grid.
+  const duo = useDuo();
+  const [dockSlot, setDockSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => { setDockSlot(duo.isOpen ? document.getElementById('duo-tasks-detail') : null); }, [duo.isOpen, selectedDate]);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
 
@@ -325,7 +331,7 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
   }, [cells, todayStr]);
 
   return (
-    <Card>
+    <Card className="duo-tasks-heat">
       <CardContent className="py-4 px-4">
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -427,8 +433,8 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
           const splh = sl && sl.laborHours > 0 ? sales / sl.laborHours : null;
           const fmt$ = (n: number) =>
             `$${Math.round(n).toLocaleString('en-US')}`;
-          return (
-            <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3 animate-in fade-in slide-in-from-top-1 duration-200">
+          const panel = (
+            <div className="duo-day-detail mt-4 rounded-lg border border-border bg-muted/30 p-3 animate-in fade-in slide-in-from-top-1 duration-200">
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <div className="text-sm font-semibold">{format(cell.date, 'EEEE, MMM d')}</div>
@@ -516,6 +522,7 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
             </div>
             </div>
           );
+          return dockSlot ? createPortal(panel, dockSlot) : panel;
         })()}
       </CardContent>
     </Card>

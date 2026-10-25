@@ -321,7 +321,7 @@ export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, o
     <div>
       {body}
       <AlertDialog open={!!pending} onOpenChange={(o) => !o && setPending(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="duo-popup">
           <AlertDialogHeader>
             <AlertDialogTitle>Remove {pending?.drop} reference photo{pending && pending.drop > 1 ? 's' : ''}?</AlertDialogTitle>
             <AlertDialogDescription>
