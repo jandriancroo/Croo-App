@@ -353,3 +353,7 @@ html.duo .duo-popup{z-index:101}
 /* v15: manager dash close button sits in the panel's top-left strip, not over the greeting */
 html.duo .duo-dock>div:nth-child(2){position:static!important}
 html.duo .duo-dock button[aria-label=Close]{position:absolute!important;left:16px!important;top:6px!important;height:44px;width:44px;z-index:5}
+
+/* v16: open mode — location pill on the right edge of the LEFT pane; right pane starts at the very top (hero touches the screen edge) */
+html.duo.duo-open .duo-store{right:calc(50% + 34px)!important}
+html.duo.duo-open .duo-widgets>div{padding-top:0!important}
