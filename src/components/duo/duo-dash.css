@@ -452,3 +452,23 @@ html.duo .duo-chat-page article{background:transparent!important;border:0!import
 html.duo .duo-chat-page article>header{background:transparent!important;border-top:0!important}
 html.duo .duo-chat-page .space-y-3>*{margin-top:0!important}
 html.duo .duo-chat-page .space-y-3{border-top:1px solid hsl(var(--border))}
+
+/* v28: closed view — page line sits lower, filter clears Apple's pill; Inbox title matches the page line; pinned chats use a darker beige instead of yellow; Theo orb expands and contracts */
+html.duo:not(.duo-open):has(.duo-chat-page) main{padding-top:64px!important}
+html.duo:not(.duo-open) .duo-activity-row{padding-right:max(var(--duo-col-right,0px),104px)!important}
+html.duo.duo-open .duo-dm-dock{padding-top:56px!important}
+html.duo .duo-dm-dock>div:first-child{padding-top:0!important}
+html.duo .duo-dm-dock h2,html.duo .duo-slide h2.text-lg{font-size:13px!important;line-height:1.2;font-weight:600!important;letter-spacing:.08em;text-transform:uppercase;color:hsl(var(--foreground))!important}
+html.duo .duo-dm-dock [class*="bg-yellow-500/15"],html.duo .duo-slide [class*="bg-yellow-500/15"]{background:hsl(var(--muted))!important}
+html.duo .duo-dm-dock [class*="bg-yellow-500/10"],html.duo .duo-slide [class*="bg-yellow-500/10"]{background:hsl(var(--muted)/.55)!important}
+html.duo .duo-dm-dock [class*="border-yellow"],html.duo .duo-slide [class*="border-yellow"]{border-color:hsl(var(--border))!important}
+html.duo .duo-dm-dock [class*="text-yellow"],html.duo .duo-slide [class*="text-yellow"]{color:hsl(var(--muted-foreground))!important}
+html.duo .duo-orb-bump{animation:duo-orb-pulse .5s cubic-bezier(.4,0,.2,1) both!important}
+@keyframes duo-orb-pulse{0%{transform:scale(1)}45%{transform:scale(1.28)}100%{transform:scale(1)}}
+
+/* v29: the Dash date line IS the shared page line (same size, weight, colours, left edge and height as "CHAT · ALL CAUGHT UP") */
+html.duo .duo-dash .duo-date{display:flex!important;align-items:baseline;gap:10px;padding:0 16px 10px!important;font-size:13px!important;letter-spacing:.08em!important;height:auto;min-height:0;text-transform:uppercase}
+html.duo .duo-dash .duo-date b{font-weight:600;color:var(--duo-ink);letter-spacing:.08em}
+html.duo .duo-dash .duo-date span{font-weight:400;color:var(--duo-muted)}
+html.duo .duo-dash .duo-dash-intro{padding-top:56px}
+html.duo:not(.duo-open) .duo-dash .duo-dash-intro{padding-top:64px}

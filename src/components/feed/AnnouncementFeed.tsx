@@ -128,7 +128,7 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
             </button>
 
             {/* ACTIVITY label + badge filter row sits directly under the composer trigger */}
-            <div className="flex items-center justify-between px-1 py-1">
+            <div className="duo-activity-row flex items-center justify-between px-1 py-1">
               <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/85">
                 ACTIVITY
               </span>
