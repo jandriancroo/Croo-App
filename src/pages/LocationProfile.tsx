@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useState, useEffect } from 'react';
+import { useDuo } from '@/hooks/useDuo';
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -58,6 +59,7 @@ export default function LocationProfile() {
   const { locationId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const duo = useDuo();
   const routerLocation = useLocation();
   const { user } = useAuth();
   const { isSuperAdmin } = useUserRole();
@@ -380,6 +382,14 @@ export default function LocationProfile() {
     );
   };
 
+  // Duo: orb's "Save settings".
+  useEffect(() => {
+    if (!duo.isDuo) return;
+    const save = () => { handleSave(); };
+    window.addEventListener('location-save', save);
+    return () => window.removeEventListener('location-save', save);
+  });
+
   if (loading) {
     return (
       <Layout>
@@ -402,7 +412,7 @@ export default function LocationProfile() {
 
   return (
     <Layout>
-      <div className="[&>*:not(:first-child):not(:nth-child(2))]:mt-6 w-full overflow-x-hidden">
+      <div className={duo.isDuo ? (duo.isOpen ? 'duo-tasks-page duo-tasks-left space-y-6' : 'duo-tasks-page space-y-6') : "[&>*:not(:first-child):not(:nth-child(2))]:mt-6 w-full overflow-x-hidden"}>
         {/* Header */}
         <PageTitle
           color="blue"
@@ -430,7 +440,7 @@ export default function LocationProfile() {
 
         <div className="flex flex-col gap-6 min-w-0">
           {/* Unified Location Settings Card */}
-          <Card>
+          <Card className={duo.isDuo ? 'duo-profile-card duo-loc-card' : undefined}>
             <CardHeader>
               <CardTitle>Location Settings</CardTitle>
               <CardDescription>
@@ -646,8 +656,8 @@ export default function LocationProfile() {
 
               
 
-              {/* Unified Save Button */}
-              <div className="border-t pt-6">
+              {/* Unified Save Button (Duo: orb carries Save settings) */}
+              <div className={duo.isDuo ? 'hidden' : 'border-t pt-6'}>
                 <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
                   <Save className="h-4 w-4 mr-2" />
                   {saving ? 'Saving...' : isNew ? 'Create Location' : 'Save All Settings'}
@@ -657,19 +667,26 @@ export default function LocationProfile() {
           </Card>
 
 
-          {!isNew && isSuperAdmin && location?.name && (
-            <InitiateBillingCard locationId={locationId!} locationName={location.name} />
-          )}
+          {(() => {
+            const trailing = (
+              <>
+                {!isNew && isSuperAdmin && location?.name && (
+                  <InitiateBillingCard locationId={locationId!} locationName={location.name} />
+                )}
 
-          {/* Labor Rules */}
-          {!isNew && (
-            <LaborRulesSection locationId={locationId} />
-          )}
+                {/* Labor Rules */}
+                {!isNew && (
+                  <LaborRulesSection locationId={locationId} />
+                )}
 
-          {/* Integrations - at bottom, for all existing locations */}
-          {!isNew && (
-            <IntegrationsSection locationId={locationId} />
-          )}
+                {/* Integrations - at bottom, for all existing locations */}
+                {!isNew && (
+                  <IntegrationsSection locationId={locationId} />
+                )}
+              </>
+            );
+            return duo.isDuo && duo.isOpen ? <aside className="duo-tasks-dock duo-loc-dock flex flex-col gap-6">{trailing}</aside> : trailing;
+          })()}
 
         </div>
       </div>

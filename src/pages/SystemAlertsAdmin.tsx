@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import { ArrowLeft, Bell, Eye, Loader2, Pencil, Plus, List, ListOrdered, Send, Archive, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { Layout } from '@/components/Layout';
+import { DuoPage } from '@/components/duo/DuoPage';
 import { PageTitle } from '@/components/PageTitle';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -98,7 +99,8 @@ export default function SystemAlertsAdmin() {
   if (loading) return <Layout><Loader2 className="mx-auto my-12 h-6 w-6 animate-spin" /></Layout>;
   if (!isSuperAdmin) return <Layout><PageTitle color="teal" status={null}>System Alerts</PageTitle><p className="text-muted-foreground">Only the super admin can manage system alerts.</p></Layout>;
 
-  return <Layout><div className="mx-auto w-full max-w-4xl">
+  return <Layout>
+<DuoPage><div className="mx-auto w-full max-w-4xl">
     <PageTitle color="slate" status={null} leading={<Button variant="ghost" size="icon" aria-label="Back to Settings" onClick={() => navigate('/settings')}><ArrowLeft className="h-5 w-5" /></Button>}>System Alerts</PageTitle>
     <div className="space-y-4">
     {!editing && <Button className="w-full" onClick={() => user && setEditing(blankAlert(user.id))}><Plus className="mr-2 h-4 w-4" />New alert</Button>}
@@ -145,5 +147,6 @@ export default function SystemAlertsAdmin() {
     </div>}
     <SystemAlertDialog alert={preview} open={!!preview} onDismiss={() => setPreview(null)} onAction={() => setPreview(null)} />
     <AlertDialog open={!!publishing} onOpenChange={open => { if (!open && !busy) setPublishing(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Ship this system alert?</AlertDialogTitle><AlertDialogDescription>{publishing?.audience === 'all' ? 'Everyone will see this once when they next open Dash.' : 'Only you will see this test alert on Dash.'} Retiring it stops future delivery.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><AlertDialogAction disabled={busy} onClick={e => { e.preventDefault(); if (publishing) void changeStatus(publishing, 'published'); }}>Ship alert</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-  </div></div></Layout>;
+  </div></div></DuoPage>
+</Layout>;
 }

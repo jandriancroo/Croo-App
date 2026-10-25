@@ -1,5 +1,6 @@
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
+import { useDuo } from '@/hooks/useDuo';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -130,6 +131,24 @@ export default function OrganizationProfile() {
     }
   };
 
+  // Duo: orb actions (Save settings / Add location) and page line.
+  const duo = useDuo();
+  useEffect(() => {
+    if (!duo.isDuo) return;
+    const save = () => { handleSave(); };
+    const add = () => navigate(`/location/new?org=${id}`);
+    window.addEventListener('org-save', save);
+    window.addEventListener('org-add-location', add);
+    return () => { window.removeEventListener('org-save', save); window.removeEventListener('org-add-location', add); };
+  });
+  useEffect(() => {
+    if (!duo.isDuo) return;
+    const root = document.documentElement;
+    root.dataset.duoPage = 'Organization';
+    root.dataset.duoStatus = (isNew ? 'NEW ORGANIZATION' : (organization?.name || '')).toUpperCase();
+    return () => { delete root.dataset.duoPage; delete root.dataset.duoStatus; };
+  }, [duo.isDuo, isNew, organization?.name]);
+
   // Get selected brand details
   const selectedBrand = brands.find(b => b.id === brandId);
 
@@ -162,12 +181,12 @@ export default function OrganizationProfile() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className={duo.isDuo ? (duo.isOpen ? 'duo-tasks-page duo-tasks-left space-y-6' : 'duo-tasks-page space-y-6') : 'space-y-6'}>
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
+          <div className={duo.isDuo ? 'hidden' : undefined}>
             <h1 className="text-3xl font-bold">
               {isNew ? 'New Organization' : organization?.name}
             </h1>
@@ -178,7 +197,7 @@ export default function OrganizationProfile() {
         </div>
 
         {/* Organization Details */}
-        <Card>
+        <Card className={duo.isDuo ? 'duo-profile-card' : undefined}>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
@@ -196,7 +215,7 @@ export default function OrganizationProfile() {
               />
             </div>
             
-            <Button onClick={handleSave} disabled={isSaving}>
+            <Button onClick={handleSave} disabled={isSaving} className={duo.isDuo ? 'hidden' : undefined}>
               <Save className="h-4 w-4 mr-2" />
               {isSaving ? 'Saving...' : 'Save Changes'}
             </Button>
@@ -204,7 +223,7 @@ export default function OrganizationProfile() {
         </Card>
 
         {/* Brand Assignment */}
-        <Card>
+        <Card className={duo.isDuo ? 'duo-profile-card' : undefined}>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Tag className="h-4 w-4" />
@@ -259,6 +278,9 @@ export default function OrganizationProfile() {
           </CardContent>
         </Card>
 
+        {(() => {
+          const heavy = (
+            <>
         {/* Library toggle */}
         {!isNew && id && (
           <Card>
@@ -298,6 +320,11 @@ export default function OrganizationProfile() {
         )}
 
 
+            </>
+          );
+          return duo.isDuo && duo.isOpen ? <aside className="duo-tasks-dock duo-loc-dock flex flex-col gap-6">{heavy}</aside> : heavy;
+        })()}
+
         {/* Locations */}
         {!isNew && (
           <Card>
@@ -309,6 +336,7 @@ export default function OrganizationProfile() {
                 </div>
                 <Button
                   size="sm"
+                  className={duo.isDuo ? 'hidden' : undefined}
                   onClick={() => navigate(`/location/new?org=${id}`)}
                 >
                   <Plus className="h-4 w-4 mr-1" />

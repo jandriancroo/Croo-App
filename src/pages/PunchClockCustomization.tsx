@@ -2,6 +2,7 @@ import { PageTitle } from '@/components/PageTitle';
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
+import { DuoPage } from '@/components/duo/DuoPage';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -616,6 +617,7 @@ export default function PunchClockCustomization() {
 
   return (
     <Layout>
+<DuoPage>
       <div className="[&>*:not(:first-child):not(:nth-child(2))]:mt-6 max-w-3xl mx-auto">
         {/* Header */}
         <PageTitle
@@ -1206,6 +1208,7 @@ export default function PunchClockCustomization() {
         cropShape="rect"
         aspect={3 / 4}
       />
-    </Layout>
+    </DuoPage>
+</Layout>
   );
 }

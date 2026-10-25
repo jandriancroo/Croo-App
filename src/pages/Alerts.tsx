@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
+import { DuoPage } from '@/components/duo/DuoPage';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -503,6 +504,7 @@ export default function Alerts() {
 
   return (
     <Layout>
+<DuoPage>
       <div>
         <PageTitle
           color="red"
@@ -605,6 +607,7 @@ export default function Alerts() {
           </TabsContent>
         </Tabs>
       </div>
-    </Layout>
+    </DuoPage>
+</Layout>
   );
 }
