@@ -264,3 +264,12 @@ html.duo .duo-dash [data-promo-ranking] .text-muted-foreground{color:var(--duo-m
 html.duo .duo-dash [data-promo-ranking] .bg-background{background:var(--duo-fill);border-color:var(--duo-line);box-shadow:none}
 html.duo .duo-dash [data-promo-ranking] .bg-accent{background:var(--duo-selected)!important;color:var(--duo-ink)!important}
 html.duo .duo-dash [data-promo-ranking] button{color:var(--duo-ink)}
+
+/* v8: open mode — two independently scrolling sides; location pill top-right for balance with the brand */
+html.duo .duo-navroot .duo-store{position:fixed;top:14px;right:max(calc(var(--duo-col-right,0px) + 14px),104px);z-index:60}
+html.duo.duo-open .duo-dash-grid{display:grid;grid-template-columns:calc(50% - 20px) 40px calc(50% - 20px);grid-template-rows:auto auto minmax(0,1fr);height:100%;min-height:0;overflow:hidden;padding:0}
+html.duo.duo-open .duo-quick{max-height:34dvh;overflow-y:auto}
+html.duo.duo-open .duo-widgets>div{display:flex;flex-direction:column;grid-column:3;grid-row:1 / 4;height:100%;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:96px}
+html.duo.duo-open .duo-widgets>div>*{grid-column:auto!important;grid-row:auto!important;margin-top:0!important;align-self:auto!important;flex:none}
+html.duo.duo-open .duo-widgets>div>div:has(.bg-card.border.border-border.rounded-xl){position:fixed;left:0;width:calc(50% - 20px);top:var(--duo-left-top,360px);bottom:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:96px}
+html.duo.duo-open .duo-dash [data-promo-hero]{height:236px}

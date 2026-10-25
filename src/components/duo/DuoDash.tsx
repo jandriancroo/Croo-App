@@ -1,4 +1,4 @@
-import { Children, cloneElement, isValidElement, useEffect, useState, type ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, useEffect, useRef, useState, type ReactNode } from 'react';
 import { DateTime } from 'luxon';
 import { Button } from '@/components/ui/button';
 import './duo-dash.css';
@@ -20,11 +20,27 @@ export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
     window.addEventListener('open-edit-layout', edit);
     return () => window.removeEventListener('open-edit-layout', edit);
   }, [onEdit]);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // Open mode: the checklists pane starts where the intro + Quick Tasks end (each side scrolls on its own).
+    const root = rootRef.current;
+    if (!root) return;
+    const place = () => {
+      const q = root.querySelector<HTMLElement>('.duo-quick');
+      const bottom = q ? q.getBoundingClientRect().bottom : 0;
+      document.documentElement.style.setProperty('--duo-left-top', `${Math.round(bottom)}px`);
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    root.querySelectorAll('.duo-dash-intro, .duo-quick').forEach(el => ro.observe(el));
+    window.addEventListener('resize', place);
+    return () => { ro.disconnect(); window.removeEventListener('resize', place); document.documentElement.style.removeProperty('--duo-left-top'); };
+  }, []);
   useEffect(() => {
     document.documentElement.dataset.duoTheme = theme;
     return () => { delete document.documentElement.dataset.duoTheme; };
   }, [theme]);
-  return <div className="duo-dash" data-duo-theme={theme}>
+  return <div ref={rootRef} className="duo-dash" data-duo-theme={theme}>
     <div className="duo-dash-grid">
       <div className="duo-dash-intro"><Button variant="ghost" className="duo-date" onClick={() => setTheme(t => t === 'paper' ? 'oled' : 'paper')}>
         {DateTime.now().setZone(timezone).toFormat('cccc, MMM d')}</Button>
