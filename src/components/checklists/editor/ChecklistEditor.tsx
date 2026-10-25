@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
-import { ArrowLeft, ChevronRight, GripVertical, Loader2, Plus, Upload } from 'lucide-react';
+import { ArrowLeft, ChevronRight, GripVertical, Loader2, Plus, Save, Upload } from 'lucide-react';
 import { BulkUploadPanel } from './BulkUploadPanel';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -402,7 +402,9 @@ export function ChecklistEditor(p: Props) {
           {typeTag}
           <span className="flex-1" />
           {wide && tabs}
-          {saveButton}
+          <Button type="button" size="icon" className="h-11 w-11 shrink-0" onClick={p.onSave} disabled={p.saving || !!p.saveDisabled} aria-label={wide ? p.saveLabelWide : p.saveLabel} title={wide ? p.saveLabelWide : p.saveLabel}>
+            {p.saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+          </Button>
         </div>
       )}
       {!duo.isDuo && <PageTitle

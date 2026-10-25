@@ -622,3 +622,17 @@ html.duo .duo-run .pt-7,html.duo .duo-editor .pt-7{padding-top:0!important}
 html.duo.duo-open .duo-run-dock{padding-top:80px}
 html.duo .duo-run-dock .duo-run-topbar{display:none}
 html.duo .duo-run-dock>div>.space-y-3:first-child{margin-top:0}
+
+/* v44: Chat — no hairline above ACTIVITY; open mode pulls the feed up so the ACTIVITY row sits level with the Inbox tabs on the right */
+html.duo .duo-chat-page .space-y-3{border-top:0!important}
+html.duo.duo-open:has(.duo-chat-page) .duo-open-main{padding-top:76px!important}
+
+/* v45: the History/Edit + sub-tab row has to fit on one line in the half-width pane: no icons, tighter pill padding */
+html.duo .duo-tasks-ctl{gap:8px}
+html.duo .duo-tasks-ctl button{padding-left:12px!important;padding-right:12px!important;font-size:15px}
+html.duo .duo-tasks-ctl .duo-ctl svg{display:none}
+
+/* v46: editor head — Items/Settings tabs size to their labels (no "Items · …" truncation) */
+html.duo .duo-editor-head [aria-label="Editor section"]{width:auto!important;flex:none}
+html.duo .duo-editor-head [aria-label="Editor section"] button{flex:none!important;padding-left:14px!important;padding-right:14px!important}
+html.duo .duo-editor-head [aria-label="Editor section"] span{overflow:visible!important;text-overflow:clip!important;white-space:nowrap}
