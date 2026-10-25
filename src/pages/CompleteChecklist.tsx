@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { useDuo } from '@/hooks/useDuo';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -305,6 +306,7 @@ export default function CompleteChecklist() {
     canUndoChecklistItem(role, user?.id, responsesWithCompleters[itemId]?.completedBy?.userId);
   // currentLocation already declared above
   const navigate = useNavigate();
+  const duo = useDuo();
   const autoSaveTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   useEffect(() => {
     fetchChecklistData();
@@ -1282,6 +1284,28 @@ export default function CompleteChecklist() {
 
   // If locked, show lock overlay
   if (isLocked && checklist?.lock_until_time) {
+    // Duo: a themed popup over the page; closing or Back returns to where you came from.
+    if (duo.isDuo) {
+      return (
+        <Layout>
+          <div className="duo-tasks-page" />
+          <Dialog open onOpenChange={(o) => { if (!o) navigate(-1); }}>
+            <DialogContent className="duo-popup max-w-sm text-center">
+              <DialogHeader className="items-center">
+                <Lock className="mb-2 h-12 w-12 text-muted-foreground" />
+                <DialogTitle>{checklist.title}</DialogTitle>
+                <DialogDescription>
+                  Locked until <span className="font-semibold">{formatLockTime(checklist.lock_until_time)}</span>
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button className="h-11 w-full" onClick={() => navigate(-1)}>Back</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </Layout>
+      );
+    }
     return (
       <Layout>
         <div className="max-w-3xl mx-auto space-y-6">
