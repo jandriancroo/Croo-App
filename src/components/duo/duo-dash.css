@@ -670,3 +670,9 @@ html.duo .duo-log-insp .space-y-4>.text-sm.text-muted-foreground:first-child{dis
 html.duo .duo-lib-thumb{width:44px;height:44px;border-radius:8px;object-fit:cover;flex:none;background:hsl(var(--muted))}
 html.duo .duo-lib-thumb-ph{display:flex;align-items:center;justify-content:center;color:hsl(var(--muted-foreground))}
 html.duo .duo-recipe-dock{color:hsl(var(--foreground))}
+
+/* v50 — Theo orb long-press: fly to center, open voice mode */
+html.duo .duo-navroot .duo-orb{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:manipulation;transition:transform .38s cubic-bezier(.3,1.2,.4,1),opacity .3s}
+html.duo .duo-navroot .duo-orb.duo-orb-fly{transform:translate(calc(-50vw + 50px),calc(-50vh + 50px)) scale(2.6);z-index:80;animation:none!important}
+html.duo .duo-orb-hint{position:fixed;right:96px;bottom:34px;z-index:62;padding:8px 14px;border-radius:999px;font-size:14px;color:var(--duo-ink,#3A342D);white-space:nowrap;animation:duo-hint-in .35s ease both;pointer-events:none}
+@keyframes duo-hint-in{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}

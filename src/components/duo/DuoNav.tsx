@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { TheoOrb } from '@/components/dock/TheoOrb';
@@ -53,6 +53,11 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
     observer.observe(root, { attributes: true, attributeFilter: ['data-nudge-late'] });
     return () => observer.disconnect();
   }, []);
+  // Theo orb: tap = actions menu, long press = fly to center and open Theo's full-screen voice mode.
+  const [fly, setFly] = useState(false);
+  const [hint, setHint] = useState(false);
+  const holdTimer = useRef<number | undefined>(undefined);
+  const held = useRef(false);
   const [pageNote, setPageNote] = useState('');
   const [libTab, setLibTab] = useState(false);
   const [libEdit, setLibEdit] = useState(false);
@@ -96,6 +101,27 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
   const pageStatus = onChat ? (chat ? `${chat} unread` : 'All caught up') : pageNote;
   const ovation = useOvationData().displayScore;
   const showOvation = (isManager || hasPermission('view_ovation_reviews')) && !!ovation;
+  const canTalk = !loading && isShiftManager;
+  useEffect(() => {
+    if (!canTalk) return;
+    try { if (localStorage.getItem('duo-orb-hint')) return; localStorage.setItem('duo-orb-hint', '1'); } catch { return; }
+    const a = window.setTimeout(() => setHint(true), 1500);
+    const b = window.setTimeout(() => setHint(false), 7500);
+    return () => { window.clearTimeout(a); window.clearTimeout(b); };
+  }, [canTalk]);
+  const holdStart = () => {
+    held.current = false;
+    if (!canTalk) return;
+    window.clearTimeout(holdTimer.current);
+    holdTimer.current = window.setTimeout(() => {
+      held.current = true;
+      setHint(false); setFan(false); setFly(true);
+      try { navigator.vibrate?.(15); } catch { /* not supported */ }
+      window.setTimeout(() => { window.dispatchEvent(new CustomEvent('open-theo-voice')); }, 380);
+      window.setTimeout(() => setFly(false), 900);
+    }, 450);
+  };
+  const holdCancel = () => window.clearTimeout(holdTimer.current);
   const actions = [
 
       ...(onChat ? [{ label: 'New post', icon: Pencil, action: () => fire('open-new-post') }, { label: 'New DM', icon: Mail, action: () => fire('open-new-dm') }, ...(!document.documentElement.classList.contains('duo-open') ? [{ label: 'Inbox', icon: Inbox, action: () => fire('open-inbox') }] : [])] : []),
@@ -121,7 +147,8 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
     {fan && <div className="duo-actions">{actions.map(a => <div key={a.label}><span className="duo-glass">{a.label}</span><Button variant="ghost" className="duo-glass" aria-label={a.label} onClick={a.action}><a.icon size={22} />{a.label === 'Nudge' && late > 0 && <b className="duo-badge">{late}</b>}</Button></div>)}</div>}
     <DuoOvation open={ovOpen} onOpenChange={setOvOpen} />
     <div className="duo-wordmark-global" aria-hidden><img src="/croohq-wordmark.png" alt="" /></div>
-    {actions.length > 0 && <Button variant="ghost" aria-label={fan ? 'Close actions' : 'Open actions'} key={`orb-${bump}`} className={`duo-orb duo-glass${bump ? ' duo-orb-bump' : ''}`} onClick={() => { setBump(b => b + 1); if (fan) setFan(false); else window.setTimeout(() => setFan(true), 230); }}>
+    {hint && <span className="duo-orb-hint duo-glass">Hold to talk to Theo</span>}
+    {(actions.length > 0 || canTalk) && <Button variant="ghost" aria-label={fan ? 'Close actions' : 'Open actions'} key={`orb-${bump}`} className={`duo-orb duo-glass${bump ? ' duo-orb-bump' : ''}${fly ? ' duo-orb-fly' : ''}`} onPointerDown={holdStart} onPointerUp={holdCancel} onPointerLeave={holdCancel} onPointerCancel={holdCancel} onContextMenu={(e) => e.preventDefault()} onClick={() => { setHint(false); if (held.current) { held.current = false; return; } if (actions.length === 0) { fire('open-theo-voice'); return; } setBump(b => b + 1); if (fan) setFan(false); else window.setTimeout(() => setFan(true), 230); }}>
       {fan ? <X /> : <><span className="duo-orb-ring" /><TheoOrb asSpan solid size={56} /></>}{!fan && late > 0 && <b className="duo-badge">{late}</b>}</Button>}
     <Button variant="ghost" aria-label="Close page menu" tabIndex={open ? 0 : -1} data-state={open ? 'open' : 'closed'} className="duo-dim duo-menu-dim" onClick={() => setOpen(false)} />
     <Button variant="ghost" className="duo-handle duo-glass" aria-label="Open page menu" onClick={() => setOpen(true)}><ChevronRight size={13} /></Button>
