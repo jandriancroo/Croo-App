@@ -158,3 +158,10 @@ html.duo .duo-dash .duo-scoreboard>div>div button{display:flex;align-items:cente
 html.duo .duo-dash [data-tour=dashboard-promo]>div{padding:0!important;margin:0!important;width:100%}
 html.duo .duo-dash [data-tour=dashboard-promo]>div>div{padding:0!important;margin:0!important;width:100%}
 html.duo.duo-open .duo-widgets>div>div.w-full:has(.bg-card.border.border-border.rounded-xl){grid-row:3;align-self:start}
+html.duo .duo-dash [data-tour=dashboard-promo]>div{border:0;border-radius:0;box-shadow:none}
+html.duo .duo-dash [data-promo-hero] button[data-state=on]{background:var(--duo-selected)!important;color:var(--duo-ink)!important;box-shadow:inset 1.5px 1.5px 0 -.5px var(--duo-edge)}
+html.duo .duo-dash [data-promo-hero] button[data-state=off]{background:transparent!important}
+html.duo .duo-dash .duo-scoreboard>div>div button>span{background:transparent;box-shadow:none;padding:0}
+html.duo .duo-dash .duo-sales-summary{padding:12px 20px!important}
+html.duo .duo-dash .duo-sales-summary>div:first-child{margin-bottom:8px!important}
+html.duo .duo-dash [data-promo-hero]>.top-3>div>div:last-child>span:first-child{height:10px;width:10px;display:block;overflow:hidden;border-radius:50%;background:var(--duo-live);box-shadow:0 0 14px var(--duo-live)}
