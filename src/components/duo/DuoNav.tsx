@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRight, MapPin, X, Sparkles, Hand, SlidersHorizontal, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock, Gauge } from 'lucide-react';
+import { Pencil, Mail, Inbox, ChevronRight, MapPin, X, Sparkles, Hand, SlidersHorizontal, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock, Gauge } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -71,6 +71,7 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
     // Folded Layout already has the Nudge action on an existing control.
     if (name === 'open-nudge' && !document.documentElement.classList.contains('duo-open')) document.querySelector<HTMLButtonElement>('.duo-native-nudge-trigger')?.click();
   };
+  const onChat = route.pathname.startsWith('/messages');
   const onDash = route.pathname === '/dashboard' || route.pathname === '/';
   const active = (path: string) => path === '/dashboard' ? (route.pathname === '/dashboard' || route.pathname === '/') : route.pathname.startsWith(path);
   return <div className="duo-navroot" data-duo-theme={theme}>
@@ -80,6 +81,7 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
     </div>}
     {fan && <Button variant="ghost" aria-label="Close actions" className="duo-dim" onClick={() => setFan(false)} />}
     {fan && <div className="duo-actions">{[
+      ...(onChat ? [{ label: 'New post', icon: Pencil, action: () => fire('open-new-post') }, { label: 'New DM', icon: Mail, action: () => fire('open-new-dm') }, ...(!document.documentElement.classList.contains('duo-open') ? [{ label: 'Inbox', icon: Inbox, action: () => fire('open-inbox') }] : [])] : []),
       ...(isShiftManager ? [{ label: 'Ask Theo', icon: Sparkles, action: () => fire('open-theo-voice') }] : []),
       ...(isShiftManager ? [{ label: 'Manager dash', icon: Gauge, action: () => fire('open-manager-dash') }] : []),
       ...(isShiftManager ? [{ label: 'Nudge', icon: Hand, action: () => fire('open-nudge') }] : []),

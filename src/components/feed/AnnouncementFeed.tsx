@@ -115,7 +115,7 @@ export function AnnouncementFeed({ composerOpen: composerOpenProp, onComposerOpe
               <button
                 type="button"
                 onClick={() => setComposerOpen(true)}
-                className="w-full flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3 shadow-sm hover:bg-muted/60 transition-colors text-left"
+                className="duo-composer-trigger w-full flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3 shadow-sm hover:bg-muted/60 transition-colors text-left"
               >
               <Avatar className="h-10 w-10 shrink-0">
                 <AvatarImage src={me?.profile_photo_url ?? undefined} alt={displayName} />

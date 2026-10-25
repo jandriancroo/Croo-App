@@ -47,6 +47,13 @@ export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplic
     fetchChats, handleTogglePin,
   } = data;
 
+  // Duo action button: New DM
+  useEffect(() => {
+    const h = () => setIsNewChatOpen(true);
+    window.addEventListener('open-new-dm', h);
+    return () => window.removeEventListener('open-new-dm', h);
+  }, [setIsNewChatOpen]);
+
   // DM-scoped search, independent of feed viewMode
   const [dmSearch, setDmSearch] = useState('');
   const dmChats = useMemo(() => {
