@@ -320,7 +320,6 @@ export default function LogBook() {
           <aside className="duo-tasks-dock duo-log-dock">
             {selectedEntry ? (
               <>
-                <Button variant="ghost" size="sm" className="duo-log-newbtn" onClick={() => setSelectedKey(null)}><Plus className="h-4 w-4 mr-1" />New log</Button>
                 <LogEntryInspector data={data} entry={selectedEntry} onEdit={editSelected} onDone={() => setSelectedKey(null)} />
               </>
             ) : (
