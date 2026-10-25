@@ -79,7 +79,7 @@ function LogLinkDialog({ linkRef, onClose, locationId, timezone }: Props & { lin
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="duo-popup max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">{linkRef.label}</DialogTitle>
           <DialogDescription>Today's log — {today}</DialogDescription>
@@ -195,7 +195,7 @@ function PersonLinkDialog({ linkRef, onClose, locationId }: Props & { linkRef: C
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="duo-popup max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {linkRef.type === 'role' ? <Shield className="h-4 w-4" /> : <User className="h-4 w-4" />}

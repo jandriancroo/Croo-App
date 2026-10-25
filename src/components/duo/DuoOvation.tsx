@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Star } from 'lucide-react';
+import { Star, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useOvationData } from '@/components/dashboard/OvationScorePopover';
 import ovationLogo from '@/assets/ovation-logo.png';
@@ -9,7 +9,9 @@ export function DuoOvation({ open, onOpenChange }: { open: boolean; onOpenChange
   const { reviewsData, isLoading, displayScore, displayCount } = useOvationData();
   const [i, setI] = useState(0);
   const reviews = reviewsData?.reviews?.filter(r => r.feedback) ?? [];
-  const r = reviews[i % Math.max(reviews.length, 1)];
+  const n = Math.max(reviews.length, 1);
+  const r = reviews[i % n];
+  const step = (d: number) => setI(x => (x + d + n) % n);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="duo-popup duo-glass-pop max-w-md p-0">
@@ -23,7 +25,7 @@ export function DuoOvation({ open, onOpenChange }: { open: boolean; onOpenChange
           </div>
           <div className="duo-ovation-score">{displayScore ? displayScore.toFixed(1) : isLoading ? '…' : '–'}</div>
         </DialogHeader>
-        <div className="duo-ovation-body" onClick={() => reviews.length > 1 && setI(n => (n + 1) % reviews.length)}>
+        <div className="duo-ovation-body" onClick={() => reviews.length > 1 && step(1)}>
           {r ? (
             <>
               <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -33,8 +35,12 @@ export function DuoOvation({ open, onOpenChange }: { open: boolean; onOpenChange
               </div>
               <p className="text-base leading-relaxed">{r.feedback}</p>
               {reviews.length > 1 && (
-                <div className="flex justify-center gap-1.5 mt-4">
-                  {reviews.slice(0, 8).map((_, idx) => <span key={idx} className={`h-1.5 rounded-full ${idx === i % reviews.length ? 'w-4 bg-foreground/70' : 'w-1.5 bg-foreground/25'}`} />)}
+                <div className="flex items-center justify-center gap-4 mt-4" onClick={e => e.stopPropagation()}>
+                  <button type="button" aria-label="Previous review" className="duo-ovation-arrow" onClick={() => step(-1)}><ChevronLeft size={20} /></button>
+                  <div className="flex gap-1.5">
+                    {reviews.slice(0, 8).map((_, idx) => <span key={idx} className={`h-1.5 rounded-full ${idx === i % reviews.length ? 'w-4 bg-foreground/70' : 'w-1.5 bg-foreground/25'}`} />)}
+                  </div>
+                  <button type="button" aria-label="Next review" className="duo-ovation-arrow" onClick={() => step(1)}><ChevronRight size={20} /></button>
                 </div>
               )}
             </>

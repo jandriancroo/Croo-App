@@ -120,7 +120,7 @@ export function DuplicateChecklistDialog({ open, onOpenChange, checklist, draft 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="duo-slide sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
             {draftMode ? `Schedule "${draft?.title}"` : `Duplicate "${checklist?.title}"`}

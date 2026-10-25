@@ -517,3 +517,45 @@ html.duo .duo-ovation-body{padding:6px 20px 22px;min-height:120px;cursor:pointer
 html.duo .duo-navroot .duo-topbar{height:88px}
 html.duo:not(.duo-open) main{padding-top:116px!important}
 html.duo.duo-open .duo-open-main{padding-top:116px!important}
+
+/* v35: Tasks page. Same Paper/OLED tokens as Chat; rows instead of cards; open mode = history on the left half, detail/summary docked on the right half. */
+html.duo.duo:has(.duo-tasks-page){--background:40 36% 91%;--foreground:32 15% 21%;--card:40 36% 93%;--card-foreground:32 15% 21%;--popover:40 36% 93%;--popover-foreground:32 15% 21%;--muted:40 25% 85%;--muted-foreground:32 9% 46%;--border:32 20% 78%;--input:32 20% 78%;--accent:40 30% 84%;--accent-foreground:32 15% 21%;--secondary:40 25% 85%;--secondary-foreground:32 15% 21%;--primary:139 20% 50%;--primary-foreground:0 0% 100%;--ring:139 20% 50%}
+html.duo.duo[data-duo-theme=oled]:has(.duo-tasks-page){--background:0 0% 0%;--foreground:0 0% 93%;--card:0 0% 9%;--card-foreground:0 0% 93%;--popover:0 0% 11%;--popover-foreground:0 0% 93%;--muted:0 0% 15%;--muted-foreground:240 3% 58%;--border:0 0% 20%;--input:0 0% 20%;--accent:0 0% 19%;--accent-foreground:0 0% 93%;--secondary:0 0% 15%;--secondary-foreground:0 0% 93%}
+html.duo:has(.duo-tasks-page),html.duo:has(.duo-tasks-page) body,html.duo:has(.duo-tasks-page) #root{background:hsl(var(--background))!important;color:hsl(var(--foreground))}
+html.duo:has(.duo-tasks-page) main{padding-left:var(--duo-col-left,0px)!important;padding-right:0!important}
+html.duo.duo-open:has(.duo-tasks-page) main{padding-right:var(--duo-col-right,0px)!important}
+html.duo .duo-tasks-page{padding:0 16px 96px}
+html.duo:not(.duo-open) .duo-tasks-page{padding-right:max(var(--duo-col-right,0px),104px)}
+html.duo.duo-open .duo-tasks-left{max-width:calc(50% - 20px);margin:0;padding-top:0}
+/* lists are edge-to-edge rows: no card, one hairline above and below, hairlines between rows */
+html.duo .duo-tasks-page .duo-tasks-list{background:transparent!important;border:0!important;border-top:1px solid hsl(var(--border))!important;border-bottom:1px solid hsl(var(--border))!important;border-radius:0!important;box-shadow:none!important;margin-left:-16px;margin-right:-16px}
+html.duo .duo-tasks-page .duo-tasks-list>div{padding:0 16px!important}
+html.duo .duo-tasks-page .duo-tasks-list .text-xs{font-size:17px!important}
+html.duo .duo-tasks-page .duo-tasks-list [class*="text-[10px]"],html.duo .duo-tasks-page .duo-tasks-list [class*="text-[9px]"]{font-size:15px!important}
+html.duo .duo-tasks-page .duo-tasks-list [class*="py-1"]{padding-top:11px!important;padding-bottom:11px!important;border-bottom:1px solid hsl(var(--border)/.6);border-radius:0!important}
+html.duo .duo-tasks-page .duo-tasks-card{background:transparent!important;border:0!important;border-bottom:1px solid hsl(var(--border))!important;border-radius:0!important;box-shadow:none!important;margin-left:-16px;margin-right:-16px;padding-left:16px!important;padding-right:16px!important}
+/* docked right pane (open mode) */
+html.duo.duo-open .duo-tasks-dock{position:fixed;top:0;bottom:0;right:0;left:calc(50% + 20px);z-index:30;background:hsl(var(--background));color:hsl(var(--foreground));border-left:1px solid hsl(var(--border));overflow-y:auto;padding:116px max(var(--duo-col-right,0px),104px) 96px 20px}
+html.duo .duo-tasks-dock{--background:40 36% 91%;--foreground:32 15% 21%;--card:40 36% 93%;--card-foreground:32 15% 21%;--popover:40 36% 93%;--popover-foreground:32 15% 21%;--muted:40 25% 85%;--muted-foreground:32 9% 46%;--border:32 20% 78%;--input:32 20% 78%;--accent:40 30% 84%;--accent-foreground:32 15% 21%;--secondary:40 25% 85%;--secondary-foreground:32 15% 21%;--primary:139 20% 50%;--primary-foreground:0 0% 100%}
+html.duo[data-duo-theme=oled] .duo-tasks-dock{--background:0 0% 4%;--foreground:0 0% 93%;--card:0 0% 11%;--card-foreground:0 0% 93%;--popover:0 0% 11%;--popover-foreground:0 0% 93%;--muted:0 0% 15%;--muted-foreground:240 3% 58%;--border:0 0% 22%;--input:0 0% 22%;--accent:0 0% 19%;--accent-foreground:0 0% 93%;--secondary:0 0% 15%;--secondary-foreground:0 0% 93%}
+html.duo .duo-tasks-back{display:inline-flex;align-items:center;gap:4px;height:44px;margin:-8px 0 8px -6px;padding:0 8px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:hsl(var(--muted-foreground));background:transparent;border:0;cursor:pointer}
+html.duo .duo-tasks-big{font-size:64px;font-weight:300;line-height:1;text-align:center}
+html.duo .duo-tasks-big small{font-size:28px;color:hsl(var(--muted-foreground));margin-left:2px}
+html.duo .duo-tasks-sub{text-align:center;margin:8px 0 24px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:hsl(var(--muted-foreground))}
+html.duo .duo-tasks-rows{border-top:1px solid hsl(var(--border))}
+html.duo .duo-tasks-row{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid hsl(var(--border));font-size:17px}
+html.duo .duo-tasks-row b{font-weight:400;font-size:15px;color:hsl(var(--muted-foreground))}
+
+/* v36: Ovation prev/next arrows; chat content clears the 2-line top band (activity filter was cut off); Settings is a gear beside the profile row in the menu */
+html.duo .duo-ovation-arrow{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;border:0;background:transparent;color:inherit;opacity:.7;cursor:pointer}
+html.duo .duo-ovation-arrow:active{background:hsl(var(--foreground)/.1)}
+html.duo:not(.duo-open):has(.duo-chat-page) main{padding-top:124px!important}
+html.duo .duo-userrow{margin-top:auto;display:flex;align-items:center;border-top:1px solid var(--duo-line)}
+html.duo .duo-userrow .duo-user{margin-top:0;border-top:0;flex:1;min-width:0}
+html.duo .duo-userrow .duo-gear{flex:none;width:44px;height:44px;margin-right:6px;border-radius:50%;color:var(--duo-ink)}
+html.duo .duo-userrow .duo-gear.duo-selected{background:var(--duo-fill)}
+
+/* v37: Activity row — label lines up with the page line, chip lines up with the post rows' right edge; open mode pulls the feed up closer to the page line */
+html.duo .duo-activity-row{padding-left:0!important}
+html.duo.duo-open .duo-activity-row{padding-right:28px!important}
+html.duo.duo-open:has(.duo-chat-page) .duo-open-main{padding-top:96px!important}

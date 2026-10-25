@@ -150,7 +150,7 @@ export function QRTaskCodeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="duo-popup max-w-sm">
         <DialogHeader>
           <DialogTitle>QR Code Ready</DialogTitle>
         </DialogHeader>

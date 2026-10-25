@@ -27,7 +27,7 @@ export function ChecklistTypeDialog({ open, onOpenChange }: Props) {
   const navigate = useNavigate();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="duo-popup max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>What kind of checklist?</DialogTitle>
           <DialogDescription className="sr-only">Pick the type of checklist to create.</DialogDescription>

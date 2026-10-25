@@ -1,10 +1,12 @@
-import { useState, Suspense, useMemo } from "react";
+import { useState, Suspense, useMemo, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { DateNavigator } from "@/components/ui/date-navigator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek } from "date-fns";
-import { CompletedTaskDetailsDialog } from '@/components/tasks/CompletedTaskDetailsDialog';
+import { CompletedTaskDetailsDialog, CompletedTaskContent } from '@/components/tasks/CompletedTaskDetailsDialog';
+import { useDuo } from '@/hooks/useDuo';
+import { ChevronLeft } from 'lucide-react';
 import { TasksHistoryTimeline } from '@/components/history/TasksHistoryTimeline';
 import { useTasksData } from '@/hooks/useTasksData';
 import { Layers, Grid3x3 } from 'lucide-react';
@@ -21,7 +23,18 @@ const ChecklistHeatmap = lazyWithRetry(() =>
 );
 
 export default function Tasks() {
+  const duo = useDuo();
   const [activeTab, setActiveTab] = useState('history');
+  // Duo orb actions (New Quick Task / New Checklist) land on the Edit tab, then the Edit tab opens the right dialog.
+  const [duoAction, setDuoAction] = useState<string | null>(null);
+  useEffect(() => {
+    if (!duo.isDuo) return;
+    const go = (name: string) => () => { setActiveTab('edit'); setDuoAction(name); };
+    const a = go('open-new-quick-task'), b = go('open-new-checklist');
+    window.addEventListener('open-new-quick-task', a);
+    window.addEventListener('open-new-checklist', b);
+    return () => { window.removeEventListener('open-new-quick-task', a); window.removeEventListener('open-new-checklist', b); };
+  }, [duo.isDuo]);
 
   const {
     isAdmin,
@@ -65,11 +78,31 @@ export default function Tasks() {
       ? `${doneCount} OF ${totalCount} DONE TODAY`
       : `${doneCount} OF ${totalCount} DONE · ${format(historyDate, 'MMM d').toUpperCase()}`;
 
+  // Duo: the shared page line in the top band shows this status.
+  useEffect(() => {
+    if (!duo.isDuo) return;
+    document.documentElement.dataset.duoStatus = tasksStatusText;
+    return () => { delete document.documentElement.dataset.duoStatus; };
+  }, [duo.isDuo, tasksStatusText]);
+
+  const summary = (
+    <div className="duo-tasks-summary">
+      <div className="duo-tasks-big">{completionPercent}<small>%</small></div>
+      <div className="duo-tasks-sub">{tasksStatusText.toLowerCase()}</div>
+      <div className="duo-tasks-rows">
+        {(historyStats || []).map((st: any) => (
+          <div key={st.id} className="duo-tasks-row"><span>{st.title}</span><b>{st.completedCount}/{st.itemCount}</b></div>
+        ))}
+        {(completedTempTasks || []).length > 0 && <div className="duo-tasks-row"><span>Quick tasks done</span><b>{completedTempTasks.length}</b></div>}
+      </div>
+    </div>
+  );
+
   return (
     <Layout>
-      <div className="space-y-4">
+      <div className={duo.isDuo ? (duo.isOpen ? 'duo-tasks-page duo-tasks-left space-y-4' : 'duo-tasks-page space-y-4') : 'space-y-4'}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <PageTitle color="blue" status={{ text: tasksStatusText }} action={
+          {!duo.isDuo && <PageTitle color="blue" status={{ text: tasksStatusText }} action={
               <div
                 className="relative size-10 md:size-11 shrink-0"
                 role="img"
@@ -95,7 +128,7 @@ export default function Tasks() {
                   )}
                 </svg>
               </div>
-          }>Tasks</PageTitle>
+          }>Tasks</PageTitle>}
           <div>
                 <TabsList>
                   <TabsTrigger value="history">History</TabsTrigger>
@@ -190,14 +223,26 @@ export default function Tasks() {
                 checklists={checklists}
                 isAdmin={isAdmin}
                 isManager={isManager}
+                duoAction={duoAction}
+                onDuoActionDone={() => setDuoAction(null)}
               />
             </Suspense>
           </TabsContent>
         </Tabs>
       </div>
 
+      {duo.isOpen && (
+        <aside className="duo-tasks-dock">
+          {selectedCompletedTask ? (
+            <>
+              <button type="button" className="duo-tasks-back" onClick={() => setSelectedCompletedTask(null)}><ChevronLeft size={16} /> Day summary</button>
+              <CompletedTaskContent task={selectedCompletedTask} dock />
+            </>
+          ) : summary}
+        </aside>
+      )}
       <CompletedTaskDetailsDialog
-        open={!!selectedCompletedTask}
+        open={!duo.isOpen && !!selectedCompletedTask}
         onOpenChange={(open) => !open && setSelectedCompletedTask(null)}
         task={selectedCompletedTask}
       />

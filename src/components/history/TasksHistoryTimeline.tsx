@@ -362,7 +362,7 @@ export function TasksHistoryTimeline({
 
   if (timelineItems.length === 0) {
     return (
-      <Card className="text-center py-12">
+      <Card className="duo-tasks-list text-center py-12">
         <CardContent>
           <HistoryIcon className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">No completions this day</h3>
@@ -373,7 +373,7 @@ export function TasksHistoryTimeline({
   }
 
   return (
-    <Card>
+    <Card className="duo-tasks-list">
       <CardContent className="py-3 px-3">
         {viewMode === 'grouped' ? (
           <GroupedView items={timelineItems} />

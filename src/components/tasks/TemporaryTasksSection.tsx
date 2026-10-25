@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Clock, User, Users, Trash2, Eye, Camera, Pencil, AlarmClock, QrCode, Copy, Save, FileText, ClipboardList } from "lucide-react";
@@ -48,7 +48,7 @@ const ROLE_LABELS: Record<string, string> = {
   team_member: "Team Member",
 };
 
-export function TemporaryTasksSection() {
+export function TemporaryTasksSection({ autoCreate = false, onAutoCreateDone }: { autoCreate?: boolean; onAutoCreateDone?: () => void } = {}) {
   const { currentLocation } = useAppLocation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -57,6 +57,10 @@ export function TemporaryTasksSection() {
   // Admins/managers always can; shift managers need the toggle enabled
   const effectiveCanCreateTasks = canCreateTasks || (role === 'shift_manager' && hasPermission('create_tasks'));
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  useEffect(() => {
+    if (autoCreate) { setShowCreateDialog(true); onAutoCreateDone?.(); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoCreate]);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [editTask, setEditTask] = useState<any>(null);
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
@@ -354,7 +358,7 @@ export function TemporaryTasksSection() {
 
       {/* View-only Task Details Dialog (no completion) */}
       <Dialog open={!!selectedTask} onOpenChange={(open) => !open && setSelectedTask(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="duo-slide max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <div 
@@ -487,7 +491,7 @@ export function TemporaryTasksSection() {
       />
 
       <AlertDialog open={!!deleteTaskId} onOpenChange={(open) => !open && setDeleteTaskId(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="duo-popup">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Task</AlertDialogTitle>
             <AlertDialogDescription>

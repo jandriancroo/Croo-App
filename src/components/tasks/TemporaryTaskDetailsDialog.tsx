@@ -366,7 +366,7 @@ export function TemporaryTaskDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="duo-slide max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {task?.icon_name === "opus_logo" ? (

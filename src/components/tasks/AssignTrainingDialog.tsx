@@ -278,7 +278,7 @@ export function AssignTrainingDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="duo-slide max-w-md">
           <DialogHeader>
             <DialogTitle>{activeSession ? 'Edit Training Session' : 'Assign Training'}</DialogTitle>
             <DialogDescription>{checklistTitle}</DialogDescription>
@@ -402,7 +402,7 @@ export function AssignTrainingDialog({
       </Dialog>
 
       <AlertDialog open={confirmEnd} onOpenChange={setConfirmEnd}>
-        <AlertDialogContent>
+        <AlertDialogContent className="duo-popup">
           <AlertDialogHeader>
             <AlertDialogTitle>End this training session?</AlertDialogTitle>
             <AlertDialogDescription>
