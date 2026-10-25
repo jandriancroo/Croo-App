@@ -14,6 +14,7 @@ import { HiringChatPanel } from '@/components/hiring/HiringChatPanel';
 import { ChatSearch } from '@/components/messages/ChatSearch';
 import { useMessagesData } from '@/hooks/useMessagesData';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useDuo } from '@/hooks/useDuo';
 
 type Step = 'dms' | 'hiring';
 
@@ -27,11 +28,14 @@ interface DmPanelProps {
   /** Deep link: message to scroll to inside initialChatId (chat push). */
   focusMessageId?: string | null;
   onFocusMessageHandled?: () => void;
+  /** Duo open mode: render the inbox docked in the right half instead of as a sheet. */
+  docked?: boolean;
 }
 
-export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplicationId, focusMessageId, onFocusMessageHandled }: DmPanelProps) {
+export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplicationId, focusMessageId, onFocusMessageHandled, docked = false }: DmPanelProps) {
   const data = useMessagesData();
-  const isMobile = useIsMobile();
+  const duo = useDuo();
+  const isMobile = useIsMobile() && !duo.isDuo;
   const {
     currentUserId, currentLocation, isAdmin, isManager, isSuperAdmin,
     showHiringTab,
@@ -204,13 +208,7 @@ export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplic
     </div>
   );
 
-  return (
-    <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent
-          side={isMobile ? 'bottom' : 'right'}
-          className={isMobile ? 'h-[92vh] p-0 flex flex-col rounded-t-2xl overflow-hidden [&_[data-radix-dialog-close]]:text-primary-foreground' : 'w-[420px] sm:max-w-[420px] p-0 flex flex-col my-3 mr-3 h-[calc(100vh-1.5rem)] rounded-2xl border shadow-2xl overflow-hidden [&_[data-radix-dialog-close]]:text-primary-foreground'}
-        >
+  const headerEl = (
           <SheetHeader className="px-4 pt-4 pb-3 border-b border-primary-foreground/10 shrink-0 bg-primary text-primary-foreground">
             <SheetTitle className="pr-8 text-left text-lg text-primary-foreground">Inbox</SheetTitle>
             {steps.length > 1 && (
@@ -237,9 +235,51 @@ export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplic
               </div>
             )}
           </SheetHeader>
+  );
+  const dockedHeaderEl = (
+          <div className="px-4 pt-4 pb-3 border-b border-primary-foreground/10 shrink-0 bg-primary text-primary-foreground">
+            <h2 className="pr-8 text-left text-lg text-primary-foreground">Inbox</h2>
+            {steps.length > 1 && (
+              <div className="mt-2 grid w-full items-center gap-1 rounded-full bg-primary-foreground/10 p-1" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }} role="tablist" aria-label="Inbox source">
+                {steps.map(source => {
+                  const SourceIcon = source.icon;
+                  const selected = source.id === step;
+                  return (
+                    <Button
+                      key={source.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={selected}
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setStep(source.id)}
+                      className={`h-10 min-w-0 rounded-full px-2 text-sm ${selected ? 'bg-background text-foreground shadow-sm hover:bg-background hover:text-foreground' : 'text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground'}`}
+                    >
+                      <SourceIcon className="h-4 w-4 shrink-0" />
+                      <span className="whitespace-nowrap">{source.label}</span>
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+  );
+
+  return (
+    <>
+      {docked ? (
+        <div className="duo-dm-dock flex flex-col">{dockedHeaderEl}{body}</div>
+      ) : (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side={isMobile ? 'bottom' : 'right'}
+          className={duo.isDuo ? 'duo-slide p-0 flex flex-col' : isMobile ? 'h-[92vh] p-0 flex flex-col rounded-t-2xl overflow-hidden [&_[data-radix-dialog-close]]:text-primary-foreground' : 'w-[420px] sm:max-w-[420px] p-0 flex flex-col my-3 mr-3 h-[calc(100vh-1.5rem)] rounded-2xl border shadow-2xl overflow-hidden [&_[data-radix-dialog-close]]:text-primary-foreground'}
+        >
+          {headerEl}
           {body}
         </SheetContent>
       </Sheet>
+      )}
 
       <NewChatDialog
         open={isNewChatOpen}
