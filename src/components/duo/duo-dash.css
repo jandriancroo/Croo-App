@@ -312,3 +312,6 @@ html.duo .theo-chat-panel [class*="bg-white/"]{background:hsl(var(--muted))!impo
 html.duo .duo-popup button:focus-visible,html.duo .duo-slide button:focus-visible{outline:2px solid hsl(var(--ring))}
 /* location picker: roughly four stores at a time, then swipe */
 html.duo .duo-loc-list{max-height:248px!important;-webkit-overflow-scrolling:touch}
+
+/* v11b: open mode — leave a top row on the right pane for the location pill so it never covers the promo title */
+html.duo.duo-open .duo-widgets>div{padding-top:60px}
