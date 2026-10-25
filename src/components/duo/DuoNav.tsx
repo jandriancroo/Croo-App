@@ -117,8 +117,11 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
       held.current = true;
       setHint(false); setFan(false); setFly(true);
       try { navigator.vibrate?.(15); } catch { /* not supported */ }
-      window.setTimeout(() => { window.dispatchEvent(new CustomEvent('open-theo-voice')); }, 380);
-      window.setTimeout(() => setFly(false), 900);
+      // Theo's own voice orb grows out of the corner (CSS, html.duo-theo-launch); this orb just fades.
+      const root = document.documentElement;
+      root.classList.add('duo-theo-launch');
+      window.dispatchEvent(new CustomEvent('open-theo-voice'));
+      window.setTimeout(() => { root.classList.remove('duo-theo-launch'); setFly(false); }, 1000);
     }, 450);
   };
   const holdCancel = () => window.clearTimeout(holdTimer.current);

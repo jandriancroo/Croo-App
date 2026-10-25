@@ -688,7 +688,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
 
   return createPortal(
     // Sits above the dock and toasts while open (unlocked for the voice screen only).
-    <div className="fixed inset-0 flex flex-col items-center bg-[rgb(15_18_21/0.8)] text-white backdrop-blur-lg [-webkit-backdrop-filter:blur(16px)] supports-[(backdrop-filter:blur(0))_or_(-webkit-backdrop-filter:blur(0))]:bg-[rgb(15_18_21/0.52)]" style={{ zIndex: 1000000000, pointerEvents: 'auto' }}>
+    <div className="theo-voice-root fixed inset-0 flex flex-col items-center bg-[rgb(15_18_21/0.8)] text-white backdrop-blur-lg [-webkit-backdrop-filter:blur(16px)] supports-[(backdrop-filter:blur(0))_or_(-webkit-backdrop-filter:blur(0))]:bg-[rgb(15_18_21/0.52)]" style={{ zIndex: 1000000000, pointerEvents: 'auto' }}>
       <div className="duo-theo-top flex w-full items-center justify-between px-4 pt-[max(env(safe-area-inset-top),16px)]">
         <div className="text-sm font-semibold text-white/85">{currentLocation?.name}</div>
         <button aria-label="Close Theo voice" onClick={() => { teardown(); onClose(); }}
@@ -699,7 +699,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
 
       <div className={action && isShiftAction(action.proposal) && (action.stage === 'preview' || action.stage === 'saving') ? "flex min-h-0 flex-1 flex-col items-center overflow-hidden px-4 pt-2 pb-2" : action ? "flex flex-1 flex-col items-center overflow-y-auto px-4 pt-2" : screen ? "flex min-h-0 flex-1 flex-col items-center overflow-hidden px-4 pt-2" : "flex flex-1 flex-col items-center justify-center px-6"}>
         <button aria-label={ORB_LABEL[phase]} onClick={onOrbTap}
-          className={action || screen ? 'relative h-[76px] w-[76px] bg-transparent active:scale-95 transition-transform' : 'relative h-[280px] w-[280px] bg-transparent active:scale-95 transition-transform'}>
+          className={action || screen ? 'theo-voice-orb-btn relative h-[76px] w-[76px] bg-transparent active:scale-95 transition-transform' : 'theo-voice-orb-btn relative h-[280px] w-[280px] bg-transparent active:scale-95 transition-transform'}>
           <div className={action || screen ? 'absolute left-0 top-0 h-[280px] w-[280px] origin-top-left scale-[0.2714]' : 'h-full w-full'}>
             <TheoVoiceOrb ref={orbRef} phase={phase} level={level} />
           </div>
