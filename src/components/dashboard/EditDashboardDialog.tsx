@@ -883,7 +883,7 @@ export function EditDashboardDialog({
     <>
       <PromoTrackerEditor open={promoEditorOpen} onOpenChange={setPromoEditorOpen} />
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-md flex-col overflow-hidden p-0 sm:max-h-[calc(100dvh-2rem)]">
+        <DialogContent className="duo-slide flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-md flex-col overflow-hidden p-0 sm:max-h-[calc(100dvh-2rem)]">
           <DialogHeader className="shrink-0 border-b px-4 py-3">
             <DialogTitle className="flex items-center gap-2">
               {view === 'edit' && (

@@ -49,7 +49,7 @@ export const NudgeHeaderButton = forwardRef<NudgeHeaderHandle, {
       <Sheet open={open} onOpenChange={setOpen} modal={!duo.isOpen}>
         <SheetContent
           side="right"
-          className={cn('w-full sm:max-w-md overflow-y-auto', duo.isOpen && 'duo-nudge-panel')}
+          className={cn('w-full sm:max-w-md overflow-y-auto', duo.isDuo && 'duo-slide', duo.isOpen && 'duo-nudge-panel')}
           onInteractOutside={(event) => {
             // The non-modal Duo trigger toggles itself; avoid closing twice on that press.
             if (duo.isOpen && event.target instanceof Node && triggerRef.current?.contains(event.target)) {

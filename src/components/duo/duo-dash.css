@@ -285,3 +285,30 @@ html.duo .duo-stat-row{display:grid;grid-template-columns:repeat(3,1fr);margin:1
 html.duo .duo-stat-row>div+div{border-left:1px solid var(--duo-line)}
 html.duo .duo-stat-row b{display:block;font-size:17px;font-weight:600;color:var(--duo-ink);font-variant-numeric:tabular-nums}
 html.duo .duo-stat-row small{display:block;font-size:11px;letter-spacing:.04em;color:var(--duo-muted);margin-top:2px}
+
+/* v11: Duo overlay rules. SLIDE-OVER (.duo-slide) = dialogs with real content (Nudge, Edit layout, Ask Theo chat).
+   POPUP (.duo-popup) = small centered choosers (location picker). Both share one theme; close X sits top-left so it never hides under Apple's clock pill. */
+html.duo .duo-popup,html.duo .duo-slide{--background:40 36% 91%;--foreground:32 15% 21%;--card:40 36% 93%;--card-foreground:32 15% 21%;--popover:40 36% 93%;--popover-foreground:32 15% 21%;
+  --muted:40 25% 85%;--muted-foreground:32 9% 46%;--border:32 20% 78%;--input:32 20% 78%;--accent:40 30% 84%;--accent-foreground:32 15% 21%;--secondary:40 25% 85%;--secondary-foreground:32 15% 21%;
+  --primary:139 20% 50%;--primary-foreground:0 0% 100%;--ring:139 20% 50%}
+html.duo[data-duo-theme=oled] .duo-popup,html.duo[data-duo-theme=oled] .duo-slide{--background:0 0% 9%;--foreground:0 0% 93%;--card:0 0% 11%;--card-foreground:0 0% 93%;--popover:0 0% 11%;--popover-foreground:0 0% 93%;
+  --muted:0 0% 15%;--muted-foreground:240 3% 58%;--border:0 0% 22%;--input:0 0% 22%;--accent:0 0% 19%;--accent-foreground:0 0% 93%;--secondary:0 0% 15%;--secondary-foreground:0 0% 93%}
+html.duo .duo-popup,html.duo .duo-slide{position:fixed!important;margin:0!important;max-width:none!important;transform:none!important;background:hsl(var(--background))!important;color:hsl(var(--foreground))!important;
+  border:1px solid hsl(var(--border))!important;box-shadow:0 24px 70px rgba(0,0,0,.45)!important;overflow:hidden}
+/* popup: centered in the space below the clock pill */
+html.duo .duo-popup{left:0!important;right:0!important;margin:0 auto!important;width:min(520px,calc(100vw - 32px))!important;top:calc(50% + 56px)!important;bottom:auto!important;
+  transform:translateY(-50%)!important;height:auto!important;max-height:calc(100dvh - 200px)!important;border-radius:28px!important;animation:none!important}
+/* slide-over: from the right, full height, close X top-left */
+html.duo .duo-slide{top:0!important;bottom:0!important;right:0!important;left:auto!important;width:min(460px,92vw)!important;height:auto!important;max-height:none!important;
+  border-radius:28px 0 0 28px!important;padding-top:64px!important;animation:duo-slide-in .28s ease-out both!important}
+@keyframes duo-slide-in{from{opacity:.4;translate:40px 0}to{opacity:1;translate:0 0}}
+html.duo .duo-slide>button[class*="right-4"]{right:auto!important;left:16px!important;top:16px!important}
+html.duo .theo-chat-panel.duo-slide{padding-top:0!important}
+html.duo .theo-chat-panel.duo-slide>div:first-child{padding-right:104px!important}
+html.duo .duo-slide [class*="pr-12"]{padding-right:16px!important}
+html.duo .duo-slide [class*="bg-accent"]:not(.rounded-lg):not(button),html.duo .theo-chat-panel [class*="bg-accent"]:not(.rounded-lg):not(button){background:transparent!important;border-bottom:1px solid hsl(var(--border))}
+html.duo .theo-chat-panel [class*="text-white"]{color:hsl(var(--foreground))!important}
+html.duo .theo-chat-panel [class*="bg-white/"]{background:hsl(var(--muted))!important}
+html.duo .duo-popup button:focus-visible,html.duo .duo-slide button:focus-visible{outline:2px solid hsl(var(--ring))}
+/* location picker: roughly four stores at a time, then swipe */
+html.duo .duo-loc-list{max-height:248px!important;-webkit-overflow-scrolling:touch}
