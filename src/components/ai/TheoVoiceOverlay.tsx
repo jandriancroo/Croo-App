@@ -739,10 +739,14 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
           <MessageSquareText className="h-4 w-4" /> {showText ? 'Hide text' : 'Show text'}
         </button>
         <button onClick={() => { teardown(); onClose(); onOpenChat(); }}
-          className="flex h-11 items-center gap-2 rounded-full bg-white/[0.16] px-4 text-sm font-semibold text-white ring-1 ring-inset ring-white/[0.28]">
+          className="duo-type-bottom flex h-11 items-center gap-2 rounded-full bg-white/[0.16] px-4 text-sm font-semibold text-white ring-1 ring-inset ring-white/[0.28]">
           <Keyboard className="h-4 w-4" /> Type instead
         </button>
       </div>
+      {/* Duo only (shown by CSS): clear "type to Theo instead" at the top right, left of Apple's column. */}
+      <button onClick={() => { teardown(); onClose(); onOpenChat(); }} className="duo-type-top">
+        <Keyboard className="h-4 w-4" /> Type to Theo instead
+      </button>
     </div>,
     document.body,
   );

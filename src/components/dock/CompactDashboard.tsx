@@ -27,6 +27,7 @@ import { TheoOrb } from '@/components/dock/TheoOrb';
 import { useTheoUnread } from '@/hooks/useTheoUnread';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useDuo } from '@/hooks/useDuo';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
@@ -83,6 +84,7 @@ interface LaborCut {
 
 export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDashboardProps) => {
   const { currentLocation } = useAppLocation();
+  const duo = useDuo();
   const { timezone, getTodayInTimezone: getTodayStr } = useLocationTimezone();
   const locationId = currentLocation?.id;
   const { user } = useAuth();
@@ -597,16 +599,16 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
             onClick={onClose}
           />
         <motion.div
-          initial={{ y: '100%' }}
-          animate={{ y: 0 }}
-          exit={{ y: '100%' }}
+          initial={duo.isDuo ? { x: '100%' } : { y: '100%' }}
+          animate={duo.isDuo ? { x: 0 } : { y: 0 }}
+          exit={duo.isDuo ? { x: '100%' } : { y: '100%' }}
           transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-          drag="y"
+          drag={duo.isDuo ? false : 'y'}
           dragConstraints={{ top: 0, bottom: 0 }}
           dragElastic={{ top: 0, bottom: 0.3 }}
           onDragEnd={(_, info) => onDragEnd(info)}
-          className="cd-panel fixed bottom-0 left-0 right-0 z-[60] bg-background rounded-t-3xl flex flex-col overflow-hidden"
-          style={{ height: '75vh', touchAction: 'none' }}
+          className={duo.isDuo ? 'cd-panel duo-dock fixed z-[60] flex flex-col overflow-hidden' : 'cd-panel fixed bottom-0 left-0 right-0 z-[60] bg-background rounded-t-3xl flex flex-col overflow-hidden'}
+          style={duo.isDuo ? undefined : { height: '75vh', touchAction: 'none' }}
         >
           <style>{CD_STYLE}</style>
           {/* A. Orange header — does not scroll */}

@@ -236,7 +236,8 @@ export function AiAssistantBubble() {
   }, [currentLocation?.id]);
 
   useEffect(() => {
-    if (open) {
+    // Duo: never auto-open the keyboard (it would push the panel up the moment it opens).
+    if (open && !document.documentElement.classList.contains('duo')) {
       setTimeout(() => inputRef.current?.focus(), 200);
     }
   }, [open]);
@@ -290,6 +291,8 @@ export function AiAssistantBubble() {
   useEffect(() => {
     if (!isShiftManager || !currentLocation?.id || !timezone) return;
     const check = async () => {
+      // Duo: the manager dash no longer slides up on its own (it was a training aid).
+      if (document.documentElement.classList.contains('duo')) return;
       if (document.visibilityState !== 'visible' || window.location.pathname.startsWith('/kiosk')) return;
       const { data } = await supabase.auth.getSession();
       const uid = data.session?.user?.id;
