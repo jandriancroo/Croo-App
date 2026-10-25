@@ -192,12 +192,14 @@ html.duo .duo-dash [data-promo-hero] .bottom-3 button:not([data-state=on]):not([
 html.duo .duo-dash [data-promo-hero] .bg-card,html.duo .duo-dash [data-promo-hero] .bg-primary\/15{background:var(--duo-photo-glass)!important;color:var(--duo-photo-ink)!important;backdrop-filter:blur(26px) saturate(185%);-webkit-backdrop-filter:blur(26px) saturate(185%);box-shadow:inset 1.5px 1.5px 0 -.5px var(--duo-edge),inset -1px -1.5px 0 -.5px var(--duo-rim)!important}
 html.duo .duo-dash [data-promo-hero] .text-primary{color:var(--duo-photo-ink)!important}
 /* keep the native dock's controls from sitting under our own: Dash owns the right edge */
-html.duo .duo-dash .duo-actions{right:92px}
+html.duo .duo-dash .duo-actions{right:22px}
 
 html.duo .duo-navroot{display:contents;color:var(--duo-ink);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",sans-serif}
 html.duo .duo-navroot .duo-handle{z-index:60}
 html.duo .duo-navroot .duo-dim{z-index:61}
 html.duo .duo-navroot .duo-menu{z-index:62}
+html.duo .duo-navroot .duo-orb{z-index:62;bottom:18px;right:18px}
+html.duo .duo-navroot .duo-actions{z-index:62;right:22px;bottom:88px}
 /* v3: glass over the promo photo was boosting the pizza into orange. Neutral, desaturated frost instead. */
 html.duo .duo-dash [data-promo-hero] [role=tablist],
 html.duo .duo-dash [data-promo-hero] .bottom-3 [role=radiogroup],
@@ -238,9 +240,7 @@ html.duo .duo-navroot[data-duo-theme=oled] .duo-wordmark img{filter:brightness(0
 
 /* v4: keep the live dot and the sales card clear of Apple's right-hand column (clock/battery pill + dock) */
 html.duo .duo-dash [data-promo-hero]>.top-3{right:max(calc(var(--duo-col-right,0px) + 16px),104px)}
-html.duo.duo-open .duo-dash .duo-sales-summary{padding-right:max(var(--duo-col-right,0px),96px)}
 
 /* v5: folded — keep text and the right cube clear of Apple's clock pill and the dock */
 html.duo:not(.duo-open) .duo-dash .duo-dash-intro{padding-right:max(var(--duo-col-right,0px),96px)}
-html.duo:not(.duo-open) .duo-dash [data-tour="dashboard-cubes"]>div:last-child .duo-sales-cell{padding-right:max(var(--duo-col-right,0px),88px)}
 html.duo.duo-open .duo-dash .duo-wordmark{grid-column:1;grid-row:4;align-self:end}
