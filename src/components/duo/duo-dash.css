@@ -198,3 +198,21 @@ html.duo .duo-navroot{display:contents;color:var(--duo-ink);font-family:-apple-s
 html.duo .duo-navroot .duo-handle{z-index:60}
 html.duo .duo-navroot .duo-dim{z-index:61}
 html.duo .duo-navroot .duo-menu{z-index:62}
+/* v3: glass over the promo photo was boosting the pizza into orange. Neutral, desaturated frost instead. */
+html.duo .duo-dash [data-promo-hero] [role=tablist],
+html.duo .duo-dash [data-promo-hero] .bottom-3 [role=radiogroup],
+html.duo .duo-dash [data-promo-hero] .bottom-3>div,
+html.duo .duo-dash [data-promo-hero] .bg-card,
+html.duo .duo-dash [data-promo-hero] .bg-primary\/15,
+html.duo .duo-dash [data-promo-hero] .bottom-3>div:first-child>button,
+html.duo .duo-navroot .duo-handle{
+  backdrop-filter:blur(22px) saturate(.35) brightness(1.12)!important;
+  -webkit-backdrop-filter:blur(22px) saturate(.35) brightness(1.12)!important;
+  background-image:none!important;
+}
+html.duo .duo-dash [data-promo-hero] .bottom-3>div:first-child>button,
+html.duo .duo-dash [data-promo-hero] .bottom-3>div:last-child{background-color:rgba(255,255,255,.16)!important}
+html.duo .duo-navroot .duo-handle{background-color:rgba(255,255,255,.2)!important}
+html.duo .duo-glass{backdrop-filter:blur(26px) saturate(.9) brightness(1.06)!important;-webkit-backdrop-filter:blur(26px) saturate(.9) brightness(1.06)!important}
+html.duo .duo-dash [data-promo-hero] button[aria-pressed=true]>span{outline-color:#fff!important;outline-offset:2px}
+html.duo .duo-dash [data-promo-hero] .ring-2{--tw-ring-color:rgba(255,255,255,.7)!important}
