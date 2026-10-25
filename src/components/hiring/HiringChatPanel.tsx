@@ -485,7 +485,7 @@ export function HiringChatPanel({ applicationId, applicantName, onConversationDe
       />
 
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="duo-popup">
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel Interview?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -505,7 +505,7 @@ export function HiringChatPanel({ applicationId, applicantName, onConversationDe
       </AlertDialog>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="duo-popup">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Conversation?</AlertDialogTitle>
             <AlertDialogDescription>

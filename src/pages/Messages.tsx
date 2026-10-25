@@ -72,7 +72,7 @@ export default function Messages() {
 
   return (
     <Layout>
-      <div className={duo.isOpen ? 'duo-chat-left w-full pb-8' : 'mx-auto w-full max-w-[640px] pb-8'}>
+      <div className={duo.isOpen ? 'duo-chat-page duo-chat-left w-full pb-8' : 'duo-chat-page mx-auto w-full max-w-[640px] pb-8'}>
         {/* Page header — Chats title + DM button */}
         {!duo.isDuo && <PageTitle
           color="orange"

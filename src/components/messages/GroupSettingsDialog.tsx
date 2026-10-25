@@ -223,7 +223,7 @@ export function GroupSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="duo-slide max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Group Settings</DialogTitle>
         </DialogHeader>

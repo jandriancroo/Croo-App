@@ -309,7 +309,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated, 
 
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="duo-popup">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Chat?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -345,7 +345,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated, 
 
       {/* Image Viewer */}
       <Dialog open={!!viewingImage} onOpenChange={() => setViewingImage(null)}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] p-2 bg-black/90 border-none">
+        <DialogContent className="duo-viewer max-w-[95vw] max-h-[95vh] p-2 bg-black/90 border-none">
           {viewingImage && (
             <img
               src={viewingImage}

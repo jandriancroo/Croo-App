@@ -112,7 +112,7 @@ export function SeenByDialog({ post, canRemind, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-0 gap-0">
+      <DialogContent className="duo-slide max-w-md p-0 gap-0">
         <DialogHeader className="px-4 pt-4 pb-2">
           <DialogTitle className="text-base">Who's read it</DialogTitle>
         </DialogHeader>

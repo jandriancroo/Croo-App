@@ -220,7 +220,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
       {/* Edit dialog */}
       {canManage && onEdit && (
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="duo-slide sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Edit post</DialogTitle>
             </DialogHeader>
@@ -250,7 +250,7 @@ function PostCardImpl({ post, currentUserId, canModerate, onOpenSeenBy, onToggle
       {/* Confirm delete */}
       {canManage && (
         <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
-          <AlertDialogContent>
+          <AlertDialogContent className="duo-popup">
             <AlertDialogHeader>
               <AlertDialogTitle>Delete this post?</AlertDialogTitle>
               <AlertDialogDescription>

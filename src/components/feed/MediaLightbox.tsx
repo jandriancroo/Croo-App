@@ -59,7 +59,7 @@ export function MediaLightbox({ items, index, onOpenChange, onIndexChange }: Pro
         className="p-0 border-0 bg-black/95 max-w-[100vw] w-[100vw] h-[100vh] sm:max-w-[100vw] sm:rounded-none flex flex-col gap-0 [&>button.absolute]:hidden"
       >
         {/* Top bar */}
-        <div className="flex items-center justify-between px-3 py-2 text-white shrink-0">
+        <div className="duo-lightbox-top relative flex items-center justify-between px-3 py-2 text-white shrink-0">
           <div className="text-sm truncate max-w-[60%]">{name}</div>
           <div className="flex items-center gap-1">
             <a href={current.url} download target="_blank" rel="noopener noreferrer">
@@ -72,7 +72,7 @@ export function MediaLightbox({ items, index, onOpenChange, onIndexChange }: Pro
                 <ExternalLink className="h-4 w-4" />
               </Button>
             </a>
-            <Button size="icon-sm" variant="ghost" className="text-destructive hover:bg-destructive/20" onClick={() => onOpenChange(false)}>
+            <Button size="icon-sm" variant="ghost" className="duo-lightbox-x text-destructive hover:bg-destructive/20" onClick={() => onOpenChange(false)}>
               <X className="h-5 w-5" />
             </Button>
           </div>

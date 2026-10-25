@@ -374,3 +374,45 @@ html.duo .duo-dm-dock>div:first-child{padding-right:104px!important}
 /* v18: no teal page header on the Duo (the left menu names the page; location switching lives on the Dash); Chat has no "share something" bar — New post is on the action button */
 html.duo .duo-open-header,html.duo .duo-phone-header{display:none!important}
 html.duo .duo-composer-trigger{display:none!important}
+
+/* v19: Theo voice — close X at the top left (same as every slide-over), store name beside it; Apple's pill never covers it */
+html.duo .duo-theo-top{flex-direction:row-reverse;justify-content:flex-end;gap:12px}
+
+/* v20: the action button is Theo — a small turning particle sphere (shared 20fps canvas, pauses off-screen / on Reduce Motion) */
+html.duo .duo-orb .theo-orb-span{color:var(--duo-ink)!important;filter:drop-shadow(0 0 6px var(--duo-edge))}
+html.duo .duo-orb>.theo-orb-span{margin:0}
+html.duo .duo-orb-bump{animation:duo-orb-bump .46s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes duo-orb-bump{0%{transform:scale(1)}28%{transform:scale(.82)}62%{transform:scale(1.14)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){html.duo .duo-orb-bump{animation:none}}
+
+/* v21: smoother overlay motion. Slide-overs travel the full way in and out on an iOS-style curve; popups fade + settle. */
+@keyframes duo-slide-in2{from{translate:100% 0}to{translate:0 0}}
+@keyframes duo-slide-out2{from{translate:0 0}to{translate:100% 0}}
+@keyframes duo-pop-in{from{opacity:0;scale:.96}to{opacity:1;scale:1}}
+@keyframes duo-pop-out{from{opacity:1;scale:1}to{opacity:0;scale:.97}}
+@keyframes duo-fade{from{opacity:0}to{opacity:1}}
+html.duo .duo-slide{animation:duo-slide-in2 .42s cubic-bezier(.32,.72,0,1) both!important;will-change:translate}
+html.duo .duo-slide[data-state=closed]{animation:duo-slide-out2 .3s cubic-bezier(.4,0,.9,.6) both!important}
+html.duo .duo-popup[data-state=open]{animation:duo-pop-in .28s cubic-bezier(.32,.72,0,1) both!important}
+html.duo .duo-popup[data-state=closed]{animation:duo-pop-out .2s ease-in both!important}
+@media (prefers-reduced-motion:reduce){
+  html.duo .duo-slide,html.duo .duo-slide[data-state=open],html.duo .duo-popup[data-state=open]{animation:duo-fade .2s ease both!important}
+  html.duo .duo-slide[data-state=closed],html.duo .duo-popup[data-state=closed]{animation:none!important;opacity:0}
+}
+
+/* v22: Chat page follows the Duo theme in both modes. The whole page (feed, posts, composer, DM conversation, menus) re-reads the shadcn colour tokens from the Paper/OLED palette; no teal/orange. */
+html.duo.duo:has(.duo-chat-page){--background:40 36% 91%;--foreground:32 15% 21%;--card:40 36% 93%;--card-foreground:32 15% 21%;--popover:40 36% 93%;--popover-foreground:32 15% 21%;--muted:40 25% 85%;--muted-foreground:32 9% 46%;--border:32 20% 78%;--input:32 20% 78%;--accent:40 30% 84%;--accent-foreground:32 15% 21%;--secondary:40 25% 85%;--secondary-foreground:32 15% 21%;--primary:139 20% 50%;--primary-foreground:0 0% 100%;--ring:139 20% 50%}
+html.duo.duo[data-duo-theme=oled]:has(.duo-chat-page){--background:0 0% 0%;--foreground:0 0% 93%;--card:0 0% 9%;--card-foreground:0 0% 93%;--popover:0 0% 11%;--popover-foreground:0 0% 93%;--muted:0 0% 15%;--muted-foreground:240 3% 58%;--border:0 0% 20%;--input:0 0% 20%;--accent:0 0% 19%;--accent-foreground:0 0% 93%;--secondary:0 0% 15%;--secondary-foreground:0 0% 93%}
+html.duo:has(.duo-chat-page),html.duo:has(.duo-chat-page) body,html.duo:has(.duo-chat-page) #root{background:hsl(var(--background))!important;color:hsl(var(--foreground))}
+/* post cards: quiet glass instead of a teal top bar */
+html.duo .duo-chat-page header.border-t-4{border-top-width:1px!important;border-color:hsl(var(--border))!important;background:hsl(var(--muted)/.5)!important}
+html.duo .duo-chat-page [class*="rounded-2xl"][class*="border"]{box-shadow:none}
+/* the DM dock uses the same OLED black as the page */
+html.duo[data-duo-theme=oled] .duo-dm-dock{--background:0 0% 4%}
+
+/* v23: Chat dialogs. Scrollable slide-overs keep scrolling; photo viewers keep their close X clear of Apple's pill (top-left). */
+html.duo .duo-slide.overflow-y-auto{overflow-y:auto!important}
+html.duo .duo-lightbox-top{padding-right:max(var(--duo-col-right,0px),104px)!important;padding-top:max(env(safe-area-inset-top),44px)!important}
+html.duo .duo-lightbox-top .duo-lightbox-x{position:absolute;left:12px;top:max(env(safe-area-inset-top),44px);color:#fff!important}
+html.duo .duo-lightbox-top>div:first-child{margin-left:48px}
+html.duo .duo-viewer>button{right:auto!important;left:10px!important;top:10px!important;z-index:5}

@@ -13,6 +13,8 @@ interface TheoOrbProps {
   'data-tour'?: string;
   /** Draw a single still frame (no rotation, no bloom). */
   still?: boolean;
+  /** Render as a non-interactive span (to sit inside another button). */
+  asSpan?: boolean;
 }
 
 const BLOOM_S = 0.7;
@@ -99,6 +101,7 @@ export function TheoOrb({
   unread = false,
   label = 'Open Theo',
   still = false,
+  asSpan = false,
   ...rest
 }: TheoOrbProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -126,7 +129,7 @@ export function TheoOrb({
       o.color = getComputedStyle(cv).color;
       if (!running.has(o)) drawMini(g, o, now());
     });
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme', 'style'] });
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme', 'data-duo-theme', 'style'] });
 
     let io: IntersectionObserver | null = null;
     if (!isStill) {
@@ -145,17 +148,17 @@ export function TheoOrb({
     };
   }, [size, still]);
 
+  const Tag = (asSpan ? 'span' : 'button') as any;
+  const tagProps = asSpan
+    ? { 'aria-hidden': true }
+    : { type: 'button', onClick, 'aria-label': label, 'data-tour': rest['data-tour'] };
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      data-tour={rest['data-tour']}
+    <Tag
+      {...tagProps}
       className={cn(
         'relative inline-flex items-center justify-center shrink-0 rounded-full',
         'text-accent-foreground',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-foreground/40',
-        'transition-transform active:scale-95',
+        asSpan ? 'theo-orb-span' : 'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-foreground/40 transition-transform active:scale-95',
         className,
       )}
       style={{ width: size, height: size }}
@@ -183,6 +186,6 @@ export function TheoOrb({
           <span className="relative rounded-full bg-red-500 ring-2 ring-background" style={{ width: '100%', height: '100%' }} />
         </span>
       )}
-    </button>
+    </Tag>
   );
 }
