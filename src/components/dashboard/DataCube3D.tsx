@@ -467,7 +467,8 @@ export function DataCube3D({
   if (duoPresentation) {
     const face = faces[currentFace % Math.max(1, faces.length)];
     // Keep the current widget's exact metric reader, face order, timer and pause actions.
-    const requested = face?.metrics ?? [];
+    const requested = [...(face?.metrics ?? [])];
+    if (requested[0] === 'sales_today' && !requested.includes('avg_ticket')) requested.push('avg_ticket');
     const metrics = requested.map(metric => ({
       label: metric === 'sales_projected_today' ? 'Projection' : getDynamicLabel(metric, undefined, effectiveSalesData?.lastYear?.date),
       value: isLoading ? '--' : formatValue(getMetricValue(metric, effectiveSalesData), METRIC_CONFIGS[metric]?.format ?? 'number'),

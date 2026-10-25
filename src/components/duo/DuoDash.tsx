@@ -2,7 +2,7 @@ import { Children, cloneElement, isValidElement, useEffect, useState, type React
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
-import { MapPin, ChevronRight, X, Sparkles, Hand, SlidersHorizontal, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, BarChart3, Users, Settings } from 'lucide-react';
+import { MapPin, ChevronRight, X, Sparkles, Hand, SlidersHorizontal, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Clock, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -22,7 +22,7 @@ export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { currentLocation, isChecklistOnlyLocation } = useLocation();
-  const { isAdmin, isShiftManager, isManager, canViewSalesAndLabor, role } = useUserRole();
+  const { isAdmin, isShiftManager, isManager, isOrgAdmin, isBrandAdmin, isSuperAdmin, canViewTimecards, loading, role } = useUserRole();
   // Subscribe only to Layout's already-populated profile cache; never fetch.
   const { data: profile } = useQuery<{ full_name?: string; profile_photo_url?: string; nickname?: string }>({
     queryKey: ['user-profile', user?.id], enabled: false,
@@ -32,6 +32,8 @@ export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
   const [late, setLate] = useState(0);
   const [chat, setChat] = useState('');
   const { data: inventory } = useQuery<{ configured: boolean }>({ queryKey: ['location-inventory-mode', currentLocation?.id], enabled: false });
+  const { data: permissions } = useQuery<Record<string, boolean>>({ queryKey: ['role-permissions', currentLocation?.organization_id, role], enabled: false });
+  const hasPermission = (key: string) => permissions?.[key] ?? false;
   useEffect(() => {
     const root = document.documentElement;
     const update = () => {
@@ -64,10 +66,12 @@ export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
     { title: 'Dash', path: '/dashboard', icon: LayoutDashboard },
     { title: 'Chat', path: '/messages', icon: MessageSquare },
     { title: 'Tasks', path: '/tasks', icon: CheckSquare },
-    ...(isShiftManager ? [{ title: 'Logs', path: '/logbook', icon: FileText }] : []),
+    ...(!loading && isShiftManager ? [{ title: 'Logs', path: '/logbook', icon: FileText }] : []),
     ...(!isChecklistOnlyLocation ? [{ title: 'Schedule', path: '/schedule', icon: Calendar }] : []),
-    ...(!isChecklistOnlyLocation && isManager && inventory?.configured ? [{ title: 'Inventory', path: `/inventory/${currentLocation?.id}`, icon: Package }] : []),
+    ...(!isChecklistOnlyLocation && (isManager || hasPermission('manage_inventory')) && inventory?.configured ? [{ title: 'Inventory', path: `/inventory/${currentLocation?.id}`, icon: Package }] : []),
     ...(!isChecklistOnlyLocation || isAdmin ? [{ title: isAdmin ? 'Users' : 'My Team', path: isAdmin ? '/users' : '/my-team', icon: Users }] : []),
+    ...(!isChecklistOnlyLocation && !loading && (isOrgAdmin || isBrandAdmin || isSuperAdmin || hasPermission('manage_hiring')) ? [{ title: 'Hiring', path: '/hiring', icon: Briefcase }] : []),
+    ...(!isChecklistOnlyLocation ? [{ title: 'My Timecard', path: '/my-timecard', icon: Clock }, { title: 'Availability', path: '/availability', icon: Calendar }, ...(canViewTimecards ? [{ title: 'Time Tracking', path: '/time-tracking', icon: Clock }] : [])] : []),
     { title: 'Settings', path: '/settings', icon: Settings },
   ];
   return <div className="duo-dash" data-duo-theme={theme}>
