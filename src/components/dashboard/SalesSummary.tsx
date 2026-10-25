@@ -24,7 +24,7 @@ import { toast } from 'sonner';
 import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
 import { fetchStoreLabor } from '@/hooks/useStoreLabor';
 import { useToastFreshness } from '@/hooks/useToastFreshness';
-import { useDuo } from '@/hooks/useDuo';
+import { useDuoDashPresentation } from '@/components/duo/DuoDashContext';
 import { DuoSummary } from '@/components/duo/DuoSummary';
 
 interface SalesData {
@@ -76,7 +76,7 @@ interface DiagnosticInfo {
 }
 
 export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverviewProps) {
-  const duo = useDuo();
+  const duoPresentation = useDuoDashPresentation();
   const { currentLocation } = useAppLocation();
   const toastFresh = useToastFreshness(currentLocation?.id);
   const { getBusinessDateInTimezone, timezone } = useLocationTimezone();
@@ -1522,7 +1522,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     );
   }
 
-  if (duo.isDuo) {
+  if (duoPresentation) {
     const period = activeTab === 'today' ? (isToday ? 'today' : 'yesterday') : activeTab;
     return <DuoSummary period={period} onPeriod={p => {
       setActiveTab(p === 'yesterday' ? 'today' : p);

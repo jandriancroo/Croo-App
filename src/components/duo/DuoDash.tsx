@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation } from '@/hooks/useLocation';
 import './duo-dash.css';
+import { DuoDashContext } from './DuoDashContext';
 
 function emphasizeNumbers(node: ReactNode): ReactNode {
   if (typeof node === 'string') return node.split(/(\$[\d,]+|\d+(?:\.\d+)?%)/g).map((part, i) => /^\$|%$/.test(part) ? <b key={i}>{part}</b> : part);
@@ -66,8 +67,7 @@ export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
     ...(isShiftManager ? [{ title: 'Logs', path: '/logbook', icon: FileText }] : []),
     ...(!isChecklistOnlyLocation ? [{ title: 'Schedule', path: '/schedule', icon: Calendar }] : []),
     ...(!isChecklistOnlyLocation && isManager && inventory?.configured ? [{ title: 'Inventory', path: `/inventory/${currentLocation?.id}`, icon: Package }] : []),
-    ...(!isChecklistOnlyLocation && canViewSalesAndLabor ? [{ title: 'Reporting', path: '/reporting', icon: BarChart3 }] : []),
-    { title: 'Team', path: isAdmin ? '/users' : '/my-team', icon: Users },
+    ...(!isChecklistOnlyLocation || isAdmin ? [{ title: isAdmin ? 'Users' : 'My Team', path: isAdmin ? '/users' : '/my-team', icon: Users }] : []),
     { title: 'Settings', path: '/settings', icon: Settings },
   ];
   return <div className="duo-dash" data-duo-theme={theme}>
@@ -77,7 +77,7 @@ export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
         {sentence && <div className="duo-theo"><i aria-hidden /> <div>{emphasizeNumbers(sentence)}</div></div>}
       </div>
       <div className="duo-quick">{quickTasks}</div>
-      <div className="duo-widgets">{dashboard}</div>
+      <div className="duo-widgets"><DuoDashContext.Provider value>{dashboard}</DuoDashContext.Provider></div>
     </div>
     {overlay && <Button variant="ghost" aria-label="Close controls" className="duo-dim" onClick={() => setOverlay(null)} />}
     <Button variant="ghost" className="duo-store duo-glass" onClick={() => fire('open-location-picker')}><MapPin size={17} />{currentLocation?.name}<ChevronRight size={15} /></Button>

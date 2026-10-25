@@ -4,7 +4,7 @@ import { TrendingUp, TrendingDown, Pause } from 'lucide-react';
 import { MetricType, METRIC_CONFIGS, SalesDataForWidgets } from './DashboardWidget';
 import { format, subYears, getWeek } from 'date-fns';
 import { ThemeColorKey, migrateAccentColor, getThemeColorClass, getThemeTextClass, isThemeColorKey } from '@/utils/themeColors';
-import { useDuo } from '@/hooks/useDuo';
+import { useDuoDashPresentation } from '@/components/duo/DuoDashContext';
 import { DuoSalesCell } from '@/components/duo/DuoSalesCell';
 
 // Pacing display mode: 'arrow' (current icons), 'text-color' (colored text), or 'background-arrow' (large faint arrow behind)
@@ -351,7 +351,7 @@ export function DataCube3D({
   pacingDisplay = 'background-arrow', // Default to option 2 for demo
   useDemoData = false,
 }: DataCube3DProps) {
-  const duo = useDuo();
+  const duoPresentation = useDuoDashPresentation();
   const [currentFace, setCurrentFace] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isFrozen, setIsFrozen] = useState(false);
@@ -464,7 +464,7 @@ export function DataCube3D({
     return currentFace * -90;
   };
 
-  if (duo.isDuo) {
+  if (duoPresentation) {
     const face = faces[currentFace % Math.max(1, faces.length)];
     // Keep the current widget's exact metric reader, face order, timer and pause actions.
     const requested = face?.metrics ?? [];
