@@ -201,7 +201,6 @@ html.duo .duo-navroot .duo-menu{z-index:62}
 /* v3: glass over the promo photo was boosting the pizza into orange. Neutral, desaturated frost instead. */
 html.duo .duo-dash [data-promo-hero] [role=tablist],
 html.duo .duo-dash [data-promo-hero] .bottom-3 [role=radiogroup],
-html.duo .duo-dash [data-promo-hero] .bottom-3>div,
 html.duo .duo-dash [data-promo-hero] .bg-card,
 html.duo .duo-dash [data-promo-hero] .bg-primary\/15,
 html.duo .duo-dash [data-promo-hero] .bottom-3>div:first-child>button,
@@ -226,14 +225,14 @@ html.duo .duo-period-menu{width:200px;padding:6px;border-radius:18px;display:fle
 html.duo .duo-period-menu button{justify-content:flex-start;height:42px;border-radius:12px;font-size:16px;font-weight:400;color:var(--duo-ink)}
 
 /* v4: brand + store at top-left, quiet CrooHQ wordmark at the bottom */
-html.duo .duo-navroot .duo-brandrow{position:fixed;top:14px;left:20px;z-index:3;display:flex;align-items:center;gap:12px;max-width:calc(50vw - 40px)}
+html.duo .duo-navroot .duo-brandrow{position:fixed;top:14px;left:20px;z-index:60;display:flex;align-items:center;gap:12px;max-width:calc(50vw - 40px)}
 html.duo:not(.duo-open) .duo-navroot .duo-brandrow{max-width:calc(100vw - 110px)}
 html.duo .duo-brand{display:flex;align-items:center;gap:9px;min-width:0;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--duo-muted)}
 html.duo .duo-brand img,html.duo .duo-brand i{flex:none;width:28px;height:28px;border-radius:50%;object-fit:cover;background:var(--duo-fill)}
 html.duo .duo-brand span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 html.duo .duo-navroot .duo-store{position:static;height:34px;border-radius:17px;padding:0 11px;gap:6px;font-size:13px;max-width:none;flex:none;z-index:auto}
 html.duo .duo-dash .duo-dash-intro{padding-top:56px}
-html.duo .duo-navroot .duo-wordmark{position:fixed;bottom:14px;left:0;width:100%;display:flex;justify-content:center;pointer-events:none;z-index:2}
+html.duo .duo-navroot .duo-wordmark{position:fixed;bottom:14px;left:0;width:100%;display:flex;justify-content:center;pointer-events:none;z-index:60}
 html.duo.duo-open .duo-navroot .duo-wordmark{width:calc(50% - 20px)}
 html.duo .duo-wordmark img{height:15px;width:auto;padding:9px 18px;box-sizing:content-box;border-radius:20px;background:var(--duo-fill);filter:brightness(0) opacity(.5)}
 html.duo .duo-navroot[data-duo-theme=oled] .duo-wordmark img{filter:brightness(0) invert(1) opacity(.55)}
