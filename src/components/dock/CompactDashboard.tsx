@@ -658,7 +658,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                         </p>
                       )}
                     </div>
-                    <div className="mr-10 shrink-0 flex flex-col items-center">
+                    <div className={duo.isDuo ? 'hidden' : 'mr-10 shrink-0 flex flex-col items-center'}>
                       <TheoOrb
                         size={58}
                         data-tour="theo-orb"
@@ -787,7 +787,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
 
             <div className="my-[14px] h-px" style={{ background: 'var(--cd-line)' }} />
 
-            {canNudgeHere && (
+            {canNudgeHere && !duo.isDuo && (
               <>
                 <NudgeSection locationId={locationId} />
                 <div className="my-[14px] h-px" style={{ background: 'var(--cd-line)' }} />

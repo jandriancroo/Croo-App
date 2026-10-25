@@ -242,7 +242,7 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-md flex-col overflow-hidden p-0 [&>button]:top-[6px]">
+        <DialogContent className="duo-slide flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-md flex-col overflow-hidden p-0 [&>button]:top-[6px]">
           <DialogHeader className="shrink-0 border-b px-4 py-3">
             <DialogTitle>{form ? (form.id ? 'Edit Promo Tracker' : 'New Promo Tracker') : 'Promo Tracker'}</DialogTitle>
           </DialogHeader>
@@ -345,7 +345,7 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
                   </div>
 
                   <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
-                    <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-md flex-col overflow-hidden p-0 [&>button]:top-[6px]">
+                    <DialogContent className="duo-slide flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-md flex-col overflow-hidden p-0 [&>button]:top-[6px]">
                       <DialogHeader className="shrink-0 border-b px-4 py-3">
                         <DialogTitle>Add items</DialogTitle>
                       </DialogHeader>
@@ -415,7 +415,7 @@ export function PromoTrackerEditor({ open, onOpenChange }: { open: boolean; onOp
       </Dialog>
 
       <AlertDialog open={confirmEnd} onOpenChange={setConfirmEnd}>
-        <AlertDialogContent>
+        <AlertDialogContent className="duo-popup">
           <AlertDialogHeader>
             <AlertDialogTitle>End this promo?</AlertDialogTitle>
             <AlertDialogDescription>It disappears from every store's Dash right away.</AlertDialogDescription>
