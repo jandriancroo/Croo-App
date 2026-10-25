@@ -273,3 +273,9 @@ html.duo.duo-open .duo-widgets>div{display:flex;flex-direction:column;grid-colum
 html.duo.duo-open .duo-widgets>div>*{grid-column:auto!important;grid-row:auto!important;margin-top:0!important;align-self:auto!important;flex:none}
 html.duo.duo-open .duo-widgets>div>div:has(.bg-card.border.border-border.rounded-xl){position:fixed;left:0;width:calc(50% - 20px);top:var(--duo-left-top,360px);bottom:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:96px}
 html.duo.duo-open .duo-dash [data-promo-hero]{height:236px}
+
+/* v9: fixes for v8 — location pill must hug its content at top-right; no leftover grid margins in the scrolling right pane */
+html.duo .duo-navroot .duo-store{left:auto;bottom:auto;width:auto;height:34px;min-width:0;flex:none}
+html.duo.duo-open .duo-widgets>div>[data-tour=dashboard-promo],
+html.duo.duo-open .duo-widgets>div>div:has([data-tour=dashboard-cubes]),
+html.duo.duo-open .duo-widgets>div>div:has(.duo-sales-summary){margin-top:0!important;grid-column:auto!important;grid-row:auto!important;align-self:auto!important}
