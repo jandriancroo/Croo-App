@@ -448,6 +448,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   useEffect(() => {
     if (!isMobile || !canViewSalesAndLabor) return;
     registerDashSlideUp(() => setShowCompactDashboard(true));
+    // Duo: no automatic slide-up on start (it was a training aid).
+    if (duo.isDuo) return () => registerDashSlideUp(null);
     try {
       if (!localStorage.getItem('theo-welcome-autopeek-v1')) {
         localStorage.setItem('theo-welcome-autopeek-v1', String(Date.now()));
@@ -455,7 +457,13 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       }
     } catch { /* ignore */ }
     return () => registerDashSlideUp(null);
-  }, [isMobile, canViewSalesAndLabor]);
+  }, [isMobile, canViewSalesAndLabor, duo.isDuo]);
+  // Duo: the action button's "Manager dash" opens the dash as a slide-over.
+  useEffect(() => {
+    const h = () => setShowCompactDashboard(true);
+    window.addEventListener('open-manager-dash', h);
+    return () => window.removeEventListener('open-manager-dash', h);
+  }, []);
   useEffect(() => { setDockOpenState(showCompactDashboard); }, [showCompactDashboard]);
   // Safety net: clear a stray body pointer-events:none when no dialog is open.
   useEffect(() => installStrayPointerLockGuard(), []);
@@ -1688,7 +1696,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
 
       {/* Compact Dashboard - Swipe Up from Dock (shift_manager+ only). Duo: folded mode only —
           in open mode there is no manager dash and no dock arrow. */}
-      {isMobile && canViewSalesAndLabor && !duo.isOpen && (
+      {(isMobile || duo.isDuo) && canViewSalesAndLabor && (
         <CompactDashboard
           isExpanded={showCompactDashboard}
           onClose={() => setShowCompactDashboard(false)}
