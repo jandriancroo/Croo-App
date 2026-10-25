@@ -4,6 +4,8 @@ import { TrendingUp, TrendingDown, Pause } from 'lucide-react';
 import { MetricType, METRIC_CONFIGS, SalesDataForWidgets } from './DashboardWidget';
 import { format, subYears, getWeek } from 'date-fns';
 import { ThemeColorKey, migrateAccentColor, getThemeColorClass, getThemeTextClass, isThemeColorKey } from '@/utils/themeColors';
+import { useDuo } from '@/hooks/useDuo';
+import { DuoSalesCell } from '@/components/duo/DuoSalesCell';
 
 // Pacing display mode: 'arrow' (current icons), 'text-color' (colored text), or 'background-arrow' (large faint arrow behind)
 export type PacingDisplayMode = 'arrow' | 'text-color' | 'background-arrow';
@@ -349,6 +351,7 @@ export function DataCube3D({
   pacingDisplay = 'background-arrow', // Default to option 2 for demo
   useDemoData = false,
 }: DataCube3DProps) {
+  const duo = useDuo();
   const [currentFace, setCurrentFace] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isFrozen, setIsFrozen] = useState(false);
@@ -461,6 +464,18 @@ export function DataCube3D({
     return currentFace * -90;
   };
 
+  if (duo.isDuo) {
+    const face = faces[currentFace % Math.max(1, faces.length)];
+    // Keep the current widget's exact metric reader, face order, timer and pause actions.
+    const requested = face?.metrics ?? [];
+    const metrics = requested.map(metric => ({
+      label: metric === 'sales_projected_today' ? 'Projection' : getDynamicLabel(metric, undefined, effectiveSalesData?.lastYear?.date),
+      value: isLoading ? '--' : formatValue(getMetricValue(metric, effectiveSalesData), METRIC_CONFIGS[metric]?.format ?? 'number'),
+      behind: isPaceMetric(metric) && getPacingStatus(metric, effectiveSalesData) === 'down',
+    }));
+    return <DuoSalesCell title={face?.title || title} metrics={metrics} currentFace={currentFace} totalFaces={totalFaces}
+      onFace={rotateTo} onDown={handlePointerDown} onUp={handlePointerUp} onCancel={handlePointerCancel} />;
+  }
   return (
     <div className={cn("data-cube-3d relative group h-full", className)}>
       <style>{`
