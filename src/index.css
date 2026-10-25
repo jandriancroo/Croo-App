@@ -2773,7 +2773,8 @@ html.duo-open footer {
 /* Popups stay out of the column and fit the visible screen above the keyboard. */
 html.duo-open .duo-sheet.duo-nudge-panel {
   left: calc(50vw + var(--duo-crease-gutter, 40px) / 2);
-  right: var(--duo-col-right, 0px);
+  /* The native app draws under Apple's column (col-right reads 0), so always leave room for its pill. */
+  right: max(var(--duo-col-right, 0px), 96px);
   top: calc(env(safe-area-inset-top) + 3.5rem);
   bottom: auto;
   width: auto;

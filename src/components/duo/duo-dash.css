@@ -252,6 +252,3 @@ html.duo .duo-dash [data-promo-hero] .bottom-3 button,
 html.duo .duo-dash [data-promo-hero]>.top-3 p{text-shadow:0 1px 8px rgba(0,0,0,.45)}
 html.duo .duo-dash [data-promo-hero] button[data-state=on]{background:rgba(255,255,255,.26)!important;color:#fff!important}
 
-/* v6: right-side sheets (Nudge, etc.) — keep the close X out from under Apple's clock/battery pill */
-html.duo [role=dialog].right-0>button.absolute.right-4{right:max(calc(var(--duo-col-right,0px) + 12px),104px)}
-html.duo [role=dialog].right-0 [class*="pr-12"]{padding-right:calc(max(var(--duo-col-right,0px),96px) + 24px)}
