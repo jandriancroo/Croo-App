@@ -14,14 +14,6 @@ html.duo .duo-widgets>div>div:has([data-tour=dashboard-promo]){order:3}
 html.duo .duo-widgets>div>div:has([data-tour=dashboard-cubes]){order:4}
 html.duo .duo-widgets>div>div:has(.duo-sales-summary){order:5}
 html.duo .duo-widgets>div>div:has(.duo-sales-summary)>.dash-section-title{display:none}
-html.duo .duo-widgets>div>div:has(.duo-sales-summary)>div{background:transparent;border:0;border-radius:0;box-shadow:none}
-html.duo .duo-widgets>div>div:has(.duo-sales-summary)>div>div{opacity:1}
-html.duo .duo-widgets>div>div:has(.duo-sales-summary)>div>div>div{background:transparent;border:0;border-radius:0;box-shadow:none}
-html.duo .duo-widgets>div>div:has(.duo-sales-summary){display:block}
-html.duo .duo-widgets>div>div:has(.duo-sales-summary)>div{display:block}
-html.duo .duo-widgets>div>div:has(.duo-sales-summary)>div>div{display:block}
-html.duo .duo-widgets>div>div:has(.duo-sales-summary)>div>div>div{display:block}
-html.duo .duo-widgets>div>div:has(.duo-sales-summary)>div>div>div>div{display:block}
 html.duo .duo-widgets>div>div:has(.duo-sales-summary) .duo-sales-summary{min-height:196px}
 html.duo .duo-widgets>div>div:has(.duo-sales-summary) .duo-scoreboard{display:block}
 html.duo .duo-widgets>div>div:has(.duo-sales-summary) .duo-scoreboard>div{display:flex}
@@ -132,3 +124,17 @@ html.duo.duo-open .duo-widgets>div>div:has(.duo-sales-summary){grid-column:3;gri
 html.duo.duo-open .duo-dash [data-tour=dashboard-cubes]{min-height:200px}
 html.duo.duo-open .duo-widgets>div>div:has(.duo-sales-summary) .duo-sales-summary{min-height:214px}
 @media(prefers-reduced-motion:reduce){html.duo .duo-dash *,html.duo .duo-dash *:before,html.duo .duo-dash *:after{animation:none!important;transition:none!important}}
+
+/* The existing sales writer stays mounted; only its surrounding card is unframed. */
+html.duo .duo-dash div:has(>.duo-sales-summary){background:transparent;border:0;border-radius:0;box-shadow:none}
+html.duo .duo-dash .duo-cell-heading{position:relative;min-height:14px;line-height:14px}
+html.duo .duo-dash .duo-cell-dots{position:absolute;right:0;top:-4px}
+html.duo .duo-dash .duo-cell-heading>span{padding-right:28px}
+html.duo .duo-dash .duo-scoreboard>div>div:last-child{display:none!important}
+html.duo .duo-dash .duo-sales-summary>div:first-child{height:44px!important}
+html.duo .duo-dash .duo-sales-summary{height:auto}
+html.duo .duo-dash .duo-scoreboard>div>p:nth-child(2){font-size:64px;line-height:1}
+html.duo .duo-dash .duo-sales-summary button[data-state=on]{background:var(--duo-selected)!important;color:var(--duo-ink)!important}
+html.duo .duo-dash .duo-sales-summary button{box-shadow:none}
+html.duo .duo-dash .duo-quick span[class*='status-overdue']{background:color-mix(in srgb,var(--duo-rose) 18%,transparent);border-radius:20px;padding:4px 10px;color:var(--duo-rose)}
+html.duo .duo-dash .bg-card.border.border-border.rounded-xl [class*='text-emerald']{color:var(--duo-sage)}
