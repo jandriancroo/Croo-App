@@ -15,6 +15,8 @@ interface TheoOrbProps {
   still?: boolean;
   /** Render as a non-interactive span (to sit inside another button). */
   asSpan?: boolean;
+  /** Every dot fully opaque (no depth fade). */
+  solid?: boolean;
 }
 
 const BLOOM_S = 0.7;
@@ -26,6 +28,7 @@ type MiniState = {
   pts: number[][];
   color: string;
   still: boolean;
+  solid?: boolean;
   bloomAt: number;
   bloomT0: number;
   g: CanvasRenderingContext2D;
@@ -64,7 +67,7 @@ function drawMini(g: CanvasRenderingContext2D, o: MiniState, t: number) {
   for (const [x, y, z, seed] of pr) {
     const depth = (z + 1) / 2;
     const m = 1 + arc * (0.05 + seed * 0.11);
-    g.globalAlpha = Math.min(1, 0.34 + depth * 0.66 + arc * 0.2);
+    g.globalAlpha = o.solid ? 1 : Math.min(1, 0.34 + depth * 0.66 + arc * 0.2);
     g.beginPath();
     g.arc(c0 + x * R * m, c0 + y * R * m, rMin + depth * rAdd, 0, Math.PI * 2);
     g.fill();
@@ -102,6 +105,7 @@ export function TheoOrb({
   label = 'Open Theo',
   still = false,
   asSpan = false,
+  solid = false,
   ...rest
 }: TheoOrbProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -119,7 +123,7 @@ export function TheoOrb({
     const isStill = still || reducedMotion();
     const t0 = now();
     const o: MiniState = {
-      size, pts: makePoints(count), color: getComputedStyle(cv).color, still: isStill,
+      size, pts: makePoints(count), color: getComputedStyle(cv).color, still: isStill, solid,
       bloomAt: t0 + 1 + Math.random() * 4, bloomT0: -10, g,
     };
     drawMini(g, o, t0);
@@ -146,7 +150,7 @@ export function TheoOrb({
       running.delete(o);
       syncLoop();
     };
-  }, [size, still]);
+  }, [size, still, solid]);
 
   const Tag = (asSpan ? 'span' : 'button') as any;
   const tagProps = asSpan

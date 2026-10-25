@@ -146,7 +146,7 @@ export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplic
       <Button
         size="icon"
         onClick={() => setIsNewChatOpen(true)}
-        className="absolute bottom-16 right-3 h-11 w-11 rounded-full shadow-lg"
+        className="duo-hide-fab absolute bottom-16 right-3 h-11 w-11 rounded-full shadow-lg"
         aria-label="New chat"
       >
         <Plus className="h-5 w-5" />

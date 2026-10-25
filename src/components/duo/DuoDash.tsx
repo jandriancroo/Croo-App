@@ -47,7 +47,6 @@ export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
       </div>
       <div className="duo-quick">{quickTasks}</div>
       <div className="duo-widgets"><DuoDashContext.Provider value>{dashboard}</DuoDashContext.Provider></div>
-      <div className="duo-wordmark" aria-hidden><img src="/croohq-wordmark.png" alt="" /></div>
     </div>
   </div>;
 }
