@@ -15,6 +15,7 @@
 - Announcements pop up on Dash after system alerts (read via Chat or popup, optional required "I've read this", who's-read list, out of Quick Tasks). Not yet tried live with test data.
 
 ## Done
+- Duo Design Lab archived (Oct 25): files moved to src/archive/duo-lab/ with a restore README, /duo-lab route and Settings → Super Admin entry removed. Verified signed-in as super admin: link gone, /duo-lab shows the app's 404. Typecheck and build clean; nothing published.
 - Duo-open follow-up: both cubes 140px, intrinsic faces with no flex-fill, balanced content/dots; all eight faces readable at 951px/84px. Below-bar gaps 14px on both panels, Schedule title x507.5 aligns with content; Dash title retains icon clearance. Phone/folded unchanged; nine tests passed; nothing published.
 - Duo Part B: Layout slots receive existing Dash/Schedule PageTitle trees; white 30px titles, 72px+inset bar, Theo below. At 951px/84px: left 106–455.5, right 495.5–855, panels start y72. Punch/New Shift open correctly; Settings in-page title and phone/folded titles preserved; nine tests pass. No locked file edits or publishing.
 - Open Duo cubes: content-sized equal heights, all eight faces verified signed-in at 951px/84px column with no text overlap/clipping; phone/folded/iPad/desktop sizing unchanged. Only DataCube3D presentation changed; no publishing.
