@@ -343,3 +343,9 @@ html.duo .duo-type-bottom{display:none}
 .duo-switch-sub{font-size:15px;opacity:.6;margin:4px 0 0}
 .duo-switch-track{margin-top:26px;width:200px;height:2px;border-radius:2px;background:currentColor;background:color-mix(in srgb,currentColor 16%,transparent);overflow:hidden}
 .duo-switch-track i{display:block;height:100%;background:currentColor;opacity:.7;border-radius:2px}
+
+/* v14: Select / Popover menus portal to <body>; give them the Duo glass theme too (they open inside slide-overs) */
+html.duo [data-radix-popper-content-wrapper]{--background:40 36% 91%;--foreground:32 15% 21%;--card:40 36% 93%;--card-foreground:32 15% 21%;--popover:40 36% 93%;--popover-foreground:32 15% 21%;--border:32 15% 78%;--input:32 15% 78%;--muted:40 30% 86%;--muted-foreground:32 10% 42%;--accent:40 30% 86%;--accent-foreground:32 15% 21%;--primary:32 15% 21%;--primary-foreground:40 36% 95%;--ring:32 15% 40%;z-index:200!important}
+html.duo[data-duo-theme=oled] [data-radix-popper-content-wrapper]{--background:0 0% 9%;--foreground:0 0% 93%;--card:0 0% 11%;--card-foreground:0 0% 93%;--popover:0 0% 11%;--popover-foreground:0 0% 93%;--border:0 0% 20%;--input:0 0% 20%;--muted:0 0% 15%;--muted-foreground:0 0% 62%;--accent:0 0% 16%;--accent-foreground:0 0% 93%;--primary:0 0% 93%;--primary-foreground:0 0% 9%;--ring:0 0% 60%}
+html.duo [data-radix-popper-content-wrapper]>*{border-radius:16px}
+html.duo .duo-popup{z-index:101}
