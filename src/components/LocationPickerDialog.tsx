@@ -9,6 +9,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/lib/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useDuo } from '@/hooks/useDuo';
 import { toast } from 'sonner';
 import { formatLocationName } from '@/utils/locationUtils';
 
@@ -59,7 +60,8 @@ export function LocationPickerDialog({
   const navigate = useNavigate();
   const { user } = useAuth();
   const { role } = useUserRole();
-  const isMobile = useIsMobile();
+  const duo = useDuo();
+  const isMobile = useIsMobile() && !duo.isDuo;
   const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
   
@@ -309,7 +311,7 @@ export function LocationPickerDialog({
         setView('locations');
       }
       // Focus search on desktop
-      if (!isMobile) {
+      if (!isMobile && !duo.isDuo) {
         setTimeout(() => searchRef.current?.focus(), 100);
       }
     }
@@ -614,7 +616,7 @@ export function LocationPickerDialog({
           })()}
 
           {/* Location list */}
-          <div className="space-y-1 max-h-[50vh] overflow-y-auto p-0.5 -m-0.5">
+          <div className="duo-loc-list space-y-1 max-h-[50vh] overflow-y-auto p-0.5 -m-0.5">
             {filteredLocations.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">
                 {activeTab === '__recents__' && !search ? 'No recent locations yet' : 'No locations found'}
@@ -666,7 +668,7 @@ export function LocationPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[80vh] overflow-hidden p-0">
+      <DialogContent className="duo-popup max-w-md max-h-[80vh] overflow-hidden p-0">
         <DialogHeader className="p-4 pb-0">
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="h-5 w-5" />

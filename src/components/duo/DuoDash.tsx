@@ -38,7 +38,6 @@ export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
   }, []);
   useEffect(() => {
     document.documentElement.dataset.duoTheme = theme;
-    return () => { delete document.documentElement.dataset.duoTheme; };
   }, [theme]);
   return <div ref={rootRef} className="duo-dash" data-duo-theme={theme}>
     <div className="duo-dash-grid">

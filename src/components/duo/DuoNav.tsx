@@ -39,6 +39,7 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
     return () => observer.disconnect();
   }, []);
   useEffect(() => { setOpen(false); setFan(false); }, [route.pathname]);
+  useEffect(() => { const r = document.documentElement; if (!r.dataset.duoTheme) r.dataset.duoTheme = theme; }, [theme]);
   useEffect(() => {
     const root = document.documentElement;
     const update = () => setLate(Number(root.dataset.nudgeLate) || 0);
