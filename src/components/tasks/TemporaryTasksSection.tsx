@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useDuo } from "@/hooks/useDuo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Clock, User, Users, Trash2, Eye, Camera, Pencil, AlarmClock, QrCode, Copy, Save, FileText, ClipboardList } from "lucide-react";
@@ -48,7 +49,8 @@ const ROLE_LABELS: Record<string, string> = {
   team_member: "Team Member",
 };
 
-export function TemporaryTasksSection({ autoCreate = false, onAutoCreateDone }: { autoCreate?: boolean; onAutoCreateDone?: () => void } = {}) {
+export function TemporaryTasksSection({ duoAction = null, onDuoActionDone }: { duoAction?: string | null; onDuoActionDone?: () => void } = {}) {
+  const duo = useDuo();
   const { currentLocation } = useAppLocation();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -58,9 +60,10 @@ export function TemporaryTasksSection({ autoCreate = false, onAutoCreateDone }: 
   const effectiveCanCreateTasks = canCreateTasks || (role === 'shift_manager' && hasPermission('create_tasks'));
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   useEffect(() => {
-    if (autoCreate) { setShowCreateDialog(true); onAutoCreateDone?.(); }
+    if (duoAction === 'open-new-quick-task') { setShowCreateDialog(true); onDuoActionDone?.(); }
+    if (duoAction === 'open-quick-task-templates') { setShowTemplateLibrary(true); onDuoActionDone?.(); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoCreate]);
+  }, [duoAction]);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [editTask, setEditTask] = useState<any>(null);
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
@@ -216,7 +219,7 @@ export function TemporaryTasksSection({ autoCreate = false, onAutoCreateDone }: 
     <>
       <div className="space-y-4">
         {/* Header with actions */}
-        <div className="duo-ctl flex items-center justify-between">
+        <div className={`duo-ctl flex items-center justify-between${duo.isDuo ? ' hidden' : ''}`}>
           <h3 className="text-base font-semibold">Quick Tasks</h3>
           {effectiveCanCreateTasks && (
             <div className="flex items-center gap-1">

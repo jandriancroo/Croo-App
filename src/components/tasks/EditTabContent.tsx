@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { useDuo } from "@/hooks/useDuo";
 import { Button } from "@/components/ui/button";
 import { Plus, Zap, ClipboardList, Copy, GraduationCap, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -44,10 +46,22 @@ export default function EditTabContent({
   const [activeTab, setActiveTab] = useState("quick-tasks");
   const [assignChecklist, setAssignChecklist] = useState<{ id: string; title: string } | null>(null);
   const [typeDialogOpen, setTypeDialogOpen] = useState(false);
+  const duo = useDuo();
+  const [subSlot, setSubSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => { setSubSlot(duo.isDuo ? document.getElementById('duo-tasks-subtabs') : null); }, [duo.isDuo]);
   // Duo orb: New Quick Task switches to that sub-tab (its section opens the dialog); New Checklist opens the type chooser.
   useEffect(() => {
-    if (duoAction === 'open-new-quick-task') setActiveTab('quick-tasks');
+    if (duoAction === 'open-new-quick-task' || duoAction === 'open-quick-task-templates') setActiveTab('quick-tasks');
     if (duoAction === 'open-new-checklist') { setActiveTab('templates'); if (isAdmin) setTypeDialogOpen(true); onDuoActionDone?.(); }
+    if (duoAction === 'open-copy-all-checklists') {
+      setActiveTab('templates');
+      if (isAdmin && checklists.length > 0) {
+        setCopyChecklistIds(checklists.map((c: any) => c.id));
+        setCopyChecklistTitles(checklists.map((c: any) => c.title));
+        setCopyDialogOpen(true);
+      }
+      onDuoActionDone?.();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duoAction]);
   const [duplicateChecklist, setDuplicateChecklist] = useState<any | null>(null);
@@ -185,27 +199,31 @@ export default function EditTabContent({
     { id: "templates", label: "Checklists", icon: <ClipboardList className="h-3.5 w-3.5" /> },
   ];
 
+  const seg = (
+    <SegmentedControl
+      variant="neutral"
+      className="duo-ctl"
+      value={activeTab}
+      onValueChange={setActiveTab}
+      options={subTabs.map(t => ({ value: t.id, label: t.label, icon: t.icon }))}
+    />
+  );
+
   return (
     <div className="space-y-4">
-      {/* Sub-navigation: Underline tabs */}
-      <SegmentedControl
-        variant="neutral"
-        className="duo-ctl"
-        value={activeTab}
-        onValueChange={setActiveTab}
-        options={subTabs.map(t => ({ value: t.id, label: t.label, icon: t.icon }))}
-      />
+      {/* Sub-navigation. On Duo it joins the History/Edit row (one row). */}
+      {duo.isDuo && subSlot ? createPortal(seg, subSlot) : seg}
 
       {/* Quick Tasks Tab Content */}
       {activeTab === "quick-tasks" && (
-        <TemporaryTasksSection autoCreate={duoAction === 'open-new-quick-task'} onAutoCreateDone={onDuoActionDone} />
+        <TemporaryTasksSection duoAction={duoAction} onDuoActionDone={onDuoActionDone} />
       )}
 
       {/* Templates Tab Content */}
       {activeTab === "templates" && (
         <div className="space-y-4">
             {/* Header with actions */}
-            <div className="duo-ctl flex items-center justify-between">
+            <div className={`duo-ctl flex items-center justify-between${duo.isDuo ? ' hidden' : ''}`}>
               <h3 className="text-base font-semibold">Checklist Templates</h3>
               <div className="flex gap-2">
                 {isAdmin && checklists.length > 0 && (

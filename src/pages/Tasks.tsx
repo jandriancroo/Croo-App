@@ -30,10 +30,10 @@ export default function Tasks() {
   useEffect(() => {
     if (!duo.isDuo) return;
     const go = (name: string) => () => { setActiveTab('edit'); setDuoAction(name); };
-    const a = go('open-new-quick-task'), b = go('open-new-checklist');
-    window.addEventListener('open-new-quick-task', a);
-    window.addEventListener('open-new-checklist', b);
-    return () => { window.removeEventListener('open-new-quick-task', a); window.removeEventListener('open-new-checklist', b); };
+    const names = ['open-new-quick-task', 'open-quick-task-templates', 'open-new-checklist', 'open-copy-all-checklists'];
+    const fns = names.map(go);
+    names.forEach((n, i) => window.addEventListener(n, fns[i]));
+    return () => names.forEach((n, i) => window.removeEventListener(n, fns[i]));
   }, [duo.isDuo]);
 
   const {
@@ -137,6 +137,7 @@ export default function Tasks() {
                     <TabsTrigger value="edit">Edit</TabsTrigger>
                   )}
                 </TabsList>
+                {duo.isDuo && activeTab === 'edit' && <span id="duo-tasks-subtabs" className="contents" />}
                 {duo.isDuo && activeTab === 'history' && (
                   <SegmentedControl
                     variant="neutral"
