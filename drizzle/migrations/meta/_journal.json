@@ -498,6 +498,13 @@
       "when": 1792736403694,
       "tag": "0070_marketplace_publish_confirmed_shift",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1792964481010,
+      "tag": "0071_fix_labor_pace_scorecard_closers",
+      "breakpoints": true
     }
   ]
 }
