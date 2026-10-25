@@ -74,11 +74,6 @@ export default function Messages() {
     <Layout>
       <div className={duo.isOpen ? 'duo-chat-page duo-chat-left w-full pb-8' : 'duo-chat-page mx-auto w-full max-w-[640px] pb-8'}>
         {/* Page header — Chats title + DM button */}
-        {duo.isDuo && (() => {
-          const c = unreadCounts.chats ?? 0, a = unreadCounts.announcements ?? 0;
-          const status = !c && !a ? 'All caught up' : [c ? `${c} unread` : '', a ? `${a} announcement${a === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
-          return <div className="duo-pageline"><b>Chat</b><span>{status}</span></div>;
-        })()}
         {!duo.isDuo && <PageTitle
           color="orange"
           status={(() => {
