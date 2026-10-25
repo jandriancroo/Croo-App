@@ -1,4 +1,5 @@
 import { Layout } from '@/components/Layout';
+import { DuoPage } from '@/components/duo/DuoPage';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -211,6 +212,7 @@ export default function BrandManagement() {
 
   return (
     <Layout>
+<DuoPage>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -461,6 +463,7 @@ export default function BrandManagement() {
           </div>
         )}
       </div>
-    </Layout>
+    </DuoPage>
+</Layout>
   );
 }

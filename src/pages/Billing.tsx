@@ -1,4 +1,5 @@
 import { Layout } from '@/components/Layout';
+import { DuoPage } from '@/components/duo/DuoPage';
 import { PageTitle } from '@/components/PageTitle';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -126,6 +127,7 @@ export default function Billing() {
 
   return (
     <Layout>
+<DuoPage>
       <div className="w-full max-w-4xl mx-auto">
         <PageTitle color="emerald" subtitle="Subscribe each location individually">Plans & Billing</PageTitle>
 
@@ -326,6 +328,7 @@ export default function Billing() {
           </>
         )}
       </div>
-    </Layout>
+    </DuoPage>
+</Layout>
   );
 }

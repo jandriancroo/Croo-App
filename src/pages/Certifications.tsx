@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation } from "@/hooks/useLocation";
 import { Layout } from "@/components/Layout";
+import { DuoPage } from '@/components/duo/DuoPage';
 import { PageTitle } from "@/components/PageTitle";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -324,6 +325,7 @@ export default function Certifications() {
 
   return (
     <Layout>
+<DuoPage>
       <div className="container mx-auto p-6">
         <PageTitle
           color="yellow"
@@ -709,6 +711,7 @@ export default function Certifications() {
           )}
         </DialogContent>
       </Dialog>
-    </Layout>
+    </DuoPage>
+</Layout>
   );
 }

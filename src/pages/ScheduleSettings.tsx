@@ -2,6 +2,7 @@ import { PageTitle } from '@/components/PageTitle';
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
+import { DuoPage } from '@/components/duo/DuoPage';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScheduleOrganizeBy } from "@/components/settings/ScheduleOrganizeBy";
@@ -317,6 +318,7 @@ export default function ScheduleSettings() {
 
   return (
     <Layout>
+<DuoPage>
       <div className="[&>*:not(:first-child):not(:nth-child(2))]:mt-6">
         <PageTitle color="blue" leading={
           <Button variant="ghost" size="icon" onClick={() => navigate("/schedule")}>
@@ -690,6 +692,7 @@ export default function ScheduleSettings() {
           onSuccess={fetchEventCategories}
         />
       </div>
-    </Layout>
+    </DuoPage>
+</Layout>
   );
 }

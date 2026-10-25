@@ -101,6 +101,8 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
   const onLogs = route.pathname.startsWith('/logbook');
   const onUsers = route.pathname.startsWith('/users');
   const onProfile = route.pathname.startsWith('/my-profile');
+  const onLocationEdit = /^\/location\/[^/]+$/.test(route.pathname);
+  const onOrgEdit = /^\/organization\/[^/]+$/.test(route.pathname);
   const pageStatus = onChat ? (chat ? `${chat} unread` : 'All caught up') : pageNote;
   const ovation = useOvationData().displayScore;
   const showOvation = (isManager || hasPermission('view_ovation_reviews')) && !!ovation;
@@ -143,6 +145,8 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
       ...(onUsers && isAdmin ? [{ label: 'Invite user', icon: UserPlus, action: () => fire('open-invite-user') }, { label: 'Select users', icon: ListChecks, action: () => fire('users-bulk-select') }, { label: 'Update outdated', icon: RefreshCw, action: () => fire('users-update-outdated') }] : []),
       ...(onUsers && isAdmin && currentLocation?.name?.toLowerCase() === 'hemet' ? [{ label: 'Add test employee', icon: FlaskConical, action: () => fire('users-test-employee') }] : []),
       ...(onUsers ? [{ label: 'Certifications', icon: Award, action: () => { setFan(false); navigate('/certifications'); } }] : []),
+      ...(onLocationEdit ? [{ label: 'Save settings', icon: Save, action: () => fire('location-save') }] : []),
+      ...(onOrgEdit ? [{ label: 'Save settings', icon: Save, action: () => fire('org-save') }, { label: 'Add location', icon: Plus, action: () => fire('org-add-location') }] : []),
       ...(onProfile ? [{ label: 'Save changes', icon: Save, action: () => fire('profile-save') }] : []),
       ...(onDash ? [{ label: 'Edit layout', icon: SlidersHorizontal, action: () => fire('open-edit-layout') }] : []),
   ];

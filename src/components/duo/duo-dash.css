@@ -707,3 +707,10 @@ html.duo .duo-profile-card>div{padding-left:0!important;padding-right:0!importan
 html.duo .duo-profile-dock{color:hsl(var(--foreground))}
 html.duo .duo-users-dock{padding-top:92px}
 html.duo .duo-user-all{display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:15px;border-bottom:1px solid hsl(var(--border));color:hsl(var(--muted-foreground))}
+html.duo .duo-loc-card>div:first-child{display:none}
+html.duo .duo-loc-dock{color:hsl(var(--foreground))}
+html.duo .duo-tasks-page .duo-loc-card [class*="bg-muted"]{background:hsl(var(--muted)/.5)}
+
+/* v55 — DuoPage shell: flat open-style cards on admin sub-pages */
+html.duo .duo-page-flat [class*="rounded-2xl"][class*="bg-card"],html.duo .duo-page-flat [class*="rounded-lg"][class*="bg-card"]{background:transparent!important;border:0!important;border-bottom:1px solid hsl(var(--border))!important;border-radius:0!important;box-shadow:none!important}
+html.duo .duo-page-flat table{font-size:15px}

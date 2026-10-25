@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Layout } from '@/components/Layout';
+import { DuoPage } from '@/components/duo/DuoPage';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -914,6 +915,7 @@ export default function Reporting() {
 
   return (
     <Layout>
+<DuoPage>
       <div className="flex flex-col h-[calc(100vh-4rem)]">
         {/* HEADER BAR */}
         <div className="flex items-center justify-between px-4 py-3 border-b bg-card">
@@ -1496,6 +1498,7 @@ export default function Reporting() {
           </DialogContent>
         </Dialog>
       </div>
-    </Layout>
+    </DuoPage>
+</Layout>
   );
 }

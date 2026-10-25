@@ -1,4 +1,5 @@
 import { Layout } from '@/components/Layout';
+import { DuoPage } from '@/components/duo/DuoPage';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -381,6 +382,7 @@ export default function SuperAdminPlans() {
 
   return (
     <Layout>
+<DuoPage>
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
@@ -713,6 +715,7 @@ export default function SuperAdminPlans() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Layout>
+    </DuoPage>
+</Layout>
   );
 }
