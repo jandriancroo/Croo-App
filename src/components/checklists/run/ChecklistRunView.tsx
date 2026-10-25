@@ -1023,7 +1023,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
 
   // ----- guided -----
   const topBar = twoPane ? (
-    <div className="space-y-2">
+    <div className="duo-run-topbar space-y-2">
       <div className="flex items-center gap-3">
         <Button variant="outline" className="duo-run-back h-11 border border-border bg-card" onClick={backToList}><ChevronLeft className="mr-1 h-4 w-4" />List</Button>
         <h1 className="min-w-0 flex-1 break-words text-xl font-bold">{ctx.title}</h1>
@@ -1032,7 +1032,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
       <ProgressBar done={ctx.doneCount} total={ctx.totalCount} />
     </div>
   ) : (
-    <div className="space-y-2">
+    <div className="duo-run-topbar space-y-2">
       <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
         <button type="button" className="duo-run-back flex min-h-11 items-center pr-2 text-base font-semibold text-primary" onClick={backToList}><ChevronLeft className="h-5 w-5" />List</button>
         <span className="min-w-0 break-words text-center text-base font-semibold">{ctx.title}</span>

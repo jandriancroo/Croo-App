@@ -616,3 +616,9 @@ html.duo .duo-slide .duo-flat{margin-left:0;margin-right:0}
 html.duo .duo-flat [class*="bg-card"],html.duo .duo-tasks-list [class*="bg-card"],html.duo .duo-tasks-card [class*="bg-card"]{background:transparent!important}
 html.duo .duo-flat [class*="rounded-"]:not(button):not([role=button]):not(img):not(span):not(svg){border-radius:0}
 html.duo .duo-flat [class*="border-b"],html.duo .duo-tasks-list [class*="border-b"]{border-color:hsl(var(--border))!important}
+
+/* v43: checklist run — tighter top: no extra header padding, docked card aligns with the list header, no duplicate title bar in the docked pane */
+html.duo .duo-run .pt-7,html.duo .duo-editor .pt-7{padding-top:0!important}
+html.duo.duo-open .duo-run-dock{padding-top:80px}
+html.duo .duo-run-dock .duo-run-topbar{display:none}
+html.duo .duo-run-dock>div>.space-y-3:first-child{margin-top:0}
