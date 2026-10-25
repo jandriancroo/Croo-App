@@ -24,6 +24,7 @@ export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
   const [overlay, setOverlay] = useState<'actions' | 'menu' | null>(null);
   const [late, setLate] = useState(0);
   const [chat, setChat] = useState('');
+  const { data: inventory } = useQuery<{ configured: boolean }>({ queryKey: ['location-inventory-mode', currentLocation?.id], enabled: false });
   useEffect(() => {
     const root = document.documentElement;
     const update = () => {
@@ -43,14 +44,22 @@ export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
     window.addEventListener('keydown', escape);
     return () => window.removeEventListener('keydown', escape);
   }, []);
-  const fire = (name: string) => { setOverlay(null); window.dispatchEvent(new CustomEvent(name)); };
+  const fire = (name: string) => {
+    setOverlay(null);
+    window.dispatchEvent(new CustomEvent(name));
+    // Folded Layout already has these actions on existing controls; no shell handler is changed.
+    if (!document.documentElement.classList.contains('duo-open')) {
+      if (name === 'open-location-picker') document.querySelector<HTMLButtonElement>('[data-tour="location-picker"]')?.click();
+      if (name === 'open-nudge') document.querySelector<HTMLButtonElement>('[data-native-nudge-trigger]')?.click();
+    }
+  };
   const menu = [
     { title: 'Dash', path: '/dashboard', icon: LayoutDashboard },
     { title: 'Chat', path: '/messages', icon: MessageSquare },
     { title: 'Tasks', path: '/tasks', icon: CheckSquare },
     ...(isShiftManager ? [{ title: 'Logs', path: '/logbook', icon: FileText }] : []),
     ...(!isChecklistOnlyLocation ? [{ title: 'Schedule', path: '/schedule', icon: Calendar }] : []),
-    ...(!isChecklistOnlyLocation && isManager ? [{ title: 'Inventory', path: `/inventory/${currentLocation?.id}`, icon: Package }] : []),
+    ...(!isChecklistOnlyLocation && isManager && inventory?.configured ? [{ title: 'Inventory', path: `/inventory/${currentLocation?.id}`, icon: Package }] : []),
     ...(!isChecklistOnlyLocation && canViewSalesAndLabor ? [{ title: 'Reporting', path: '/reporting', icon: BarChart3 }] : []),
     { title: 'Team', path: isAdmin ? '/users' : '/my-team', icon: Users },
     { title: 'Settings', path: '/settings', icon: Settings },
@@ -68,7 +77,7 @@ export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
     <Button variant="ghost" className="duo-store duo-glass" onClick={() => fire('open-location-picker')}><MapPin size={17} />{currentLocation?.name}<ChevronRight size={15} /></Button>
     <Button variant="ghost" className="duo-handle duo-glass" aria-label="Open page menu" onClick={() => setOverlay('menu')}><ChevronRight size={13} /></Button>
     {overlay === 'actions' && <div className="duo-actions">{[
-      { label: 'Ask Theo', icon: Sparkles, action: () => fire('open-theo') },
+      ...(isShiftManager ? [{ label: 'Ask Theo', icon: Sparkles, action: () => fire('open-theo') }] : []),
       ...(isShiftManager ? [{ label: 'Nudge', icon: Hand, action: () => fire('open-nudge') }] : []),
       { label: 'Edit layout', icon: SlidersHorizontal, action: () => { setOverlay(null); onEdit(); } },
     ].map(a => <div key={a.label}><span className="duo-glass">{a.label}</span><Button variant="ghost" className="duo-glass" aria-label={a.label} onClick={a.action}><a.icon size={22} />{a.label === 'Nudge' && late > 0 && <b className="duo-badge">{late}</b>}</Button></div>)}</div>}
@@ -76,7 +85,7 @@ export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
       {overlay === 'actions' ? <X /> : <><span className="duo-orb-ring" /><i /></>}</Button>
     {overlay === 'menu' && <aside className="duo-menu duo-glass" aria-label="Page menu"><div className="duo-menu-title">CrooHQ <Button variant="ghost" aria-label="Close page menu" onClick={() => setOverlay(null)}><X /></Button></div>
       <div className="duo-menu-items">{menu.map(m => <Button key={m.title} variant="ghost" className={m.title === 'Dash' ? 'duo-selected' : ''} onClick={() => { setOverlay(null); navigate(m.path); }}><m.icon size={21} />{m.title}{m.title === 'Chat' && chat && <b className="duo-badge">{chat}</b>}</Button>)}</div>
-      <Button variant="ghost" className="duo-user" onClick={() => navigate('/my-profile')}>{profile?.profile_photo_url && <img src={profile.profile_photo_url} alt="" />}<span><b>{profile?.nickname || profile?.full_name}</b><small>{role?.replaceAll('_', ' ')}</small></span></Button>
+      <Button variant="ghost" className="duo-user" onClick={() => navigate('/my-profile')}>{profile?.profile_photo_url && <img src={profile.profile_photo_url} alt="" />}<span><b>{profile?.nickname || profile?.full_name}</b><small>{role?.replace(/_/g, ' ')}</small></span></Button>
     </aside>}
   </div>;
 }
