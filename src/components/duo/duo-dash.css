@@ -279,3 +279,9 @@ html.duo .duo-navroot .duo-store{left:auto;bottom:auto;width:auto;height:34px;mi
 html.duo.duo-open .duo-widgets>div>[data-tour=dashboard-promo],
 html.duo.duo-open .duo-widgets>div>div:has([data-tour=dashboard-cubes]),
 html.duo.duo-open .duo-widgets>div>div:has(.duo-sales-summary){margin-top:0!important;grid-column:auto!important;grid-row:auto!important;align-self:auto!important}
+
+/* v10: labor + product strips are always shown in the Duo sales card */
+html.duo .duo-stat-row{display:grid;grid-template-columns:repeat(3,1fr);margin:12px auto 0;max-width:420px;padding:10px 0;border-top:1px solid var(--duo-line);text-align:center}
+html.duo .duo-stat-row>div+div{border-left:1px solid var(--duo-line)}
+html.duo .duo-stat-row b{display:block;font-size:17px;font-weight:600;color:var(--duo-ink);font-variant-numeric:tabular-nums}
+html.duo .duo-stat-row small{display:block;font-size:11px;letter-spacing:.04em;color:var(--duo-muted);margin-top:2px}

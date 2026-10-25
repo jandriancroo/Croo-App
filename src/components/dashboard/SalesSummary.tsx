@@ -1536,7 +1536,17 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       : activeTab === 'month'
         ? monthlyWeeklyAggregated.map((d: any) => ({ label: d.label, sales: d.sales, projected: d.projected }))
         : (salesData?.hourly ?? []).map(h => ({ label: h.hour, sales: h.sales, projected: h.projected }));
-    return <DuoSummary chart={<DuoSalesBars data={duoBars} />} period={period} label={duoLabel} onPrev={() => duoStep('prev')} onNext={() => duoStep('next')}
+    const lab = activeTab === 'week' ? salesData?.weeklyLabor : activeTab === 'month' ? salesData?.monthlyLabor : salesData?.labor;
+    const key = activeTab === 'week' ? 'weekly' : activeTab === 'month' ? 'monthly' : 'daily';
+    const pizzas = salesData?.pizzaCount !== undefined ? (typeof salesData.pizzaCount === 'object' ? String(Math.round(salesData.pizzaCount[key])) : String(salesData.pizzaCount)) : '--';
+    const guests = salesData?.guestCount?.[key];
+    const total = activeTab === 'week' ? salesData?.weekly : activeTab === 'month' ? salesData?.monthly : salesData?.daily;
+    const ticket = activeTab === 'today' ? (salesData?.avgTicket ? formatCurrencyDecimal(salesData.avgTicket) : '--') : (guests && total ? formatCurrencyDecimal(total / guests) : '--');
+    const duoStats = [
+      [{ label: 'Labor %', value: lab ? `${lab.laborPercent.toFixed(1)}%` : '--' }, { label: 'Labor $', value: lab ? formatCurrency(lab.laborCost) : '--' }, { label: 'Hours', value: lab ? `${lab.hoursWorked.toFixed(1)}h` : '--' }],
+      [{ label: 'Pizzas', value: pizzas }, { label: 'Ticket', value: ticket }, { label: 'Guests', value: guests ? String(guests) : '--' }],
+    ];
+    return <DuoSummary stats={duoStats} chart={<DuoSalesBars data={duoBars} />} period={period} label={duoLabel} onPrev={() => duoStep('prev')} onNext={() => duoStep('next')}
       nextDisabled={activeTab === 'today' ? isToday : activeTab === 'week' ? isCurrentWeek : isCurrentMonth} onPeriod={p => {
       setActiveTab(p === 'yesterday' ? 'today' : p);
       const today = getBusinessDateInTimezone();
