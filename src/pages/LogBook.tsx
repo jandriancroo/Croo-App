@@ -10,7 +10,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ManageCategoriesDialog } from "@/components/logbook/ManageCategoriesDialog";
 import { CateringOrdersSection } from "@/components/logbook/CateringOrdersSection";
 import { LogBookNewEntrySheet } from "@/components/logbook/LogBookNewEntrySheet";
-import { LogBookEntryList } from "@/components/logbook/LogBookEntryList";
+import { LogBookEntryList, DuoLogRows, LogEntryInspector, startLogEdit, entryKey } from "@/components/logbook/LogBookEntryList";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useDuo } from "@/hooks/useDuo";
 import { useLogBookData } from "@/hooks/useLogBookData";
 import { LibraryPanel } from "@/components/library/LibraryPanel";
 import { PageTitle } from "@/components/PageTitle";
@@ -81,6 +83,41 @@ export default function LogBook() {
 
   const hasLogAccess = isAdmin || isManager || isShiftManager;
 
+  // ---- Duo: list left, New Log / inspector right (open) or slide-overs (folded) ----
+  const duo = useDuo();
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const selectedEntry = (() => {
+    if (!selectedKey) return null;
+    for (const day of Object.keys(data.entriesByDay || {})) {
+      const hit = data.entriesByDay[day].find((e: any) => entryKey(e) === selectedKey);
+      if (hit) return hit;
+    }
+    return null;
+  })();
+  useEffect(() => {
+    if (!duo.isDuo) return;
+    const newLog = () => {
+      setSelectedKey(null);
+      setActiveTab('search');
+      data.setWizardStep('category');
+      if (!duo.isOpen) data.setShowNewEntrySheet(true);
+    };
+    const manage = () => setManageCategoriesOpen(true);
+    window.addEventListener('open-new-log', newLog);
+    window.addEventListener('open-manage-categories', manage);
+    return () => { window.removeEventListener('open-new-log', newLog); window.removeEventListener('open-manage-categories', manage); };
+  }, [duo.isDuo, duo.isOpen]);
+  useEffect(() => {
+    if (!duo.isDuo) return;
+    document.documentElement.dataset.duoStatus = activeTab === 'library' ? 'LIBRARY' : (logsText || '');
+    return () => { delete document.documentElement.dataset.duoStatus; };
+  }, [duo.isDuo, logsText, activeTab]);
+  const editSelected = () => {
+    if (!selectedEntry) return;
+    startLogEdit(data, selectedEntry);
+    setSelectedKey(null);
+  };
+
   // While role loads
   if (roleLoading) {
     return (
@@ -96,8 +133,8 @@ export default function LogBook() {
   if (!hasLogAccess) {
     return (
       <Layout>
-        <div>
-          <PageTitle color="purple">Library</PageTitle>
+        <div className={duo.isDuo ? 'duo-tasks-page' : undefined}>
+          {!duo.isDuo && <PageTitle color="purple">Library</PageTitle>}
           <LibraryPanel />
         </div>
       </Layout>
@@ -106,9 +143,9 @@ export default function LogBook() {
 
   return (
     <Layout>
-      <div className="space-y-4">
+      <div className={duo.isDuo ? (duo.isOpen ? 'duo-tasks-page duo-tasks-left space-y-4' : 'duo-tasks-page space-y-4') : 'space-y-4'}>
         <div>
-          <PageTitle
+          {!duo.isDuo && <PageTitle
             color="purple"
             status={logsText ? { text: logsText } : undefined}
             action={
@@ -125,7 +162,8 @@ export default function LogBook() {
             }
           >
             {activeTab === "library" ? "Library" : "Logs"}
-          </PageTitle>
+          </PageTitle>}
+          {!duo.isDuo && (
           <div className="flex items-center justify-between">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList>
@@ -134,13 +172,22 @@ export default function LogBook() {
               </TabsList>
             </Tabs>
           </div>
+          )}
         </div>
 
         {/* Recent Logs Tab */}
         {activeTab === "search" && (
-          <div className="space-y-4" style={{ marginTop: "1rem" }}>
+          <div className="space-y-4" style={{ marginTop: duo.isDuo ? 0 : "1rem" }}>
             <div ref={searchWrapRef} className="relative">
-              <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-2${duo.isDuo ? ' duo-logs-ctl duo-ctl' : ''}`}>
+                {duo.isDuo && (
+                  <Tabs value={activeTab} onValueChange={setActiveTab}>
+                    <TabsList>
+                      <TabsTrigger value="search">Recent</TabsTrigger>
+                      <TabsTrigger value="library">Library</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                )}
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <div className="relative flex-1">
                   <Input
@@ -174,7 +221,7 @@ export default function LogBook() {
                     )}
                   </PopoverContent>
                 </Popover>
-                <LogBookNewEntrySheet data={data} />
+                {!duo.isDuo && <LogBookNewEntrySheet data={data} />}
               </div>
 
               {searchCategoryName && (() => {
@@ -230,7 +277,9 @@ export default function LogBook() {
                 />
               ) : (
                 <>
-                  <LogBookEntryList data={data} />
+                  {duo.isDuo
+                    ? <DuoLogRows data={data} selectedKey={selectedKey} onSelect={(e: any) => setSelectedKey(entryKey(e))} />
+                    : <LogBookEntryList data={data} />}
                   {hasMoreRecentEntries && !searchQuery && !searchDateFilter && (
                     <div className="flex justify-center py-2">
                       <Button
@@ -250,9 +299,44 @@ export default function LogBook() {
         )}
 
         {activeTab === "library" && (
-          <div style={{ marginTop: "1rem" }}>
+          <div style={{ marginTop: duo.isDuo ? 0 : "1rem" }}>
+            {duo.isDuo && (
+              <div className="duo-logs-ctl duo-ctl mb-3">
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <TabsList>
+                    <TabsTrigger value="search">Recent</TabsTrigger>
+                    <TabsTrigger value="library">Library</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+            )}
             <LibraryPanel />
           </div>
+        )}
+
+        {/* Duo: open = right dock (New Log by default, inspector when a log is picked); folded = slide-overs */}
+        {duo.isDuo && duo.isOpen && activeTab === "search" && (
+          <aside className="duo-tasks-dock duo-log-dock">
+            {selectedEntry ? (
+              <>
+                <Button variant="ghost" size="sm" className="duo-log-newbtn" onClick={() => setSelectedKey(null)}><Plus className="h-4 w-4 mr-1" />New log</Button>
+                <LogEntryInspector data={data} entry={selectedEntry} onEdit={editSelected} onDone={() => setSelectedKey(null)} />
+              </>
+            ) : (
+              <LogBookNewEntrySheet data={data} duoMode="dock" />
+            )}
+          </aside>
+        )}
+        {duo.isDuo && !duo.isOpen && (
+          <>
+            <LogBookNewEntrySheet data={data} duoMode="slide" />
+            <Dialog open={!!selectedEntry} onOpenChange={(o) => !o && setSelectedKey(null)}>
+              <DialogContent className="duo-slide overflow-y-auto">
+                <DialogHeader><DialogTitle className="sr-only">Log</DialogTitle></DialogHeader>
+                {selectedEntry && <LogEntryInspector data={data} entry={selectedEntry} onEdit={editSelected} onDone={() => setSelectedKey(null)} />}
+              </DialogContent>
+            </Dialog>
+          </>
         )}
 
 
@@ -265,7 +349,7 @@ export default function LogBook() {
         )}
 
         <AlertDialog open={!!deleteEntryId} onOpenChange={(open) => !open && setDeleteEntryId(null)}>
-          <AlertDialogContent>
+          <AlertDialogContent className={duo.isDuo ? "duo-popup" : undefined}>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Entry</AlertDialogTitle>
               <AlertDialogDescription>

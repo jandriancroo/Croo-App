@@ -496,7 +496,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="duo-slide max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {editingCategoryId ? 'Edit Category Fields' : 'Manage Logs Categories'}
