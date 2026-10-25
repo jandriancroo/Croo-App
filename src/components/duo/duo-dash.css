@@ -138,3 +138,8 @@ html.duo .duo-dash .duo-sales-summary button[data-state=on]{background:var(--duo
 html.duo .duo-dash .duo-sales-summary button{box-shadow:none}
 html.duo .duo-dash .duo-quick span[class*='status-overdue']{background:color-mix(in srgb,var(--duo-rose) 18%,transparent);border-radius:20px;padding:4px 10px;color:var(--duo-rose)}
 html.duo .duo-dash .bg-card.border.border-border.rounded-xl [class*='text-emerald']{color:var(--duo-sage)}
+
+html.duo .duo-dash .bg-card:has(.duo-sales-summary){background:transparent;border:0;border-radius:0;box-shadow:none}
+html.duo .duo-dash [data-promo-hero] .bottom-3>div:first-child>button{background:var(--duo-photo-glass);border-radius:22px;box-shadow:var(--duo-shadow);min-height:44px}
+html.duo .duo-dash [data-promo-hero] .bottom-3>div:last-child{background:var(--duo-photo-glass)}
+html.duo .duo-dash [data-tour=dashboard-cubes]:has(>div:nth-child(3)){grid-auto-rows:minmax(200px,auto)}
