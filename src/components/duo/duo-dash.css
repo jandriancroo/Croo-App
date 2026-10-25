@@ -357,3 +357,16 @@ html.duo .duo-dock button[aria-label=Close]{position:absolute!important;left:16p
 /* v16: open mode — location pill on the right edge of the LEFT pane; right pane starts at the very top (hero touches the screen edge) */
 html.duo.duo-open .duo-store{right:calc(50% + 34px)!important}
 html.duo.duo-open .duo-widgets>div{padding-top:0!important}
+
+/* v17: Chat. Open mode = feed on the left half, DM inbox docked on the right half (list left, detail right). Folded = DM inbox is a slide-over. */
+html.duo .duo-dm-dock,html.duo .duo-slide{}
+html.duo .duo-dm-dock{--background:40 36% 91%;--foreground:32 15% 21%;--card:40 36% 93%;--card-foreground:32 15% 21%;--popover:40 36% 93%;--popover-foreground:32 15% 21%;--muted:40 25% 85%;--muted-foreground:32 9% 46%;--border:32 20% 78%;--input:32 20% 78%;--accent:40 30% 84%;--accent-foreground:32 15% 21%;--secondary:40 25% 85%;--secondary-foreground:32 15% 21%;--primary:139 20% 50%;--primary-foreground:0 0% 100%;--ring:139 20% 50%}
+html.duo[data-duo-theme=oled] .duo-dm-dock{--background:0 0% 9%;--foreground:0 0% 93%;--card:0 0% 11%;--card-foreground:0 0% 93%;--popover:0 0% 11%;--popover-foreground:0 0% 93%;--muted:0 0% 15%;--muted-foreground:240 3% 58%;--border:0 0% 22%;--input:0 0% 22%;--accent:0 0% 19%;--accent-foreground:0 0% 93%;--secondary:0 0% 15%;--secondary-foreground:0 0% 93%}
+html.duo.duo-open .duo-dm-dock{position:fixed;top:0;bottom:0;right:0;left:calc(50% + 20px);z-index:30;background:hsl(var(--background));color:hsl(var(--foreground));padding-top:16px;border-left:1px solid hsl(var(--border));overflow:hidden}
+html.duo.duo-open .duo-chat-left{max-width:calc(50% - 20px);margin:0;padding-top:64px}
+html.duo.duo-open .duo-chat-left [aria-label="Open direct messages"]{display:none}
+/* DM header in the themed pane/slide-over: no solid accent bar, plain glass strip */
+html.duo .duo-slide .bg-primary,html.duo .duo-dm-dock .bg-primary{background:transparent!important;color:hsl(var(--foreground))!important;border-bottom:1px solid hsl(var(--border))!important}
+html.duo .duo-slide [class*="text-primary-foreground"],html.duo .duo-dm-dock [class*="text-primary-foreground"]{color:hsl(var(--foreground))!important}
+html.duo .duo-slide [class*="bg-primary-foreground/10"],html.duo .duo-dm-dock [class*="bg-primary-foreground/10"]{background:hsl(var(--muted))!important}
+html.duo .duo-dm-dock>div:first-child{padding-right:104px!important}

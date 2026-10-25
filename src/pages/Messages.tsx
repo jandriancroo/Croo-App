@@ -8,6 +8,7 @@ import { DmPanel } from '@/components/messages/DmPanel';
 import { useChatUnreadCounts } from '@/hooks/useChatUnreadCounts';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { PageTitle } from '@/components/PageTitle';
+import { useDuo } from '@/hooks/useDuo';
 
 /**
  * Chat page = single-column Team Feed.
@@ -17,6 +18,7 @@ import { PageTitle } from '@/components/PageTitle';
 
 export default function Messages() {
   const { currentLocation } = useAppLocation();
+  const duo = useDuo();
   const { counts: unreadCounts } = useChatUnreadCounts(currentLocation?.id || null);
   const dmBadge = (unreadCounts.chats ?? 0) + (unreadCounts.hiring ?? 0);
 
@@ -62,7 +64,7 @@ export default function Messages() {
 
   return (
     <Layout>
-      <div className="mx-auto w-full max-w-[640px] pb-8">
+      <div className={duo.isOpen ? 'duo-chat-left w-full pb-8' : 'mx-auto w-full max-w-[640px] pb-8'}>
         {/* Page header — Chats title + DM button */}
         <PageTitle
           color="orange"
@@ -109,6 +111,7 @@ export default function Messages() {
       </div>
 
       <DmPanel
+        docked={duo.isOpen}
         open={dmOpen}
         onOpenChange={(o) => { setDmOpen(o); if (!o) setHiringTarget(null); }}
         initialChatId={chatParam}

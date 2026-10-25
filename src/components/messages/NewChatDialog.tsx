@@ -233,7 +233,7 @@ export function NewChatDialog({ open, onOpenChange, onChatCreated, canCreateGrou
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="duo-popup max-w-md">
         <DialogHeader>
           <DialogTitle>New Chat</DialogTitle>
         </DialogHeader>
