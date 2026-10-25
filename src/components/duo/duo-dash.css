@@ -232,11 +232,15 @@ html.duo .duo-brand img,html.duo .duo-brand i{flex:none;width:28px;height:28px;b
 html.duo .duo-brand span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 html.duo .duo-navroot .duo-store{position:static;height:34px;border-radius:17px;padding:0 11px;gap:6px;font-size:13px;max-width:none;flex:none;z-index:auto}
 html.duo .duo-dash .duo-dash-intro{padding-top:56px}
-html.duo .duo-navroot .duo-wordmark{position:fixed;bottom:14px;left:0;width:100%;display:flex;justify-content:center;pointer-events:none;z-index:60}
-html.duo.duo-open .duo-navroot .duo-wordmark{width:calc(50% - 20px)}
+html.duo .duo-dash .duo-wordmark{order:99;display:flex;justify-content:center;padding:26px 0 30px;pointer-events:none;grid-column:1/-1}
 html.duo .duo-wordmark img{height:15px;width:auto;padding:9px 18px;box-sizing:content-box;border-radius:20px;background:var(--duo-fill);filter:brightness(0) opacity(.5)}
 html.duo .duo-navroot[data-duo-theme=oled] .duo-wordmark img{filter:brightness(0) invert(1) opacity(.55)}
 
 /* v4: keep the live dot and the sales card clear of Apple's right-hand column (clock/battery pill + dock) */
 html.duo .duo-dash [data-promo-hero]>.top-3{right:max(calc(var(--duo-col-right,0px) + 16px),104px)}
 html.duo.duo-open .duo-dash .duo-sales-summary{padding-right:max(var(--duo-col-right,0px),96px)}
+
+/* v5: folded — keep text and the right cube clear of Apple's clock pill and the dock */
+html.duo:not(.duo-open) .duo-dash .duo-dash-intro{padding-right:max(var(--duo-col-right,0px),96px)}
+html.duo:not(.duo-open) .duo-dash [data-tour="dashboard-cubes"]>div:last-child .duo-sales-cell{padding-right:max(var(--duo-col-right,0px),88px)}
+html.duo.duo-open .duo-dash .duo-wordmark{grid-column:1;grid-row:4;align-self:end}
