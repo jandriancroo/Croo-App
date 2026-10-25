@@ -1,6 +1,6 @@
 /* Tokens and presentation are isolated to the Duo Dashboard subtree. */
-html.duo .duo-dash{--duo-page:#EFE7D8;--duo-ink:#3A342D;--duo-muted:#8A8073;--duo-line:rgba(80,62,40,.13);--duo-sage:#7FA98A;--duo-rose:#CC8B80;--duo-fill:rgba(255,255,255,.30);--duo-selected:rgba(255,255,255,.52);--duo-edge:rgba(255,255,255,.85);--duo-rim:rgba(255,255,255,.35);--duo-shadow:0 8px 24px rgba(70,45,20,.14),0 1px 3px rgba(70,45,20,.10);--duo-dim:rgba(60,45,30,.20);--duo-photo-ink:#fff;--duo-orb:#fff;--duo-live:#7BE0A0;--duo-panel:rgba(255,252,245,.36);--duo-photo-glass:rgba(255,255,255,.12);position:fixed;inset:0;z-index:51;background:var(--duo-page);color:var(--duo-ink);overflow:auto;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;isolation:isolate}
-html.duo .duo-dash[data-duo-theme=oled]{--duo-page:#000;--duo-ink:#ECECEC;--duo-muted:#8C8C92;--duo-line:rgba(255,255,255,.1);--duo-fill:rgba(255,255,255,.075);--duo-selected:rgba(255,255,255,.22);--duo-edge:rgba(255,255,255,.38);--duo-rim:rgba(255,255,255,.12);--duo-shadow:0 10px 28px rgba(0,0,0,.55),0 1px 3px rgba(0,0,0,.4);--duo-dim:rgba(0,0,0,.4);--duo-panel:rgba(255,255,255,.055)}
+html.duo .duo-navroot,html.duo .duo-dash{--duo-page:#EFE7D8;--duo-ink:#3A342D;--duo-muted:#8A8073;--duo-line:rgba(80,62,40,.13);--duo-sage:#7FA98A;--duo-rose:#CC8B80;--duo-fill:rgba(255,255,255,.30);--duo-selected:rgba(255,255,255,.52);--duo-edge:rgba(255,255,255,.85);--duo-rim:rgba(255,255,255,.35);--duo-shadow:0 8px 24px rgba(70,45,20,.14),0 1px 3px rgba(70,45,20,.10);--duo-dim:rgba(60,45,30,.20);--duo-photo-ink:#fff;--duo-orb:#fff;--duo-live:#7BE0A0;--duo-panel:rgba(255,252,245,.36);--duo-photo-glass:rgba(255,255,255,.12);position:fixed;inset:0;z-index:51;background:var(--duo-page);color:var(--duo-ink);overflow:auto;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;isolation:isolate}
+html.duo .duo-navroot[data-duo-theme=oled],html.duo .duo-dash[data-duo-theme=oled]{--duo-page:#000;--duo-ink:#ECECEC;--duo-muted:#8C8C92;--duo-line:rgba(255,255,255,.1);--duo-fill:rgba(255,255,255,.075);--duo-selected:rgba(255,255,255,.22);--duo-edge:rgba(255,255,255,.38);--duo-rim:rgba(255,255,255,.12);--duo-shadow:0 10px 28px rgba(0,0,0,.55),0 1px 3px rgba(0,0,0,.4);--duo-dim:rgba(0,0,0,.4);--duo-panel:rgba(255,255,255,.055)}
 html.duo .duo-dash *{font-family:inherit;letter-spacing:0;box-sizing:border-box}
 html.duo .duo-dash button{color:inherit;min-height:44px;touch-action:manipulation}
 html.duo .duo-dash-grid{display:flex;flex-direction:column;padding-bottom:96px;min-height:100%}
@@ -193,3 +193,8 @@ html.duo .duo-dash [data-promo-hero] .bg-card,html.duo .duo-dash [data-promo-her
 html.duo .duo-dash [data-promo-hero] .text-primary{color:var(--duo-photo-ink)!important}
 /* keep the native dock's controls from sitting under our own: Dash owns the right edge */
 html.duo .duo-dash .duo-actions{right:92px}
+
+html.duo .duo-navroot{display:contents;color:var(--duo-ink);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",sans-serif}
+html.duo .duo-navroot .duo-handle{z-index:60}
+html.duo .duo-navroot .duo-dim{z-index:61}
+html.duo .duo-navroot .duo-menu{z-index:62}

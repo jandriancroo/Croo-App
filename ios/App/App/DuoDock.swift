@@ -298,19 +298,7 @@ final class DuoDockController: UINavigationController {
             ]
         }
         tabItems = [:]
-        for tab in tabs {
-            let item = UIBarButtonItem(
-                title: tab.title,
-                image: icon(tab.symbol),
-                primaryAction: UIAction { [weak self] _ in self?.go(to: tab.path) }
-            )
-            if #available(iOS 27.1, *) {
-                // Keep every tab in the column; let Apple shrink spacing before it hides tabs behind "…".
-                item.visibilityPriority = .high
-            }
-            tabItems[tab.path] = item
-            items.append(item)
-        }
+        // Page navigation lives in the web slide-out menu now; the dock holds actions only.
         bridgeVC.toolbarItems = items
         markSelected(currentPath)
     }
@@ -350,6 +338,9 @@ final class DuoDockController: UINavigationController {
     }
 
     private func updateRings() {
+        // Orange rings retired: the Duo look is neutral glass.
+        rings.forEach { $0.isHidden = true }
+        return
         guard let host = toolbar.superview else { return }
         var frames: [CGRect] = []
         var names: [String] = []
