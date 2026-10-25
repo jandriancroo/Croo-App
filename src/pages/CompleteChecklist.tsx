@@ -1498,7 +1498,7 @@ export default function CompleteChecklist() {
         <ChecklistRunView ctx={runCtx} />
 
         <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="duo-popup max-w-2xl">
             <div
               className="relative"
               onTouchStart={(e) => { previewTouchX.current = e.touches[0].clientX; }}
@@ -1525,7 +1525,7 @@ export default function CompleteChecklist() {
 
         {/* Undo Confirmation Dialog */}
         <AlertDialog open={!!undoConfirmItemId} onOpenChange={(open) => !open && setUndoConfirmItemId(null)}>
-          <AlertDialogContent>
+          <AlertDialogContent className="duo-popup">
             <AlertDialogHeader>
               <AlertDialogTitle>Undo checklist item?</AlertDialogTitle>
               <AlertDialogDescription>

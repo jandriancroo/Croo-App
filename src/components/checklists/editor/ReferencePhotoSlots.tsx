@@ -70,7 +70,7 @@ export function ReferencePhotoSlots({ urls, slots, upload, onChange }: Props) {
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <Dialog open={viewing !== null} onOpenChange={(o) => !o && setViewing(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="duo-popup max-w-lg">
           <DialogTitle>{viewing !== null ? `Reference photo ${viewing + 1}` : ''}</DialogTitle>
           {viewing !== null && urls[viewing] && (
             <>

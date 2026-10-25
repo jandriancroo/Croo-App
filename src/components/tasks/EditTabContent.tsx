@@ -190,6 +190,7 @@ export default function EditTabContent({
       {/* Sub-navigation: Underline tabs */}
       <SegmentedControl
         variant="neutral"
+        className="duo-ctl"
         value={activeTab}
         onValueChange={setActiveTab}
         options={subTabs.map(t => ({ value: t.id, label: t.label, icon: t.icon }))}
@@ -204,7 +205,7 @@ export default function EditTabContent({
       {activeTab === "templates" && (
         <div className="space-y-4">
             {/* Header with actions */}
-            <div className="flex items-center justify-between">
+            <div className="duo-ctl flex items-center justify-between">
               <h3 className="text-base font-semibold">Checklist Templates</h3>
               <div className="flex gap-2">
                 {isAdmin && checklists.length > 0 && (

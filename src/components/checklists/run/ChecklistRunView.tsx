@@ -4,6 +4,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Camera, Check, ChevronLeft, ChevronRight, Eye, FileText, Image as ImageIcon, Link as LinkIcon, BookOpen, Pencil, Video, RotateCcw, PlayCircle } from 'lucide-react';
 import { cn, formatTime12Hour } from '@/lib/utils';
+import { useDuo } from '@/hooks/useDuo';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -301,7 +303,7 @@ function PhotoIcon({ ctx, it }: { ctx: RunCtx; it: RunItem }) {
 }
 
 // ---------- list rows ----------
-function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide: boolean; onOpen: () => void; flash: boolean }) {
+function Row({ it, ctx, wide, onOpen, flash, sel }: { it: RunItem; ctx: RunCtx; wide: boolean; onOpen: () => void; flash: boolean; sel?: boolean }) {
   const done = ctx.isDone(it);
   const amber = ctx.needsTemp(it);
   const oneTap = isOneTap(it);
@@ -358,7 +360,7 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
   if (done && !amber) {
     const readingText = temp ? (r && r.temp != null ? `${Number(r.temp).toFixed(1)}°F` : '?°F') : savedNum;
     return (
-      <div className={cn('border-b border-border last:border-b-0', badTemp ? 'bg-destructive/[0.06]' : 'bg-card')}>
+      <div className={cn('border-b border-border last:border-b-0', badTemp ? 'bg-destructive/[0.06]' : 'bg-card', sel && 'duo-row-sel')}>
         <div
           role="button"
           tabIndex={0}
@@ -398,7 +400,7 @@ function Row({ it, ctx, wide, onOpen, flash }: { it: RunItem; ctx: RunCtx; wide:
 
   return (
     <div
-      className={cn('border-b border-border last:border-b-0', amber ? 'bg-[hsl(var(--warning)/0.08)]' : 'bg-card')}
+      className={cn('border-b border-border last:border-b-0', amber ? 'bg-[hsl(var(--warning)/0.08)]' : 'bg-card', sel && 'duo-row-sel')}
     >
       <div
         role="button"
@@ -862,6 +864,7 @@ function CompletedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
 export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const width = useContentWidth(rootRef);
+  const duo = useDuo();
   const wideList = width >= 640;
   const twoPane = width >= 900;
   const [guidedId, setGuidedId] = useState<string | null>(null);
@@ -967,8 +970,8 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
             <span className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-muted-foreground">{leftHere > 0 ? `${leftHere} left` : `${s.items.filter((x) => walkable(x) && !todo(x)).length} of ${s.items.filter(walkable).length}`}</span>
           </div>
         )}
-        <div className="overflow-hidden rounded-2xl border bg-card">
-          {rows.map((it) => <Row key={it.id} it={it} ctx={ctxWithFlash} wide={wideList} onOpen={() => openRow(it)} flash={flashId === it.id} />)}
+        <div className="duo-flat overflow-hidden rounded-2xl border bg-card">
+          {rows.map((it) => <Row key={it.id} it={it} ctx={ctxWithFlash} wide={wideList} onOpen={() => openRow(it)} flash={flashId === it.id} sel={duo.isDuo && (guidedId === it.id || reviewId === it.id)} />)}
         </div>
       </section>
     );
@@ -1022,7 +1025,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
   const topBar = twoPane ? (
     <div className="space-y-2">
       <div className="flex items-center gap-3">
-        <Button variant="outline" className="h-11 border border-border bg-card" onClick={backToList}><ChevronLeft className="mr-1 h-4 w-4" />List</Button>
+        <Button variant="outline" className="duo-run-back h-11 border border-border bg-card" onClick={backToList}><ChevronLeft className="mr-1 h-4 w-4" />List</Button>
         <h1 className="min-w-0 flex-1 break-words text-xl font-bold">{ctx.title}</h1>
         <span className="shrink-0 text-sm font-bold">{left} left</span>
       </div>
@@ -1031,7 +1034,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
   ) : (
     <div className="space-y-2">
       <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
-        <button type="button" className="flex min-h-11 items-center pr-2 text-base font-semibold text-primary" onClick={backToList}><ChevronLeft className="h-5 w-5" />List</button>
+        <button type="button" className="duo-run-back flex min-h-11 items-center pr-2 text-base font-semibold text-primary" onClick={backToList}><ChevronLeft className="h-5 w-5" />List</button>
         <span className="min-w-0 break-words text-center text-base font-semibold">{ctx.title}</span>
         <span className="shrink-0 text-sm font-bold">{left} left</span>
       </div>
@@ -1040,14 +1043,14 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
   );
 
   const card = atEnd || !current ? (
-    <div className="space-y-3 rounded-2xl border bg-card p-5 text-center">
+    <div className="duo-flat space-y-3 rounded-2xl border bg-card p-5 text-center">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[hsl(var(--success))] text-primary-foreground"><Check className="h-6 w-6" strokeWidth={3} /></div>
       <p className="text-lg font-bold">You're done with the rest</p>
       {left > 0 && <p className="text-sm text-muted-foreground">{left} skipped {left === 1 ? 'task is' : 'tasks are'} still on your list.</p>}
       <Button type="button" className="h-12 w-full text-base" onClick={backToList}>Back to the list</Button>
     </div>
   ) : (
-    <div key={current.id} className="space-y-3 rounded-2xl border bg-card p-4">
+    <div key={current.id} className="duo-flat space-y-3 rounded-2xl border bg-card p-4">
       <div className={capLabel}>{(sectionOf.get(current.id) || 'Tasks')} · {typeLabel(current, ctx.minPhotos(current))}</div>
       <Name it={current} ctx={ctx} className="block break-words text-2xl font-bold leading-tight" />
       <ShiftTag it={current} />
@@ -1067,7 +1070,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
   );
 
   const sideList = (
-    <div className="rounded-2xl border bg-card">
+    <div className="duo-flat rounded-2xl border bg-card">
       <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
         <span className="text-sm font-bold">To do · {left}</span>
         <label className="flex min-h-11 cursor-pointer items-center gap-2 text-xs font-medium"><Switch checked={ctx.hideDone} onCheckedChange={ctx.setHideDone} aria-label="Hide done" />Hide done</label>
@@ -1140,7 +1143,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
   const reviewView = reviewCurrent && (
     <div className="space-y-2.5 pb-6">
       <div className="flex items-center gap-2 pb-2 pt-7">
-        <Button variant="ghost" size="icon" className="-ml-2 h-9 w-9 shrink-0" onClick={backToList} aria-label="Back to list"><ArrowLeft className="h-5 w-5" /></Button>
+        <Button variant="ghost" size="icon" className="duo-run-back -ml-2 h-9 w-9 shrink-0" onClick={backToList} aria-label="Back to list"><ArrowLeft className="h-5 w-5" /></Button>
         <div className="min-w-0 flex-1">
           <Name it={reviewCurrent} ctx={ctx} className="block break-words text-[15px] font-semibold leading-[1.25]" />
           <div className="text-xs text-muted-foreground">{sectionOf.get(reviewCurrent.id) || 'Tasks'} · {ctx.title}</div>
@@ -1153,6 +1156,55 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
       )}
     </div>
   );
+
+  // Duo open: the right side is never empty, so the first item opens by itself.
+  useEffect(() => {
+    if (duo.isOpen && !guidedId && !reviewId && !atEnd && walk.length > 0) openRow(walk[0]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duo.isOpen, guidedId, reviewId, atEnd, walk.length]);
+
+  // Duo open: the list stays on the left half; the guided card / completed card / summary docks on the right half.
+  if (duo.isOpen) {
+    const summary = (
+      <div className="space-y-4">
+        <div className="text-center">
+          <div className="duo-tasks-big">{ctx.totalCount ? Math.round((ctx.doneCount / ctx.totalCount) * 100) : 0}<small>%</small></div>
+          <div className="duo-tasks-sub">{ctx.doneCount} of {ctx.totalCount} done</div>
+        </div>
+        <ProgressBar done={ctx.doneCount} total={ctx.totalCount} />
+        {firstTodo ? (
+          <Button type="button" className="h-12 w-full text-base" onClick={() => open(firstTodo.id)}>Go one by one · {left} left<ChevronRight className="ml-1 h-5 w-5" /></Button>
+        ) : (
+          <p className="text-center text-sm text-muted-foreground">Everything on this list is done.</p>
+        )}
+        <p className="text-center text-sm text-muted-foreground">Tap any task on the left to open it here.</p>
+      </div>
+    );
+    return (
+      <div ref={rootRef} className="duo-run duo-tasks-page duo-tasks-left">
+        {listView}
+        <aside className="duo-run-dock">{guidedId ? guidedView : reviewId && reviewView ? reviewView : summary}</aside>
+        {prepHidden}
+      </div>
+    );
+  }
+
+  // Duo folded: the list stays put; the guided card / completed card opens in a side slide-over.
+  if (duo.isDuo) {
+    const sheetOpen = !!guidedId || (!!reviewId && !!reviewView) || atEnd;
+    return (
+      <div ref={rootRef} className="duo-run duo-tasks-page">
+        {listView}
+        <Sheet open={sheetOpen} onOpenChange={(o) => { if (!o) backToList(); }}>
+          <SheetContent side="right" aria-describedby={undefined} className="duo-slide overflow-y-auto px-4">
+            <SheetTitle className="sr-only">{ctx.title}</SheetTitle>
+            {guidedId || atEnd ? guidedView : reviewView}
+          </SheetContent>
+        </Sheet>
+        {prepHidden}
+      </div>
+    );
+  }
 
   return (
     <div ref={rootRef}>

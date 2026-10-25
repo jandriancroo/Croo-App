@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { PageTitle } from '@/components/PageTitle';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { useDuo } from '@/hooks/useDuo';
 import { cn } from '@/lib/utils';
 import { blankItem, duplicateItem, moveChecklistItems, withKey, type EditorItem } from '@/lib/checklistEditorItems';
 import { ChecklistItemInspector, typeMeta } from './ChecklistItemInspector';
@@ -158,8 +159,10 @@ export function ChecklistEditor(p: Props) {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [startedNew, setStartedNew] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const wide = useIsWide(rootRef);
-  const roomy = useIsWide(rootRef, 1100);
+  const duo = useDuo();
+  // Duo open: always the list + inspector layout (list on the left half, inspector docked on the right half).
+  const wide = useIsWide(rootRef) || duo.isOpen;
+  const roomy = useIsWide(rootRef, 1100) && !duo.isDuo;
   const labelFor = useAssignmentLabeler(p.locationId);
   const showAssign = settings.positionFilteringEnabled;
 
@@ -168,6 +171,11 @@ export function ChecklistEditor(p: Props) {
   const taskCount = items.filter((it) => it.item_type !== 'section_header').length;
 
   useEffect(() => { if (selectedKey && selectedIndex < 0) setSelectedKey(null); }, [selectedKey, selectedIndex]);
+  // Duo open: the right side is never empty, so the first item opens by itself.
+  useEffect(() => {
+    if (duo.isOpen && wide && !selectedKey && tab === 'items' && items.length > 0) setSelectedKey(keyOf(items[0], 0));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duo.isOpen, wide, selectedKey, tab, items.length]);
 
   const goTo = (i: number) => { if (i < 0 || i >= items.length) return; setFocusNameKey(null); setSelectedKey(keyOf(items[i], i)); };
   const onPrev = selectedIndex > 0 ? () => goTo(selectedIndex - 1) : undefined;
@@ -367,7 +375,7 @@ export function ChecklistEditor(p: Props) {
   );
 
   const list = (
-    <div className={cn('overflow-hidden rounded-2xl border bg-card', wide && 'flex flex-col')}>
+    <div className={cn('duo-tasks-list overflow-hidden rounded-2xl border bg-card', wide && 'flex flex-col')}>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={items.map(keyOf)} strategy={verticalListSortingStrategy}>
           <div>{rows}</div>
@@ -386,8 +394,18 @@ export function ChecklistEditor(p: Props) {
   const subtitle = typeTag || p.notice ? <span className="flex flex-wrap items-center gap-2">{typeTag}{p.notice}</span> : undefined;
 
   return (
-    <div ref={rootRef}>
-      <PageTitle
+    <div ref={rootRef} className={duo.isDuo ? (duo.isOpen ? 'duo-tasks-page duo-tasks-left duo-editor' : 'duo-tasks-page duo-editor') : undefined}>
+      {duo.isDuo && (
+        <div className="duo-editor-head">
+          <Button variant="ghost" size="icon" className="h-11 w-11 -ml-2" onClick={p.onCancel} aria-label="Back"><ArrowLeft className="h-5 w-5" /></Button>
+          <span className="duo-editor-title">{settings.title.trim() || p.fallbackTitle}</span>
+          {typeTag}
+          <span className="flex-1" />
+          {wide && tabs}
+          {saveButton}
+        </div>
+      )}
+      {!duo.isDuo && <PageTitle
         color="teal"
         status={null}
         leading={
@@ -399,8 +417,9 @@ export function ChecklistEditor(p: Props) {
         subtitle={subtitle}
       >
         {settings.title.trim() || p.fallbackTitle}
-      </PageTitle>
-      {!wide && <div className="mb-3">{tabs}</div>}
+      </PageTitle>}
+      {!wide && <div className="mb-3 duo-ctl">{tabs}</div>}
+      {duo.isDuo && p.notice && <div className="px-1 pb-2 text-sm text-muted-foreground">{p.notice}</div>}
 
       {tab === 'settings' ? (
         <ChecklistSettingsPanel
@@ -425,14 +444,14 @@ export function ChecklistEditor(p: Props) {
       ) : showStart ? (
         startCards
       ) : (
-        <div className={cn(!wide ? undefined : roomy ? 'grid grid-cols-[minmax(0,1fr)_330px] items-start gap-4' : 'grid grid-cols-[minmax(0,48fr)_minmax(0,52fr)] items-start gap-4')}>
+        <div className={cn(duo.isDuo && wide && 'duo-editor-grid', !wide ? undefined : roomy ? 'grid grid-cols-[minmax(0,1fr)_330px] items-start gap-4' : 'grid grid-cols-[minmax(0,48fr)_minmax(0,52fr)] items-start gap-4')}>
           <div className="space-y-3">
             {list}
             {p.itemsFooter}
           </div>
 
           {wide && (
-            <div className="sticky top-16 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-2xl border border-primary bg-card p-4">
+            <div className="duo-editor-dock sticky top-16 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-2xl border border-primary bg-card p-4">
               {inspector ?? <p className="py-8 text-center text-sm text-muted-foreground">Tap a task to edit it.</p>}
             </div>
           )}
@@ -447,8 +466,7 @@ export function ChecklistEditor(p: Props) {
 
       {!wide && (
         <Sheet open={!!selected && tab === 'items'} onOpenChange={(o) => !o && setSelectedKey(null)}>
-          <SheetContent side="bottom" aria-describedby={undefined} className="max-h-[85vh] overflow-y-auto rounded-t-2xl px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-2 [&>button.absolute]:hidden">
-            <div className="mx-auto mb-1 h-1.5 w-10 rounded-full bg-muted-foreground/30" aria-hidden />
+          <SheetContent side={duo.isDuo ? 'right' : 'bottom'} aria-describedby={undefined} className={cn('max-h-[85vh] overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-2', duo.isDuo ? 'duo-slide max-h-none' : 'rounded-t-2xl [&>button.absolute]:hidden')}>
             <SheetTitle className="sr-only">{selected?.item_type === 'section_header' ? 'Edit section' : 'Edit task'}</SheetTitle>
             {inspector}
           </SheetContent>

@@ -216,7 +216,7 @@ export function TemporaryTasksSection({ autoCreate = false, onAutoCreateDone }: 
     <>
       <div className="space-y-4">
         {/* Header with actions */}
-        <div className="flex items-center justify-between">
+        <div className="duo-ctl flex items-center justify-between">
           <h3 className="text-base font-semibold">Quick Tasks</h3>
           {effectiveCanCreateTasks && (
             <div className="flex items-center gap-1">
@@ -245,7 +245,7 @@ export function TemporaryTasksSection({ autoCreate = false, onAutoCreateDone }: 
           ) : tasks.length === 0 ? (
             <QuickTaskEmptyState onCreate={effectiveCanCreateTasks ? () => setShowCreateDialog(true) : undefined} />
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="duo-qt-grid grid grid-cols-1 sm:grid-cols-2 gap-2">
               {tasks.map((task: any) => {
                 const completedSubtasks = task.subtasks?.filter((s: any) => s.completed_at).length || 0;
                 const totalSubtasks = task.subtasks?.length || 0;

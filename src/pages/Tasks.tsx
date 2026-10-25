@@ -52,6 +52,7 @@ export default function Tasks() {
   const [selectedCompletedTask, setSelectedCompletedTask] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'grouped' | 'heatmap'>('grouped');
   const [heatmapRange, setHeatmapRange] = useState<'week' | 'month'>('week');
+  const duoSpan: 'day' | 'week' | 'month' = viewMode === 'grouped' ? 'day' : heatmapRange;
 
   // Calculate completion percentage
   const completionPercent = useMemo(() => {
@@ -129,13 +130,24 @@ export default function Tasks() {
                 </svg>
               </div>
           }>Tasks</PageTitle>}
-          <div>
+          <div className={duo.isDuo ? 'duo-tasks-ctl' : undefined}>
                 <TabsList>
                   <TabsTrigger value="history">History</TabsTrigger>
                   {(isAdmin || isManager) && (
                     <TabsTrigger value="edit">Edit</TabsTrigger>
                   )}
                 </TabsList>
+                {duo.isDuo && activeTab === 'history' && (
+                  <SegmentedControl
+                    variant="neutral"
+                    value={duoSpan}
+                    onValueChange={(v: 'day' | 'week' | 'month') => {
+                      if (v === 'day') setViewMode('grouped');
+                      else { setViewMode('heatmap'); setHeatmapRange(v); }
+                    }}
+                    options={[{ value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }]}
+                  />
+                )}
           </div>
 
           <TabsContent value="history" className="space-y-4">
@@ -144,7 +156,7 @@ export default function Tasks() {
             ) : (
               <>
                 {/* View toggle ABOVE date navigator */}
-                <div className="flex flex-wrap items-center gap-2">
+                <div className={cn("flex flex-wrap items-center gap-2", duo.isDuo && "hidden")}>
                   <SegmentedControl
                     variant="neutral"
                     fullWidth
@@ -195,7 +207,7 @@ export default function Tasks() {
                       ? format(historyDate, 'yyyy-MM-dd') < format(new Date(), 'yyyy-MM-dd')
                       : historyDate < new Date()
                   }
-                  className="w-full"
+                  className="w-full duo-ctl"
                 />
 
                 {viewMode === 'grouped' ? (
@@ -233,6 +245,7 @@ export default function Tasks() {
 
       {duo.isOpen && (
         <aside className="duo-tasks-dock">
+          <div id="duo-tasks-detail" />
           {selectedCompletedTask ? (
             <>
               <button type="button" className="duo-tasks-back" onClick={() => setSelectedCompletedTask(null)}><ChevronLeft size={16} /> Day summary</button>
