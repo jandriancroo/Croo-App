@@ -243,4 +243,11 @@ html.duo .duo-dash [data-promo-hero]>.top-3{right:max(calc(var(--duo-col-right,0
 
 /* v5: folded — keep text and the right cube clear of Apple's clock pill and the dock */
 html.duo:not(.duo-open) .duo-dash .duo-dash-intro{padding-right:max(var(--duo-col-right,0px),96px)}
-html.duo.duo-open .duo-dash .duo-wordmark{grid-column:1;grid-row:4;align-self:end}
+html.duo.duo-open .duo-dash .duo-wordmark{position:absolute;left:0;bottom:14px;width:calc(50% - 20px);padding:0;grid-column:auto;grid-row:auto}
+
+/* v6: readable promo controls on light photos (e.g. Lemon Bar): smoky neutral glass + soft text shadow */
+html.duo .duo-dash [data-promo-hero] .bottom-3>div:first-child>button,
+html.duo .duo-dash [data-promo-hero] .bottom-3>div:last-child{background-color:rgba(28,28,30,.34)!important}
+html.duo .duo-dash [data-promo-hero] .bottom-3 button,
+html.duo .duo-dash [data-promo-hero]>.top-3 p{text-shadow:0 1px 8px rgba(0,0,0,.45)}
+html.duo .duo-dash [data-promo-hero] button[data-state=on]{background:rgba(255,255,255,.26)!important;color:#fff!important}
