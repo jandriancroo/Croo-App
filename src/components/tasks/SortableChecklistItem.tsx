@@ -4,6 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Button } from "@/components/ui/button";
 import { FileCheck, GripVertical, Pencil, EyeOff, Eye, Trash2, Copy, CalendarDays, CopyPlus, Archive, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useDuo } from "@/hooks/useDuo";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { isPendingDraft, isSupersededVersion, formatActivation } from "@/utils/checklistVersions";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
@@ -78,6 +79,8 @@ export function SortableChecklistItem({
   };
 
   const frequencyLabel = describeChecklistSchedule(checklist as any);
+  const duo = useDuo();
+  const typeTag = isDynamic ? 'Dynamic' : (checklist as any).template_type === 'training' ? 'Training' : 'Standard';
 
   return (
     <div
@@ -125,15 +128,21 @@ export function SortableChecklistItem({
                   </Badge>
                 )}
 
-                {isDynamic && (
-                  <Badge variant="outline" className="text-xs px-1.5 gap-0.5">
-                    <CalendarDays className="h-2.5 w-2.5" />
-                    {dayNames[currentDay]}
-                  </Badge>
+                {duo.isDuo ? (
+                  <Badge variant="outline" className="text-xs px-1.5 shrink-0 whitespace-nowrap">{typeTag}</Badge>
+                ) : (
+                  <>
+                    {isDynamic && (
+                      <Badge variant="outline" className="text-xs px-1.5 gap-0.5">
+                        <CalendarDays className="h-2.5 w-2.5" />
+                        {dayNames[currentDay]}
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs px-1.5">
+                      {frequencyLabel}
+                    </Badge>
+                  </>
                 )}
-                <Badge variant="outline" className="text-xs px-1.5">
-                  {frequencyLabel}
-                </Badge>
               </div>
               {checklist.description && (
                 <p className="text-xs text-muted-foreground mt-1 truncate">{checklist.description}</p>
