@@ -216,3 +216,11 @@ html.duo .duo-navroot .duo-handle{background-color:rgba(255,255,255,.2)!importan
 html.duo .duo-glass{backdrop-filter:blur(26px) saturate(.9) brightness(1.06)!important;-webkit-backdrop-filter:blur(26px) saturate(.9) brightness(1.06)!important}
 html.duo .duo-dash [data-promo-hero] button[aria-pressed=true]>span{outline-color:#fff!important;outline-offset:2px}
 html.duo .duo-dash [data-promo-hero] .ring-2{--tw-ring-color:rgba(255,255,255,.7)!important}
+
+/* v3: sales period pill + restored store bubble */
+html.duo .duo-navroot .duo-store{z-index:59}
+html.duo .duo-period-pill{display:flex;align-items:center;justify-content:space-between;width:min(300px,100%);height:44px;margin:0 auto 10px;border-radius:22px;padding:0 4px}
+html.duo .duo-period-pill>button{height:36px;min-width:36px;border-radius:18px;padding:0 8px;color:var(--duo-ink)}
+html.duo .duo-period-pill .duo-period-label{flex:1;gap:6px;font-size:15px;font-weight:600}
+html.duo .duo-period-menu{width:200px;padding:6px;border-radius:18px;display:flex;flex-direction:column;color:var(--duo-ink);border:0}
+html.duo .duo-period-menu button{justify-content:flex-start;height:42px;border-radius:12px;font-size:16px;font-weight:400;color:var(--duo-ink)}

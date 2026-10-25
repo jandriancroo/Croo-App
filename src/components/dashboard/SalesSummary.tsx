@@ -1524,7 +1524,14 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
 
   if (duoPresentation) {
     const period = activeTab === 'today' ? (isToday ? 'today' : 'yesterday') : activeTab;
-    return <DuoSummary period={period} onPeriod={p => {
+    const duoLabel = activeTab === 'today'
+      ? (isToday ? 'Today' : targetDateTime.toFormat('cccc, MMM d'))
+      : activeTab === 'week'
+        ? (isCurrentWeek ? 'This Week' : `${targetWeekStart.toFormat('MMM d')} - ${targetWeekEnd.toFormat('MMM d')}`)
+        : targetDateTime.toFormat('MMMM yyyy');
+    const duoStep = (direction: 'prev' | 'next') => activeTab === 'today' ? navigateDay(direction) : activeTab === 'week' ? navigateWeek(direction) : navigateMonth(direction);
+    return <DuoSummary period={period} label={duoLabel} onPrev={() => duoStep('prev')} onNext={() => duoStep('next')}
+      nextDisabled={activeTab === 'today' ? isToday : activeTab === 'week' ? isCurrentWeek : isCurrentMonth} onPeriod={p => {
       setActiveTab(p === 'yesterday' ? 'today' : p);
       const today = getBusinessDateInTimezone();
       setTargetDateStr(p === 'yesterday' ? toBusinessDateTime(today).minus({ days: 1 }).toFormat('yyyy-MM-dd') : today);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRight, X, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock } from 'lucide-react';
+import { ChevronRight, MapPin, X, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -49,8 +49,14 @@ export function DuoNav() {
     ...(!isChecklistOnlyLocation ? [{ title: 'My Timecard', path: '/my-timecard', icon: Clock }, { title: 'Availability', path: '/availability', icon: Calendar }, ...(canViewTimecards ? [{ title: 'Time Tracking', path: '/time-tracking', icon: Clock }] : [])] : []),
     { title: 'Settings', path: '/settings', icon: Settings },
   ];
+  const openLocation = () => {
+    window.dispatchEvent(new CustomEvent('open-location-picker'));
+    // Folded Layout already has this action on its existing control.
+    if (!document.documentElement.classList.contains('duo-open')) document.querySelector<HTMLButtonElement>('[data-tour="location-picker"]')?.click();
+  };
   const active = (path: string) => path === '/dashboard' ? (route.pathname === '/dashboard' || route.pathname === '/') : route.pathname.startsWith(path);
   return <div className="duo-navroot" data-duo-theme={theme}>
+    <Button variant="ghost" className="duo-store duo-glass" onClick={openLocation}><MapPin size={17} />{currentLocation?.name}<ChevronRight size={15} /></Button>
     {open && <Button variant="ghost" aria-label="Close page menu" className="duo-dim" onClick={() => setOpen(false)} />}
     <Button variant="ghost" className="duo-handle duo-glass" aria-label="Open page menu" onClick={() => setOpen(true)}><ChevronRight size={13} /></Button>
     {open && <aside className="duo-menu duo-glass" aria-label="Page menu"><div className="duo-menu-title">CrooHQ <Button variant="ghost" aria-label="Close page menu" onClick={() => setOpen(false)}><X /></Button></div>

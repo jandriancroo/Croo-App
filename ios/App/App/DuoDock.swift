@@ -279,25 +279,21 @@ final class DuoDockController: UINavigationController {
             }
         )
         // Open Duo: the manager dash is closed-mode only, so the arrow leaves the dock.
-        var items: [UIBarButtonItem] = duoOpen ? [profile] : [arrow, profile]
-        if duoOpen {
-            // Open Duo: location picker, Ask Theo and Nudge live in the dock (above the profile and tabs).
-            // They press the same buttons the web header has today, so they work before the web header changes.
-            func control(_ title: String, _ symbol: String, _ js: String) -> UIBarButtonItem {
-                let b = UIBarButtonItem(title: title, image: icon(symbol), primaryAction: UIAction { [weak self] _ in self?.runJS(js) })
-                if #available(iOS 27.1, *) { b.visibilityPriority = .high }
-                return b
-            }
-            let nudge = control("Nudge", "hand.point.up.left.fill", #"window.dispatchEvent(new Event('open-nudge'))"#)
-            nudgeItem = nudge
-            items = [
-                control("Location", "mappin.and.ellipse", #"window.dispatchEvent(new Event('open-location-picker'))"#),
-                control("Ask Theo", "sparkles", #"window.dispatchEvent(new Event('open-theo'))"#),
-                nudge,
-                profile,
-            ]
+        // One action button. Tapping it opens a menu of actions for the page you're on;
+        // page navigation lives in the web slide-out menu.
+        let onDash = currentPath == "/" || currentPath.hasPrefix("/dashboard") || currentPath.hasPrefix("/org-dash")
+        var actionChildren: [UIMenuElement] = [
+            UIAction(title: "Ask Theo", image: UIImage(systemName: "sparkles")) { [weak self] _ in self?.runJS("window.dispatchEvent(new Event('open-theo'))") },
+            UIAction(title: "Nudge", image: UIImage(systemName: "hand.point.up.left.fill")) { [weak self] _ in self?.runJS("window.dispatchEvent(new Event('open-nudge'))") },
+        ]
+        if onDash {
+            actionChildren.append(UIAction(title: "Edit layout", image: UIImage(systemName: "slider.horizontal.3")) { [weak self] _ in self?.runJS("window.dispatchEvent(new Event('open-edit-layout'))") })
         }
-        tabItems = [:]
+        let actions = UIBarButtonItem(title: "Actions", image: icon("ellipsis.circle"), menu: UIMenu(children: actionChildren))
+        if #available(iOS 27.1, *) { actions.visibilityPriority = .high }
+        nudgeItem = actions
+        lastNudgeLate = -1
+        var items: [UIBarButtonItem] = duoOpen ? [actions, profile] : [arrow, actions, profile]
         // Page navigation lives in the web slide-out menu now; the dock holds actions only.
         bridgeVC.toolbarItems = items
         markSelected(currentPath)
@@ -474,6 +470,7 @@ final class DuoDockController: UINavigationController {
                 let path = String(parts[0])
                 guard path != self.currentPath else { return }
                 self.currentPath = path
+                self.rebuildItems()
                 self.markSelected(path)
             }
         }
