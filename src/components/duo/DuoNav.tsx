@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { TheoOrb } from '@/components/dock/TheoOrb';
+import { DuoOvation } from '@/components/duo/DuoOvation';
 import { useOvationData } from '@/components/dashboard/OvationScorePopover';
 import { Pencil, Mail, Inbox, ChevronRight, MapPin, X, Sparkles, Hand, SlidersHorizontal, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock, Gauge } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
   const [open, setOpen] = useState(false);
   const [fan, setFan] = useState(false);
   const [bump, setBump] = useState(0);
+  const [ovOpen, setOvOpen] = useState(false);
   const [late, setLate] = useState(0);
   const [chat, setChat] = useState('');
   const [theme, setTheme] = useState<'paper' | 'oled'>(() => matchMedia('(prefers-color-scheme: dark)').matches ? 'oled' : 'paper');
@@ -96,6 +98,7 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
       ...(onDash && isShiftManager ? [{ label: 'Nudge', icon: Hand, action: () => fire('open-nudge') }] : []),
       ...(onDash ? [{ label: 'Edit layout', icon: SlidersHorizontal, action: () => fire('open-edit-layout') }] : []),
     ].map(a => <div key={a.label}><span className="duo-glass">{a.label}</span><Button variant="ghost" className="duo-glass" aria-label={a.label} onClick={a.action}><a.icon size={22} />{a.label === 'Nudge' && late > 0 && <b className="duo-badge">{late}</b>}</Button></div>)}</div>}
+    <DuoOvation open={ovOpen} onOpenChange={setOvOpen} />
     <div className="duo-wordmark-global" aria-hidden><img src="/croohq-wordmark.png" alt="" /></div>
     <Button variant="ghost" aria-label={fan ? 'Close actions' : 'Open actions'} key={`orb-${bump}`} className={`duo-orb duo-glass${bump ? ' duo-orb-bump' : ''}`} onClick={() => { setBump(b => b + 1); if (fan) setFan(false); else window.setTimeout(() => setFan(true), 230); }}>
       {fan ? <X /> : <><span className="duo-orb-ring" /><TheoOrb asSpan solid size={56} /></>}{!fan && late > 0 && <b className="duo-badge">{late}</b>}</Button>
@@ -104,7 +107,7 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
     <aside data-state={open ? 'open' : 'closed'} aria-hidden={!open} className="duo-menu duo-glass" aria-label="Page menu"><div className="duo-menu-title">CrooHQ <Button variant="ghost" aria-label="Close page menu" onClick={() => setOpen(false)}><X /></Button></div>
       <div className="duo-menu-top">
         <Button variant="ghost" className="duo-menu-loc" onClick={() => { setOpen(false); window.setTimeout(openLocation, 300); }}>{brandLogo ? <img src={brandLogo} alt="" /> : <i aria-hidden />}<span><b>{currentLocation?.name}</b><small>{brandName} · tap to switch</small></span><ChevronRight size={16} /></Button>
-        {showOvation && <div className="duo-menu-ovation"><span>Ovation</span><b>{ovation!.toFixed(1)}</b></div>}
+        {showOvation && <Button variant="ghost" className="duo-menu-ovation" onClick={() => { setOpen(false); window.setTimeout(() => setOvOpen(true), 300); }}><span>Ovation</span><b>{ovation!.toFixed(1)}</b></Button>}
       </div>
       <div className="duo-menu-items">{menu.map(m => <Button key={m.title} variant="ghost" className={active(m.path) ? 'duo-selected' : ''} onClick={() => { setOpen(false); navigate(m.path); }}><m.icon size={21} />{m.title}{m.title === 'Chat' && chat && <b className="duo-badge">{chat}</b>}</Button>)}</div>
       <Button variant="ghost" className="duo-user" onClick={() => { setOpen(false); navigate('/my-profile'); }}>{profile?.profile_photo_url && <img src={profile.profile_photo_url} alt="" />}<span><b>{profile?.nickname || profile?.full_name}</b><small>{role?.replace(/_/g, ' ')}</small></span></Button>

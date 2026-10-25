@@ -498,3 +498,22 @@ html.duo .duo-menu-loc b{font-size:16px;font-weight:600;white-space:nowrap;overf
 html.duo .duo-menu-loc small{font-size:12px;font-weight:400;color:var(--duo-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 html.duo .duo-menu-ovation{display:flex;align-items:baseline;justify-content:space-between;padding:0 10px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--duo-muted)}
 html.duo .duo-menu-ovation b{font-size:20px;letter-spacing:0;font-weight:600;color:var(--duo-ink)}
+
+/* v32: the period picker portals to <body>, outside the tokens' scope, so its text lost its colour. Give it its own tokens and a firmer glass so the options read clearly. */
+html.duo .duo-period-menu{--duo-ink:#3A342D;--duo-muted:#8A8073;--duo-line:rgba(80,62,40,.13);--duo-fill:rgba(250,246,238,.94);--duo-selected:rgba(80,62,40,.10);--duo-edge:rgba(255,255,255,.85);--duo-rim:rgba(255,255,255,.35);--duo-shadow:0 14px 36px rgba(70,45,20,.22);color:#3A342D!important;background:rgba(250,246,238,.94)!important}
+html.duo[data-duo-theme=oled] .duo-period-menu{--duo-ink:#F2F2F2;--duo-muted:#9A9AA0;--duo-line:rgba(255,255,255,.12);--duo-fill:rgba(38,38,40,.94);--duo-selected:rgba(255,255,255,.14);color:#F2F2F2!important;background:rgba(38,38,40,.94)!important}
+html.duo .duo-period-menu button{color:var(--duo-ink)!important}
+html.duo .duo-period-menu button[data-selected=true],html.duo .duo-period-menu .duo-selected{background:var(--duo-selected)}
+
+/* v33: location switcher = slide-over (list fills the height); Ovation = clickable row opening a liquid-glass popup */
+html.duo .duo-slide .duo-loc-list{max-height:calc(100dvh - 340px)!important}
+html.duo .duo-menu-ovation{height:44px;width:100%;border-radius:14px;cursor:pointer}
+html.duo .duo-popup.duo-glass-pop{background:rgba(250,246,238,.66)!important;backdrop-filter:blur(30px) saturate(.9) brightness(1.04)!important;-webkit-backdrop-filter:blur(30px) saturate(.9) brightness(1.04)!important;border:1px solid rgba(255,255,255,.55)!important}
+html.duo[data-duo-theme=oled] .duo-popup.duo-glass-pop{background:rgba(34,34,36,.62)!important;border:1px solid rgba(255,255,255,.16)!important}
+html.duo .duo-ovation-score{flex:none;min-width:52px;text-align:center;padding:4px 12px;border-radius:14px;font-size:20px;font-weight:600;background:hsl(var(--foreground)/.09);color:hsl(var(--foreground))}
+html.duo .duo-ovation-body{padding:6px 20px 22px;min-height:120px;cursor:pointer}
+
+/* v34: page content starts clearly below the top area (Activity title was clipped by the band) */
+html.duo .duo-navroot .duo-topbar{height:88px}
+html.duo:not(.duo-open) main{padding-top:116px!important}
+html.duo.duo-open .duo-open-main{padding-top:116px!important}
