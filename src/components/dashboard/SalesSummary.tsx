@@ -26,6 +26,7 @@ import { fetchStoreLabor } from '@/hooks/useStoreLabor';
 import { useToastFreshness } from '@/hooks/useToastFreshness';
 import { useDuoDashPresentation } from '@/components/duo/DuoDashContext';
 import { DuoSummary } from '@/components/duo/DuoSummary';
+import { DuoSalesBars } from '@/components/duo/DuoSalesBars';
 
 interface SalesData {
   daily: number;
@@ -1530,7 +1531,12 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         ? (isCurrentWeek ? 'This Week' : `${targetWeekStart.toFormat('MMM d')} - ${targetWeekEnd.toFormat('MMM d')}`)
         : targetDateTime.toFormat('MMMM yyyy');
     const duoStep = (direction: 'prev' | 'next') => activeTab === 'today' ? navigateDay(direction) : activeTab === 'week' ? navigateWeek(direction) : navigateMonth(direction);
-    return <DuoSummary period={period} label={duoLabel} onPrev={() => duoStep('prev')} onNext={() => duoStep('next')}
+    const duoBars = activeTab === 'week'
+      ? (salesData?.weeklyBreakdown ?? []).map(d => ({ label: toBusinessDateTime(d.date).toFormat('ccc'), sales: d.sales, projected: d.projected }))
+      : activeTab === 'month'
+        ? monthlyWeeklyAggregated.map((d: any) => ({ label: d.label, sales: d.sales, projected: d.projected }))
+        : (salesData?.hourly ?? []).map(h => ({ label: h.hour, sales: h.sales, projected: h.projected }));
+    return <DuoSummary chart={<DuoSalesBars data={duoBars} />} period={period} label={duoLabel} onPrev={() => duoStep('prev')} onNext={() => duoStep('next')}
       nextDisabled={activeTab === 'today' ? isToday : activeTab === 'week' ? isCurrentWeek : isCurrentMonth} onPeriod={p => {
       setActiveTab(p === 'yesterday' ? 'today' : p);
       const today = getBusinessDateInTimezone();

@@ -6,8 +6,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 const PERIODS = ['Today', 'Yesterday', 'Week', 'Month'];
 
 /** Duo sales summary: one centered pill — back / label (opens period picker) / forward. */
-export function DuoSummary({ period, label, onPeriod, onPrev, onNext, nextDisabled, children }: {
-  period: string; label: string; onPeriod: (p: string) => void; onPrev: () => void; onNext: () => void;
+export function DuoSummary({ period, label, onPeriod, onPrev, onNext, nextDisabled, chart, children }: {
+  period: string; label: string; chart?: ReactNode; onPeriod: (p: string) => void; onPrev: () => void; onNext: () => void;
   nextDisabled?: boolean; children: ReactNode;
 }) {
   return <section className="duo-sales-summary">
@@ -22,5 +22,5 @@ export function DuoSummary({ period, label, onPeriod, onPrev, onNext, nextDisabl
       </Popover>
       <Button variant="ghost" aria-label="Next" disabled={nextDisabled} onClick={onNext}><ChevronRight size={18} /></Button>
     </div>
-    <div className="duo-scoreboard">{children}</div></section>;
+    <div className="duo-scoreboard">{children}</div>{chart}</section>;
 }

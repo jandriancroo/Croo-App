@@ -239,7 +239,6 @@ html.duo .duo-wordmark img{height:15px;width:auto;padding:9px 18px;box-sizing:co
 html.duo .duo-navroot[data-duo-theme=oled] .duo-wordmark img{filter:brightness(0) invert(1) opacity(.55)}
 
 /* v4: keep the live dot and the sales card clear of Apple's right-hand column (clock/battery pill + dock) */
-html.duo .duo-dash [data-promo-hero]>.top-3{right:max(calc(var(--duo-col-right,0px) + 16px),104px)}
 
 /* v5: folded — keep text and the right cube clear of Apple's clock pill and the dock */
 html.duo:not(.duo-open) .duo-dash .duo-dash-intro{padding-right:max(var(--duo-col-right,0px),96px)}
@@ -252,3 +251,16 @@ html.duo .duo-dash [data-promo-hero] .bottom-3 button,
 html.duo .duo-dash [data-promo-hero]>.top-3 p{text-shadow:0 1px 8px rgba(0,0,0,.45)}
 html.duo .duo-dash [data-promo-hero] button[data-state=on]{background:rgba(255,255,255,.26)!important;color:#fff!important}
 
+
+/* v7: open mode — live dot sits directly under Apple's clock/battery pill */
+html.duo.duo-open .duo-dash [data-promo-hero]>.top-3>div>div:last-child{position:absolute;right:16px;top:78px;z-index:2}
+
+/* v7: promo ranking opens as its own opaque sheet above the cubes/summary instead of spilling over them */
+html.duo .duo-dash [data-promo-ranking]{position:fixed;left:12px;right:max(var(--duo-col-right,0px),12px);bottom:92px;top:auto;max-height:64dvh;overflow-y:auto;z-index:58;
+  background:var(--duo-page);color:var(--duo-ink);border-radius:26px;padding:14px;box-shadow:0 18px 60px rgba(0,0,0,.45),inset 1.5px 1.5px 0 -.5px var(--duo-edge);border:1px solid var(--duo-line)}
+html.duo.duo-open .duo-dash [data-promo-ranking]{left:calc(50% + 28px);right:12px}
+html.duo .duo-dash [data-promo-ranking] .text-foreground,html.duo .duo-dash [data-promo-ranking] .text-muted-foreground{color:var(--duo-ink)}
+html.duo .duo-dash [data-promo-ranking] .text-muted-foreground{color:var(--duo-muted)}
+html.duo .duo-dash [data-promo-ranking] .bg-background{background:var(--duo-fill);border-color:var(--duo-line);box-shadow:none}
+html.duo .duo-dash [data-promo-ranking] .bg-accent{background:var(--duo-selected)!important;color:var(--duo-ink)!important}
+html.duo .duo-dash [data-promo-ranking] button{color:var(--duo-ink)}

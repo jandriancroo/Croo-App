@@ -260,7 +260,7 @@ export function TrackerWidget({ promo }: TrackerWidgetProps) {
         />
 
         {canExpand && expanded && (
-          <div className="space-y-2 p-3">
+          <div data-promo-ranking className="space-y-2 p-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-1 text-xs font-bold text-foreground">
                 {itemSwitchOptions.length > 1 && (
