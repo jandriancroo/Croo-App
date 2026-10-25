@@ -57,11 +57,13 @@ const formatCurrency = (value: number) => {
 };
 
 interface BankDepositEntryProps {
+  /** Duo: 'inline' = details only (no Details button), 'tags' = compact summary for list rows. */
+  mode?: 'card' | 'inline' | 'tags';
   data: BankDepositData;
   createdAt: string;
 }
 
-export function BankDepositEntry({ data, createdAt }: BankDepositEntryProps) {
+export function BankDepositEntry({ data, createdAt, mode = 'card' }: BankDepositEntryProps) {
   const [open, setOpen] = useState(false);
 
   // Prefer day-level data (slip + audit apply once per day). Fall back to the
@@ -91,38 +93,7 @@ export function BankDepositEntry({ data, createdAt }: BankDepositEntryProps) {
       }));
 
 
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2 text-sm">
-            <Building2 className="h-4 w-4 text-teal-500" />
-            <span className="font-medium text-teal-600 dark:text-teal-400">
-              {formatCurrency(data.totalAmount)}
-            </span>
-          </div>
-          <Badge variant="secondary" className="text-xs">
-            {data.daysIncluded} day{data.daysIncluded !== 1 ? 's' : ''}
-          </Badge>
-          <span className="text-xs text-muted-foreground">
-            {format(new Date(data.startDate + 'T12:00:00'), 'MMM d')} - {format(new Date(data.endDate + 'T12:00:00'), 'MMM d')}
-          </span>
-        </div>
-        
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="w-full sm:w-auto">
-              <Eye className="h-4 w-4 mr-1" />
-              Details
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-teal-500" />
-                Bank Deposit Details
-              </DialogTitle>
-            </DialogHeader>
+  const details = (<>
             
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground">
@@ -206,8 +177,44 @@ export function BankDepositEntry({ data, createdAt }: BankDepositEntryProps) {
                 </div>
               )}
             </div>
+          </>);
+  if (mode === 'inline') return <div className="space-y-4">{details}</div>;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 text-sm">
+            <Building2 className="h-4 w-4 text-teal-500" />
+            <span className="font-medium text-teal-600 dark:text-teal-400">
+              {formatCurrency(data.totalAmount)}
+            </span>
+          </div>
+          <Badge variant="secondary" className="text-xs">
+            {data.daysIncluded} day{data.daysIncluded !== 1 ? 's' : ''}
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            {format(new Date(data.startDate + 'T12:00:00'), 'MMM d')} - {format(new Date(data.endDate + 'T12:00:00'), 'MMM d')}
+          </span>
+        </div>
+        
+        {mode === 'card' && <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="w-full sm:w-auto">
+              <Eye className="h-4 w-4 mr-1" />
+              Details
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-teal-500" />
+                Bank Deposit Details
+              </DialogTitle>
+            </DialogHeader>
+            {details}
           </DialogContent>
-        </Dialog>
+        </Dialog>}
       </div>
     </div>
   );

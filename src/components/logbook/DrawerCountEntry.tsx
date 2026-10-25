@@ -29,6 +29,8 @@ interface DrawerCountData {
 }
 
 interface DrawerCountEntryProps {
+  /** Duo: 'inline' = details only (no Details button), 'tags' = compact summary for list rows. */
+  mode?: 'card' | 'inline' | 'tags';
   data: DrawerCountData;
   createdAt: string;
   drawerBank?: number;
@@ -42,7 +44,7 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-export function DrawerCountEntry({ data, createdAt, drawerBank = 200, createdByName }: DrawerCountEntryProps) {
+export function DrawerCountEntry({ data, createdAt, drawerBank = 200, createdByName, mode = 'card' }: DrawerCountEntryProps) {
   const [open, setOpen] = useState(false);
 
   const audit = data.audit;
@@ -72,67 +74,7 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200, createdByN
   const hasPriorPulls = (data.priorPullsTotal ?? 0) > 0;
   const countTime = format(new Date(createdAt), 'h:mm a');
 
-  return (
-    <div className="space-y-3">
-      {/* Time label */}
-      <div className="text-xs text-muted-foreground">{countTime}</div>
-      {audit && (
-        <div className="flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-[11px] font-medium text-destructive">
-          <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-          <span>
-            Audited at deposit · {formatCurrency(audit.countedAmount)}
-            {audit.variance !== 0 && ` (${audit.variance > 0 ? '+' : ''}${formatCurrency(audit.variance)})`}
-            {audit.auditedByName ? ` · ${audit.auditedByName}` : ''}
-          </span>
-        </div>
-      )}
-      {/* Mobile: Stack vertically, Desktop: inline */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm flex-1">
-          <div className="flex justify-between sm:block">
-            <span className="text-muted-foreground">Expected:</span>
-            <span className="font-medium ml-2 sm:ml-1">
-              {expectedKnown ? formatCurrency(data.expectedDeposit) : 'Not reported'}
-            </span>
-          </div>
-          <div className="flex justify-between sm:block">
-            <span className="text-muted-foreground">{hasPriorPulls ? 'Total Handled:' : 'Actual:'}</span>
-            <span className="font-medium ml-2 sm:ml-1">
-              {audit && (
-                <span className="line-through text-muted-foreground mr-1.5">
-                  {formatCurrency(hasPriorPulls ? data.actualDeposit + (data.priorPullsTotal || 0) : data.actualDeposit)}
-                </span>
-              )}
-              <span className={audit ? 'text-destructive font-semibold' : ''}>
-                {formatCurrency(hasPriorPulls ? effectiveDeposit + (data.priorPullsTotal || 0) : effectiveDeposit)}
-              </span>
-            </span>
-          </div>
-          <div className="flex justify-between sm:block">
-            <span className="text-muted-foreground">Variance:</span>
-            {expectedKnown ? (
-              <span className={`font-semibold ml-2 sm:ml-1 ${varianceColor}`}>
-                {varianceLabel} {formatCurrency(Math.abs(effectiveVariance))}
-              </span>
-            ) : (
-              <span className="font-medium ml-2 sm:ml-1 text-muted-foreground">
-                Not calculated
-              </span>
-            )}
-          </div>
-        </div>
-        
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="w-full sm:w-auto">
-              <Eye className="h-4 w-4 mr-1" />
-              Details
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Drawer Count Details</DialogTitle>
-            </DialogHeader>
+  const details = (<>
             
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground">
@@ -281,8 +223,80 @@ export function DrawerCountEntry({ data, createdAt, drawerBank = 200, createdByN
                 )}
               </div>
             </div>
+          </>);
+  if (mode === 'inline') return <div className="space-y-4">{details}</div>;
+  if (mode === 'tags') return (
+    <div className="flex items-center gap-2 flex-wrap text-xs">
+      {audit && <span className="font-medium text-destructive">Audited</span>}
+      <span className="font-semibold">{formatCurrency(hasPriorPulls ? effectiveDeposit + (data.priorPullsTotal || 0) : effectiveDeposit)}</span>
+      {expectedKnown ? <span className={`font-semibold ${varianceColor}`}>{varianceLabel} {formatCurrency(Math.abs(effectiveVariance))}</span> : <span className="text-muted-foreground">Not calculated</span>}
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      {/* Time label */}
+      <div className="text-xs text-muted-foreground">{countTime}</div>
+      {audit && (
+        <div className="flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-[11px] font-medium text-destructive">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            Audited at deposit · {formatCurrency(audit.countedAmount)}
+            {audit.variance !== 0 && ` (${audit.variance > 0 ? '+' : ''}${formatCurrency(audit.variance)})`}
+            {audit.auditedByName ? ` · ${audit.auditedByName}` : ''}
+          </span>
+        </div>
+      )}
+      {/* Mobile: Stack vertically, Desktop: inline */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm flex-1">
+          <div className="flex justify-between sm:block">
+            <span className="text-muted-foreground">Expected:</span>
+            <span className="font-medium ml-2 sm:ml-1">
+              {expectedKnown ? formatCurrency(data.expectedDeposit) : 'Not reported'}
+            </span>
+          </div>
+          <div className="flex justify-between sm:block">
+            <span className="text-muted-foreground">{hasPriorPulls ? 'Total Handled:' : 'Actual:'}</span>
+            <span className="font-medium ml-2 sm:ml-1">
+              {audit && (
+                <span className="line-through text-muted-foreground mr-1.5">
+                  {formatCurrency(hasPriorPulls ? data.actualDeposit + (data.priorPullsTotal || 0) : data.actualDeposit)}
+                </span>
+              )}
+              <span className={audit ? 'text-destructive font-semibold' : ''}>
+                {formatCurrency(hasPriorPulls ? effectiveDeposit + (data.priorPullsTotal || 0) : effectiveDeposit)}
+              </span>
+            </span>
+          </div>
+          <div className="flex justify-between sm:block">
+            <span className="text-muted-foreground">Variance:</span>
+            {expectedKnown ? (
+              <span className={`font-semibold ml-2 sm:ml-1 ${varianceColor}`}>
+                {varianceLabel} {formatCurrency(Math.abs(effectiveVariance))}
+              </span>
+            ) : (
+              <span className="font-medium ml-2 sm:ml-1 text-muted-foreground">
+                Not calculated
+              </span>
+            )}
+          </div>
+        </div>
+        
+        {mode === 'card' && <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="w-full sm:w-auto">
+              <Eye className="h-4 w-4 mr-1" />
+              Details
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Drawer Count Details</DialogTitle>
+            </DialogHeader>
+            {details}
           </DialogContent>
-        </Dialog>
+        </Dialog>}
       </div>
     </div>
   );
