@@ -472,3 +472,29 @@ html.duo .duo-dash .duo-date b{font-weight:600;color:var(--duo-ink);letter-spaci
 html.duo .duo-dash .duo-date span{font-weight:400;color:var(--duo-muted)}
 html.duo .duo-dash .duo-dash-intro{padding-top:56px}
 html.duo:not(.duo-open) .duo-dash .duo-dash-intro{padding-top:64px}
+
+/* v30: Theo's orb is the app's orange on both themes — warm orange on Paper, softer orange on OLED — with a glow and a soft drop shadow so it pops */
+html.duo .duo-orb .theo-orb-span{color:#EE6A1F!important;filter:drop-shadow(0 0 7px rgba(238,106,31,.55)) drop-shadow(0 2px 5px rgba(60,35,10,.35))!important}
+html.duo .duo-navroot[data-duo-theme=oled] .duo-orb .theo-orb-span{color:#FF9B62!important;filter:drop-shadow(0 0 9px rgba(255,155,98,.6)) drop-shadow(0 2px 6px rgba(0,0,0,.5))!important}
+
+/* v31: one top area on every Duo page. Logo + location name (tap = Dash) at the top-left; the page line sits under it at a fixed height. Open mode: left pane only. The location switcher lives in the slide-out menu. */
+html.duo .duo-navroot .duo-topbar{position:fixed;top:0;left:0;right:0;height:92px;z-index:55;pointer-events:none;background:hsl(var(--background))}
+html.duo .duo-navroot .duo-topbar.duo-topbar-dash{height:56px;background:transparent}
+html.duo.duo-open .duo-navroot .duo-topbar{right:auto;width:calc(50% - 20px)}
+html.duo .duo-navroot .duo-brandrow{pointer-events:auto;top:14px;left:16px;max-width:calc(100% - 32px)}
+html.duo .duo-navroot .duo-brand-loc{height:34px;padding:0;gap:10px;font-size:15px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--duo-ink);background:transparent;border-radius:0;display:flex;align-items:center}
+html.duo .duo-navroot .duo-brand-loc span{max-width:60vw}
+html.duo .duo-navroot .duo-pageline{position:absolute;top:56px;left:0;right:0;display:flex;align-items:baseline;gap:10px;padding:0 16px;font-size:13px;line-height:1.2;letter-spacing:.08em;text-transform:uppercase;color:var(--duo-muted)}
+html.duo .duo-navroot .duo-pageline b{font-weight:600;color:var(--duo-ink)}
+html.duo .duo-navroot .duo-pageline span{font-weight:400}
+html.duo:not(.duo-open) main{padding-top:96px!important}
+html.duo.duo-open .duo-open-main{padding-top:96px!important}
+/* menu top: location switcher + Ovation */
+html.duo .duo-menu-top{display:flex;flex-direction:column;gap:10px;padding:0 4px 14px;border-bottom:1px solid var(--duo-line);margin-bottom:8px}
+html.duo .duo-menu-loc{display:flex;justify-content:flex-start;align-items:center;gap:12px;width:100%;height:56px;padding:0 10px;border-radius:16px;background:var(--duo-fill);text-align:left}
+html.duo .duo-menu-loc img,html.duo .duo-menu-loc i{flex:none;width:32px;height:32px;border-radius:50%;object-fit:cover;background:var(--duo-fill)}
+html.duo .duo-menu-loc span{flex:1;min-width:0;display:flex;flex-direction:column}
+html.duo .duo-menu-loc b{font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.duo .duo-menu-loc small{font-size:12px;font-weight:400;color:var(--duo-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html.duo .duo-menu-ovation{display:flex;align-items:baseline;justify-content:space-between;padding:0 10px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--duo-muted)}
+html.duo .duo-menu-ovation b{font-size:20px;letter-spacing:0;font-weight:600;color:var(--duo-ink)}
