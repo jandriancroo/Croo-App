@@ -54,7 +54,7 @@ export function AnnouncementsPopup({ enabled }: { enabled: boolean }) {
 
   if (!post || !enabled) return null;
   return <Dialog open onOpenChange={() => { /* Reading, not dismissal, advances the queue. */ }}>
-    <DialogContent className="max-w-md rounded-lg [&>button]:hidden" onEscapeKeyDown={e => e.preventDefault()} onPointerDownOutside={e => e.preventDefault()}>
+    <DialogContent className="duo-popup max-w-md rounded-lg [&>button]:hidden" onEscapeKeyDown={e => e.preventDefault()} onPointerDownOutside={e => e.preventDefault()}>
       <DialogHeader className="pr-8">
         <Megaphone className="h-6 w-6 text-primary" />
         <DialogTitle>{post.subject || 'Announcement'}</DialogTitle>

@@ -313,7 +313,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
 
       {/* Long-press dialog for mobile pin actions */}
       <Dialog open={!!longPressChat} onOpenChange={(open) => !open && setLongPressChat(null)}>
-        <DialogContent className="max-w-[280px] rounded-xl">
+        <DialogContent className="duo-popup max-w-[280px] rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-center truncate">
               {longPressChat?.title || 'Chat Options'}

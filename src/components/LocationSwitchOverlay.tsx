@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDuo } from "@/hooks/useDuo";
 
@@ -11,6 +12,19 @@ interface LocationSwitchOverlayProps {
 
 export function LocationSwitchOverlay({ visible, locationName, storeNumber, logoUrl, brandName }: LocationSwitchOverlayProps) {
   const duo = useDuo();
+  // Duo: hold the logo, name and progress line back until the logo has loaded, then bring them in together.
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!visible) { setReady(false); return; }
+    if (!logoUrl) { setReady(true); return; }
+    let done = false;
+    const go = () => { if (!done) { done = true; setReady(true); } };
+    const img = new Image();
+    img.onload = go; img.onerror = go;
+    img.src = logoUrl;
+    const t = setTimeout(go, 900);
+    return () => { done = true; clearTimeout(t); };
+  }, [visible, logoUrl]);
   if (duo.isDuo) {
     // Duo: full-screen themed blur, centered brand + store, cross-dissolves back to the Dash.
     return (
@@ -22,11 +36,13 @@ export function LocationSwitchOverlay({ visible, locationName, storeNumber, logo
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.45, ease: 'easeInOut' }}
           >
-            {logoUrl && <img src={logoUrl} alt="" className="duo-switch-logo" />}
-            <p className="duo-switch-kicker">Switching to</p>
-            <h2 className="duo-switch-name">{locationName}</h2>
-            {storeNumber && <p className="duo-switch-sub">Store #{storeNumber}</p>}
-            <div className="duo-switch-track"><motion.i initial={{ width: '0%' }} animate={{ width: '100%' }} transition={{ duration: 1.4, ease: [0.25, 0.1, 0.25, 1] }} /></div>
+            <motion.div className="flex flex-col items-center" initial={{ opacity: 0, y: 6 }} animate={ready ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }} transition={{ duration: 0.35, ease: 'easeOut' }}>
+              {logoUrl && <img src={logoUrl} alt="" className="duo-switch-logo" />}
+              <p className="duo-switch-kicker">Switching to</p>
+              <h2 className="duo-switch-name">{locationName}</h2>
+              {storeNumber && <p className="duo-switch-sub">Store #{storeNumber}</p>}
+              <div className="duo-switch-track"><motion.i initial={{ width: '0%' }} animate={{ width: ready ? '100%' : '0%' }} transition={{ duration: 1.3, ease: [0.25, 0.1, 0.25, 1], delay: ready ? 0.15 : 0 }} /></div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

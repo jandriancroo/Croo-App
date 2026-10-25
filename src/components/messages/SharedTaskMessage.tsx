@@ -95,7 +95,7 @@ export function SharedTaskMessage({
 
       {/* Preview Dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="duo-slide max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Icon className="h-5 w-5" style={{ color: accentColor }} />
