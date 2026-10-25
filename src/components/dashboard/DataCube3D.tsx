@@ -4,6 +4,8 @@ import { TrendingUp, TrendingDown, Pause } from 'lucide-react';
 import { MetricType, METRIC_CONFIGS, SalesDataForWidgets } from './DashboardWidget';
 import { format, subYears, getWeek } from 'date-fns';
 import { ThemeColorKey, migrateAccentColor, getThemeColorClass, getThemeTextClass, isThemeColorKey } from '@/utils/themeColors';
+import { useDuoDashPresentation } from '@/components/duo/DuoDashContext';
+import { DuoSalesCell } from '@/components/duo/DuoSalesCell';
 
 // Pacing display mode: 'arrow' (current icons), 'text-color' (colored text), or 'background-arrow' (large faint arrow behind)
 export type PacingDisplayMode = 'arrow' | 'text-color' | 'background-arrow';
@@ -349,6 +351,7 @@ export function DataCube3D({
   pacingDisplay = 'background-arrow', // Default to option 2 for demo
   useDemoData = false,
 }: DataCube3DProps) {
+  const duoPresentation = useDuoDashPresentation();
   const [currentFace, setCurrentFace] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isFrozen, setIsFrozen] = useState(false);
@@ -461,6 +464,23 @@ export function DataCube3D({
     return currentFace * -90;
   };
 
+  if (duoPresentation) {
+    const face = faces[currentFace % Math.max(1, faces.length)];
+    // Keep the current widget's exact metric reader, face order, timer and pause actions.
+    let requested = [...(face?.metrics ?? [])];
+    const monthToWeek: Partial<Record<MetricType, MetricType>> = { sales_mtd: 'sales_wtd', sales_pace_month: 'sales_pace_week', sales_projected_month: 'sales_projected_week', sales_prev_month: 'sales_prev_week', sales_last_year_month: 'sales_last_year_week', labor_percent_mtd: 'labor_percent_wtd', labor_hours_mtd: 'labor_hours_wtd' };
+    requested = requested.map(metric => monthToWeek[metric] ?? metric);
+    if (requested[0] === 'sales_today') requested = ['sales_today', 'sales_pace', 'sales_projected_today', 'avg_ticket', 'sales_last_year_day'];
+    if (requested[0] === 'sales_wtd') requested = ['sales_wtd', 'sales_pace_week', 'sales_last_year_week'];
+    const metrics = requested.map(metric => ({
+      label: metric === 'sales_projected_today' ? 'Projection' : getDynamicLabel(metric, undefined, effectiveSalesData?.lastYear?.date),
+      value: isLoading ? '--' : formatValue(getMetricValue(metric, effectiveSalesData), METRIC_CONFIGS[metric]?.format ?? 'number'),
+      behind: isPaceMetric(metric) && getPacingStatus(metric, effectiveSalesData) === 'down',
+    }));
+    const cellTitle = requested[0] === 'sales_today' ? 'Daily Sales' : requested[0] === 'sales_wtd' ? 'Weekly' : face?.title || title;
+    return <DuoSalesCell title={cellTitle} metrics={metrics} currentFace={currentFace} totalFaces={totalFaces}
+      onFace={rotateTo} onDown={handlePointerDown} onUp={handlePointerUp} onCancel={handlePointerCancel} />;
+  }
   return (
     <div className={cn("data-cube-3d relative group h-full", className)}>
       <style>{`

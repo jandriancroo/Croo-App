@@ -44,6 +44,8 @@ import { PageTitle } from '@/components/PageTitle';
 import { SpookifiedEffects } from '@/components/dashboard/SpookifiedEffects';
 import { SystemAlertsPopup } from '@/components/system-alerts/SystemAlertsPopup';
 import { markDashReady } from '@/lib/startupSequence';
+import { useDuo } from '@/hooks/useDuo';
+import { DuoDash } from '@/components/duo/DuoDash';
 
 
 // Lazy-loaded components (only needed conditionally)
@@ -75,6 +77,7 @@ interface Checklist {
   lock_until_time: string | null;
 }
 export default function Dashboard() {
+  const duo = useDuo();
   // Themed dashboard backgrounds (beach + playa)
   useEffect(() => {
     document.body.classList.add('beach-dashboard', 'playa-dashboard', 'blaze-dashboard', 'spookified-dashboard');
@@ -618,7 +621,7 @@ export default function Dashboard() {
       onSalesDataChange={undefined}
       roleCubes={roleCubes}
       useRoleCubes={shouldUseRoleCubes}
-      sectionOrder={dashboardSectionOrder}
+      sectionOrder={duo.isDuo ? ['promo-tracker', 'data-cubes', 'sales-chart', 'checklists'] : dashboardSectionOrder}
       trackersOnly={showTrackersOnly}
     />
   ) : (
@@ -635,13 +638,13 @@ export default function Dashboard() {
         onRefresh={handleRefresh}
       >
           <div className="space-y-4 spookified-dashboard-content">
-            <PageTitle
+            {!duo.isDuo && <PageTitle
               color="teal"
               duoSlot="left"
               subtitle={dashSentence}
             >
               Dash
-            </PageTitle>
+            </PageTitle>}
 
             <BillingActivationBanner />
 
@@ -661,7 +664,8 @@ export default function Dashboard() {
             />
           </Suspense>
 
-          {checklistsLoading ? (
+          {duo.isDuo ? <DuoDash sentence={dashSentence} timezone={timezone} quickTasks={quickTasksContent}
+            dashboard={dashboardContent} onEdit={() => setShowEditDashboard(true)} /> : checklistsLoading ? (
             <div className="space-y-3 animate-fade-in">
               {/* Match actual layout: vertical task cards + checklist card */}
               <Skeleton className="h-14 rounded-xl" />

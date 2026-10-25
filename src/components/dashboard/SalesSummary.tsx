@@ -24,6 +24,8 @@ import { toast } from 'sonner';
 import { resolveProjection, ProjectionSource } from '@/hooks/useResolvedProjection';
 import { fetchStoreLabor } from '@/hooks/useStoreLabor';
 import { useToastFreshness } from '@/hooks/useToastFreshness';
+import { useDuoDashPresentation } from '@/components/duo/DuoDashContext';
+import { DuoSummary } from '@/components/duo/DuoSummary';
 
 interface SalesData {
   daily: number;
@@ -74,6 +76,7 @@ interface DiagnosticInfo {
 }
 
 export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverviewProps) {
+  const duoPresentation = useDuoDashPresentation();
   const { currentLocation } = useAppLocation();
   const toastFresh = useToastFreshness(currentLocation?.id);
   const { getBusinessDateInTimezone, timezone } = useLocationTimezone();
@@ -1519,6 +1522,29 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     );
   }
 
+  if (duoPresentation) {
+    const period = activeTab === 'today' ? (isToday ? 'today' : 'yesterday') : activeTab;
+    return <DuoSummary period={period} onPeriod={p => {
+      setActiveTab(p === 'yesterday' ? 'today' : p);
+      const today = getBusinessDateInTimezone();
+      setTargetDateStr(p === 'yesterday' ? toBusinessDateTime(today).minus({ days: 1 }).toFormat('yyyy-MM-dd') : today);
+    }}>{renderScoreboard(activeTab === 'week' ? {
+      salesLabel: 'WEEK-TO-DATE', sales: salesData?.weekly, priorComparison: salesData?.comparison?.prevWeek,
+      priorComparisonLabel: 'Last Week', compLY: salesData?.comparisonLY?.week, compPeriodLabel: 'This week',
+      goal: calculatedWeekProjected, pace: isCurrentWeek ? calculatedWeekPace : 0,
+      lastYear: salesData?.lastYear?.sameWeek, status: weekStatus,
+    } : activeTab === 'month' ? {
+      salesLabel: 'MONTH-TO-DATE', sales: salesData?.monthly, priorComparison: salesData?.comparison?.prevMonth,
+      priorComparisonLabel: 'Last Month', compLY: salesData?.comparisonLY?.month, compPeriodLabel: 'This month',
+      goal: calculatedMonthProjected, pace: isCurrentMonth ? calculatedMonthPace : 0,
+      lastYear: salesData?.lastYear?.sameMonth, status: monthStatus,
+    } : {
+      salesLabel: isToday ? "TODAY'S SALES" : "YESTERDAY'S SALES", sales: salesData?.daily,
+      priorComparison: salesData?.comparison?.prevDay, priorComparisonLabel: `Last ${targetDateTime.toFormat('ccc')}`,
+      compLY: salesData?.comparisonLY?.day, compPeriodLabel: isToday ? 'Today' : 'Yesterday',
+      goal: todayGoal, pace: todayPace, lastYear: salesData?.lastYear?.sameDay, status: todayStatus,
+    })}</DuoSummary>;
+  }
   return (
     <div>
 
