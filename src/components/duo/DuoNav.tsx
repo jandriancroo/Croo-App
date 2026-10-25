@@ -9,7 +9,7 @@ import { useLocation } from '@/hooks/useLocation';
 import './duo-dash.css';
 
 /** Duo-only left-edge slide-out navigation. Rendered by Layout on every Duo page. */
-export function DuoNav() {
+export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; brandName?: string | null }) {
   const navigate = useNavigate();
   const route = useRouterLocation();
   const { user } = useAuth();
@@ -54,9 +54,14 @@ export function DuoNav() {
     // Folded Layout already has this action on its existing control.
     if (!document.documentElement.classList.contains('duo-open')) document.querySelector<HTMLButtonElement>('[data-tour="location-picker"]')?.click();
   };
+  const onDash = route.pathname === '/dashboard' || route.pathname === '/';
   const active = (path: string) => path === '/dashboard' ? (route.pathname === '/dashboard' || route.pathname === '/') : route.pathname.startsWith(path);
   return <div className="duo-navroot" data-duo-theme={theme}>
-    <Button variant="ghost" className="duo-store duo-glass" onClick={openLocation}><MapPin size={17} />{currentLocation?.name}<ChevronRight size={15} /></Button>
+    {onDash && <div className="duo-brandrow">
+      <div className="duo-brand">{brandLogo ? <img src={brandLogo} alt="" /> : <i aria-hidden />}<span>{brandName}</span></div>
+      <Button variant="ghost" className="duo-store duo-glass" onClick={openLocation}><MapPin size={16} />{currentLocation?.name}<ChevronRight size={14} /></Button>
+    </div>}
+    {onDash && <div className="duo-wordmark" aria-hidden><img src="/croohq-wordmark.png" alt="" /></div>}
     {open && <Button variant="ghost" aria-label="Close page menu" className="duo-dim" onClick={() => setOpen(false)} />}
     <Button variant="ghost" className="duo-handle duo-glass" aria-label="Open page menu" onClick={() => setOpen(true)}><ChevronRight size={13} /></Button>
     {open && <aside className="duo-menu duo-glass" aria-label="Page menu"><div className="duo-menu-title">CrooHQ <Button variant="ghost" aria-label="Close page menu" onClick={() => setOpen(false)}><X /></Button></div>

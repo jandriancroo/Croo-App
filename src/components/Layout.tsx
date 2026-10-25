@@ -1616,7 +1616,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       </header>
       
       
-      {duo.isDuo && <DuoNav />}
+      {duo.isDuo && <DuoNav brandLogo={resolvedBrandLogo} brandName={orgDisplayName} />}
       <main className={`container max-w-7xl mx-auto flex-1 px-safe pb-0 relative ${duo.isOpen ? 'duo-open-main' : isMobile ? 'pt-[var(--app-header-h,calc(env(safe-area-inset-top)+3.5rem))] pb-[calc(var(--app-dock-h,6rem)+0.75rem)]' : 'pt-1 py-8 pb-8'}`}>
         {duo.isOpen && (location.pathname === '/dashboard' || location.pathname === '/') ? (
           /* New Duo Dash owns the whole open screen (tasks left, data right); no Schedule panel here. */
