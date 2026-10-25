@@ -178,3 +178,7 @@ html.duo .duo-quick:not(:has(section)) .dash-section-title__label{font-size:0}
 html.duo .duo-quick:not(:has(section)) .dash-section-title__label:after{content:'QUICK TASKS';font-size:12px}
 html.duo .duo-dash .duo-quick:has(section) .quick-task-content{gap:0}
 html.duo .duo-dash [data-tour=dashboard-cubes]{min-height:200px}
+html.duo .duo-dash .quick-task-section:not(:has(.quick-task-content>*)){display:flex}
+html.duo .duo-dash .quick-task-section:not(:has(.quick-task-content>*)):after{content:'All caught up';padding:12px 20px;font-size:15px;color:var(--duo-muted);border-block:1px solid var(--duo-line)}
+html.duo .duo-dash .duo-cell-grid small{line-height:14px}
+html.duo .duo-dash .duo-sales-summary>div:first-child{margin-bottom:6px!important}
