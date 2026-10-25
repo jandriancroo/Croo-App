@@ -144,8 +144,8 @@ html.duo .duo-dash [data-promo-hero] .bottom-3>div:first-child>button{background
 html.duo .duo-dash [data-promo-hero] .bottom-3>div:last-child{background:var(--duo-photo-glass)}
 html.duo .duo-dash [data-tour=dashboard-cubes]:has(>div:nth-child(3)){grid-auto-rows:minmax(200px,auto)}
 
-html.duo.duo-open .duo-widgets>div>[data-tour=dashboard-promo]{width:100%;min-width:0;position:absolute;top:0;left:calc(50% + 20px);width:calc(50% - 20px)}
-html.duo.duo-open .duo-widgets>div>div:has([data-tour=dashboard-cubes]),html.duo.duo-open .duo-widgets>div>div:has(.duo-sales-summary){position:absolute;left:calc(50% + 20px);width:calc(50% - 20px);top:0}
+html.duo.duo-open .duo-widgets>div>[data-tour=dashboard-promo]{min-width:0;position:relative;left:auto;top:auto;width:100%;padding:0!important}
+html.duo.duo-open .duo-widgets>div>div:has([data-tour=dashboard-cubes]),html.duo.duo-open .duo-widgets>div>div:has(.duo-sales-summary){position:relative;left:auto;top:auto;width:100%}
 html.duo.duo-open .duo-dash-grid{position:relative;grid-template-rows:auto auto 1fr}
 html.duo .duo-dash [data-promo-border-space]{width:100%!important}
 html.duo .duo-dash [data-promo-hero] .bottom-3>div:last-child button{flex:1;padding:0 6px}
@@ -154,3 +154,7 @@ html.duo .duo-dash .duo-date{color:var(--duo-muted)!important}
 html.duo .duo-dash .bg-card.border.border-border.rounded-xl>div{background:transparent}
 html.duo .duo-dash .duo-scoreboard>div>div span span{box-shadow:none;background:transparent}
 html.duo .duo-dash .duo-scoreboard>div>div button{display:flex;align-items:center;border-radius:22px;padding:5px 10px;box-shadow:var(--duo-shadow),inset 1.5px 1.5px 0 -.5px var(--duo-edge)}
+
+html.duo .duo-dash [data-tour=dashboard-promo]>div{padding:0!important;margin:0!important;width:100%}
+html.duo .duo-dash [data-tour=dashboard-promo]>div>div{padding:0!important;margin:0!important;width:100%}
+html.duo.duo-open .duo-widgets>div>div.w-full:has(.bg-card.border.border-border.rounded-xl){grid-row:3;align-self:start}
