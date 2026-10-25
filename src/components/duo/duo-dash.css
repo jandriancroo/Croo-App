@@ -253,7 +253,7 @@ html.duo .duo-dash [data-promo-hero] button[data-state=on]{background:rgba(255,2
 
 
 /* v7: open mode — live dot sits directly under Apple's clock/battery pill */
-html.duo.duo-open .duo-dash [data-promo-hero]>.top-3>div>div:last-child{position:absolute;right:16px;top:78px;z-index:2}
+html.duo.duo-open .duo-dash [data-promo-hero]>.top-3>div>div:last-child{position:absolute;right:21px;top:82px;z-index:2}
 
 /* v7: promo ranking opens as its own opaque sheet above the cubes/summary instead of spilling over them */
 html.duo .duo-dash [data-promo-ranking]{position:fixed;left:12px;right:max(var(--duo-col-right,0px),12px);bottom:92px;top:auto;max-height:64dvh;overflow-y:auto;z-index:58;
