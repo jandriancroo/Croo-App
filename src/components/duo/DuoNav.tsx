@@ -1,0 +1,61 @@
+import { useEffect, useState } from 'react';
+import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { ChevronRight, X, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/lib/auth';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useLocation } from '@/hooks/useLocation';
+import './duo-dash.css';
+
+/** Duo-only left-edge slide-out navigation. Rendered by Layout on every Duo page. */
+export function DuoNav() {
+  const navigate = useNavigate();
+  const route = useRouterLocation();
+  const { user } = useAuth();
+  const { currentLocation, isChecklistOnlyLocation } = useLocation();
+  const { isAdmin, isShiftManager, isManager, isOrgAdmin, isBrandAdmin, isSuperAdmin, canViewTimecards, loading, role } = useUserRole();
+  const { data: profile } = useQuery<{ full_name?: string; profile_photo_url?: string; nickname?: string }>({
+    queryKey: ['user-profile', user?.id], enabled: false,
+  });
+  const { data: inventory } = useQuery<{ configured: boolean }>({ queryKey: ['location-inventory-mode', currentLocation?.id], enabled: false });
+  const { data: permissions } = useQuery<Record<string, boolean>>({ queryKey: ['role-permissions', currentLocation?.organization_id, role], enabled: false });
+  const hasPermission = (key: string) => permissions?.[key] ?? false;
+  const [open, setOpen] = useState(false);
+  const [chat, setChat] = useState('');
+  const [theme, setTheme] = useState<'paper' | 'oled'>(() => matchMedia('(prefers-color-scheme: dark)').matches ? 'oled' : 'paper');
+  useEffect(() => {
+    const root = document.documentElement;
+    const update = () => {
+      setTheme(root.dataset.duoTheme === 'oled' ? 'oled' : root.dataset.duoTheme === 'paper' ? 'paper' : (matchMedia('(prefers-color-scheme: dark)').matches ? 'oled' : 'paper'));
+      const badge = document.querySelector('nav a[href="/messages"]')?.querySelector('span');
+      setChat(badge?.textContent?.match(/^\d+\+?$/)?.[0] ?? '');
+    };
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(root, { attributes: true, attributeFilter: ['data-duo-theme'] });
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => { setOpen(false); }, [route.pathname]);
+  const menu = [
+    { title: 'Dash', path: '/dashboard', icon: LayoutDashboard },
+    { title: 'Chat', path: '/messages', icon: MessageSquare },
+    { title: 'Tasks', path: '/tasks', icon: CheckSquare },
+    ...(!loading && isShiftManager ? [{ title: 'Logs', path: '/logbook', icon: FileText }] : []),
+    ...(!isChecklistOnlyLocation ? [{ title: 'Schedule', path: '/schedule', icon: Calendar }] : []),
+    ...(!isChecklistOnlyLocation && (isManager || hasPermission('manage_inventory')) && inventory?.configured ? [{ title: 'Inventory', path: `/inventory/${currentLocation?.id}`, icon: Package }] : []),
+    ...(!isChecklistOnlyLocation || isAdmin ? [{ title: isAdmin ? 'Users' : 'My Team', path: isAdmin ? '/users' : '/my-team', icon: Users }] : []),
+    ...(!isChecklistOnlyLocation && !loading && (isOrgAdmin || isBrandAdmin || isSuperAdmin || hasPermission('manage_hiring')) ? [{ title: 'Hiring', path: '/hiring', icon: Briefcase }] : []),
+    ...(!isChecklistOnlyLocation ? [{ title: 'My Timecard', path: '/my-timecard', icon: Clock }, { title: 'Availability', path: '/availability', icon: Calendar }, ...(canViewTimecards ? [{ title: 'Time Tracking', path: '/time-tracking', icon: Clock }] : [])] : []),
+    { title: 'Settings', path: '/settings', icon: Settings },
+  ];
+  const active = (path: string) => path === '/dashboard' ? (route.pathname === '/dashboard' || route.pathname === '/') : route.pathname.startsWith(path);
+  return <div className="duo-navroot" data-duo-theme={theme}>
+    {open && <Button variant="ghost" aria-label="Close page menu" className="duo-dim" onClick={() => setOpen(false)} />}
+    <Button variant="ghost" className="duo-handle duo-glass" aria-label="Open page menu" onClick={() => setOpen(true)}><ChevronRight size={13} /></Button>
+    {open && <aside className="duo-menu duo-glass" aria-label="Page menu"><div className="duo-menu-title">CrooHQ <Button variant="ghost" aria-label="Close page menu" onClick={() => setOpen(false)}><X /></Button></div>
+      <div className="duo-menu-items">{menu.map(m => <Button key={m.title} variant="ghost" className={active(m.path) ? 'duo-selected' : ''} onClick={() => { setOpen(false); navigate(m.path); }}><m.icon size={21} />{m.title}{m.title === 'Chat' && chat && <b className="duo-badge">{chat}</b>}</Button>)}</div>
+      <Button variant="ghost" className="duo-user" onClick={() => { setOpen(false); navigate('/my-profile'); }}>{profile?.profile_photo_url && <img src={profile.profile_photo_url} alt="" />}<span><b>{profile?.nickname || profile?.full_name}</b><small>{role?.replace(/_/g, ' ')}</small></span></Button>
+    </aside>}
+  </div>;
+}
