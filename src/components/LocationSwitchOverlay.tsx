@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
+import { useDuo } from "@/hooks/useDuo";
 
 interface LocationSwitchOverlayProps {
   visible: boolean;
@@ -9,6 +10,28 @@ interface LocationSwitchOverlayProps {
 }
 
 export function LocationSwitchOverlay({ visible, locationName, storeNumber, logoUrl, brandName }: LocationSwitchOverlayProps) {
+  const duo = useDuo();
+  if (duo.isDuo) {
+    // Duo: full-screen themed blur, centered brand + store, cross-dissolves back to the Dash.
+    return (
+      <AnimatePresence>
+        {visible && (
+          <motion.div
+            className="duo-switch fixed inset-0 z-[9999] flex flex-col items-center justify-center text-center"
+            data-duo-theme={document.documentElement.dataset.duoTheme === 'oled' ? 'oled' : 'paper'}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.45, ease: 'easeInOut' }}
+          >
+            {logoUrl && <img src={logoUrl} alt="" className="duo-switch-logo" />}
+            <p className="duo-switch-kicker">Switching to</p>
+            <h2 className="duo-switch-name">{locationName}</h2>
+            {storeNumber && <p className="duo-switch-sub">Store #{storeNumber}</p>}
+            <div className="duo-switch-track"><motion.i initial={{ width: '0%' }} animate={{ width: '100%' }} transition={{ duration: 1.4, ease: [0.25, 0.1, 0.25, 1] }} /></div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  }
   return (
     <>
       {logoUrl && <link rel="preload" as="image" href={logoUrl} />}
