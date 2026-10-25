@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
@@ -8,6 +8,12 @@ import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation } from '@/hooks/useLocation';
 import './duo-dash.css';
+
+function emphasizeNumbers(node: ReactNode): ReactNode {
+  if (typeof node === 'string') return node.split(/(\$[\d,]+|\d+(?:\.\d+)?%)/g).map((part, i) => /^\$|%$/.test(part) ? <b key={i}>{part}</b> : part);
+  if (isValidElement<{ children?: ReactNode }>(node)) return cloneElement(node, {}, emphasizeNumbers(node.props.children));
+  return Children.map(node, child => typeof child === 'string' || isValidElement(child) ? emphasizeNumbers(child) : child);
+}
 
 export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
   sentence: ReactNode; timezone: string; quickTasks: ReactNode; dashboard: ReactNode; onEdit: () => void;
@@ -50,7 +56,7 @@ export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
     // Folded Layout already has these actions on existing controls; no shell handler is changed.
     if (!document.documentElement.classList.contains('duo-open')) {
       if (name === 'open-location-picker') document.querySelector<HTMLButtonElement>('[data-tour="location-picker"]')?.click();
-      if (name === 'open-nudge') document.querySelector<HTMLButtonElement>('[data-native-nudge-trigger]')?.click();
+      if (name === 'open-nudge') document.querySelector<HTMLButtonElement>('.duo-native-nudge-trigger')?.click();
     }
   };
   const menu = [
@@ -68,7 +74,7 @@ export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
     <div className="duo-dash-grid">
       <div className="duo-dash-intro"><Button variant="ghost" className="duo-date" onClick={() => setTheme(t => t === 'paper' ? 'oled' : 'paper')}>
         {DateTime.now().setZone(timezone).toFormat('cccc, MMM d')}</Button>
-        {sentence && <div className="duo-theo"><i aria-hidden /> <div>{sentence}</div></div>}
+        {sentence && <div className="duo-theo"><i aria-hidden /> <div>{emphasizeNumbers(sentence)}</div></div>}
       </div>
       <div className="duo-quick">{quickTasks}</div>
       <div className="duo-widgets">{dashboard}</div>
