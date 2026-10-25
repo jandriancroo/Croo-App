@@ -42,7 +42,7 @@ export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
   return <div ref={rootRef} className="duo-dash" data-duo-theme={theme}>
     <div className="duo-dash-grid">
       <div className="duo-dash-intro"><Button variant="ghost" className="duo-date" onClick={() => setTheme(t => t === 'paper' ? 'oled' : 'paper')}>
-        {DateTime.now().setZone(timezone).toFormat('cccc, MMM d')}</Button>
+        <b>{DateTime.now().setZone(timezone).toFormat('cccc')}</b><span>{DateTime.now().setZone(timezone).toFormat('MMM d')}</span></Button>
         {sentence && <div className="duo-theo"><i aria-hidden /> <div>{emphasizeNumbers(sentence)}</div></div>}
       </div>
       <div className="duo-quick">{quickTasks}</div>
