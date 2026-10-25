@@ -172,3 +172,9 @@ html.duo .duo-dash .duo-scoreboard>div>div span{background:transparent!important
 html.duo .duo-dash .duo-scoreboard>div>div button span{color:inherit;background:transparent!important}
 html.duo .duo-dash .duo-cell-hero{display:flex;flex-direction:column;gap:4px;margin-top:8px}
 html.duo .duo-dash .duo-cell-grid{gap:12px;margin-top:10px;padding-top:10px}
+
+html.duo .duo-dash .duo-sales-cell{padding-top:12px;padding-bottom:12px}
+html.duo .duo-quick:not(:has(section)) .dash-section-title__label{font-size:0}
+html.duo .duo-quick:not(:has(section)) .dash-section-title__label:after{content:'QUICK TASKS';font-size:12px}
+html.duo .duo-dash .duo-quick:has(section) .quick-task-content{gap:0}
+html.duo .duo-dash [data-tour=dashboard-cubes]{min-height:200px}
