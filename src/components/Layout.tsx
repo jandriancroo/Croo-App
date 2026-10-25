@@ -980,7 +980,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         />
       )}
       {/* Duo open header — native dock owns location, Theo and Nudge controls. */}
-      {duo.isOpen && (
+      {duo.isOpen && !(location.pathname === '/dashboard' || location.pathname === '/') && (
         <header
           className="duo-open-header fixed top-0 left-0 z-50 bg-primary"
           style={{
@@ -1617,6 +1617,9 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       
       <main className={`container max-w-7xl mx-auto flex-1 px-safe pb-0 relative ${duo.isOpen ? 'duo-open-main' : isMobile ? 'pt-[var(--app-header-h,calc(env(safe-area-inset-top)+3.5rem))] pb-[calc(var(--app-dock-h,6rem)+0.75rem)]' : 'pt-1 py-8 pb-8'}`}>
         {duo.isOpen && (location.pathname === '/dashboard' || location.pathname === '/') ? (
+          /* New Duo Dash owns the whole open screen (tasks left, data right); no Schedule panel here. */
+          <>{children}</>
+        ) : duo.isOpen && false ? (
           /* Duo open, Dash tab: phone Dash on the left, phone Schedule on the right.
              Each panel scrolls on its own and renders the phone layout. */
           <DuoPanelContext.Provider value={true}>

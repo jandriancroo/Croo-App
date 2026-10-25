@@ -182,3 +182,14 @@ html.duo .duo-dash .quick-task-section:not(:has(.quick-task-content>*)){display:
 html.duo .duo-dash .quick-task-section:not(:has(.quick-task-content>*)):after{content:'All caught up';padding:12px 20px;font-size:15px;color:var(--duo-muted);border-block:1px solid var(--duo-line)}
 html.duo .duo-dash .duo-cell-grid small{line-height:14px}
 html.duo .duo-dash .duo-sales-summary>div:first-child{margin-bottom:6px!important}
+
+
+/* v2: calm the promo to match the demo (no seasonal lights/borders, neutral glass instead of orange) */
+html.duo .duo-dash [data-promo-border-layer]{display:none!important}
+html.duo .duo-dash [data-promo-hero] [role=tablist],html.duo .duo-dash [data-promo-hero] .bottom-3 [role=radiogroup],html.duo .duo-dash [data-promo-hero] .bottom-3>div:last-child{background:var(--duo-photo-glass)!important;box-shadow:inset 1.5px 1.5px 0 -.5px var(--duo-edge),inset -1px -1.5px 0 -.5px var(--duo-rim)!important}
+html.duo .duo-dash [data-promo-hero] .bottom-3 *{--tw-gradient-from:transparent;--tw-gradient-to:transparent}
+html.duo .duo-dash [data-promo-hero] .bottom-3 button:not([data-state=on]):not([aria-pressed=true]){background:transparent!important;color:var(--duo-photo-ink)!important}
+html.duo .duo-dash [data-promo-hero] .bg-card,html.duo .duo-dash [data-promo-hero] .bg-primary\/15{background:var(--duo-photo-glass)!important;color:var(--duo-photo-ink)!important;backdrop-filter:blur(26px) saturate(185%);-webkit-backdrop-filter:blur(26px) saturate(185%);box-shadow:inset 1.5px 1.5px 0 -.5px var(--duo-edge),inset -1px -1.5px 0 -.5px var(--duo-rim)!important}
+html.duo .duo-dash [data-promo-hero] .text-primary{color:var(--duo-photo-ink)!important}
+/* keep the native dock's controls from sitting under our own: Dash owns the right edge */
+html.duo .duo-dash .duo-actions{right:92px}
