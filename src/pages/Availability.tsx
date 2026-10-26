@@ -22,6 +22,7 @@ import { useAvailabilityData } from "@/hooks/useAvailabilityData";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { storeToday, countStatus } from "@/hooks/usePageStatus";
 
+import { DuoPage } from '@/components/duo/DuoPage';
 export default function Availability() {
   const data = useAvailabilityData();
   const activeRequests = data.requests.filter((r) => r.status !== "withdrawn");
@@ -68,6 +69,7 @@ export default function Availability() {
 
   return (
     <Layout>
+    <DuoPage>
       <div>
         <PageTitle color="indigo" status={availabilityStatus} action={
           <Button onClick={() => data.setRequestDialogOpen(true)}>
@@ -327,6 +329,7 @@ export default function Availability() {
           onSuccess={data.fetchData}
         />
       </div>
+    </DuoPage>
     </Layout>
   );
 }

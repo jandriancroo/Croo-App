@@ -13,6 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
+import { DuoPage } from '@/components/duo/DuoPage';
 interface LocationSalesData {
   locationId: string;
   locationName: string;
@@ -355,6 +356,7 @@ export default function FBCDashboard() {
 
   return (
     <Layout>
+    <DuoPage>
       <div className="[&>*:not(:first-child):not(:nth-child(2))]:mt-6">
         <PageTitle color="blue" subtitle="Brand-Level Overview Across Organizations">Brand Dash</PageTitle>
 
@@ -689,6 +691,7 @@ export default function FBCDashboard() {
           </Tabs>
         )}
       </div>
+    </DuoPage>
     </Layout>
   );
 }

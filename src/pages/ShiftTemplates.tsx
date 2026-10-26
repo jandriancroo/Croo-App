@@ -23,6 +23,7 @@ import { BreakEditor } from "@/components/schedule/BreakEditor";
 import { useBreakCoverageEnabled } from "@/hooks/useBreakCoverageEnabled";
 import { ShiftBreak, normalizeBreaks } from "@/types/shiftBreak";
 
+import { DuoPage } from '@/components/duo/DuoPage';
 interface ShiftTemplate {
   id: string;
   template_name: string;
@@ -319,6 +320,7 @@ export default function ShiftTemplates() {
 
   return (
     <Layout>
+    <DuoPage>
       <div className="[&>*:not(:first-child):not(:nth-child(2))]:mt-6">
         {/* Header */}
         <PageTitle color="blue" leading={
@@ -648,6 +650,7 @@ export default function ShiftTemplates() {
           }}
         />
       </div>
+    </DuoPage>
     </Layout>
   );
 }

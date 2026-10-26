@@ -11,6 +11,7 @@ import { OrgTotalsBar } from '@/components/org-dashboard/OrgTotalsBar';
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
 
+import { DuoPage } from '@/components/duo/DuoPage';
 const LA_TZ = 'America/Los_Angeles';
 
 function getLAToday(): string {
@@ -239,6 +240,7 @@ export default function MultiLocationDashboard() {
 
   return (
     <Layout>
+    <DuoPage>
       <div className="[&>*:not(:first-child):not(:nth-child(2))]:mt-4">
         <PageTitle color="blue" subtitle={<>{allLocations.length} store{allLocations.length !== 1 ? 's' : ''}</>}>{dashTitle}</PageTitle>
 
@@ -321,6 +323,7 @@ export default function MultiLocationDashboard() {
         locationIds={sortedLocationIds}
         period={period}
       />
+    </DuoPage>
     </Layout>
   );
 }

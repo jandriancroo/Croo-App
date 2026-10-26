@@ -544,7 +544,8 @@ export default function Settings() {
     'system-alerts': () => navigate('/super-admin/system-alerts'),
   };
   const duoPanelIds = visibleSections.filter((id) => !duoNavLinks[id] && id !== 'support-chats' && isSectionAvailable(id));
-  const duoDockId = duo.isDuo && duo.isOpen ? (duoSel && duoPanelIds.includes(duoSel) ? duoSel : duoPanelIds[0] ?? null) : null;
+  const supportDock = duo.isDuo && duo.isOpen && duoSel === 'support-chats';
+  const duoDockId = duo.isDuo && duo.isOpen && !supportDock ? (duoSel && duoPanelIds.includes(duoSel) ? duoSel : duoPanelIds[0] ?? null) : null;
   const duoSlideId = duo.isDuo && !duo.isOpen && duoSel && duoPanelIds.includes(duoSel) ? duoSel : null;
   useEffect(() => {
     if (!duo.isDuo) return;
@@ -577,7 +578,7 @@ export default function Settings() {
       <Layout>
         <div className={duo.isOpen ? 'duo-tasks-page duo-tasks-left duo-settings-page' : 'duo-tasks-page duo-settings-page'}>
           <PageTitle color="slate" status={null}>Settings</PageTitle>
-          {isSuperAdmin && <SupportInboxSheet open={supportInboxOpen} onOpenChange={setSupportInboxOpen} />}
+          {isSuperAdmin && !duo.isOpen && <SupportInboxSheet open={supportInboxOpen} onOpenChange={setSupportInboxOpen} />}
 
           {showPillSelector && (
             <div className="duo-tasks-ctl duo-ctl mb-2">
@@ -592,11 +593,10 @@ export default function Settings() {
           )}
 
           <div className="duo-set-list">
-            {isShiftManager && <Row icon={<GraduationCap className="h-5 w-5" />} title="Tour CrooHQ" onClick={() => window.dispatchEvent(new Event('start-croo-tour'))} />}
             {visibleSections.map((id) => {
               const info = SECTION_TITLES[id];
               if (!info) return null;
-              if (id === 'support-chats') return <Row key={id} icon={info.icon} title={info.title} badge={supportUnread} onClick={() => setSupportInboxOpen(true)} />;
+              if (id === 'support-chats') return <Row key={id} icon={info.icon} title={info.title} badge={supportUnread} selected={supportDock} onClick={() => (duo.isOpen ? setDuoSel('support-chats') : setSupportInboxOpen(true))} />;
               if (duoNavLinks[id]) return <Row key={id} icon={info.icon} title={info.title} onClick={duoNavLinks[id]} />;
               if (!isSectionAvailable(id)) return null;
               return <Row key={id} icon={info.icon} title={info.title} selected={duoDockId === id} onClick={() => setDuoSel(id)} />;
@@ -604,8 +604,10 @@ export default function Settings() {
             {activeTab === 'org' && currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin) && (
               <Row icon={<Building2 className="h-4 w-4" />} title="Edit Org Settings" onClick={() => navigate(`/organization/${currentOrgId}`)} />
             )}
+            {isShiftManager && activeTab === 'location' && <Row icon={<GraduationCap className="h-5 w-5" />} title="Tour CrooHQ" onClick={() => window.dispatchEvent(new Event('start-croo-tour'))} />}
           </div>
 
+          {supportDock && isSuperAdmin && <SupportInboxSheet open onOpenChange={() => setDuoSel(null)} docked />}
           {duoDockId && (
             <aside className="duo-tasks-dock duo-settings-dock">
               <h2 className="duo-set-h">{SECTION_TITLES[duoDockId]?.title}</h2>

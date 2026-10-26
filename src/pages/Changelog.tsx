@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 
+import { DuoPage } from '@/components/duo/DuoPage';
 interface ChangelogEntry {
   id: string;
   entry_date: string;
@@ -107,6 +108,7 @@ export default function Changelog() {
 
   return (
     <Layout>
+    <DuoPage>
       <div className="max-w-3xl mx-auto">
         <PageTitle
           color="sky"
@@ -229,6 +231,7 @@ export default function Changelog() {
           </DialogContent>
         </Dialog>
       </div>
+    </DuoPage>
     </Layout>
   );
 }

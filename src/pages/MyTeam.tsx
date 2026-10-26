@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { getDisplayName, getInitials } from '@/utils/displayName';
 import { queryKeys } from '@/lib/queryKeys';
 
+import { DuoPage } from '@/components/duo/DuoPage';
 interface TeamMember {
   id: string;
   full_name: string | null;
@@ -103,6 +104,7 @@ export default function MyTeam() {
 
   return (
     <Layout>
+    <DuoPage>
       <div>
         <PageTitle color="emerald" subtitle={
           <>{teamMembers.length} team member{teamMembers.length !== 1 ? 's' : ''} at {currentLocation?.name || 'this location'}</>
@@ -157,6 +159,7 @@ export default function MyTeam() {
           </div>
         )}
       </div>
+    </DuoPage>
     </Layout>
   );
 }

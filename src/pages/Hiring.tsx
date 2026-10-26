@@ -40,6 +40,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useTodayCount, countStatus } from '@/hooks/usePageStatus';
 
+import { DuoPage } from '@/components/duo/DuoPage';
 const formatTime12 = (t: string) => {
   const [h, m] = t.split(':').map(Number);
   const h12 = h % 12 === 0 ? 12 : h % 12;
@@ -498,6 +499,7 @@ export default function Hiring() {
 
   return (
     <Layout>
+    <DuoPage>
       <div>
         {/* Header */}
         <PageTitle color="purple" status={applicantsText ? { text: applicantsText } : undefined} subtitle={(organization as any).brand_name ? (
@@ -1072,6 +1074,7 @@ export default function Hiring() {
           isUpdating={isBulkUpdating}
         />
       </div>
+    </DuoPage>
     </Layout>
   );
 }

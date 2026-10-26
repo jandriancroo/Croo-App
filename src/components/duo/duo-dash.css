@@ -361,7 +361,7 @@ html.duo.duo-open .duo-widgets>div{padding-top:0!important}
 /* v17: Chat. Open mode = feed on the left half, DM inbox docked on the right half (list left, detail right). Folded = DM inbox is a slide-over. */
 html.duo .duo-dm-dock,html.duo .duo-slide{}
 html.duo .duo-dm-dock{--background:40 36% 91%;--foreground:32 15% 21%;--card:40 36% 93%;--card-foreground:32 15% 21%;--popover:40 36% 93%;--popover-foreground:32 15% 21%;--muted:40 25% 85%;--muted-foreground:32 9% 46%;--border:32 20% 78%;--input:32 20% 78%;--accent:40 30% 84%;--accent-foreground:32 15% 21%;--secondary:40 25% 85%;--secondary-foreground:32 15% 21%;--primary:139 20% 50%;--primary-foreground:0 0% 100%;--ring:139 20% 50%}
-html.duo[data-duo-theme=oled] .duo-dm-dock{--background:0 0% 9%;--foreground:0 0% 93%;--card:0 0% 11%;--card-foreground:0 0% 93%;--popover:0 0% 11%;--popover-foreground:0 0% 93%;--muted:0 0% 15%;--muted-foreground:240 3% 58%;--border:0 0% 22%;--input:0 0% 22%;--accent:0 0% 19%;--accent-foreground:0 0% 93%;--secondary:0 0% 15%;--secondary-foreground:0 0% 93%}
+html.duo[data-duo-theme=oled] .duo-dm-dock{--background:0 0% 3%;--foreground:0 0% 93%;--card:0 0% 11%;--card-foreground:0 0% 93%;--popover:0 0% 11%;--popover-foreground:0 0% 93%;--muted:0 0% 15%;--muted-foreground:240 3% 58%;--border:0 0% 22%;--input:0 0% 22%;--accent:0 0% 19%;--accent-foreground:0 0% 93%;--secondary:0 0% 15%;--secondary-foreground:0 0% 93%}
 html.duo.duo-open .duo-dm-dock{position:fixed;top:0;bottom:0;right:0;left:calc(50% + 20px);z-index:30;background:hsl(var(--background));color:hsl(var(--foreground));padding-top:16px;border-left:1px solid hsl(var(--border));overflow:hidden}
 html.duo.duo-open .duo-chat-left{max-width:calc(50% - 20px);margin:0;padding-top:64px}
 html.duo.duo-open .duo-chat-left [aria-label="Open direct messages"]{display:none}
@@ -714,3 +714,57 @@ html.duo .duo-tasks-page .duo-loc-card [class*="bg-muted"]{background:hsl(var(--
 /* v55 — DuoPage shell: flat open-style cards on admin sub-pages */
 html.duo .duo-page-flat [class*="rounded-2xl"][class*="bg-card"],html.duo .duo-page-flat [class*="rounded-lg"][class*="bg-card"]{background:transparent!important;border:0!important;border-bottom:1px solid hsl(var(--border))!important;border-radius:0!important;box-shadow:none!important}
 html.duo .duo-page-flat table{font-size:15px}
+
+/* v56: bigger menu handle (+~15%) with a wide invisible tap area */
+html.duo .duo-handle{width:19px;min-width:19px;height:88px;border-radius:0 14px 14px 0;overflow:visible}
+html.duo .duo-handle::before{content:"";position:absolute;left:0;top:-22px;bottom:-22px;width:44px}
+/* v56: book-spine crease (open mode, app-wide). Replaces the hard divider; right pane keeps a barely-there lift. */
+html.duo.duo-open .duo-tasks-dock,html.duo.duo-open .duo-run-dock,html.duo.duo-open .duo-dm-dock{border-left:0!important}
+html.duo.duo-open .duo-editor-dock{border-left:0!important}
+html.duo.duo-open .duo-tasks-dock::before,html.duo.duo-open .duo-run-dock::before,html.duo.duo-open .duo-dm-dock::before,html.duo.duo-open .duo-editor-dock::before{content:"";position:fixed;top:0;bottom:0;left:calc(50% - 20px);width:40px;pointer-events:none;z-index:31;background:linear-gradient(90deg,transparent,rgba(70,45,20,.16) 50%,transparent)}
+html.duo.duo-open[data-duo-theme=oled] .duo-tasks-dock::before,html.duo.duo-open[data-duo-theme=oled] .duo-run-dock::before,html.duo.duo-open[data-duo-theme=oled] .duo-dm-dock::before,html.duo.duo-open[data-duo-theme=oled] .duo-editor-dock::before{background:linear-gradient(90deg,transparent,rgba(255,255,255,.09) 50%,transparent)}
+html.duo.duo-open[data-duo-theme=oled] .duo-tasks-dock{--background:0 0% 3%}
+/* v56: left pane ends exactly at the gutter edge (main's right padding was shrinking the 50%) */
+html.duo.duo-open:has(.duo-tasks-left) main{padding-right:0!important}
+html.duo.duo-open .duo-tasks-left{width:calc(50vw - 20px - var(--duo-col-left,0px));max-width:none}
+/* v56: docked panes: rules/backgrounds reach a 16px inset like the left pane; text stays clear of Apple's column */
+html.duo.duo-open .duo-tasks-dock,html.duo.duo-open .duo-run-dock,html.duo.duo-open .duo-editor-dock{padding-right:16px!important}
+html.duo.duo-open .duo-tasks-dock>*,html.duo.duo-open .duo-run-dock>*,html.duo.duo-open .duo-editor-dock>*{padding-right:calc(max(var(--duo-col-right,0px),104px) - 16px)}
+/* v56: Users dock: Save bar pinned to the true bottom */
+html.duo .duo-users-dock{padding-bottom:0!important}
+
+/* v57: menu Time group + theme switch */
+html.duo .duo-menu-title .duo-menu-name{margin-right:auto}
+html.duo .duo-theme-switch{display:flex;gap:2px;padding:2px;border-radius:16px;background:var(--duo-fill);margin-right:6px}
+html.duo .duo-theme-switch>button{width:30px;height:28px;min-width:30px;padding:0;border-radius:14px;color:var(--duo-muted)}
+html.duo .duo-theme-switch>button.duo-on{background:var(--duo-selected);color:var(--duo-ink)}
+html.duo .duo-menu-group{justify-content:flex-start}
+html.duo .duo-group-chev{margin-left:auto;opacity:.6;transition:transform .2s}
+html.duo .duo-group-chev.duo-open{transform:rotate(180deg)}
+html.duo .duo-menu-sub{padding-left:46px!important;font-size:.94em}
+/* v57: app-level background so back-navigation never flashes the default cream */
+html.duo[data-duo-theme=oled]{background:#000}
+html.duo[data-duo-theme=paper]{background:#EFE7D8}
+
+/* v58: Ovation bubble pops out of its menu row */
+html.duo .duo-ovb-scrim{position:fixed;inset:0;z-index:63;background:transparent}
+html.duo .duo-ovb{position:fixed;left:14px;width:min(264px,calc(100vw - 28px));z-index:64;border-radius:20px;padding:14px 14px 8px;color:var(--duo-ink);transform-origin:50px -8px;animation:duo-ovb-in .28s cubic-bezier(.32,.72,0,1)}
+html.duo .duo-ovb-tail{position:absolute;top:-6px;left:40px;width:14px;height:14px;transform:rotate(45deg);background:inherit;border-radius:3px;backdrop-filter:inherit;-webkit-backdrop-filter:inherit}
+html.duo .duo-ovb-head{display:flex;align-items:center;gap:10px}
+html.duo .duo-ovb-head img{width:26px;height:26px;object-fit:contain}
+html.duo .duo-ovb-head>div{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.2}
+html.duo .duo-ovb-head b{font-size:14px;font-weight:600}
+html.duo .duo-ovb-head small{font-size:11px;color:var(--duo-muted)}
+html.duo .duo-ovb .duo-ovation-score{background:var(--duo-selected);color:var(--duo-ink);font-size:17px;min-width:44px}
+html.duo .duo-ovb-body{padding:10px 2px 4px;max-height:34vh;overflow-y:auto;cursor:pointer}
+html.duo .duo-ovb-who{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin-bottom:6px}
+html.duo .duo-ovb-who small{font-weight:400;color:var(--duo-muted)}
+html.duo .duo-ovb-body p{font-size:14px;line-height:1.45;margin:0}
+html.duo .duo-ovb-empty{color:var(--duo-muted);font-style:italic}
+html.duo .duo-ovb-nav{display:flex;align-items:center;justify-content:space-between;color:var(--duo-muted);font-size:12px}
+html.duo .duo-ovb-nav .duo-ovation-arrow{width:38px;height:34px;color:var(--duo-ink)}
+@keyframes duo-ovb-in{from{opacity:0;transform:scale(.6) translateY(-8px)}to{opacity:1;transform:none}}
+
+/* v59: Chat inbox selector = standard compact pill */
+html.duo .duo-inbox-seg{height:34px;width:fit-content}
+html.duo .duo-inbox-seg>button{font-size:14px;padding:0 14px}

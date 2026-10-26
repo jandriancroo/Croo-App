@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Send, CheckCircle, Image, Loader2, Clock, User, ArrowLeft, Zap, CheckCheck, Check, Ticket, Trash2 } from 'lucide-react';
 import {
@@ -173,7 +174,7 @@ function TicketRow({
   );
 }
 
-export function SupportChatPanel() {
+export function SupportChatPanel({ chatAsSlide = false }: { chatAsSlide?: boolean } = {}) {
   const { isSuperAdmin } = useUserRole();
   // Panel is always narrow (rendered inside slideover), so use single-column list-or-chat layout
   const isMobile = true;
@@ -433,7 +434,7 @@ export function SupportChatPanel() {
 
   // Mobile: show either list OR chat, not both
   if (isMobile) {
-    if (selectedTicket) {
+    const renderChat = () => {
       const resolved = selectedTicket.status === 'resolved';
       const bubble = (own: boolean) => `max-w-[80%] rounded-2xl px-3 py-2 ${own ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`;
       // Chat view, DM look: header, cream thread, gray left / teal right bubbles
@@ -611,7 +612,8 @@ export function SupportChatPanel() {
           )}
         </div>
       );
-    }
+    };
+    if (selectedTicket && !chatAsSlide) return renderChat();
 
     // Ticket list: Open first, then Resolved
     const openTickets = tickets.filter((t) => t.status !== 'resolved');
@@ -619,6 +621,14 @@ export function SupportChatPanel() {
     const sectionLabel = 'px-4 pt-3 pb-1 text-[11.5px] font-bold uppercase tracking-[0.06em] text-muted-foreground';
     return (
       <div className="flex flex-col h-full">
+        {chatAsSlide && (
+          <Dialog open={!!selectedTicket} onOpenChange={(o) => !o && setSelectedTicket(null)}>
+            <DialogContent className="duo-slide p-0 flex flex-col overflow-hidden">
+              <DialogTitle className="sr-only">Support chat</DialogTitle>
+              {selectedTicket && renderChat()}
+            </DialogContent>
+          </Dialog>
+        )}
         <ScrollArea className="flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block">
           {openTickets.length > 0 && <p className={sectionLabel}>Open · {openTickets.length}</p>}
           <div className="divide-y divide-border/50">

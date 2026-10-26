@@ -11,6 +11,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 
+import { DuoPage } from '@/components/duo/DuoPage';
 export default function MyTimecard() {
   const [periodOffset, setPeriodOffset] = useState(0);
   const { hasPermission } = useRolePermissions();
@@ -44,6 +45,7 @@ export default function MyTimecard() {
 
   return (
     <Layout>
+    <DuoPage>
       <div className="space-y-4 [&>div:nth-child(2)]:!mt-0">
         <PageTitle color="amber">My Timecard</PageTitle>
         <div>
@@ -204,6 +206,7 @@ export default function MyTimecard() {
           </Card>
         )}
       </div>
+    </DuoPage>
     </Layout>
   );
 }

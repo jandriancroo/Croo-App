@@ -38,3 +38,12 @@ Billing, Reporting, Punch Clock Customization, Brand Management, Plan Catalogs (
 
 ## Not touched
 Schedule, Inventory, Hiring, Timecard pages, Availability, My Team (My Team still uses the old layout), Dynamic checklist calendar, Testing checklist.
+
+## Oct 25 evening pass (voice-review list) - built, NOT committed (waiting for "ship")
+- Menu handle: 19x88 tab + 44px-wide invisible tap area. Crease: dock `::before` book-spine fade (Paper warm shadow / OLED faint glow), hard divider removed, OLED right pane lifted to 3%. Left pane width now `50vw - 20px` (main's right padding was shrinking it). Docked panes: 16px inset for rules, children keep text clear of Apple's column.
+- Users Save bar: dock bottom padding 0, sticky, solid bg, right inset for the orb. Settings: Tour CrooHQ only at bottom of Location tab.
+- Theme: src/lib/duoTheme.ts (Auto/Paper/OLED, localStorage), switch next to CrooHQ in the menu; Dash date no longer toggles. html background follows theme (beige-flash fix, unverified).
+- Menu: collapsible Time group (My Timecard, Availability, Time Tracking), opens on those pages. Ovation: bubble pops out of its row (DuoOvation rewritten, no dialog).
+- Chat inbox selector: Duo uses SegmentedControl pill, themed header. Support chats: docked list in open mode, conversation as duo-slide.
+- DuoPage shell added to: My Timecard, Availability, My Team, Dynamic checklist calendar, Schedule, Hiring (main render), Time Tracking (PayrollReview), Testing checklist, Shift templates, Week template builder, Submission details, Temperature validation, Changelog, Multi-location dashboard, Brand dashboard, Create/Edit checklist.
+- NOT done: Inventory family (locked, waits for "unlock please"), KDS, real master/detail + orb actions for Hiring/Schedule/Time pages (theme only so far), per-page duplicate slide-over audit, haptics.
