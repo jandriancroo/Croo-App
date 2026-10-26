@@ -513,7 +513,7 @@ export function EditShiftForm({
       )}
 
       </div>
-      <div className="shrink-0 border-t px-5 py-3 flex justify-end gap-2">
+      <div className="shrink-0 border-t px-6 py-3 flex justify-end gap-2">
         <Button variant="destructive" size="icon" onClick={onDelete} disabled={saving} className="shrink-0 mr-auto" aria-label="Delete All" title="Delete All">
           <Trash2 className="h-4 w-4" />
         </Button>
