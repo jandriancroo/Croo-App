@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Trash2 } from 'lucide-react';
-import { BreakRow, AddBreakButton } from '@/components/breaks/BreakRow';
+import { ShiftCardFields } from '@/components/timecard/ShiftCardFields';
 import {
   toISOStringInTimezone,
   formatDateTimeInTimezone,
@@ -431,45 +430,38 @@ export function EditShiftForm({
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
-      <div className="flex-1 min-h-0 overflow-y-auto px-5 py-3 space-y-2">
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
       <div className="text-sm text-muted-foreground mb-2">
         {formatDateTimeInTimezone(parseDateStringInTimezone(shiftDate, timezone), timezone, {
           weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
         })}
       </div>
-      <div className="grid grid-cols-[52px_1fr_1fr_52px_28px] gap-2 items-center px-2 text-xs text-muted-foreground">
-        <span /><span>In</span><span>Out</span><span className="text-right">Hrs</span><span />
-      </div>
       {shiftStates.map((shift, idx) => (
-        <div key={idx} className="p-2 border rounded-lg space-y-2">
-          <div className="grid grid-cols-[52px_1fr_1fr_52px_28px] gap-2 items-center">
-            <span className="text-xs font-medium">Shift {idx + 1}</span>
-            <div className="relative min-w-0">
-              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[hsl(var(--clock-in))]" />
-              <Input type="time" aria-label={`Shift ${idx + 1} clock in`} className="h-9 min-h-0 w-full min-w-0 pl-4 pr-1 !text-xs [&::-webkit-calendar-picker-indicator]:hidden" value={shift.clockInTime} onChange={(e) => updateShift(idx, { clockInTime: e.target.value })} />
-            </div>
-            <div className="relative min-w-0">
-              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[hsl(var(--clock-out))]" />
-              <Input type="time" aria-label={`Shift ${idx + 1} clock out`} className="h-9 min-h-0 w-full min-w-0 pl-4 pr-1 !text-xs [&::-webkit-calendar-picker-indicator]:hidden" value={shift.clockOutTime} onChange={(e) => updateShift(idx, { clockOutTime: e.target.value })} />
-            </div>
-            <span className="text-xs tabular-nums text-right text-muted-foreground">
-              {shift.clockInTime && shift.clockOutTime ? (
-                ((Number(shift.clockOutTime.slice(0, 2)) * 60 + Number(shift.clockOutTime.slice(3, 5)) - Number(shift.clockInTime.slice(0, 2)) * 60 - Number(shift.clockInTime.slice(3, 5)) + (Number(shift.clockOutTime.slice(0, 2)) < Number(shift.clockInTime.slice(0, 2)) ? 1440 : 0)) - shift.breaks.reduce((minutes, brk) => minutes + (brk.type === 'unpaid' && brk.startTime && brk.endTime ? Number(brk.endTime.slice(0, 2)) * 60 + Number(brk.endTime.slice(3, 5)) - Number(brk.startTime.slice(0, 2)) * 60 - Number(brk.startTime.slice(3, 5)) : 0), 0)) / 60
-              ).toFixed(2) : '—'}
-            </span>
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 p-0 text-destructive" aria-label="Delete shift" title="Delete shift" onClick={() => setDeletingShiftIdx(idx)} disabled={saving}>
-              <Trash2 className="h-3.5 w-3.5" />
+        <ShiftCardFields
+          key={idx}
+          title={`Shift ${idx + 1}`}
+          clockIn={shift.clockInTime}
+          clockOut={shift.clockOutTime}
+          onClockIn={(v) => updateShift(idx, { clockInTime: v })}
+          onClockOut={(v) => updateShift(idx, { clockOutTime: v })}
+          breaks={shift.breaks.map((b, i) => ({ key: `${b.id || 'new'}-${i}`, ...b }))}
+          onBreakChange={(bIdx, patch) => updateShift(idx, { breaks: shift.breaks.map((b, i) => i === bIdx ? { ...b, ...patch } : b) })}
+          onBreakRemove={(bIdx) => updateShift(idx, { breaks: shift.breaks.filter((_, i) => i !== bIdx) })}
+          onAddBreak={() => updateShift(idx, { breaks: [...shift.breaks, { startTime: '', endTime: '', type: 'unpaid' }] })}
+          addBreakDisabled={!shift.clockInTime}
+          headerAction={
+            <Button size="xs"
+              type="button"
+              variant="ghost"
+              className="text-destructive hover:text-destructive px-2 text-xs"
+              onClick={() => setDeletingShiftIdx(idx)}
+              disabled={saving}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              Delete
             </Button>
-          </div>
-          <div className="ml-[60px] space-y-1.5">
-            {shift.breaks.map((brk, bIdx) => (
-              <BreakRow key={`${brk.id || 'new'}-${bIdx}`} value={brk}
-                onChange={patch => updateShift(idx, { breaks: shift.breaks.map((b, i) => i === bIdx ? { ...b, ...patch } : b) })}
-                onRemove={() => updateShift(idx, { breaks: shift.breaks.filter((_, i) => i !== bIdx) })} />
-            ))}
-            <AddBreakButton disabled={!shift.clockInTime} onClick={() => updateShift(idx, { breaks: [...shift.breaks, { startTime: '', endTime: '', type: 'unpaid' }] })} />
-          </div>
-        </div>
+          }
+        />
       ))}
 
       <Button
@@ -520,7 +512,7 @@ export function EditShiftForm({
       )}
 
       </div>
-      <div className="shrink-0 border-t px-5 py-3 flex justify-end gap-2">
+      <div className="shrink-0 border-t px-6 py-3 flex justify-end gap-2">
         <Button variant="destructive" size="icon" onClick={onDelete} disabled={saving} className="shrink-0 mr-auto" aria-label="Delete All" title="Delete All">
           <Trash2 className="h-4 w-4" />
         </Button>
