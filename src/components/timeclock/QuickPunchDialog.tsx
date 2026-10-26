@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Clock, LogOut } from 'lucide-react';
-import { BreakRow, AddBreakButton } from '@/components/breaks/BreakRow';
+import { ShiftCardFields } from '@/components/timecard/ShiftCardFields';
 import { getDisplayName } from '@/utils/displayName';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
@@ -369,8 +369,8 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm duo-punch-dialog">
-        <DialogHeader>
+      <DialogContent className="max-w-sm duo-punch-dialog max-h-[calc(100dvh-2rem)] sm:max-h-[85dvh] flex flex-col gap-0 p-0">
+        <DialogHeader className="shrink-0 px-6 pt-6 pb-3 border-b">
           <DialogTitle className="flex items-center gap-2">
             {mode === 'punchout' ? (
               <>
@@ -392,7 +392,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4 py-2">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
           {/* Date */}
           <div className="space-y-2">
             <Label>Date</Label>
