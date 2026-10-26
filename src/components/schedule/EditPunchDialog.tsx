@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { BreakRow, AddBreakButton } from '@/components/breaks/BreakRow';
+import { ShiftCardFields } from '@/components/timecard/ShiftCardFields';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { punchFingerprint, friendlyPunchError, must, STALE_SHIFT_MESSAGE } from '@/lib/punchEditGuard';
@@ -455,24 +455,24 @@ export function EditPunchDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
-          className="max-w-sm duo-edit-punch max-h-[calc(100dvh-3rem)] flex flex-col"
+          className="max-w-sm duo-edit-punch max-h-[calc(100dvh-2rem)] sm:max-h-[85dvh] flex flex-col gap-0 p-0"
           onOpenAutoFocus={(e) => {
             // Prevent Radix from auto-focusing the first input (iOS opens the native time picker immediately)
             e.preventDefault();
           }}
         >
-          <DialogHeader className="shrink-0">
+          <DialogHeader className="shrink-0 px-6 pt-6 pb-3 border-b">
             <DialogTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
               Edit Punch
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
           {loading ? (
             <div className="py-8 text-center text-muted-foreground">Loading...</div>
           ) : (
-            <div className="space-y-4 py-4">
+            <div className="space-y-4">
               {/* Date Display */}
               <div className="text-center p-2 bg-muted rounded-lg">
                 <span className="text-sm font-medium">{formattedDate}</span>
