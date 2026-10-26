@@ -14,7 +14,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
-import { BreakRow, AddBreakButton } from '@/components/breaks/BreakRow';
+import { ShiftCardFields } from '@/components/timecard/ShiftCardFields';
 
 interface Profile {
   id: string;
@@ -281,15 +281,15 @@ export function QuickPunchDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm duo-punch-dialog">
-        <DialogHeader>
+      <DialogContent className="max-w-sm duo-punch-dialog max-h-[calc(100dvh-2rem)] sm:max-h-[85dvh] flex flex-col gap-0 p-0">
+        <DialogHeader className="shrink-0 px-6 pt-6 pb-3 border-b">
           <DialogTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
             Quick Punch
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
           {/* Date Selector */}
           <div className="space-y-2">
             <Label>Date</Label>
