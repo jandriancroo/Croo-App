@@ -465,67 +465,58 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
             </div>
           ) : (
             <>
-              {/* Time Inputs for new shift */}
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+              {/* Time Inputs + Breaks for new shift */}
+              <ShiftCardFields
+                title="Shift"
+                clockIn={clockIn}
+                clockOut={clockOut}
+                onClockIn={setClockIn}
+                onClockOut={setClockOut}
+                clockOutSlot={showClockOut ? (
                   <div className="space-y-2">
-                    <Label>Clock In</Label>
-                    <Input
-                      type="time"
-                      value={clockIn}
-                      onChange={(e) => setClockIn(e.target.value)}
-                    />
-                  </div>
-                  {showClockOut ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label>Clock Out</Label>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-11 text-xs text-muted-foreground"
-                          onClick={() => {
-                            setShowClockOut(false);
-                            setClockOut('');
-                          }}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                      <Input
-                        type="time"
-                        value={clockOut}
-                        onChange={(e) => setClockOut(e.target.value)}
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex items-end">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-red-500" />
+                      Clock Out
                       <Button
                         type="button"
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => setShowClockOut(true)}
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-muted-foreground ml-auto"
+                        onClick={() => {
+                          setShowClockOut(false);
+                          setClockOut('');
+                        }}
                       >
-                        + Clock Out
+                        Remove
                       </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                {breaks.map((brk, index) => (
-                  <BreakRow key={index} value={brk}
-                    onChange={patch => {
-                      if (patch.type !== undefined) updateBreak(index, 'type', patch.type);
-                      if (patch.startTime !== undefined) updateBreak(index, 'startTime', patch.startTime);
-                      if (patch.endTime !== undefined) updateBreak(index, 'endTime', patch.endTime);
-                    }}
-                    onRemove={() => removeBreak(index)} />
-                ))}
-                {breaks.length === 0 && <AddBreakButton onClick={addBreak} disabled={!clockIn} hint={!clockIn ? 'Enter clock-in first' : undefined} />}
-              </div>
+                    </label>
+                    <Input
+                      type="time"
+                      value={clockOut}
+                      onChange={(e) => setClockOut(e.target.value)}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setShowClockOut(true)}
+                    >
+                      + Clock Out
+                    </Button>
+                  </div>
+                )}
+                breaks={breaks.map((b, i) => ({ key: `${i}`, ...b }))}
+                onBreakChange={(index, patch) => {
+                  if (patch.type !== undefined) updateBreak(index, 'type', patch.type);
+                  if (patch.startTime !== undefined) updateBreak(index, 'startTime', patch.startTime);
+                  if (patch.endTime !== undefined) updateBreak(index, 'endTime', patch.endTime);
+                }}
+                onBreakRemove={(index) => removeBreak(index)}
+                onAddBreak={addBreak}
+              />
 
               {!showClockOut && (
                 <p className="text-xs text-muted-foreground text-center">
@@ -536,7 +527,7 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
           )}
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="shrink-0 border-t px-6 py-3 gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
             Cancel
           </Button>
