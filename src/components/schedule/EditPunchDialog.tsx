@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { BreakRow, AddBreakButton } from '@/components/breaks/BreakRow';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { punchFingerprint, friendlyPunchError, must, STALE_SHIFT_MESSAGE } from '@/lib/punchEditGuard';
@@ -455,19 +455,20 @@ export function EditPunchDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
-          className="max-w-sm duo-edit-punch"
+          className="max-w-sm duo-edit-punch max-h-[calc(100dvh-3rem)] flex flex-col"
           onOpenAutoFocus={(e) => {
             // Prevent Radix from auto-focusing the first input (iOS opens the native time picker immediately)
             e.preventDefault();
           }}
         >
-          <DialogHeader>
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
               Edit Punch
             </DialogTitle>
           </DialogHeader>
 
+          <div className="flex-1 min-h-0 overflow-y-auto">
           {loading ? (
             <div className="py-8 text-center text-muted-foreground">Loading...</div>
           ) : (
@@ -542,83 +543,23 @@ export function EditPunchDialog({
                 </div>
               </div>
 
-              {/* Breaks Section - only show if clock-in time exists */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Breaks</Label>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm"
-                    onClick={addBreak}
-                    disabled={!clockInTime}
-                    title={!clockInTime ? 'Enter clock-in time first' : undefined}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Break
-                  </Button>
-                </div>
-                
-                {!clockInTime ? (
-                  <p className="text-xs text-muted-foreground">Enter clock-in time to add breaks</p>
-                ) : breaks.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No breaks recorded</p>
-                ) : null}
-                
+              <div className="space-y-1.5">
                 {breaks.map((brk, index) => (
-                  <div key={index} className="space-y-2 p-3 border rounded-lg bg-background">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-medium">Break {index + 1}</Label>
-                      <Button size="icon-sm"
-                        type="button"
-                        variant="ghost"
-                        className=""
-                        onClick={() => removeBreak(index)}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    
-                    <Select 
-                      value={brk.type} 
-                      onValueChange={(v) => updateBreak(index, 'type', v)}
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="paid">Paid (10 min)</SelectItem>
-                        <SelectItem value="unpaid">Unpaid (30 min)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    
-                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
-                      <div className="min-w-0 space-y-1">
-                        <Label className="text-xs">Start</Label>
-                        <Input
-                          type="time"
-                          className="h-8 w-full min-w-0 text-sm"
-                          value={brk.startTime}
-                          onChange={(e) => updateBreak(index, 'startTime', e.target.value)}
-                        />
-                      </div>
-                      <div className="min-w-0 space-y-1">
-                        <Label className="text-xs">End</Label>
-                        <Input
-                          type="time"
-                          className="h-8 w-full min-w-0 text-sm"
-                          value={brk.endTime}
-                          onChange={(e) => updateBreak(index, 'endTime', e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <BreakRow key={index} value={brk}
+                    onChange={patch => {
+                      if (patch.type !== undefined) updateBreak(index, 'type', patch.type);
+                      if (patch.startTime !== undefined) updateBreak(index, 'startTime', patch.startTime);
+                      if (patch.endTime !== undefined) updateBreak(index, 'endTime', patch.endTime);
+                    }}
+                    onRemove={() => removeBreak(index)} />
                 ))}
+                <AddBreakButton onClick={addBreak} disabled={!clockInTime} hint={!clockInTime ? 'Enter clock-in first' : undefined} />
               </div>
             </div>
           )}
 
-          <DialogFooter className="gap-2">
+          </div>
+          <DialogFooter className="shrink-0 flex-row items-center gap-2">
             <Button 
               variant="destructive" 
               size="icon"

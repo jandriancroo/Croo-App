@@ -2817,6 +2817,7 @@ html.duo .duo-drawer {
 /* Named dialogs: Edit Punch wider; Quick Punch / New Shift scroll instead of
    cutting off; Quick Task wraps instead of truncating. */
 html.duo .duo-edit-punch {
+  max-height: calc(100dvh - 3rem);
   max-width: min(36rem, calc(100vw - var(--duo-col-left, 0px) - var(--duo-col-right, 0px) - 3rem));
 }
 html.duo .duo-punch-dialog,
