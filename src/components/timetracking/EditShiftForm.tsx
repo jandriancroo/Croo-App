@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Trash2 } from 'lucide-react';
-import { BreakRow, AddBreakButton } from '@/components/breaks/BreakRow';
+import { ShiftCardFields } from '@/components/timecard/ShiftCardFields';
 import {
   toISOStringInTimezone,
   formatDateTimeInTimezone,
