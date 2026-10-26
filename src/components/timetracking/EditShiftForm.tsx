@@ -431,14 +431,11 @@ export function EditShiftForm({
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
-      <div className="flex-1 min-h-0 overflow-y-auto px-5 py-3 space-y-2">
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4">
       <div className="text-sm text-muted-foreground mb-2">
         {formatDateTimeInTimezone(parseDateStringInTimezone(shiftDate, timezone), timezone, {
           weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
         })}
-      </div>
-      <div className="grid grid-cols-[52px_1fr_1fr_52px_28px] gap-2 items-center px-2 text-xs text-muted-foreground">
-        <span /><span>In</span><span>Out</span><span className="text-right">Hrs</span><span />
       </div>
       {shiftStates.map((shift, idx) => (
         <div key={idx} className="p-2 border rounded-lg space-y-2">
