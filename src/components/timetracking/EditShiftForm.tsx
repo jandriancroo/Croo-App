@@ -446,11 +446,11 @@ export function EditShiftForm({
             <span className="text-xs font-medium">Shift {idx + 1}</span>
             <div className="relative min-w-0">
               <span className="absolute left-1.5 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[hsl(var(--clock-in))]" />
-              <Input type="time" aria-label={`Shift ${idx + 1} clock in`} className="h-9 w-full min-w-0 pl-4 pr-1 text-xs" value={shift.clockInTime} onChange={(e) => updateShift(idx, { clockInTime: e.target.value })} />
+              <Input type="time" aria-label={`Shift ${idx + 1} clock in`} className="h-9 min-h-0 w-full min-w-0 pl-4 pr-1 !text-xs [&::-webkit-calendar-picker-indicator]:hidden" value={shift.clockInTime} onChange={(e) => updateShift(idx, { clockInTime: e.target.value })} />
             </div>
             <div className="relative min-w-0">
               <span className="absolute left-1.5 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[hsl(var(--clock-out))]" />
-              <Input type="time" aria-label={`Shift ${idx + 1} clock out`} className="h-9 w-full min-w-0 pl-4 pr-1 text-xs" value={shift.clockOutTime} onChange={(e) => updateShift(idx, { clockOutTime: e.target.value })} />
+              <Input type="time" aria-label={`Shift ${idx + 1} clock out`} className="h-9 min-h-0 w-full min-w-0 pl-4 pr-1 !text-xs [&::-webkit-calendar-picker-indicator]:hidden" value={shift.clockOutTime} onChange={(e) => updateShift(idx, { clockOutTime: e.target.value })} />
             </div>
             <span className="text-xs tabular-nums text-right text-muted-foreground">
               {shift.clockInTime && shift.clockOutTime ? (
@@ -521,9 +521,8 @@ export function EditShiftForm({
 
       </div>
       <div className="shrink-0 border-t px-5 py-3 flex justify-end gap-2">
-        <Button variant="destructive" onClick={onDelete} disabled={saving} className="gap-2 mr-auto">
+        <Button variant="destructive" size="icon" onClick={onDelete} disabled={saving} className="shrink-0 mr-auto" aria-label="Delete All" title="Delete All">
           <Trash2 className="h-4 w-4" />
-          Delete All
         </Button>
         <div className="flex gap-2">
           <Button variant="outline" onClick={onCancel} disabled={saving}>Cancel</Button>

@@ -28,8 +28,8 @@ export function BreakRow({ value, onChange, onRemove, disabled, className }: {
           <SelectItem value="paid">Paid (10m)</SelectItem>
         </SelectContent>
       </Select>
-      <Input type="time" aria-label="Break start" className="h-8 w-full min-w-0 px-1 text-xs" value={value.startTime} onChange={e => onChange({ startTime: e.target.value })} disabled={disabled} />
-      <Input type="time" aria-label="Break end" className="h-8 w-full min-w-0 px-1 text-xs" value={value.endTime} onChange={e => onChange({ endTime: e.target.value })} disabled={disabled} />
+      <Input type="time" aria-label="Break start" className="h-8 min-h-0 w-full min-w-0 px-1 !text-xs [&::-webkit-calendar-picker-indicator]:hidden" value={value.startTime} onChange={e => onChange({ startTime: e.target.value })} disabled={disabled} />
+      <Input type="time" aria-label="Break end" className="h-8 min-h-0 w-full min-w-0 px-1 !text-xs [&::-webkit-calendar-picker-indicator]:hidden" value={value.endTime} onChange={e => onChange({ endTime: e.target.value })} disabled={disabled} />
       <span className="text-[10px] text-muted-foreground tabular-nums text-right" aria-label="Break minutes">{minutes === undefined ? '—' : `${minutes}m`}</span>
       <Button type="button" variant="ghost" size="icon" className="h-8 w-3.5 p-0 text-muted-foreground" aria-label="Remove break" title="Remove break" onClick={onRemove} disabled={disabled}>
         <X className="h-3.5 w-3.5" />
