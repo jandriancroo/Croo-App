@@ -27,6 +27,7 @@ import {
 import { useLocation } from "@/hooks/useLocation";
 import { AssigneePicker } from "@/components/shared/AssigneePicker";
 
+import { DuoPage } from '@/components/duo/DuoPage';
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
 /* ------------------------------------------------------------------ */
@@ -592,6 +593,7 @@ export default function DynamicChecklistCalendar() {
 
   return (
     <Layout>
+    <DuoPage>
       <div className="-mx-1 md:mx-auto max-w-[1200px] pt-1 pb-4 [&>*:not(:first-child):not(:nth-child(2))]:mt-4">
         {/* Header */}
         <PageTitle
@@ -830,6 +832,7 @@ export default function DynamicChecklistCalendar() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </DuoPage>
     </Layout>
   );
 }

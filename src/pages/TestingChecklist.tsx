@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Printer, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
+import { DuoPage } from '@/components/duo/DuoPage';
 const ChecklistSection = ({ title, items }: { title: string; items: string[] }) => (
   <div className="mb-6">
     <h3 className="text-lg font-semibold mb-2 border-b pb-1">{title}</h3>
@@ -163,7 +164,7 @@ export default function TestingChecklist() {
   ];
 
   return (
-    <div className="min-h-screen bg-background p-4 print:p-2 print:bg-white">
+    <DuoPage><div className="min-h-screen bg-background p-4 print:p-2 print:bg-white">
       <div className="max-w-4xl mx-auto">
         {/* Header - hidden when printing */}
         <PageTitle color="teal" className="print:hidden" leading={
@@ -219,6 +220,6 @@ export default function TestingChecklist() {
           <div className="h-32 print:h-24 border border-dashed rounded" />
         </div>
       </div>
-    </div>
+    </div></DuoPage>
   );
 }

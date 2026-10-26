@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { DuoPage } from '@/components/duo/DuoPage';
 interface SubmissionDetail {
   id: string;
   submitted_at: string;
@@ -103,6 +104,7 @@ export default function SubmissionDetails() {
 
   return (
     <Layout>
+    <DuoPage>
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/history')}>
@@ -185,6 +187,7 @@ export default function SubmissionDetails() {
           ))}
         </div>
       </div>
+    </DuoPage>
     </Layout>
   );
 }

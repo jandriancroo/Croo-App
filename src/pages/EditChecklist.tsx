@@ -18,6 +18,7 @@ import { toItemRow, newItemKey, type EditorItem } from '@/lib/checklistEditorIte
 import { ChecklistEditor } from '@/components/checklists/editor/ChecklistEditor';
 import type { ChecklistEditorSettings } from '@/components/checklists/editor/types';
 
+import { DuoPage } from '@/components/duo/DuoPage';
 type ChecklistItem = EditorItem;
 
 /** Only the keys whose values differ (deep compare via JSON). */
@@ -547,6 +548,7 @@ export default function EditChecklist() {
 
   return (
     <Layout>
+    <DuoPage>
       <div className="-mx-1 md:mx-auto max-w-[1200px] pt-1 pb-4">
         <ChecklistEditor
           fallbackTitle="Edit checklist"
@@ -574,6 +576,7 @@ export default function EditChecklist() {
           ) : null}
         />
       </div>
+    </DuoPage>
     </Layout>
   );
 }

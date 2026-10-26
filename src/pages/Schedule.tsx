@@ -49,6 +49,7 @@ import { paidShiftHours } from "@/utils/shiftUtils";
 // StationAssignChip removed — station assignment moved into SmartTap popover
 import { StationGroupSection } from "@/components/schedule/StationGroupSection";
 
+import { DuoPage } from '@/components/duo/DuoPage';
 export default function Schedule() {
   const navigate = useNavigate();
   const phoneLayout = useIsMobile();
@@ -291,6 +292,7 @@ export default function Schedule() {
 
   return (
     <Layout>
+    <DuoPage>
       {isMobile ? (
         <MobileScheduleView
           currentWeekStart={currentWeekStart}
@@ -916,6 +918,7 @@ export default function Schedule() {
         onConfirm={confirmUpdate}
         isSending={isPublishing}
       />
+    </DuoPage>
     </Layout>
   );
 }

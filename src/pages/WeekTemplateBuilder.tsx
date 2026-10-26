@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { HourlyCoverageDialog } from "@/components/schedule/HourlyCoverageDialog";
 
+import { DuoPage } from '@/components/duo/DuoPage';
 export interface ShiftTemplate {
   id: string;
   template_name: string;
@@ -997,6 +998,7 @@ export default function WeekTemplateBuilder() {
 
   return (
     <Layout>
+    <DuoPage>
       <div className="[&>*:not(:first-child):not(:nth-child(2))]:mt-6">
         {/* Header */}
         <PageTitle color="blue" leading={
@@ -1251,6 +1253,7 @@ export default function WeekTemplateBuilder() {
           dayName={dayNames[selectedDayForCoverage]}
         />
       )}
+    </DuoPage>
     </Layout>
   );
 }

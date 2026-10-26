@@ -16,6 +16,7 @@ import { toItemRow, withKey, type EditorItem } from '@/lib/checklistEditorItems'
 import { ChecklistEditor } from '@/components/checklists/editor/ChecklistEditor';
 import type { ChecklistEditorSettings } from '@/components/checklists/editor/types';
 
+import { DuoPage } from '@/components/duo/DuoPage';
 type ChecklistItem = EditorItem;
 
 export default function CreateChecklist() {
@@ -350,6 +351,7 @@ export default function CreateChecklist() {
 
   return (
     <Layout>
+    <DuoPage>
       <div className="-mx-1 md:mx-auto max-w-[1200px] pt-1 pb-4">
         <ChecklistEditor
           fallbackTitle="New checklist"
@@ -378,6 +380,7 @@ export default function CreateChecklist() {
           itemsOverride={templateType === 'dynamic' ? dynamicHandoff : undefined}
         />
       </div>
+    </DuoPage>
     </Layout>
   );
 }

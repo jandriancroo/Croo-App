@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 import { Button } from '@/components/ui/button';
 import './duo-dash.css';
 import { DuoDashContext } from './DuoDashContext';
+import { useDuoTheme } from '@/lib/duoTheme';
 
 function emphasizeNumbers(node: ReactNode): ReactNode {
   if (typeof node === 'string') return node.split(/(\$[\d,]+|\d+(?:\.\d+)?%)/g).map((part, i) => /^\$|%$/.test(part) ? <b key={i}>{part}</b> : part);
@@ -13,7 +14,7 @@ function emphasizeNumbers(node: ReactNode): ReactNode {
 export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
   sentence: ReactNode; timezone: string; quickTasks: ReactNode; dashboard: ReactNode; onEdit: () => void;
 }) {
-  const [theme, setTheme] = useState<'paper' | 'oled'>(() => matchMedia('(prefers-color-scheme: dark)').matches ? 'oled' : 'paper');
+  const { theme } = useDuoTheme();
   useEffect(() => {
     // The Duo dock's "Edit layout" button asks the Dash to open its editor.
     const edit = () => onEdit();
@@ -36,13 +37,10 @@ export function DuoDash({ sentence, timezone, quickTasks, dashboard, onEdit }: {
     window.addEventListener('resize', place);
     return () => { ro.disconnect(); window.removeEventListener('resize', place); document.documentElement.style.removeProperty('--duo-left-top'); };
   }, []);
-  useEffect(() => {
-    document.documentElement.dataset.duoTheme = theme;
-  }, [theme]);
   return <div ref={rootRef} className="duo-dash" data-duo-theme={theme}>
     <div className="duo-dash-grid">
-      <div className="duo-dash-intro"><Button variant="ghost" className="duo-date" onClick={() => setTheme(t => t === 'paper' ? 'oled' : 'paper')}>
-        <b>{DateTime.now().setZone(timezone).toFormat('cccc')}</b><span>{DateTime.now().setZone(timezone).toFormat('MMM d')}</span></Button>
+      <div className="duo-dash-intro"><div className="duo-date">
+        <b>{DateTime.now().setZone(timezone).toFormat('cccc')}</b><span>{DateTime.now().setZone(timezone).toFormat('MMM d')}</span></div>
         {sentence && <div className="duo-theo"><i aria-hidden /> <div>{emphasizeNumbers(sentence)}</div></div>}
       </div>
       <div className="duo-quick">{quickTasks}</div>

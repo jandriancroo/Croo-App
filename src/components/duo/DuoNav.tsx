@@ -3,8 +3,9 @@ import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query';
 import { TheoOrb } from '@/components/dock/TheoOrb';
 import { DuoOvation } from '@/components/duo/DuoOvation';
+import { useDuoTheme, setDuoThemeMode, type DuoThemeMode } from '@/lib/duoTheme';
 import { useOvationData } from '@/components/dashboard/OvationScorePopover';
-import { Pencil, Mail, Inbox, ChevronRight, MapPin, X, Sparkles, Hand, SlidersHorizontal, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock, Gauge, Zap, ClipboardList, FileText as FileTextIcon, Copy, Plus, BookOpen, Upload, UserPlus, RefreshCw, FlaskConical, Save, Award, ListChecks } from 'lucide-react';
+import { Pencil, Mail, Inbox, ChevronRight, MapPin, X, Sparkles, Hand, SlidersHorizontal, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock, Gauge, Zap, ClipboardList, FileText as FileTextIcon, Copy, Plus, BookOpen, Upload, UserPlus, RefreshCw, FlaskConical, Save, Award, ListChecks, Sun, Moon, SunMoon, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -28,23 +29,23 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
   const [fan, setFan] = useState(false);
   const [bump, setBump] = useState(0);
   const [ovOpen, setOvOpen] = useState(false);
+  const [ovTop, setOvTop] = useState(120);
   const [late, setLate] = useState(0);
   const [chat, setChat] = useState('');
-  const [theme, setTheme] = useState<'paper' | 'oled'>(() => matchMedia('(prefers-color-scheme: dark)').matches ? 'oled' : 'paper');
+  const { mode: themeMode, theme } = useDuoTheme();
+  const [timeOpen, setTimeOpen] = useState(false);
   useEffect(() => {
-    const root = document.documentElement;
     const update = () => {
-      setTheme(root.dataset.duoTheme === 'oled' ? 'oled' : root.dataset.duoTheme === 'paper' ? 'paper' : (matchMedia('(prefers-color-scheme: dark)').matches ? 'oled' : 'paper'));
       const badge = document.querySelector('nav a[href="/messages"]')?.querySelector('span');
       setChat(badge?.textContent?.match(/^\d+\+?$/)?.[0] ?? '');
     };
     update();
     const observer = new MutationObserver(update);
-    observer.observe(root, { attributes: true, attributeFilter: ['data-duo-theme'] });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     return () => observer.disconnect();
   }, []);
-  useEffect(() => { setOpen(false); setFan(false); }, [route.pathname]);
-  useEffect(() => { const r = document.documentElement; if (!r.dataset.duoTheme) r.dataset.duoTheme = theme; }, [theme]);
+  useEffect(() => { setOpen(false); setFan(false); setOvOpen(false); }, [route.pathname]);
+  useEffect(() => { if (!open) setOvOpen(false); }, [open]);
   useEffect(() => {
     const root = document.documentElement;
     const update = () => setLate(Number(root.dataset.nudgeLate) || 0);
@@ -79,8 +80,8 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
     ...(!isChecklistOnlyLocation && (isManager || hasPermission('manage_inventory')) && inventory?.configured ? [{ title: 'Inventory', path: `/inventory/${currentLocation?.id}`, icon: Package }] : []),
     ...(!isChecklistOnlyLocation || isAdmin ? [{ title: isAdmin ? 'Users' : 'My Team', path: isAdmin ? '/users' : '/my-team', icon: Users }] : []),
     ...(!isChecklistOnlyLocation && !loading && (isOrgAdmin || isBrandAdmin || isSuperAdmin || hasPermission('manage_hiring')) ? [{ title: 'Hiring', path: '/hiring', icon: Briefcase }] : []),
-    ...(!isChecklistOnlyLocation ? [{ title: 'My Timecard', path: '/my-timecard', icon: Clock }, { title: 'Availability', path: '/availability', icon: Calendar }, ...(canViewTimecards ? [{ title: 'Time Tracking', path: '/time-tracking', icon: Clock }] : [])] : []),
   ];
+  const timeItems = !isChecklistOnlyLocation ? [{ title: 'My Timecard', path: '/my-timecard', icon: Clock }, { title: 'Availability', path: '/availability', icon: Calendar }, ...(canViewTimecards ? [{ title: 'Time Tracking', path: '/time-tracking', icon: Clock }] : [])] : [];
   const openLocation = () => {
     window.dispatchEvent(new CustomEvent('open-location-picker'));
     // Folded Layout already has this action on its existing control.
@@ -96,6 +97,8 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
   const onDash = route.pathname === '/dashboard' || route.pathname === '/';
   const onChecklist = /^\/(complete-checklist|edit-checklist|create-checklist|dynamic-checklist|testing-checklist)/.test(route.pathname);
   const active = (path: string) => path === '/dashboard' ? (route.pathname === '/dashboard' || route.pathname === '/') : (route.pathname.startsWith(path) || (path === '/tasks' && onChecklist));
+  const timeActive = timeItems.some(t => active(t.path));
+  useEffect(() => { if (timeActive) setTimeOpen(true); }, [timeActive]);
   const pageName = menu.find(m => active(m.path))?.title || pageTitleName;
   const onTasks = route.pathname.startsWith('/tasks');
   const onLogs = route.pathname.startsWith('/logbook');
@@ -159,19 +162,21 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
     </div>
     {fan && <Button variant="ghost" aria-label="Close actions" className="duo-dim" onClick={() => setFan(false)} />}
     {fan && <div className="duo-actions">{actions.map(a => <div key={a.label}><span className="duo-glass">{a.label}</span><Button variant="ghost" className="duo-glass" aria-label={a.label} onClick={a.action}><a.icon size={22} />{a.label === 'Nudge' && late > 0 && <b className="duo-badge">{late}</b>}</Button></div>)}</div>}
-    <DuoOvation open={ovOpen} onOpenChange={setOvOpen} />
+    <DuoOvation open={ovOpen} onOpenChange={setOvOpen} anchorTop={ovTop} />
     <div className="duo-wordmark-global" aria-hidden><img src="/croohq-wordmark.png" alt="" /></div>
     {hint && <span className="duo-orb-hint duo-glass">Hold to talk to Theo</span>}
     {(actions.length > 0 || canTalk) && <Button variant="ghost" aria-label={fan ? 'Close actions' : 'Open actions'} key={`orb-${bump}`} className={`duo-orb duo-glass${bump ? ' duo-orb-bump' : ''}${fly ? ' duo-orb-fly' : ''}`} onPointerDown={holdStart} onPointerUp={holdCancel} onPointerLeave={holdCancel} onPointerCancel={holdCancel} onContextMenu={(e) => e.preventDefault()} onClick={() => { setHint(false); if (held.current) { held.current = false; return; } if (actions.length === 0) { fire('open-theo-voice'); return; } setBump(b => b + 1); if (fan) setFan(false); else window.setTimeout(() => setFan(true), 230); }}>
       {fan ? <X /> : <><span className="duo-orb-ring" /><TheoOrb asSpan solid size={56} /></>}{!fan && late > 0 && <b className="duo-badge">{late}</b>}</Button>}
     <Button variant="ghost" aria-label="Close page menu" tabIndex={open ? 0 : -1} data-state={open ? 'open' : 'closed'} className="duo-dim duo-menu-dim" onClick={() => setOpen(false)} />
     <Button variant="ghost" className="duo-handle duo-glass" aria-label="Open page menu" onClick={() => setOpen(true)}><ChevronRight size={13} /></Button>
-    <aside data-state={open ? 'open' : 'closed'} aria-hidden={!open} className="duo-menu duo-glass" aria-label="Page menu"><div className="duo-menu-title">CrooHQ <Button variant="ghost" aria-label="Close page menu" onClick={() => setOpen(false)}><X /></Button></div>
+    <aside data-state={open ? 'open' : 'closed'} aria-hidden={!open} className="duo-menu duo-glass" aria-label="Page menu"><div className="duo-menu-title"><span className="duo-menu-name">CrooHQ</span>
+        <span className="duo-theme-switch" role="radiogroup" aria-label="Theme">{([['auto', SunMoon, 'Auto'], ['paper', Sun, 'Paper'], ['oled', Moon, 'OLED']] as [DuoThemeMode, typeof Sun, string][]).map(([m, Ic, label]) => <Button key={m} variant="ghost" role="radio" aria-checked={themeMode === m} aria-label={label} className={themeMode === m ? 'duo-on' : ''} onClick={() => setDuoThemeMode(m)}><Ic size={16} /></Button>)}</span>
+        <Button variant="ghost" aria-label="Close page menu" onClick={() => setOpen(false)}><X /></Button></div>
       <div className="duo-menu-top">
         <Button variant="ghost" className="duo-menu-loc" onClick={() => { setOpen(false); window.setTimeout(openLocation, 300); }}>{brandLogo ? <img src={brandLogo} alt="" /> : <i aria-hidden />}<span><b>{currentLocation?.name}</b><small>{brandName} · tap to switch</small></span><ChevronRight size={16} /></Button>
-        {showOvation && <Button variant="ghost" className="duo-menu-ovation" onClick={() => { setOpen(false); window.setTimeout(() => setOvOpen(true), 300); }}><span>Ovation</span><b>{ovation!.toFixed(1)}</b></Button>}
+        {showOvation && <Button variant="ghost" className="duo-menu-ovation" onClick={(e) => { setOvTop(e.currentTarget.getBoundingClientRect().bottom); setOvOpen(o => !o); }}><span>Ovation</span><b>{ovation!.toFixed(1)}</b></Button>}
       </div>
-      <div className="duo-menu-items">{menu.map(m => <Button key={m.title} variant="ghost" className={active(m.path) ? 'duo-selected' : ''} onClick={() => { setOpen(false); navigate(m.path); }}><m.icon size={21} />{m.title}{m.title === 'Chat' && chat && <b className="duo-badge">{chat}</b>}</Button>)}</div>
+      <div className="duo-menu-items">{menu.map(m => <Button key={m.title} variant="ghost" className={active(m.path) ? 'duo-selected' : ''} onClick={() => { setOpen(false); navigate(m.path); }}><m.icon size={21} />{m.title}{m.title === 'Chat' && chat && <b className="duo-badge">{chat}</b>}</Button>)}{timeItems.length > 0 && <><Button variant="ghost" className={`duo-menu-group${timeActive ? ' duo-selected' : ''}`} aria-expanded={timeOpen} onClick={() => setTimeOpen(o => !o)}><Clock size={21} />Time<ChevronDown size={16} className={`duo-group-chev${timeOpen ? ' duo-open' : ''}`} /></Button>{timeOpen && timeItems.map(m => <Button key={m.title} variant="ghost" className={`duo-menu-sub${active(m.path) ? ' duo-selected' : ''}`} onClick={() => { setOpen(false); navigate(m.path); }}><m.icon size={19} />{m.title}</Button>)}</>}</div>
       <div className="duo-userrow">
         <Button variant="ghost" className="duo-user" onClick={() => { setOpen(false); navigate('/my-profile'); }}>{profile?.profile_photo_url && <img src={profile.profile_photo_url} alt="" />}<span><b>{profile?.nickname || profile?.full_name}</b><small>{role?.replace(/_/g, ' ')}</small></span></Button>
         <Button variant="ghost" size="icon" className={`duo-gear${active('/settings') ? ' duo-selected' : ''}`} aria-label="Settings" onClick={() => { setOpen(false); navigate('/settings'); }}><Settings size={21} /></Button>

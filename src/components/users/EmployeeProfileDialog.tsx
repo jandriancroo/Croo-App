@@ -866,7 +866,7 @@ export function EmployeeProfileDialog({
 
           {/* Save Button */}
           {canEdit && (
-            <div className={`flex-shrink-0 pt-4 border-t border-border${dock ? " sticky bottom-0 bg-background pb-2" : ""}`}>
+            <div className={`flex-shrink-0 pt-4 border-t border-border${dock ? " sticky bottom-0 z-10 bg-background pb-3 pr-[88px]" : ""}`}>
               <Button
                 className="w-full"
                 onClick={handleSave}

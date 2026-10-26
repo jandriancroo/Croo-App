@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { getTodayInPST } from '@/utils/dateUtils';
 
+import { DuoPage } from '@/components/duo/DuoPage';
 interface TemperatureReading {
   id: string;
   item_id: string;
@@ -257,6 +258,7 @@ export default function TemperatureValidation() {
 
   return (
     <Layout>
+    <DuoPage>
       <div className="container mx-auto p-4 md:p-6 [&>*:not(:first-child):not(:nth-child(2))]:mt-6 max-w-full md:max-w-4xl">
         <PageTitle color="red" subtitle="Review and correct AI-extracted temperature readings" action={
           <Button
@@ -384,6 +386,7 @@ export default function TemperatureValidation() {
           </DialogContent>
         </Dialog>
       </div>
+    </DuoPage>
     </Layout>
   );
 }

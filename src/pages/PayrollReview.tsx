@@ -23,6 +23,7 @@ import { PayPeriodSelector } from '@/components/timetracking/PayPeriodSelector';
 import { ClosePeriodDialog, type UnapprovedShift } from '@/components/timetracking/ClosePeriodDialog';
 import { useState } from 'react';
 
+import { DuoPage } from '@/components/duo/DuoPage';
 import {
   formatDateTimeInTimezone,
   parseDateStringInTimezone,
@@ -137,6 +138,7 @@ export default function PayrollReview() {
 
   return (
     <Layout>
+    <DuoPage>
       <div className="space-y-6">
         {!selectedPeriod ? (
           <>
@@ -686,6 +688,7 @@ export default function PayrollReview() {
           </DialogContent>
         </Dialog>
       </div>
+    </DuoPage>
     </Layout>
   );
 }

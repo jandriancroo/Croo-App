@@ -9,8 +9,19 @@ const SupportChatPanel = lazy(() =>
   import('@/components/support/SupportChatPanel').then((m) => ({ default: m.SupportChatPanel })),
 );
 
-export function SupportInboxSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export function SupportInboxSheet({ open, onOpenChange, docked = false }: { open: boolean; onOpenChange: (o: boolean) => void; docked?: boolean }) {
   const isMobile = useIsMobile();
+  if (docked) {
+    // Duo open mode: the chat list lives in the right pane; a conversation slides over it.
+    return (
+      <aside className="duo-tasks-dock duo-support-dock">
+        <h2 className="duo-set-h">Support chats</h2>
+        <Suspense fallback={<div className="flex items-center justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+          <SupportChatPanel chatAsSlide />
+        </Suspense>
+      </aside>
+    );
+  }
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent

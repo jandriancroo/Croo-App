@@ -9,6 +9,7 @@ import type { LucideIcon } from 'lucide-react';
 import { ChatList } from '@/components/messages/ChatList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
 import { NewChatDialog } from '@/components/messages/NewChatDialog';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 import { HiringChatList } from '@/components/messages/HiringChatList';
 import { HiringChatPanel } from '@/components/hiring/HiringChatPanel';
 import { ChatSearch } from '@/components/messages/ChatSearch';
@@ -216,9 +217,12 @@ export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplic
   );
 
   const headerEl = (
-          <SheetHeader className="px-4 pt-4 pb-3 border-b border-primary-foreground/10 shrink-0 bg-primary text-primary-foreground">
-            <SheetTitle className="pr-8 text-left text-lg text-primary-foreground">Inbox</SheetTitle>
-            {steps.length > 1 && (
+          <SheetHeader className={`px-4 pt-4 pb-3 border-b shrink-0 ${duo.isDuo ? "duo-inbox-head border-border bg-background text-foreground" : "border-primary-foreground/10 bg-primary text-primary-foreground"}`}>
+            <SheetTitle className={`pr-8 text-left text-lg ${duo.isDuo ? "" : "text-primary-foreground"}`}>Inbox</SheetTitle>
+            {steps.length > 1 && duo.isDuo && (
+              <SegmentedControl className="mt-2 duo-inbox-seg" aria-label="Inbox source" value={step} onValueChange={(v) => setStep(v as Step)} options={steps.map(x => ({ value: x.id, label: x.label }))} />
+            )}
+            {steps.length > 1 && !duo.isDuo && (
               <div className="mt-2 grid w-full items-center gap-1 rounded-full bg-primary-foreground/10 p-1" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }} role="tablist" aria-label="Inbox source">
                 {steps.map(source => {
                   const SourceIcon = source.icon;
@@ -244,9 +248,12 @@ export function DmPanel({ open, onOpenChange, initialChatId, initialHiringApplic
           </SheetHeader>
   );
   const dockedHeaderEl = (
-          <div className="px-4 pt-4 pb-3 border-b border-primary-foreground/10 shrink-0 bg-primary text-primary-foreground">
-            <h2 className="pr-8 text-left text-lg text-primary-foreground">Inbox</h2>
-            {steps.length > 1 && (
+          <div className={`px-4 pt-4 pb-3 border-b shrink-0 ${duo.isDuo ? "duo-inbox-head border-border bg-background text-foreground" : "border-primary-foreground/10 bg-primary text-primary-foreground"}`}>
+            <h2 className={`pr-8 text-left text-lg ${duo.isDuo ? "" : "text-primary-foreground"}`}>Inbox</h2>
+            {steps.length > 1 && duo.isDuo && (
+              <SegmentedControl className="mt-2 duo-inbox-seg" aria-label="Inbox source" value={step} onValueChange={(v) => setStep(v as Step)} options={steps.map(x => ({ value: x.id, label: x.label }))} />
+            )}
+            {steps.length > 1 && !duo.isDuo && (
               <div className="mt-2 grid w-full items-center gap-1 rounded-full bg-primary-foreground/10 p-1" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }} role="tablist" aria-label="Inbox source">
                 {steps.map(source => {
                   const SourceIcon = source.icon;
