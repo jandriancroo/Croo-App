@@ -445,11 +445,11 @@ export function EditShiftForm({
           <div className="grid grid-cols-[52px_1fr_1fr_52px_28px] gap-2 items-center">
             <span className="text-xs font-medium">Shift {idx + 1}</span>
             <div className="relative min-w-0">
-              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-clock-in" />
+              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[hsl(var(--clock-in))]" />
               <Input type="time" aria-label={`Shift ${idx + 1} clock in`} className="h-9 w-full min-w-0 pl-4 pr-1 text-xs" value={shift.clockInTime} onChange={(e) => updateShift(idx, { clockInTime: e.target.value })} />
             </div>
             <div className="relative min-w-0">
-              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-clock-out" />
+              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[hsl(var(--clock-out))]" />
               <Input type="time" aria-label={`Shift ${idx + 1} clock out`} className="h-9 w-full min-w-0 pl-4 pr-1 text-xs" value={shift.clockOutTime} onChange={(e) => updateShift(idx, { clockOutTime: e.target.value })} />
             </div>
             <span className="text-xs tabular-nums text-right text-muted-foreground">
