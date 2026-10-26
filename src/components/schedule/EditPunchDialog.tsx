@@ -487,79 +487,65 @@ export function EditPunchDialog({
                 <span className="font-medium">{userName}</span>
               </div>
 
-              {/* Time Inputs */}
-              <div className="space-y-3">
-                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
-                  <div className="min-w-0 space-y-2">
-                    <div className="flex items-center justify-between h-5">
-                      <Label>Clock In</Label>
-                    </div>
-                    <Input
-                      type="time"
-                      className="w-full min-w-0"
-                      value={clockInTime}
-                      onChange={(e) => setClockInTime(e.target.value)}
-                    />
-                  </div>
-
-                  {showClockOut ? (
-                    <div className="min-w-0 space-y-2">
-                      <div className="flex items-center justify-between h-5">
-                        <Label>Clock Out</Label>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-5 w-5"
-                          onClick={() => {
-                            setShowClockOut(false);
-                            setClockOutTime('');
-                          }}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-
-                      <Input
-                        type="time"
-                        className="w-full min-w-0"
-                        value={clockOutTime}
-                        onChange={(e) => setClockOutTime(e.target.value)}
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex min-w-0 items-end">
+              {/* Time Inputs + Breaks */}
+              <ShiftCardFields
+                title="Shift"
+                clockIn={clockInTime}
+                clockOut={clockOutTime}
+                onClockIn={setClockInTime}
+                onClockOut={setClockOutTime}
+                clockOutSlot={showClockOut ? (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-red-500" />
+                      Clock Out
                       <Button
                         type="button"
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => setShowClockOut(true)}
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 ml-auto"
+                        onClick={() => {
+                          setShowClockOut(false);
+                          setClockOutTime('');
+                        }}
                       >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Clock Out
+                        <X className="h-3 w-3" />
                       </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                {breaks.map((brk, index) => (
-                  <BreakRow key={index} value={brk}
-                    onChange={patch => {
-                      if (patch.type !== undefined) updateBreak(index, 'type', patch.type);
-                      if (patch.startTime !== undefined) updateBreak(index, 'startTime', patch.startTime);
-                      if (patch.endTime !== undefined) updateBreak(index, 'endTime', patch.endTime);
-                    }}
-                    onRemove={() => removeBreak(index)} />
-                ))}
-                <AddBreakButton onClick={addBreak} disabled={!clockInTime} hint={!clockInTime ? 'Enter clock-in first' : undefined} />
-              </div>
+                    </label>
+                    <Input
+                      type="time"
+                      value={clockOutTime}
+                      onChange={(e) => setClockOutTime(e.target.value)}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setShowClockOut(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Clock Out
+                    </Button>
+                  </div>
+                )}
+                breaks={breaks.map((b, i) => ({ key: `${i}`, ...b }))}
+                onBreakChange={(index, patch) => {
+                  if (patch.type !== undefined) updateBreak(index, 'type', patch.type);
+                  if (patch.startTime !== undefined) updateBreak(index, 'startTime', patch.startTime);
+                  if (patch.endTime !== undefined) updateBreak(index, 'endTime', patch.endTime);
+                }}
+                onBreakRemove={(index) => removeBreak(index)}
+                onAddBreak={addBreak}
+                addBreakDisabled={!clockInTime}
+              />
             </div>
           )}
 
           </div>
-          <DialogFooter className="shrink-0 flex-row items-center gap-2">
+          <DialogFooter className="shrink-0 border-t px-6 py-3 flex-row items-center gap-2">
             <Button 
               variant="destructive" 
               size="icon"
