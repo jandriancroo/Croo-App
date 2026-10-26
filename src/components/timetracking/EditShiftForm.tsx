@@ -3,8 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, Coffee } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
+import { BreakRow, AddBreakButton } from '@/components/breaks/BreakRow';
 import {
   toISOStringInTimezone,
   formatDateTimeInTimezone,
@@ -430,137 +430,44 @@ export function EditShiftForm({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col min-h-0 flex-1">
+      <div className="flex-1 min-h-0 overflow-y-auto px-5 py-3 space-y-2">
       <div className="text-sm text-muted-foreground mb-2">
         {formatDateTimeInTimezone(parseDateStringInTimezone(shiftDate, timezone), timezone, {
-          weekday: 'long',
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric',
+          weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
         })}
       </div>
-
+      <div className="grid grid-cols-[52px_1fr_1fr_52px_28px] gap-2 items-center px-2 text-xs text-muted-foreground">
+        <span /><span>In</span><span>Out</span><span className="text-right">Hrs</span><span />
+      </div>
       {shiftStates.map((shift, idx) => (
-        <div key={idx} className={`space-y-3 ${shiftStates.length > 1 ? 'p-3 border rounded-lg bg-muted/5' : ''}`}>
-          {shiftStates.length > 1 && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Shift #{idx + 1}</span>
-              <Button size="xs"
-                type="button"
-                variant="ghost"
-                className="text-destructive hover:text-destructive px-2 text-xs"
-                onClick={() => setDeletingShiftIdx(idx)}
-                disabled={saving}
-              >
-                <Trash2 className="h-3.5 w-3.5 mr-1" />
-                Delete
-              </Button>
+        <div key={idx} className="p-2 border rounded-lg space-y-2">
+          <div className="grid grid-cols-[52px_1fr_1fr_52px_28px] gap-2 items-center">
+            <span className="text-xs font-medium">Shift {idx + 1}</span>
+            <div className="relative min-w-0">
+              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[hsl(var(--clock-in))]" />
+              <Input type="time" aria-label={`Shift ${idx + 1} clock in`} className="h-9 min-h-0 w-full min-w-0 pl-4 pr-1 !text-xs [&::-webkit-calendar-picker-indicator]:hidden" value={shift.clockInTime} onChange={(e) => updateShift(idx, { clockInTime: e.target.value })} />
             </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-green-500" />
-                Clock In
-              </label>
-              <Input
-                type="time"
-                value={shift.clockInTime}
-                onChange={(e) => updateShift(idx, { clockInTime: e.target.value })}
-              />
+            <div className="relative min-w-0">
+              <span className="absolute left-1.5 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[hsl(var(--clock-out))]" />
+              <Input type="time" aria-label={`Shift ${idx + 1} clock out`} className="h-9 min-h-0 w-full min-w-0 pl-4 pr-1 !text-xs [&::-webkit-calendar-picker-indicator]:hidden" value={shift.clockOutTime} onChange={(e) => updateShift(idx, { clockOutTime: e.target.value })} />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-red-500" />
-                Clock Out
-              </label>
-              <Input
-                type="time"
-                value={shift.clockOutTime}
-                onChange={(e) => updateShift(idx, { clockOutTime: e.target.value })}
-              />
-            </div>
+            <span className="text-xs tabular-nums text-right text-muted-foreground">
+              {shift.clockInTime && shift.clockOutTime ? (
+                ((Number(shift.clockOutTime.slice(0, 2)) * 60 + Number(shift.clockOutTime.slice(3, 5)) - Number(shift.clockInTime.slice(0, 2)) * 60 - Number(shift.clockInTime.slice(3, 5)) + (Number(shift.clockOutTime.slice(0, 2)) < Number(shift.clockInTime.slice(0, 2)) ? 1440 : 0)) - shift.breaks.reduce((minutes, brk) => minutes + (brk.type === 'unpaid' && brk.startTime && brk.endTime ? Number(brk.endTime.slice(0, 2)) * 60 + Number(brk.endTime.slice(3, 5)) - Number(brk.startTime.slice(0, 2)) * 60 - Number(brk.startTime.slice(3, 5)) : 0), 0)) / 60
+              ).toFixed(2) : '—'}
+            </span>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 p-0 text-destructive" aria-label="Delete shift" title="Delete shift" onClick={() => setDeletingShiftIdx(idx)} disabled={saving}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
           </div>
-
-          <div className="border-t pt-3 space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-sm font-medium">Breaks</div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!shift.clockInTime}
-                onClick={() => updateShift(idx, { breaks: [...shift.breaks, { startTime: '', endTime: '', type: 'unpaid' }] })}
-              >
-                Add break
-              </Button>
-            </div>
-
-            {shift.breaks.length === 0 ? (
-              <div className="text-xs text-muted-foreground">No breaks</div>
-            ) : (
-              <div className="space-y-3">
-                {shift.breaks.map((brk, bIdx) => (
-                  <div key={`${brk.id || 'new'}-${bIdx}`} className="rounded-lg border bg-muted/10 p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Coffee className="h-4 w-4 text-muted-foreground" />
-                        <div className="text-sm font-medium">Break {bIdx + 1}</div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="text-muted-foreground"
-                        onClick={() => updateShift(idx, { breaks: shift.breaks.filter((_, i) => i !== bIdx) })}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 mt-3">
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground">Type</label>
-                        <select
-                          value={brk.type}
-                          onChange={(e) => updateShift(idx, { breaks: shift.breaks.map((b, i) => i === bIdx ? { ...b, type: e.target.value as 'paid' | 'unpaid' } : b) })}
-                          className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                        >
-                          <option value="unpaid">Unpaid (30m)</option>
-                          <option value="paid">Paid (10m)</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground">Break Start</label>
-                        <Input
-                          type="time"
-                          value={brk.startTime}
-                          onChange={(e) => updateShift(idx, { breaks: shift.breaks.map((b, i) => i === bIdx ? { ...b, startTime: e.target.value } : b) })}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground">Break End</label>
-                        <Input
-                          type="time"
-                          value={brk.endTime}
-                          onChange={(e) => updateShift(idx, { breaks: shift.breaks.map((b, i) => i === bIdx ? { ...b, endTime: e.target.value } : b) })}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground">  </label>
-                        <div className="text-xs text-muted-foreground flex items-center h-10">
-                          {brk.type === 'unpaid' ? 'Meal break' : 'Paid break'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="ml-[60px] space-y-1.5">
+            {shift.breaks.map((brk, bIdx) => (
+              <BreakRow key={`${brk.id || 'new'}-${bIdx}`} value={brk}
+                onChange={patch => updateShift(idx, { breaks: shift.breaks.map((b, i) => i === bIdx ? { ...b, ...patch } : b) })}
+                onRemove={() => updateShift(idx, { breaks: shift.breaks.filter((_, i) => i !== bIdx) })} />
+            ))}
+            <AddBreakButton disabled={!shift.clockInTime} onClick={() => updateShift(idx, { breaks: [...shift.breaks, { startTime: '', endTime: '', type: 'unpaid' }] })} />
           </div>
         </div>
       ))}
@@ -612,10 +519,10 @@ export function EditShiftForm({
         </div>
       )}
 
-      <div className="flex justify-between gap-2 pt-4 border-t">
-        <Button variant="destructive" onClick={onDelete} disabled={saving} className="gap-2">
+      </div>
+      <div className="shrink-0 border-t px-5 py-3 flex justify-end gap-2">
+        <Button variant="destructive" size="icon" onClick={onDelete} disabled={saving} className="shrink-0 mr-auto" aria-label="Delete All" title="Delete All">
           <Trash2 className="h-4 w-4" />
-          Delete All
         </Button>
         <div className="flex gap-2">
           <Button variant="outline" onClick={onCancel} disabled={saving}>Cancel</Button>

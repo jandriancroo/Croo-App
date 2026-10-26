@@ -503,8 +503,8 @@ export default function PayrollReview() {
         />
 
         <Dialog open={!!editingShift} onOpenChange={() => setEditingShift(null)}>
-          <DialogContent>
-            <DialogHeader>
+          <DialogContent className="max-w-lg max-h-[85vh] flex flex-col p-0 gap-0">
+            <DialogHeader className="px-5 pt-5 pb-2 border-b shrink-0">
               <DialogTitle>Edit Shift</DialogTitle>
             </DialogHeader>
             {editingShift && (

@@ -14,7 +14,8 @@ import { PROFILE_SAFE_COLUMNS } from '@/lib/profileColumns';
 import { toast } from 'sonner';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import { Clock, LogOut, Plus, X } from 'lucide-react';
+import { Clock, LogOut } from 'lucide-react';
+import { BreakRow, AddBreakButton } from '@/components/breaks/BreakRow';
 import { getDisplayName } from '@/utils/displayName';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
@@ -513,63 +514,17 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
                 </div>
               </div>
 
-              {/* Breaks Section */}
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {breaks.map((brk, index) => (
-                  <div key={index} className="p-3 border rounded-lg bg-background space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium">Break {index + 1}</Label>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-11 w-11 p-0"
-                        onClick={() => removeBreak(index)}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                    <Select value={brk.type} onValueChange={(v) => updateBreak(index, 'type', v)}>
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="paid">Paid break (10 min)</SelectItem>
-                        <SelectItem value="unpaid">Meal break (30 min)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Start</Label>
-                        <Input
-                          type="time"
-                          value={brk.startTime}
-                          onChange={(e) => updateBreak(index, 'startTime', e.target.value)}
-                          className="h-8"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">End</Label>
-                        <Input
-                          type="time"
-                          value={brk.endTime}
-                          onChange={(e) => updateBreak(index, 'endTime', e.target.value)}
-                          className="h-8"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <BreakRow key={index} value={brk}
+                    onChange={patch => {
+                      if (patch.type !== undefined) updateBreak(index, 'type', patch.type);
+                      if (patch.startTime !== undefined) updateBreak(index, 'startTime', patch.startTime);
+                      if (patch.endTime !== undefined) updateBreak(index, 'endTime', patch.endTime);
+                    }}
+                    onRemove={() => removeBreak(index)} />
                 ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="default"
-                  className="w-full gap-1"
-                  onClick={addBreak}
-                >
-                  <Plus className="h-3 w-3" />
-                  Add Break
-                </Button>
+                {breaks.length === 0 && <AddBreakButton onClick={addBreak} disabled={!clockIn} hint={!clockIn ? 'Enter clock-in first' : undefined} />}
               </div>
 
               {!showClockOut && (

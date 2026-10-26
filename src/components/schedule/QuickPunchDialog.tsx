@@ -14,7 +14,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
-import { Switch } from '@/components/ui/switch';
+import { BreakRow, AddBreakButton } from '@/components/breaks/BreakRow';
 
 interface Profile {
   id: string;
@@ -432,59 +432,16 @@ export function QuickPunchDialog({
             )}
           </div>
 
-          {/* Break Toggle - only available when clock-in time is set */}
-          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-            <div className="space-y-0.5">
-              <Label className="text-sm font-medium">Include Break</Label>
-              <p className="text-xs text-muted-foreground">
-                {!startTime ? 'Enter clock-in time first' : 'Add a break to this shift'}
-              </p>
-            </div>
-            <Switch 
-              checked={includeBreak} 
-              onCheckedChange={setIncludeBreak}
-              disabled={!startTime}
-            />
-          </div>
-
-          {/* Break Options - shown when break is enabled */}
-          {includeBreak && (
-            <div className="space-y-3 p-3 border rounded-lg bg-background">
-              <div className="space-y-2">
-                <Label>Break Type</Label>
-                <Select value={breakType} onValueChange={(v) => setBreakType(v as 'paid' | 'unpaid')}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="paid">Paid break</SelectItem>
-                    <SelectItem value="unpaid">Unpaid break</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Break Start</Label>
-                  <Input
-                    type="time"
-                    value={breakStartTime}
-                    onChange={(e) => setBreakStartTime(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Break End</Label>
-                  <Input
-                    type="time"
-                    value={breakEndTime}
-                    onChange={(e) => setBreakEndTime(e.target.value)}
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {breakType === 'unpaid' ? 'Unpaid - deducted from hours' : 'Paid - not deducted'}
-              </p>
-            </div>
+          {includeBreak ? (
+            <BreakRow value={{ type: breakType, startTime: breakStartTime, endTime: breakEndTime }}
+              onChange={patch => {
+                if (patch.type !== undefined) setBreakType(patch.type);
+                if (patch.startTime !== undefined) setBreakStartTime(patch.startTime);
+                if (patch.endTime !== undefined) setBreakEndTime(patch.endTime);
+              }}
+              onRemove={() => { setIncludeBreak(false); setBreakStartTime(''); setBreakEndTime(''); }} />
+          ) : (
+            <AddBreakButton onClick={() => setIncludeBreak(true)} disabled={!startTime} hint={!startTime ? 'Enter clock-in first' : undefined} />
           )}
 
           {!showClockOut && (
