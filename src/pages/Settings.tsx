@@ -12,6 +12,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { FEATURE_FLAGS } from '@/config/featureFlags';
+import { TOUR_ENABLED } from '@/components/onboarding/tourConfig';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Thermometer, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell, Package, Sparkles, ShieldCheck, ChevronRight, CreditCard, Copy, Monitor, Radio, Loader2, FileText, GraduationCap } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
@@ -554,7 +555,7 @@ export default function Settings() {
     return () => { delete root.dataset.duoStatus; };
   }, [duo.isDuo, activeTab, locationLabel, orgLabel]);
   useEffect(() => {
-    if (!duo.isDuo) return;
+    if (!duo.isDuo || !TOUR_ENABLED) return;
     const tour = () => window.dispatchEvent(new Event('start-croo-tour'));
     window.addEventListener('open-settings-tour', tour);
     return () => window.removeEventListener('open-settings-tour', tour);
@@ -604,7 +605,7 @@ export default function Settings() {
             {activeTab === 'org' && currentOrgId && (isOrgAdmin || isBrandAdmin || isSuperAdmin) && (
               <Row icon={<Building2 className="h-4 w-4" />} title="Edit Org Settings" onClick={() => navigate(`/organization/${currentOrgId}`)} />
             )}
-            {isShiftManager && activeTab === 'location' && <Row icon={<GraduationCap className="h-5 w-5" />} title="Tour CrooHQ" onClick={() => window.dispatchEvent(new Event('start-croo-tour'))} />}
+            {TOUR_ENABLED && isShiftManager && activeTab === 'location' && <Row icon={<GraduationCap className="h-5 w-5" />} title="Tour CrooHQ" onClick={() => window.dispatchEvent(new Event('start-croo-tour'))} />}
           </div>
 
           {supportDock && isSuperAdmin && <SupportInboxSheet open onOpenChange={() => setDuoSel(null)} docked />}
@@ -643,7 +644,7 @@ export default function Settings() {
         )}
 
         <div className="grid gap-3 w-full">
-          {isShiftManager && (
+          {TOUR_ENABLED && isShiftManager && (
             <Button variant="outline" className="h-14 w-full justify-between px-4" onClick={() => window.dispatchEvent(new Event('start-croo-tour'))}>
               <span className="flex items-center gap-3"><GraduationCap className="h-5 w-5" /><span className="text-base font-semibold">Tour CrooHQ</span></span>
               <ChevronRight className="h-4 w-4 text-muted-foreground" />
