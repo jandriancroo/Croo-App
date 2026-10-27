@@ -14,6 +14,8 @@ interface PosItem {
   name: string;
   category?: string;
   quantity?: number;
+  itemMasterId?: string | number;
+  onMenu?: boolean;
 }
 
 interface TrackerPosItemPickerProps {
@@ -28,29 +30,30 @@ export function TrackerPosItemPicker({ value, onChange, label = "Promo Item(s)" 
 
   const selected = useMemo(() => new Set(value.map(item => item.toLowerCase())), [value]);
 
-  const { data: posItems = [], isLoading, isError } = useQuery({
-    queryKey: ["tracker-pos-items", currentLocation?.id, "location-7d"],
+  const { data: result, isLoading, isError } = useQuery({
+    queryKey: ["tracker-pos-items", currentLocation?.id, "location-menu-14d"],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("pos-search", {
-        body: { locationId: currentLocation?.id, daysBack: 7, scope: "location" },
+        body: { locationId: currentLocation?.id, daysBack: 14, scope: "location", includeMenu: true },
       });
 
       if (error) throw error;
       if (data?.error && !data?.fallback) throw new Error(data.error);
 
-      return ((data?.items || []) as PosItem[]).filter(item => item.name);
+      return { items: ((data?.items || []) as PosItem[]).filter(item => item.name), menuUnavailable: data?.menuUnavailable === true };
     },
     enabled: !!currentLocation?.id,
     staleTime: 10 * 60 * 1000,
   });
+  const posItems = result?.items;
 
   const filteredItems = useMemo(() => {
     const term = search.trim().toLowerCase();
     const items = term
-      ? posItems.filter(item => `${item.name} ${item.category || ""}`.toLowerCase().includes(term))
-      : posItems;
+      ? (posItems || []).filter(item => `${item.name} ${item.category || ""}`.toLowerCase().includes(term))
+      : (posItems || []);
 
-    return items.slice(0, 80);
+    return items;
   }, [posItems, search]);
 
   const addItem = (name: string) => {
@@ -101,7 +104,7 @@ export function TrackerPosItemPicker({ value, onChange, label = "Promo Item(s)" 
         </div>
 
         <div className="mt-1 flex justify-end px-1">
-          <span className="text-[10px] text-muted-foreground">Last 7 days sales</span>
+          <span className="text-[10px] text-muted-foreground">{result?.menuUnavailable ? "Last 90 days sales" : "Live menu + last 14 days"}</span>
         </div>
 
         <ScrollArea className="mt-1 h-[136px]">
@@ -122,22 +125,24 @@ export function TrackerPosItemPicker({ value, onChange, label = "Promo Item(s)" 
             {!isLoading && !isError && filteredItems.map(item => {
               const isSelected = selected.has(item.name.toLowerCase());
               return (
-                <button
-                  key={item.name}
+                <Button
+                  variant="ghost"
+                  key={item.itemMasterId ?? item.name}
                   type="button"
                   className={cn(
-                    "grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 overflow-hidden rounded-md px-2 py-1 text-left text-xs transition-colors hover:bg-primary/10",
+                    "grid h-auto w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 overflow-hidden rounded-md px-2 py-1 text-left text-xs transition-colors hover:bg-primary/10",
                     isSelected && "bg-primary/10 text-primary"
                   )}
                   onClick={() => isSelected ? removeItem(item.name) : addItem(item.name)}
                 >
                   <span className="truncate font-medium">{item.name}</span>
                   <div className="text-right text-[10px] leading-tight text-muted-foreground">
+                    {item.onMenu === false && <Badge variant="secondary" className="h-4 px-1 text-[9px]">off menu</Badge>}
                     {item.category && <span className="block truncate">{item.category}</span>}
                     {typeof item.quantity === "number" && <span className="block">{Math.round(item.quantity)}</span>}
                   </div>
                   {isSelected && <Check className="h-3.5 w-3.5" />}
-                </button>
+                </Button>
               );
             })}
           </div>
