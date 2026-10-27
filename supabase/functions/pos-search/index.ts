@@ -37,51 +37,24 @@ function getV4Headers(token: string): Record<string, string> {
 }
 
 type PosItem = { name: string; category: string; quantity: number; itemMasterId?: string | number; onMenu?: boolean };
-type MenuItem = { itemMasterId?: string | number; itemReportTitle?: string; configurationsTagsNames?: string | string[] };
+type MenuItem = { id?: string | number; reportTitle?: string };
 const cleanName = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
 
-async function fetchMenu(opUnitId: number, token: string): Promise<MenuItem[] | null> {
-  const bases = [
-    `https://gateway-api.qubeyond.com/api/v4/data/operations/${opUnitId}/inventory`,
-    `https://admin.qubeyond.com/api/data/operations/${opUnitId}/inventory`,
-  ];
+// Company-wide QU item catalog (Blaze-wide promo trackers). Returns null on any failure.
+async function fetchItemMasters(token: string): Promise<MenuItem[] | null> {
   try {
-    for (const base of bases) {
-      let pageSize = 200;
-      let pageCount = 1;
-      const items: MenuItem[] = [];
-      let tryNextUrl = false;
-      for (let page = 1; page <= pageCount; page++) {
-        const url = `${base}?page_number=${page}&page_size=${pageSize}&sort=reportTitle_asc`;
-        const response = await fetch(url, { headers: getV4Headers(token) });
-        console.log(`[pos-search] Menu GET ${url} HTTP ${response.status}`);
-        if (!response.ok) {
-          if ([400, 422].includes(response.status) && pageSize > 50) {
-            pageSize = pageSize === 200 ? 100 : 50;
-            page--;
-            continue;
-          }
-          if ([401, 403, 404].includes(response.status) && base === bases[0]) {
-            tryNextUrl = true;
-            break;
-          }
-          return null;
-        }
-        const payload = await response.json();
-        if (!Array.isArray(payload.data)) return null;
-        items.push(...payload.data);
-        const count = Number(payload.meta?.pageCount ?? 1);
-        if (!Number.isInteger(count) || count < 0) return null;
-        pageCount = count;
-      }
-      if (tryNextUrl) continue;
-      console.log(`[pos-search] Menu worked ${base}; ${items.length} items`);
-      return items;
-    }
+    const response = await fetch("https://gateway-api.qubeyond.com/api/v4/data/item-masters", { headers: getV4Headers(token) });
+    console.log(`[pos-search] Item masters HTTP ${response.status}`);
+    if (!response.ok) return null;
+    const payload = await response.json();
+    const rows = Array.isArray(payload?.value) ? payload.value : Array.isArray(payload?.data) ? payload.data : null;
+    if (!rows) return null;
+    console.log(`[pos-search] Item masters ${rows.length} items`);
+    return rows;
   } catch {
-    console.warn(`[pos-search] Menu unavailable for operation ${opUnitId}`);
+    console.warn("[pos-search] Item masters unavailable");
+    return null;
   }
-  return null;
 }
 
 async function fetchMenuSales(token: string, opUnitIds: number[], days: number): Promise<PosItem[]> {
