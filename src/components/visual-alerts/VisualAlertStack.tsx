@@ -3,6 +3,7 @@ import { useSearchParams, useLocation } from "react-router-dom";
 
 import { useVisualAlerts } from "@/hooks/useVisualAlerts";
 import { VisualAlertCard } from "./VisualAlertCard";
+import { VISUAL_ALERTS_ENABLED } from "./visualAlertsConfig";
 
 // Routes where we never show the stack (auth, kiosk, public, etc.)
 const SUPPRESS_PREFIXES = [
