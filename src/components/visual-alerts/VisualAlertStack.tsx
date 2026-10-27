@@ -3,6 +3,7 @@ import { useSearchParams, useLocation } from "react-router-dom";
 
 import { useVisualAlerts } from "@/hooks/useVisualAlerts";
 import { VisualAlertCard } from "./VisualAlertCard";
+import { VISUAL_ALERTS_ENABLED } from "./visualAlertsConfig";
 
 // Routes where we never show the stack (auth, kiosk, public, etc.)
 const SUPPRESS_PREFIXES = [
@@ -50,6 +51,7 @@ export function VisualAlertStack() {
     }
   }, [targetNotificationId, ordered.length, searchParams, setSearchParams]);
 
+  if (!VISUAL_ALERTS_ENABLED) return null;
   if (suppress || ordered.length === 0) return null;
 
   // Top card = last in array
