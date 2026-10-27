@@ -6,6 +6,14 @@ Croo Builder's Ship button shows this for editing, posts it to TestFlight, then 
 
 ## Next build
 
+## Build 24 · Oct 27, 2026
+
+What's new:
+- Duo: remove native dock; single floating action orb on every Duo page fans out page actions
+- Duo: sales period pill with picker, restore store bubble, stop monthly cube mapping to weekly
+- Duo: actions-only system dock, slide-out nav on every Duo page, retire orange rings
+- TestFlight notes for build 23
+
 ## Build 23 · Oct 24, 2026
 
 - iPhone Duo (test): when open sideways, the dock now also holds the location picker, Ask Theo and Nudge, above the profile and tabs; Nudge shows its late count as a badge.
