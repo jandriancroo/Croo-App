@@ -24,6 +24,7 @@ import { DiagnosticMode } from "@/components/DiagnosticMode";
 import BreakOverlay from "@/components/BreakOverlay";
 import PinMigrationOverlay from "@/components/PinMigrationOverlay";
 import { VisualAlertStack } from "@/components/visual-alerts/VisualAlertStack";
+import { VISUAL_ALERTS_ENABLED } from "@/components/visual-alerts/visualAlertsConfig";
 import { useForceReload } from "@/hooks/useForceReload";
 import { AppSplashScreen } from "@/components/AppSplashScreen";
 import { ScrollToTop } from "./components/ScrollToTop";
@@ -313,7 +314,7 @@ const App = () => (
                 <DockToastProvider>
                   <DiagnosticMode />
                   <BreakOverlay />
-                  <VisualAlertStack />
+                  {VISUAL_ALERTS_ENABLED && <VisualAlertStack />}
                   <AppWithSplash />
                   <PinMigrationOverlay />
                 </DockToastProvider>

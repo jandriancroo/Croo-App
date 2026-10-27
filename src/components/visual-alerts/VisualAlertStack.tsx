@@ -50,6 +50,7 @@ export function VisualAlertStack() {
     }
   }, [targetNotificationId, ordered.length, searchParams, setSearchParams]);
 
+  if (!VISUAL_ALERTS_ENABLED) return null;
   if (suppress || ordered.length === 0) return null;
 
   // Top card = last in array
