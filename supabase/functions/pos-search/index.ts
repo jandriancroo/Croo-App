@@ -100,32 +100,37 @@ async function fetchMenuSales(token: string, opUnitIds: number[], days: number):
 }
 
 function mergeMenuSales(menu: MenuItem[], sales: PosItem[]): PosItem[] {
-  const entries = new Map<string, PosItem>();
+  const ids = new Set<string>();
   const names = new Map<string, PosItem>();
+  const entries: PosItem[] = [];
   for (const row of menu) {
-    const name = row.itemReportTitle || "";
-    if (!cleanName(name)) continue;
-    const id = row.itemMasterId;
-    const key = id !== undefined && id !== null && id !== "" ? `id:${id}` : `name:${cleanName(name)}`;
-    let entry = entries.get(key);
-    if (!entry) {
-      entry = { name, category: Array.isArray(row.configurationsTagsNames) ? row.configurationsTagsNames.join(", ") : row.configurationsTagsNames || "",
-        quantity: 0, onMenu: true, ...(key.startsWith("id:") ? { itemMasterId: id } : {}) };
-      entries.set(key, entry);
-    }
-    names.set(cleanName(name), entry);
+    const name = typeof row.reportTitle === "string" ? row.reportTitle.trim() : "";
+    const nameKey = cleanName(name);
+    if (!nameKey) continue;
+    const id = row.id;
+    const hasId = id !== undefined && id !== null && id !== "";
+    if (hasId && ids.has(String(id))) continue;
+    if (hasId) ids.add(String(id));
+    if (names.has(nameKey)) continue;
+    const entry: PosItem = { name, category: "", quantity: 0, onMenu: true, ...(hasId ? { itemMasterId: id } : {}) };
+    names.set(nameKey, entry);
+    entries.push(entry);
   }
   for (const row of sales) {
     const nameKey = cleanName(row.name);
+    if (!nameKey) continue;
     const existing = names.get(nameKey);
-    if (existing) existing.quantity += row.quantity;
-    else {
-      const entry = { ...row, onMenu: false };
-      entries.set(`name:${nameKey}`, entry);
+    if (existing) {
+      existing.quantity += row.quantity;
+      if (!existing.category && row.category) existing.category = row.category;
+    } else {
+      const entry: PosItem = { ...row, onMenu: false };
       names.set(nameKey, entry);
+      entries.push(entry);
     }
   }
-  return Array.from(entries.values()).sort((a, b) => b.quantity - a.quantity);
+  for (const entry of entries) if (!entry.category && entry.onMenu) entry.category = "Menu";
+  return entries.sort((a, b) => b.quantity - a.quantity || a.name.localeCompare(b.name));
 }
 
 serve(async (req) => {
