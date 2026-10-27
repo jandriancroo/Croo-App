@@ -583,9 +583,9 @@ export function LaborTotals({
     return null;
   }
 
-  const insightGrid = "grid grid-cols-[96px_repeat(7,1fr)] md:grid-cols-[116px_repeat(7,1fr)] lg:grid-cols-[150px_repeat(7,1fr)] xl:grid-cols-[170px_repeat(7,1fr)] gap-0";
+  const insightGrid = "grid grid-cols-[96px_repeat(7,1fr)] md:grid-cols-[116px_repeat(7,1fr)] lg:grid-cols-[150px_repeat(7,1fr)] xl:grid-cols-[170px_repeat(7,1fr)] gap-0 duo-insight-grid";
 
-  return <div className="text-xs min-w-[700px]">
+  return <div className="text-xs min-w-[700px] duo-insights">
       {/* Week Insights tab - dark floating pill */}
       <div className="-mt-5 mb-2 relative z-10 flex">
         <button

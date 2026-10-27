@@ -768,3 +768,49 @@ html.duo .duo-ovb-nav .duo-ovation-arrow{width:38px;height:34px;color:var(--duo-
 /* v59: Chat inbox selector = standard compact pill */
 html.duo .duo-inbox-seg{height:34px;width:fit-content}
 html.duo .duo-inbox-seg>button{font-size:14px;padding:0 14px}
+
+/* v61: orb actions a page registers that are not available right now (greyed, not hidden) */
+html.duo .duo-actions .duo-act-off{opacity:.38;filter:grayscale(1)}
+html.duo .duo-actions>div:has(.duo-act-off) span{opacity:.5}
+/* v61: Smart Tap pop-up uses Duo neutrals only (no amber accent) */
+html.duo [data-radix-popper-content-wrapper] .text-amber-500{color:hsl(var(--muted-foreground))!important}
+/* v61: phone Schedule's Punch split button hides on Duo; the orb carries those actions */
+html.duo .duo-sched-split{display:none!important}
+
+/* v62: open-mode Schedule full grid runs edge to edge and sits close under the page title */
+html.duo:has(.duo-sched-grid) main{max-width:none!important;width:100%!important}
+html.duo:has(.duo-sched-grid) .duo-tasks-page{padding-left:6px;padding-right:6px}
+html.duo.duo-open:has(.duo-sched-grid) .duo-open-main{padding-top:72px!important}
+html.duo .duo-sched-grid.-mx-2{margin-left:0;margin-right:0}
+html.duo .duo-sched-grid .container{max-width:none!important;padding-left:0;padding-right:0}
+/* v62: folded Schedule date selector stops short of Apple's right column so the forward arrow stays tappable */
+html.duo .duo-sched-datenav{padding-right:calc(max(var(--duo-col-right,0px),104px) - 16px)}
+html.duo.duo-open .duo-sched-datenav{padding-right:0}
+/* v63: open-mode Schedule grid fills the whole width; only the toolbar buttons stay clear of Apple's right column */
+html.duo.duo-open:has(.duo-sched-grid) main{padding-right:0!important}
+html.duo.duo-open:has(.duo-sched-grid) .duo-tasks-page{padding-right:0}
+html.duo.duo-open .duo-sched-grid .duo-sched-toolbar{padding-right:max(var(--duo-col-right,0px),104px)!important}
+html.duo .duo-sched-grid .sticky{margin-left:0;margin-right:0}
+/* v64: Schedule grid reads as continuous full-width rows (no framed card, no rounded corners, hairlines run edge to edge) */
+html.duo .duo-sched-grid{margin-right:-16px!important}
+html.duo .duo-sched-grid .sticky{border-radius:0!important;border-left:0!important;border-right:0!important;box-shadow:none!important}
+html.duo .duo-sched-grid [class*="border-x"],html.duo .duo-sched-grid .border{border-left-width:0;border-right-width:0}
+/* v65: open-mode Schedule rows are open on both sides: they bleed to the left and right screen edges.
+   Only the toolbar is kept clear of the side handle (left) and Apple's column (right). */
+html.duo.duo-open:has(.duo-sched-grid) main{padding-left:0!important}
+html.duo.duo-open:has(.duo-sched-grid) .duo-tasks-page{padding-left:0}
+html.duo.duo-open .duo-sched-grid{margin-left:0!important}
+html.duo.duo-open .duo-sched-grid .duo-sched-toolbar{padding-left:max(var(--duo-col-left,0px),44px)!important}
+/* v66: Week Insights drawer on Duo: roomier label column that wraps (no overlap), tighter day cells, clear of Apple's right column */
+html.duo .duo-insights{padding-right:0;margin-left:16px}
+/* same columns as the schedule grid above so every day lines up under its own column */
+html.duo .duo-insight-grid{grid-template-columns:130px repeat(7,minmax(0,1fr))!important}
+@media (min-width:1024px){html.duo .duo-insight-grid{grid-template-columns:180px repeat(7,minmax(0,1fr))!important}}
+@media (min-width:1280px){html.duo .duo-insight-grid{grid-template-columns:200px repeat(7,minmax(0,1fr))!important}}
+html.duo .duo-insight-grid>div:first-child{flex-wrap:wrap;row-gap:0;column-gap:6px;overflow:hidden}
+html.duo .duo-insight-grid>div:not(:first-child){padding-left:2px!important;padding-right:2px!important;min-width:0;overflow:hidden}
+html.duo .duo-insight-grid>div:not(:first-child) [class*="text-sm"],html.duo .duo-insight-grid>div:not(:first-child) [class*="text-[15px]"]{font-size:13px!important}
+html.duo .duo-insight-grid>div:not(:first-child) [class*="text-[11px]"]{font-size:10px!important}
+/* v60: New Post: Post button lives in the bottom bar (top-right sat under Apple's status pill) */
+html.duo .duo-slide .duo-post-btn{background:hsl(var(--foreground));color:hsl(var(--background));font-weight:600;min-width:84px;height:40px;border-radius:20px}
+html.duo .duo-slide .duo-post-btn:disabled{opacity:.35}

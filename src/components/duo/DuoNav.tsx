@@ -3,6 +3,7 @@ import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query';
 import { TheoOrb } from '@/components/dock/TheoOrb';
 import { DuoOvation } from '@/components/duo/DuoOvation';
+import { useDuoPageActions } from '@/lib/duoPageActions';
 import { useDuoTheme, setDuoThemeMode, type DuoThemeMode } from '@/lib/duoTheme';
 import { useOvationData } from '@/components/dashboard/OvationScorePopover';
 import { Pencil, Mail, Inbox, ChevronRight, MapPin, X, Sparkles, Hand, SlidersHorizontal, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock, Gauge, Zap, ClipboardList, FileText as FileTextIcon, Copy, Plus, BookOpen, Upload, UserPlus, RefreshCw, FlaskConical, Save, Award, ListChecks, Sun, Moon, SunMoon, ChevronDown } from 'lucide-react';
@@ -27,6 +28,7 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
   const hasPermission = (key: string) => permissions?.[key] ?? false;
   const [open, setOpen] = useState(false);
   const [fan, setFan] = useState(false);
+  const pageActions = useDuoPageActions();
   const [bump, setBump] = useState(0);
   const [ovOpen, setOvOpen] = useState(false);
   const [ovTop, setOvTop] = useState(120);
@@ -133,7 +135,7 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
     }, 450);
   };
   const holdCancel = () => window.clearTimeout(holdTimer.current);
-  const actions = [
+  const baseActions: { label: string; icon: any; action: () => void; disabled?: boolean }[] = [
 
       ...(onChat ? [{ label: 'New post', icon: Pencil, action: () => fire('open-new-post') }, { label: 'New DM', icon: Mail, action: () => fire('open-new-dm') }, ...(!document.documentElement.classList.contains('duo-open') ? [{ label: 'Inbox', icon: Inbox, action: () => fire('open-inbox') }] : [])] : []),
       ...(onDash && isShiftManager ? [{ label: 'Ask Theo', icon: Sparkles, action: () => fire('open-theo-voice') }] : []),
@@ -153,6 +155,7 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
       ...(onProfile ? [{ label: 'Save changes', icon: Save, action: () => fire('profile-save') }] : []),
       ...(onDash ? [{ label: 'Edit layout', icon: SlidersHorizontal, action: () => fire('open-edit-layout') }] : []),
   ];
+  const actions = [...baseActions, ...pageActions.map(a => ({ label: a.label, icon: a.icon, disabled: a.disabled, action: () => { if (a.disabled) return; setFan(false); void a.run(); } }))];
   return <div className="duo-navroot" data-duo-theme={theme}>
     <div className={`duo-topbar${onDash ? ' duo-topbar-dash' : ''}`}>
       <div className="duo-brandrow">
@@ -161,7 +164,7 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
       {!onDash && pageName && <div className="duo-pageline"><b>{pageName}</b>{pageStatus && <span>{pageStatus}</span>}</div>}
     </div>
     {fan && <Button variant="ghost" aria-label="Close actions" className="duo-dim" onClick={() => setFan(false)} />}
-    {fan && <div className="duo-actions">{actions.map(a => <div key={a.label}><span className="duo-glass">{a.label}</span><Button variant="ghost" className="duo-glass" aria-label={a.label} onClick={a.action}><a.icon size={22} />{a.label === 'Nudge' && late > 0 && <b className="duo-badge">{late}</b>}</Button></div>)}</div>}
+    {fan && <div className="duo-actions">{actions.map(a => <div key={a.label}><span className="duo-glass">{a.label}</span><Button variant="ghost" className={`duo-glass${a.disabled ? ' duo-act-off' : ''}`} aria-label={a.label} aria-disabled={a.disabled} onClick={a.action}><a.icon size={22} />{a.label === 'Nudge' && late > 0 && <b className="duo-badge">{late}</b>}</Button></div>)}</div>}
     <DuoOvation open={ovOpen} onOpenChange={setOvOpen} anchorTop={ovTop} />
     <div className="duo-wordmark-global" aria-hidden><img src="/croohq-wordmark.png" alt="" /></div>
     {hint && <span className="duo-orb-hint duo-glass">Hold to talk to Theo</span>}

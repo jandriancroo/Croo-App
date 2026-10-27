@@ -143,9 +143,11 @@ export function PostComposer({
         <SheetContent side={duo.isDuo ? 'right' : 'bottom'} className={duo.isDuo ? 'duo-slide p-0 flex flex-col' : 'h-[90vh] rounded-t-2xl p-0 flex flex-col'}>
           <SheetHeader className="px-4 pt-4 pb-2 shrink-0 flex-row items-center justify-between">
             <SheetTitle>{isAnnouncement ? 'New announcement' : 'New post'}</SheetTitle>
-            <Button size="sm" onClick={handleSubmit} disabled={!canSubmit}>
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Post'}
-            </Button>
+            {!duo.isDuo && (
+              <Button size="sm" onClick={handleSubmit} disabled={!canSubmit}>
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Post'}
+              </Button>
+            )}
           </SheetHeader>
 
           <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4">
@@ -299,6 +301,11 @@ export function PostComposer({
           </div>
 
           <div className="border-t border-border p-3 flex items-center gap-2 shrink-0 bg-background">
+            {duo.isDuo && (
+              <Button size="sm" className="duo-post-btn" onClick={handleSubmit} disabled={!canSubmit}>
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : isAnnouncement ? 'Announce' : 'Post'}
+              </Button>
+            )}
             <input ref={photoRef} type="file" accept="image/*" multiple hidden onChange={e => handleFiles(e.target.files, 'image')} />
             <input ref={fileRef} type="file" multiple hidden onChange={e => handleFiles(e.target.files, 'file')} />
             <Button variant="outline" size="sm" onClick={() => photoRef.current?.click()} disabled={uploading || media.length >= 8}>

@@ -394,7 +394,7 @@ export function EditShiftDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-sm max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-sm max-h-[90vh] flex flex-col duo-slide">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarClock className="h-5 w-5" />

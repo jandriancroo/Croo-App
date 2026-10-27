@@ -18,6 +18,8 @@ const MobileBuildScheduleWizard = lazyWithRetry(() => import('./MobileBuildSched
 import { MobileShiftCard } from './MobileShiftCard';
 import { useToastShifts, type ToastShiftRow } from '@/hooks/useToastShifts';
 import { useToastFreshness } from '@/hooks/useToastFreshness';
+import { setDuoPageActions, clearDuoPageActions, type DuoPageAction } from '@/lib/duoPageActions';
+import { Clock as ClockIcon, CalendarPlus as CalendarPlusIcon, LayoutGrid as LayoutGridIcon, CalendarDays as CalendarDaysIcon, FileDown as FileDownIcon } from 'lucide-react';
 import { QuickPunchDialog } from './QuickPunchDialog';
 import { ScheduleActionSplitButton } from './ScheduleActionSplitButton';
 import { PageTitle } from '@/components/PageTitle';
@@ -701,6 +703,19 @@ export function MobileScheduleView({
   // Use shift_date as source of truth (matches EmployeeRow.tsx fix)
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
   const isSelectedDateToday = selectedDateStr === todayStr;
+
+  // Duo: the orb carries these actions (same rules as the split button).
+  useEffect(() => {
+    if (!document.documentElement.classList.contains('duo') || !(isAdmin || isManager)) return;
+    const list: DuoPageAction[] = [];
+    if (!isToastLaborStore) list.push({ label: 'Punch', icon: ClockIcon, run: () => setQuickPunchOpen(true), disabled: !isSelectedDateToday });
+    if (scheduleId) list.push({ label: 'New Shift', icon: CalendarPlusIcon, run: () => { setAddSheetTab('shift'); setAddSheetLockTab(true); setAddSheetWeekOverride(null); setAddSheetOpen(true); } });
+    list.push({ label: 'Build Week', icon: LayoutGridIcon, run: () => setBuildWizardOpen(true) });
+    if (scheduleId) list.push({ label: 'New Event', icon: CalendarDaysIcon, run: () => setEventDialogOpen(true) });
+    if (onSharePdf) list.push({ label: 'Share PDF', icon: FileDownIcon, run: () => onSharePdf(), disabled: !isPublished });
+    setDuoPageActions('schedule-mobile', list);
+    return () => clearDuoPageActions('schedule-mobile');
+  }, [isAdmin, isManager, isToastLaborStore, isSelectedDateToday, scheduleId, isPublished, onSharePdf]);
   const isPastDate = selectedDateStr && todayStr && selectedDateStr < todayStr;
 
 
@@ -970,7 +985,7 @@ export function MobileScheduleView({
                   const n = allDayPunches.filter(p => p.isActive).length;
                   return { text: n ? `${n} ON THE CLOCK` : 'NO ONE ON THE CLOCK' };
                 })() : undefined} action={
-                  <ScheduleActionSplitButton
+                  <div className="duo-sched-split"><ScheduleActionSplitButton
                     isToastLaborStore={isToastLaborStore}
                     isToday={isSelectedDateToday}
                     hasSchedule={!!scheduleId}
@@ -985,11 +1000,11 @@ export function MobileScheduleView({
                     onBuildWeek={() => setBuildWizardOpen(true)}
                     onNewEvent={() => setEventDialogOpen(true)}
                     onSharePdf={onSharePdf}
-                  />
+                  /></div>
               }>
                 Schedule
               </PageTitle>
-              <div className="flex items-center justify-center mb-3">
+              <div className="flex items-center justify-center mb-3 duo-sched-datenav">
                 <DateNavigator
                   variant="card"
                   className="w-full"

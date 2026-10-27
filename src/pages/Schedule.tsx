@@ -11,9 +11,10 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useDuo } from "@/hooks/useDuo";
 import { useScheduleData } from "@/hooks/useScheduleData";
 import { useSchedulePreferences } from "@/hooks/useSchedulePreferences";
+import { invalidatePunchViews } from '@/lib/punchEditGuard';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Settings, Calendar, Copy, Trash2, Wrench, ChevronDown, AlertTriangle, Sparkles, History, Minimize2, Maximize2, Printer } from "lucide-react";
+import { Clock, CalendarPlus, LayoutGrid, FileDown, Plus, Settings, Calendar, Copy, Trash2, Wrench, ChevronDown, AlertTriangle, Sparkles, History, Minimize2, Maximize2, Printer } from "lucide-react";
 import { shareSchedulePdf } from "@/utils/shareSchedulePdf";
 import { exportScheduleToPrint } from "@/utils/exportSchedulePrint";
 import { Badge } from "@/components/ui/badge";
@@ -49,12 +50,15 @@ import { paidShiftHours } from "@/utils/shiftUtils";
 // StationAssignChip removed — station assignment moved into SmartTap popover
 import { StationGroupSection } from "@/components/schedule/StationGroupSection";
 
+import { QuickPunchDialog } from '@/components/schedule/QuickPunchDialog';
+import { setDuoPageActions, clearDuoPageActions } from '@/lib/duoPageActions';
 import { DuoPage } from '@/components/duo/DuoPage';
 export default function Schedule() {
   const navigate = useNavigate();
   const phoneLayout = useIsMobile();
   const duo = useDuo();
-  const isMobile = phoneLayout || duo.isOpen;
+  // Open Duo shows the full desktop weekly grid (templates + tools); only phone widths use the phone view.
+  const isMobile = phoneLayout;
 
   const data = useScheduleData();
   const {
@@ -167,6 +171,7 @@ export default function Schedule() {
         }
       }
     };
+    if (document.documentElement.classList.contains('duo')) { setNavbarHeight(0); return; }
     measureHeader();
     window.addEventListener('resize', measureHeader);
     return () => window.removeEventListener('resize', measureHeader);
@@ -287,6 +292,39 @@ export default function Schedule() {
   };
   const handlePrintSchedule = () => exportScheduleToPrint(buildPrintData());
   const handleSharePdf = () => shareSchedulePdf(buildPrintData());
+  const wrapEditActionRef = useRef<(a: () => void) => void>();
+  wrapEditActionRef.current = wrapEditAction;
+  const handleSharePdfRef = useRef<() => void>();
+  handleSharePdfRef.current = handleSharePdf;
+
+  // ── Duo orb actions (open mode, desktop grid): follow role, store and week state ──
+  const [duoPunchOpen, setDuoPunchOpen] = useState(false);
+  const { data: duoLaborSource } = useQuery({
+    queryKey: ['labor-source-for', currentLocation?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('labor_source_for', { _location_id: currentLocation!.id });
+      if (error) throw error;
+      return data as string;
+    },
+    enabled: duo.isOpen && !!currentLocation?.id,
+    staleTime: 10 * 60 * 1000,
+  });
+  const duoIsToastStore = duoLaborSource === 'toast';
+  const duoWeekHasToday = (() => { const t = new Date(); t.setHours(0,0,0,0); const w = new Date(currentWeekStart); w.setHours(0,0,0,0); const d = Math.round((t.getTime() - w.getTime()) / 86400000); return d >= 0 && d < 7; })();
+  useEffect(() => {
+    if (!duo.isOpen || isMobile || !(isAdmin || isManager)) return;
+    const list: import('@/lib/duoPageActions').DuoPageAction[] = [];
+    // Full grid: New Shift = tap a cell (Smart Tap), Punch lives on the phone day view, so neither is here.
+    list.push({ label: 'Croo AI', icon: Sparkles, run: () => setAutoScheduleOpen(true) });
+    list.push({ label: 'Share PDF', icon: FileDown, run: () => handleSharePdfRef.current?.(), disabled: !isPublished });
+    list.push({ label: 'View Availability', icon: Calendar, run: () => navigate('/availability') });
+    list.push({ label: 'Copy to Future Week', icon: Copy, run: () => setCopyScheduleDialogOpen(true), disabled: !scheduleId });
+    list.push({ label: 'Clear Schedule', icon: Trash2, run: () => wrapEditActionRef.current?.(() => setClearScheduleDialogOpen(true)), disabled: !scheduleId });
+    if (isPublished) list.push({ label: 'Withdraw Schedule', icon: AlertTriangle, run: () => setWithdrawDialogOpen(true) });
+    list.push({ label: 'Schedule Settings', icon: Settings, run: () => navigate('/schedule-settings') });
+    setDuoPageActions('schedule', list);
+    return () => clearDuoPageActions('schedule');
+  }, [duo.isOpen, isMobile, isAdmin, isManager, scheduleId, isPublished]);
 
 
 
@@ -332,7 +370,7 @@ export default function Schedule() {
           lastWeekShifts={lastWeekShifts}
         />
       ) : (
-        <div className="pb-56 -mx-2">
+        <div className={`pb-56 -mx-2${duo.isOpen ? ' duo-sched-grid' : ''}`}>
         {(isAdmin || isManager) && <ScheduleApprovalBanner approval={approval} isPublished={isPublished} onChanged={onApprovalChanged} />}
         <DndContext
           sensors={activeSensors}
@@ -348,7 +386,7 @@ export default function Schedule() {
               style={{ top: `${navbarHeight}px` }}
             >
             {/* Header toolbar */}
-            <div className="flex items-center gap-2 md:gap-3 px-3 py-1.5 md:px-4 md:pt-2 md:pb-5 border-b border-border">
+            <div className="flex items-center gap-2 md:gap-3 px-3 py-1.5 md:px-4 md:pt-2 md:pb-5 border-b border-border duo-sched-toolbar">
               <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0 overflow-hidden">
                 <DateNavigator
                   onPrev={handlePreviousWeek}
@@ -796,6 +834,16 @@ export default function Schedule() {
           <Suspense fallback={null}><DayBreakdownDialog open={dayBreakdownOpen} onOpenChange={setDayBreakdownOpen} date={selectedDayForBreakdown} scheduleId={scheduleId} shifts={shifts} profiles={profiles} locationSettings={locationSettings} stations={useStationGrouping ? stations : undefined} /></Suspense>
         )}
 
+
+        {duo.isOpen && !isMobile && (isAdmin || isManager) && (
+          <QuickPunchDialog
+            open={duoPunchOpen}
+            onOpenChange={setDuoPunchOpen}
+            profiles={profiles as any}
+            selectedDate={new Date()}
+            onPunchCreated={() => { fetchScheduleData(false); invalidatePunchViews(queryClient); }}
+          />
+        )}
         {(isAdmin || isManager) && isCreatingShift && (
           <Suspense fallback={null}>
             <MobileShiftDialog
