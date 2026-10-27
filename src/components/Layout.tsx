@@ -3,6 +3,7 @@ import { ReactNode, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { OnboardingTour } from '@/components/onboarding/OnboardingTour';
+import { TOUR_ENABLED } from '@/components/onboarding/tourConfig';
 import { QuickNudgeTutorial } from '@/components/dashboard/QuickNudgeTutorial';
 import { NudgeHeaderButton, type NudgeHeaderHandle } from '@/components/dashboard/NudgeHeaderButton';
 import { NUDGE_ROLES_CLIENT } from '@/lib/quickNudges';
@@ -271,6 +272,11 @@ export const Layout = ({
   usePushNotifications();
   const { runTour, setRunTour, completeTour, replayTour, isEligible: tourEligible } = useOnboardingTour();
   useEffect(() => {
+    if (!TOUR_ENABLED) {
+      // Tour is off: free anyone left mid-tour and wire up nothing.
+      sessionStorage.removeItem('croo-tour-route-step');
+      return;
+    }
     const startTour = () => { if (tourEligible) void replayTour(); };
     window.addEventListener('start-croo-tour', startTour);
     if (tourEligible && sessionStorage.getItem('croo-tour-route-step') !== null) setRunTour(true);
@@ -1739,7 +1745,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       <AiAssistantBubble />
 
       {/* Onboarding Tour */}
-      <OnboardingTour run={runTour} onComplete={completeTour} />
+      {TOUR_ENABLED && <OnboardingTour run={runTour} onComplete={completeTour} />}
       <QuickNudgeTutorial />
 
     </div></DuoTitleSlotsContext.Provider>;

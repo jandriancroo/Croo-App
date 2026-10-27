@@ -6,6 +6,7 @@ import { openMenuForTour, closeMenuForTour } from './tourMenuBridge';
 import { openDockForTour, closeDockForTour } from '@/components/dock/dockBridge';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { tourStepDestination } from './tourNavigation';
+import { TOUR_ENABLED } from './tourConfig';
 
 interface OnboardingTourProps {
   run: boolean;
@@ -146,6 +147,7 @@ export function OnboardingTour({ run, onComplete }: OnboardingTourProps) {
     }
   };
 
+  if (!TOUR_ENABLED) return null;
   if (!run || !steps.length) return null;
 
   return (
