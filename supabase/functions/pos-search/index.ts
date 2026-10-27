@@ -37,51 +37,24 @@ function getV4Headers(token: string): Record<string, string> {
 }
 
 type PosItem = { name: string; category: string; quantity: number; itemMasterId?: string | number; onMenu?: boolean };
-type MenuItem = { itemMasterId?: string | number; itemReportTitle?: string; configurationsTagsNames?: string | string[] };
+type MenuItem = { id?: string | number; reportTitle?: string };
 const cleanName = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
 
-async function fetchMenu(opUnitId: number, token: string): Promise<MenuItem[] | null> {
-  const bases = [
-    `https://gateway-api.qubeyond.com/api/v4/data/operations/${opUnitId}/inventory`,
-    `https://admin.qubeyond.com/api/data/operations/${opUnitId}/inventory`,
-  ];
+// Company-wide QU item catalog (Blaze-wide promo trackers). Returns null on any failure.
+async function fetchItemMasters(token: string): Promise<MenuItem[] | null> {
   try {
-    for (const base of bases) {
-      let pageSize = 200;
-      let pageCount = 1;
-      const items: MenuItem[] = [];
-      let tryNextUrl = false;
-      for (let page = 1; page <= pageCount; page++) {
-        const url = `${base}?page_number=${page}&page_size=${pageSize}&sort=reportTitle_asc`;
-        const response = await fetch(url, { headers: getV4Headers(token) });
-        console.log(`[pos-search] Menu GET ${url} HTTP ${response.status}`);
-        if (!response.ok) {
-          if ([400, 422].includes(response.status) && pageSize > 50) {
-            pageSize = pageSize === 200 ? 100 : 50;
-            page--;
-            continue;
-          }
-          if ([401, 403, 404].includes(response.status) && base === bases[0]) {
-            tryNextUrl = true;
-            break;
-          }
-          return null;
-        }
-        const payload = await response.json();
-        if (!Array.isArray(payload.data)) return null;
-        items.push(...payload.data);
-        const count = Number(payload.meta?.pageCount ?? 1);
-        if (!Number.isInteger(count) || count < 0) return null;
-        pageCount = count;
-      }
-      if (tryNextUrl) continue;
-      console.log(`[pos-search] Menu worked ${base}; ${items.length} items`);
-      return items;
-    }
+    const response = await fetch("https://gateway-api.qubeyond.com/api/v4/data/item-masters", { headers: getV4Headers(token) });
+    console.log(`[pos-search] Item masters HTTP ${response.status}`);
+    if (!response.ok) return null;
+    const payload = await response.json();
+    const rows = Array.isArray(payload?.value) ? payload.value : Array.isArray(payload?.data) ? payload.data : null;
+    if (!rows) return null;
+    console.log(`[pos-search] Item masters ${rows.length} items`);
+    return rows;
   } catch {
-    console.warn(`[pos-search] Menu unavailable for operation ${opUnitId}`);
+    console.warn("[pos-search] Item masters unavailable");
+    return null;
   }
-  return null;
 }
 
 async function fetchMenuSales(token: string, opUnitIds: number[], days: number): Promise<PosItem[]> {
@@ -127,32 +100,37 @@ async function fetchMenuSales(token: string, opUnitIds: number[], days: number):
 }
 
 function mergeMenuSales(menu: MenuItem[], sales: PosItem[]): PosItem[] {
-  const entries = new Map<string, PosItem>();
+  const ids = new Set<string>();
   const names = new Map<string, PosItem>();
+  const entries: PosItem[] = [];
   for (const row of menu) {
-    const name = row.itemReportTitle || "";
-    if (!cleanName(name)) continue;
-    const id = row.itemMasterId;
-    const key = id !== undefined && id !== null && id !== "" ? `id:${id}` : `name:${cleanName(name)}`;
-    let entry = entries.get(key);
-    if (!entry) {
-      entry = { name, category: Array.isArray(row.configurationsTagsNames) ? row.configurationsTagsNames.join(", ") : row.configurationsTagsNames || "",
-        quantity: 0, onMenu: true, ...(key.startsWith("id:") ? { itemMasterId: id } : {}) };
-      entries.set(key, entry);
-    }
-    names.set(cleanName(name), entry);
+    const name = typeof row.reportTitle === "string" ? row.reportTitle.trim() : "";
+    const nameKey = cleanName(name);
+    if (!nameKey) continue;
+    const id = row.id;
+    const hasId = id !== undefined && id !== null && id !== "";
+    if (hasId && ids.has(String(id))) continue;
+    if (hasId) ids.add(String(id));
+    if (names.has(nameKey)) continue;
+    const entry: PosItem = { name, category: "", quantity: 0, onMenu: true, ...(hasId ? { itemMasterId: id } : {}) };
+    names.set(nameKey, entry);
+    entries.push(entry);
   }
   for (const row of sales) {
     const nameKey = cleanName(row.name);
+    if (!nameKey) continue;
     const existing = names.get(nameKey);
-    if (existing) existing.quantity += row.quantity;
-    else {
-      const entry = { ...row, onMenu: false };
-      entries.set(`name:${nameKey}`, entry);
+    if (existing) {
+      existing.quantity += row.quantity;
+      if (!existing.category && row.category) existing.category = row.category;
+    } else {
+      const entry: PosItem = { ...row, onMenu: false };
       names.set(nameKey, entry);
+      entries.push(entry);
     }
   }
-  return Array.from(entries.values()).sort((a, b) => b.quantity - a.quantity);
+  for (const entry of entries) if (!entry.category && entry.onMenu) entry.category = "Menu";
+  return entries.sort((a, b) => b.quantity - a.quantity || a.name.localeCompare(b.name));
 }
 
 serve(async (req) => {
@@ -285,10 +263,8 @@ serve(async (req) => {
     }
 
     if (includeMenu === true) {
-      const menus = await Promise.all(quLocationIds.map(id => fetchMenu(id, token)));
-      const menu = menus.flatMap(items => items || []);
-      const menuUnavailable = menus.some(items => items === null || items.length === 0)
-        || !menu.some(item => cleanName(item.itemReportTitle || ""));
+      const menu = (await fetchItemMasters(token)) || [];
+      const menuUnavailable = !menu.some(item => typeof item.reportTitle === "string" && cleanName(item.reportTitle));
       let sales: PosItem[] = [];
       try {
         sales = await fetchMenuSales(token, quLocationIds, menuUnavailable ? 90 : 14);
