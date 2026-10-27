@@ -263,10 +263,8 @@ serve(async (req) => {
     }
 
     if (includeMenu === true) {
-      const menus = await Promise.all(quLocationIds.map(id => fetchMenu(id, token)));
-      const menu = menus.flatMap(items => items || []);
-      const menuUnavailable = menus.some(items => items === null || items.length === 0)
-        || !menu.some(item => cleanName(item.itemReportTitle || ""));
+      const menu = (await fetchItemMasters(token)) || [];
+      const menuUnavailable = !menu.some(item => typeof item.reportTitle === "string" && cleanName(item.reportTitle));
       let sales: PosItem[] = [];
       try {
         sales = await fetchMenuSales(token, quLocationIds, menuUnavailable ? 90 : 14);
