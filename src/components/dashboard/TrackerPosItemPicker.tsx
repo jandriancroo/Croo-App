@@ -18,6 +18,9 @@ interface PosItem {
   onMenu?: boolean;
 }
 
+// Render cap only; search always runs over every item.
+const RENDER_LIMIT = 200;
+
 interface TrackerPosItemPickerProps {
   value: string[];
   onChange: (items: string[]) => void;
@@ -47,14 +50,16 @@ export function TrackerPosItemPicker({ value, onChange, label = "Promo Item(s)" 
   });
   const posItems = result?.items;
 
-  const filteredItems = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    const items = term
-      ? (posItems || []).filter(item => `${item.name} ${item.category || ""}`.toLowerCase().includes(term))
-      : (posItems || []);
+  const searchIndex = useMemo(
+    () => (posItems || []).map(item => ({ item, text: `${item.name} ${item.category || ""}`.toLowerCase() })),
+    [posItems],
+  );
 
-    return items;
-  }, [posItems, search]);
+  const { filteredItems, totalMatches } = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const matches = term ? searchIndex.filter(entry => entry.text.includes(term)) : searchIndex;
+    return { filteredItems: matches.slice(0, RENDER_LIMIT).map(entry => entry.item), totalMatches: matches.length };
+  }, [searchIndex, search]);
 
   const addItem = (name: string) => {
     const trimmed = name.trim();
@@ -145,6 +150,11 @@ export function TrackerPosItemPicker({ value, onChange, label = "Promo Item(s)" 
                 </Button>
               );
             })}
+            {!isLoading && !isError && totalMatches > filteredItems.length && (
+              <p className="py-1.5 text-center text-[10px] text-muted-foreground">
+                Showing {filteredItems.length} of {totalMatches} — type to narrow
+              </p>
+            )}
           </div>
         </ScrollArea>
 
