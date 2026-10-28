@@ -37,7 +37,7 @@ const SUGGESTIONS = [
 ];
 
 export function AiAssistantBubble() {
-  const { isShiftManager } = useUserRole();
+  const { isShiftManager, isSchedulingManager } = useUserRole();
   const { currentLocation } = useLocation();
   const { timezone } = useLocationTimezone();
   const queryClient = useQueryClient();
