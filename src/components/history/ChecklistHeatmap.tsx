@@ -135,18 +135,31 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
       const windowStart = getBusinessDayRangeInTimezone(format(startDate, 'yyyy-MM-dd')).start;
       const windowEnd = getBusinessDayRangeInTimezone(format(endDate, 'yyyy-MM-dd')).end;
 
-      const { data: responses } = await supabase
-        .from('checklist_responses')
-        .select(`
-          item_id,
-          created_at,
-          checklist_submissions!inner(checklist_id)
-        `)
-        .in('checklist_submissions.checklist_id', checklistIds)
-        .eq('checklist_submissions.location_id', currentLocation.id)
-        .gte('created_at', windowStart.toISOString())
-        .lte('created_at', windowEnd.toISOString())
-        .not('completed_by', 'is', null);
+      // Page through responses in 1000-row chunks — a month can hold far more
+      // than Supabase's default single-request cap, which silently truncated
+      // the tail of the range.
+      const responses: any[] = [];
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        const { data: page, error: pageError } = await supabase
+          .from('checklist_responses')
+          .select(`
+            item_id,
+            created_at,
+            checklist_submissions!inner(checklist_id)
+          `)
+          .in('checklist_submissions.checklist_id', checklistIds)
+          .eq('checklist_submissions.location_id', currentLocation.id)
+          .gte('created_at', windowStart.toISOString())
+          .lte('created_at', windowEnd.toISOString())
+          .not('completed_by', 'is', null)
+          .order('created_at', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (pageError) throw pageError;
+        responses.push(...(page || []));
+        if (!page || page.length < PAGE) break;
+      }
 
       const result: Record<string, { completedChecklists: number; totalChecklists: number; pct: number | null }> = {};
 
