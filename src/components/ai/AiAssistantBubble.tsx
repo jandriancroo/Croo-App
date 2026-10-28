@@ -164,7 +164,7 @@ export function AiAssistantBubble() {
       if (error) throw error;
       return data;
     },
-    enabled: !!currentLocation && isShiftManager,
+    enabled: !!currentLocation && isShiftManager && !isSchedulingManager,
     staleTime: 5 * 60 * 1000,
   });
 
