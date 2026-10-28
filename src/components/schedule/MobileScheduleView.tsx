@@ -191,7 +191,7 @@ export function MobileScheduleView({
   const [selectedPunch, setSelectedPunch] = useState<{userId: string, userName: string, userPhoto: string | null, punchDate: string, clockInId: string} | null>(null);
   const [_todayEvents, setTodayEvents] = useState<Event[]>([]);
   
-  const { isAdmin, isManager, role } = useUserRole();
+  const { isAdmin, isManager, canEditSchedule, role } = useUserRole();
   const { canSeeFullSchedule, loading: scheduleVisibilityLoading } = useTeamScheduleVisibility();
   const { user } = useAuth();
   const { currentLocation } = useLocation();
@@ -715,7 +715,7 @@ export function MobileScheduleView({
     if (onSharePdf) list.push({ label: 'Share PDF', icon: FileDownIcon, run: () => onSharePdf(), disabled: !isPublished });
     setDuoPageActions('schedule-mobile', list);
     return () => clearDuoPageActions('schedule-mobile');
-  }, [isAdmin, isManager, isToastLaborStore, isSelectedDateToday, scheduleId, isPublished, onSharePdf]);
+  }, [canEditSchedule, isToastLaborStore, isSelectedDateToday, scheduleId, isPublished, onSharePdf]);
   const isPastDate = selectedDateStr && todayStr && selectedDateStr < todayStr;
 
 
@@ -741,7 +741,7 @@ export function MobileScheduleView({
     if (s.shift_date !== selectedDateStr || !s.user_id) return false;
     
     // Admins/managers always see everything (including unpublished)
-    if canEditSchedule return true;
+    if (canEditSchedule) return true;
     
     // For non-admin/manager: only show published shifts
     if (!isPublished) return false;
@@ -945,7 +945,7 @@ export function MobileScheduleView({
                     positionLabel={shiftLabel}
                     positionColor={shift.template?.color}
                     onClick={() => {
-                      if canEditSchedule {
+                      if (canEditSchedule) {
                         setSelectedShift(shift);
                         setShiftDialogOpen(true);
                       }
@@ -1196,7 +1196,7 @@ export function MobileScheduleView({
                                     positionLabel={shiftLabel}
                                     positionColor={shift.template?.color}
                                     onClick={() => {
-                                      if canEditSchedule {
+                                      if (canEditSchedule) {
                                         setSelectedShift(shift);
                                         setShiftDialogOpen(true);
                                       }
@@ -1378,7 +1378,7 @@ export function MobileScheduleView({
                             positionLabel={shiftLabel}
                             positionColor={shift.template?.color}
                             onClick={() => {
-                              if canEditSchedule {
+                              if (canEditSchedule) {
                                 setSelectedShift(shift);
                                 setShiftDialogOpen(true);
                               }

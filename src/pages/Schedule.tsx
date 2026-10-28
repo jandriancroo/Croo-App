@@ -65,7 +65,7 @@ export default function Schedule() {
     currentWeekStart, setCurrentWeekStart, weekDays, holidays, blackoutDates, locationSettings,
     isPublishing, currentUserId, scheduleId, isPublished, publishedSnapshot, shifts, lastWeekShifts,
     events, profiles, templates, availabilityRequests, lastStatusChangedByName, lastStatusAction,
-    loading, hasPendingChanges, pendingChangesCount, canViewAllWages, isAdmin, isManager, currentLocation,
+    loading, hasPendingChanges, pendingChangesCount, canViewAllWages, isAdmin, isManager, canEditSchedule, currentLocation,
     fetchScheduleData, checkForConflicts, executeShiftOperation, handleClearSchedule,
     handleCopySchedule, handlePreviousWeek, handleNextWeek, handleGoLive, handleUpdate,
     handleWithdrawSchedule, handleRoleChange, handleDragReorder, handleSmartTap,
@@ -324,7 +324,7 @@ export default function Schedule() {
     list.push({ label: 'Schedule Settings', icon: Settings, run: () => navigate('/schedule-settings') });
     setDuoPageActions('schedule', list);
     return () => clearDuoPageActions('schedule');
-  }, [duo.isOpen, isMobile, isAdmin, isManager, scheduleId, isPublished]);
+  }, [duo.isOpen, isMobile, canEditSchedule, scheduleId, isPublished]);
 
 
 
@@ -519,7 +519,7 @@ export default function Schedule() {
                       ...(isToday ? { background: 'linear-gradient(180deg, hsl(var(--primary)/0.16), hsl(var(--primary)/0.06))' } : {}),
                     }}
                     onClick={() => {
-                      if canEditSchedule {
+                      if (canEditSchedule) {
                         setSelectedDayForBreakdown(day);
                         setDayBreakdownOpen(true);
                       }
