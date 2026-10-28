@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getWageVisibility, getBlendedRate } from "../_shared/wageVisibility.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -519,7 +520,7 @@ async function handleAutoSchedule(req: Request, supabase: any) {
 }
 
 // ============= OPTIMIZE-LABOR MAIN =============
-async function handleOptimizeLabor(req: Request, supabase: any) {
+async function handleOptimizeLabor(req: Request, supabase: any, blendedRate: number | null = null) {
   const { 
     location_id, 
     week_start, 
@@ -566,7 +567,7 @@ async function handleOptimizeLabor(req: Request, supabase: any) {
   const roleMap = new Map<string, string>();
   
   (profiles || []).forEach((p: any) => {
-    wageMap.set(p.id, p.hourly_wage || 15);
+    wageMap.set(p.id, blendedRate ?? (p.hourly_wage || 15));
     nameMap.set(p.id, p.full_name || 'Unknown');
   });
 
@@ -922,7 +923,7 @@ async function handleOptimizeLabor(req: Request, supabase: any) {
 
   return new Response(
     JSON.stringify({
-      optimized_shifts: optimizedShifts,
+      optimized_shifts: blendedRate == null ? optimizedShifts : optimizedShifts.map(({ hourly_wage: _w, ...rest }) => rest),
       labor_summary: optimizedLaborSummary,
       total_labor_cost: optimizedLaborSummary.reduce((sum, d) => sum + d.totalLaborCost, 0),
       total_projected_sales: optimizedLaborSummary.reduce((sum, d) => sum + d.projectedSales, 0),
@@ -969,16 +970,16 @@ serve(async (req) => {
     } catch { /* handler reports missing params */ }
     if (!bodyLocationId) return deny(400, "Missing required parameter: location_id");
 
-    const [{ data: isManager }, { data: hasAccess }] = await Promise.all([
-      supabase.rpc("has_role_or_higher", { _user_id: callerId, _minimum_role: "manager" }),
-      supabase.rpc("has_location_access", { _user_id: callerId, _location_id: bodyLocationId }),
-    ]);
-    if (isManager !== true || hasAccess !== true) return deny(403, "Forbidden");
+    // Edit gate = can_edit_schedule semantics (manager+ or scheduling_manager, with store access).
+    // 'blended' (scheduling_manager) never sees individual wages: costs use the store blended rate.
+    const vis = await getWageVisibility(supabase, callerId, bodyLocationId);
+    if (vis === "none") return deny(403, "Forbidden");
+    const blendedRate = vis === "blended" ? await getBlendedRate(supabase, bodyLocationId) : null;
 
     if (action === "auto-schedule") {
       return await handleAutoSchedule(req, supabase);
     }
-    return await handleOptimizeLabor(req, supabase);
+    return await handleOptimizeLabor(req, supabase, blendedRate);
 
   } catch (error: any) {
     console.error("[schedule-service] Error:", error);
