@@ -36,7 +36,12 @@ function useApprovalSave(locationId: string) {
 }
 
 function summaryText(roles: string[], mode: ApprovalSettingsMode, weekly: number | null) {
-  const who = roles.includes("manager") && roles.includes("admin") ? "Managers and admins" : roles.includes("admin") ? "Admins" : "Managers";
+  const names = [
+    roles.includes("scheduling_manager") && "Scheduling Managers",
+    roles.includes("manager") && "Managers",
+    roles.includes("admin") && "Admins",
+  ].filter(Boolean) as string[];
+  const who = names.length === 0 ? "Managers" : names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1].toLowerCase()}`;
   const when = mode === "every_draft" ? "every schedule" : `only when over the labor goal${weekly != null ? ` (${weekly}%)` : ""}`;
   return `${who} need approval · ${when}`;
 }
