@@ -7,7 +7,7 @@ import { Shield, User, Bell } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { isLogbookNotificationType } from '@/lib/logbookNotificationTypes';
 
-type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'shift_manager_in_training' | 'team_member';
+type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'shift_manager_in_training' | 'scheduling_manager' | 'team_member';
 type DbRole = AppRole | 'fbc' | 'general_manager';
 
 type RolePermission = {
@@ -135,6 +135,7 @@ export function RoleManagementSection({ organizationId }: RoleManagementSectionP
       case 'manager': return 'Manager';
       case 'shift_manager': return 'Shift Manager';
       case 'shift_manager_in_training': return 'Shift Manager in Training';
+      case 'scheduling_manager': return 'Scheduling Manager';
       default: return 'Team Member';
     }
   };

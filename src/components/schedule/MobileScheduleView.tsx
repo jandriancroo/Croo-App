@@ -191,7 +191,9 @@ export function MobileScheduleView({
   const [selectedPunch, setSelectedPunch] = useState<{userId: string, userName: string, userPhoto: string | null, punchDate: string, clockInId: string} | null>(null);
   const [_todayEvents, setTodayEvents] = useState<Event[]>([]);
   
-  const { isAdmin, isManager, role } = useUserRole();
+  const { isAdmin, isManager, canEditSchedule, role } = useUserRole();
+  // Punch tools stay manager-tier only; Scheduling Managers edit schedules, never punches.
+  const canEditPunches = isAdmin || isManager;
   const { canSeeFullSchedule, loading: scheduleVisibilityLoading } = useTeamScheduleVisibility();
   const { user } = useAuth();
   const { currentLocation } = useLocation();
@@ -706,16 +708,16 @@ export function MobileScheduleView({
 
   // Duo: the orb carries these actions (same rules as the split button).
   useEffect(() => {
-    if (!document.documentElement.classList.contains('duo') || !(isAdmin || isManager)) return;
+    if (!document.documentElement.classList.contains('duo') || !canEditSchedule) return;
     const list: DuoPageAction[] = [];
-    if (!isToastLaborStore) list.push({ label: 'Punch', icon: ClockIcon, run: () => setQuickPunchOpen(true), disabled: !isSelectedDateToday });
+    if (!isToastLaborStore && canEditPunches) list.push({ label: 'Punch', icon: ClockIcon, run: () => setQuickPunchOpen(true), disabled: !isSelectedDateToday });
     if (scheduleId) list.push({ label: 'New Shift', icon: CalendarPlusIcon, run: () => { setAddSheetTab('shift'); setAddSheetLockTab(true); setAddSheetWeekOverride(null); setAddSheetOpen(true); } });
     list.push({ label: 'Build Week', icon: LayoutGridIcon, run: () => setBuildWizardOpen(true) });
     if (scheduleId) list.push({ label: 'New Event', icon: CalendarDaysIcon, run: () => setEventDialogOpen(true) });
     if (onSharePdf) list.push({ label: 'Share PDF', icon: FileDownIcon, run: () => onSharePdf(), disabled: !isPublished });
     setDuoPageActions('schedule-mobile', list);
     return () => clearDuoPageActions('schedule-mobile');
-  }, [isAdmin, isManager, isToastLaborStore, isSelectedDateToday, scheduleId, isPublished, onSharePdf]);
+  }, [canEditSchedule, canEditPunches, isToastLaborStore, isSelectedDateToday, scheduleId, isPublished, onSharePdf]);
   const isPastDate = selectedDateStr && todayStr && selectedDateStr < todayStr;
 
 
@@ -741,7 +743,7 @@ export function MobileScheduleView({
     if (s.shift_date !== selectedDateStr || !s.user_id) return false;
     
     // Admins/managers always see everything (including unpublished)
-    if (isAdmin || isManager) return true;
+    if (canEditSchedule) return true;
     
     // For non-admin/manager: only show published shifts
     if (!isPublished) return false;
@@ -891,7 +893,7 @@ export function MobileScheduleView({
 
       {/* Shifts for selected day */}
       <div className="mt-2 space-y-2">
-        {(isAdmin || isManager) && <ScheduleApprovalBanner approval={approval} isPublished={isPublished} onChanged={onApprovalChanged} />}
+        {canEditSchedule && <ScheduleApprovalBanner approval={approval} isPublished={isPublished} onChanged={onApprovalChanged} />}
         <div className="flex items-center justify-between">
           <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
             <Users className="h-3.5 w-3.5" />
@@ -945,12 +947,12 @@ export function MobileScheduleView({
                     positionLabel={shiftLabel}
                     positionColor={shift.template?.color}
                     onClick={() => {
-                      if (isAdmin || isManager) {
+                      if (canEditSchedule) {
                         setSelectedShift(shift);
                         setShiftDialogOpen(true);
                       }
                     }}
-                    actionButton={!isAdmin && !isManager && shift.user_id === user?.id ? (
+                    actionButton={!canEditSchedule && shift.user_id === user?.id ? (
                       <Button size="xs"
                         variant="outline"
                         className="text-xs px-2"
@@ -975,7 +977,7 @@ export function MobileScheduleView({
   return (
     <div className="flex flex-col h-full bg-background -mx-[max(1rem,env(safe-area-inset-left))]">
       {/* Admin/Manager view */}
-      {(isAdmin || isManager) ? (
+      {canEditSchedule ? (
         (
           /* V2: Combined single-scroll view — no tabs */
           <div className="flex flex-col h-full">
@@ -986,7 +988,7 @@ export function MobileScheduleView({
                   return { text: n ? `${n} ON THE CLOCK` : 'NO ONE ON THE CLOCK' };
                 })() : undefined} action={
                   <div className="duo-sched-split"><ScheduleActionSplitButton
-                    isToastLaborStore={isToastLaborStore}
+                    isToastLaborStore={isToastLaborStore || !canEditPunches}
                     isToday={isSelectedDateToday}
                     hasSchedule={!!scheduleId}
                     isPublished={isPublished}
@@ -1089,7 +1091,7 @@ export function MobileScheduleView({
                         ) : (
                           <span className="text-muted-foreground font-normal normal-case tracking-normal">— no one clocked in</span>
                         )}
-                        {(isAdmin || isManager) && scheduleId && (
+                        {canEditSchedule && scheduleId && (
                           <div className="ml-auto">
                             {!isPublished ? (
                               <SchedulePostButton size="sm" className="h-6 px-2.5 text-[10px]" approval={approval} onPost={onGoLive} isPublishing={isPublishing} onChanged={onApprovalChanged} compact />
@@ -1196,7 +1198,7 @@ export function MobileScheduleView({
                                     positionLabel={shiftLabel}
                                     positionColor={shift.template?.color}
                                     onClick={() => {
-                                      if (isAdmin || isManager) {
+                                      if (canEditSchedule) {
                                         setSelectedShift(shift);
                                         setShiftDialogOpen(true);
                                       }
@@ -1320,7 +1322,7 @@ export function MobileScheduleView({
                     Scheduled
                     <span className="text-muted-foreground">({dayShifts.filter(s => getProfileForShift(s)).length})</span>
                     <div className="flex items-center gap-1 ml-auto">
-                      {(isAdmin || isManager) && scheduleId && (
+                      {canEditSchedule && scheduleId && (
                         <>
                           {!isPublished ? (
                             <SchedulePostButton size="sm" className="h-7 px-3 text-xs" approval={approval} onPost={onGoLive} isPublishing={isPublishing} onChanged={onApprovalChanged} compact />
@@ -1378,7 +1380,7 @@ export function MobileScheduleView({
                             positionLabel={shiftLabel}
                             positionColor={shift.template?.color}
                             onClick={() => {
-                              if (isAdmin || isManager) {
+                              if (canEditSchedule) {
                                 setSelectedShift(shift);
                                 setShiftDialogOpen(true);
                               }
@@ -1404,7 +1406,7 @@ export function MobileScheduleView({
                   shifts={dayShifts as any}
                   weekShifts={shifts as any}
                   profiles={profiles as any}
-                  canEdit={isAdmin || isManager}
+                  canEdit={canEditSchedule}
                   weekStart={format(currentWeekStart, 'yyyy-MM-dd')}
                 />
               )}
@@ -1437,7 +1439,7 @@ export function MobileScheduleView({
             }}
             shift={selectedShift}
             profiles={profiles}
-            isAdmin={isAdmin || isManager}
+            isAdmin={canEditSchedule}
             isCreating={isCreatingShift}
             scheduleId={scheduleId}
             templates={templates}
@@ -1503,7 +1505,7 @@ export function MobileScheduleView({
 
 
 
-      <QuickPunchDialog
+      {canEditPunches && <QuickPunchDialog
         open={quickPunchOpen}
         onOpenChange={setQuickPunchOpen}
         profiles={profiles}
@@ -1513,9 +1515,9 @@ export function MobileScheduleView({
           refetchPunches();
           invalidatePunchViews(queryClient);
         }}
-      />
+      />}
 
-      {selectedPunch && currentLocation?.id && (
+      {canEditPunches && selectedPunch && currentLocation?.id && (
         <EditPunchDialog
           open={editPunchOpen}
           onOpenChange={setEditPunchOpen}

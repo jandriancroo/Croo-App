@@ -78,7 +78,8 @@ export const UserManagementDialogs = ({ data, duoDock = false }: UserManagementD
                 <SelectContent>
                   <SelectItem value="team_member">Team Member</SelectItem>
                   <SelectItem value="shift_manager_in_training">Shift Manager in Training</SelectItem>
-                  <SelectItem value="shift_manager">Shift Manager</SelectItem>
+                  <SelectItem value="scheduling_manager">Scheduling Manager</SelectItem>
+                        <SelectItem value="shift_manager">Shift Manager</SelectItem>
                   <SelectItem value="manager">Manager</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="org_admin">Org Admin</SelectItem>

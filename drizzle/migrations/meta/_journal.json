@@ -526,6 +526,13 @@
       "when": 1793202337762,
       "tag": "0074_scheduling_manager_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1793203245231,
+      "tag": "0075_scheduling_manager_no_labor_insights",
+      "breakpoints": true
     }
   ]
 }

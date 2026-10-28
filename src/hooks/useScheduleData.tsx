@@ -91,7 +91,7 @@ export interface Holiday {
 }
 
 export function useScheduleData() {
-  const { role, isAdmin, isManager, canViewAllWages, loading: roleLoading } = useUserRole();
+  const { role, isAdmin, isManager, canViewAllWages, canEditSchedule, wageMode, loading: roleLoading } = useUserRole();
   const { canSeeFullSchedule, loading: scheduleVisibilityLoading } = useTeamScheduleVisibility();
   const { currentLocation } = useAppLocation();
   const { timezone, getTodayInTimezone } = useLocationTimezone();
@@ -181,9 +181,10 @@ export function useScheduleData() {
           .eq("is_active", true)
           .eq("appears_on_schedule", true),
         supabase.from("user_roles").select("user_id, role").in("user_id", scopedIds),
-        // Wages come from a role-checked RPC (never selectable on profiles) — managers only.
-        canViewAllWages
-          ? supabase.rpc('get_current_wages_batch', { p_user_ids: scopedIds })
+        // Wages come from a role-checked RPC (never selectable on profiles) — managers get real wages;
+        // Scheduling Managers get the store blended rate from the server (never individual pay).
+        wageMode !== 'none'
+          ? supabase.rpc('get_current_wages_batch', { p_user_ids: scopedIds, _location_id: currentLocation?.id })
           : Promise.resolve({ data: null } as any),
       ]);
 
@@ -200,7 +201,7 @@ export function useScheduleData() {
         return {
           ...profile,
           weekly_availability: profile.weekly_availability as WeeklyAvailability | null,
-          hourly_wage: canViewAllWages ? (wageMap.get(profile.id) ?? 15) : undefined,
+          hourly_wage: wageMode !== 'none' ? (wageMap.get(profile.id) ?? 15) : undefined,
           role: userRole?.role || 'team_member',
           display_order: profile.display_order ?? 0
         };
@@ -258,7 +259,7 @@ export function useScheduleData() {
         .single();
 
       if (scheduleError && scheduleError.code === "PGRST116") {
-        if (isAdmin || isManager) {
+        if (canEditSchedule) {
           const { data: newSchedule, error: createError } = await supabase
             .from("schedules")
             .insert({
@@ -311,7 +312,7 @@ export function useScheduleData() {
 
       if (shiftsResult.error) throw shiftsResult.error;
       // Draft (unpublished) schedules must never be visible to non-managers
-      const canSeeDrafts = isAdmin || isManager;
+      const canSeeDrafts = canEditSchedule;
       const shifts = (!schedule.is_published && !canSeeDrafts) ? [] : (shiftsResult.data || []);
       const lastWeekShifts = (lastWeekShiftsResult as any)?.data || [];
 
@@ -331,14 +332,14 @@ export function useScheduleData() {
       const roleFilteredEvents = filterEventsByRole(allEvents, role);
 
       let profilesWithRoles = stableData?.profiles ?? [];
-      const isTeamMemberContext = !isAdmin && !isManager;
+      const isTeamMemberContext = !canEditSchedule;
       if (isTeamMemberContext && canSeeFullSchedule && !scheduleVisibilityLoading && profilesWithRoles.length === 0) {
         const shiftUserIds = Array.from(new Set(shifts.map((s) => s.user_id).filter(Boolean) as string[]));
         if (shiftUserIds.length > 0) {
           const { data: shiftProfiles } = await supabase.from('profiles').select('id, full_name, nickname, profile_photo_url, display_order, appears_on_schedule, weekly_availability').in('id', shiftUserIds);
           const { data: roles } = await supabase.from("user_roles").select("user_id, role").in("user_id", shiftUserIds);
           const { data: shiftWageRows } = canViewAllWages
-            ? await supabase.rpc('get_current_wages_batch', { p_user_ids: shiftUserIds })
+            ? await supabase.rpc('get_current_wages_batch', { p_user_ids: shiftUserIds, _location_id: currentLocation?.id })
             : { data: null };
           const shiftWageMap = new Map<string, number>(((shiftWageRows || []) as any[]).map((w) => [w.user_id, Number(w.hourly_wage)]));
           profilesWithRoles = (shiftProfiles || []).map(profile => {
@@ -443,7 +444,7 @@ export function useScheduleData() {
             scheduleId: schedule.id,
             isPublished: schedule.is_published || false,
             publishedSnapshot: (Array.isArray(schedule.published_shifts_snapshot) ? schedule.published_shifts_snapshot : []) as unknown as ScheduledShift[],
-            shifts: (!schedule.is_published && !(isAdmin || isManager)) ? [] : (shiftsResult.data || []),
+            shifts: (!schedule.is_published && !canEditSchedule) ? [] : (shiftsResult.data || []),
             events: filterEventsByRole(allEvents, role),
             profiles: stableData.profiles,
             templates: stableData.templates,
@@ -851,6 +852,8 @@ export function useScheduleData() {
     canViewAllWages,
     isAdmin,
     isManager,
+    canEditSchedule,
+    wageMode,
     role,
     currentLocation,
 

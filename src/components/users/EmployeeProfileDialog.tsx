@@ -122,6 +122,7 @@ const getRoleDisplayName = (role: AppRole) => {
     manager: 'Manager',
     shift_manager: 'Shift Manager',
     shift_manager_in_training: 'Shift Manager in Training',
+    scheduling_manager: 'Scheduling Manager',
     team_member: 'Team Member',
   };
   return names[role] || String(role).replace('_', ' ');
@@ -691,6 +692,7 @@ export function EmployeeProfileDialog({
                       <SelectContent>
                         <SelectItem value="team_member">Team Member</SelectItem>
                         <SelectItem value="shift_manager_in_training">Shift Manager in Training</SelectItem>
+                        <SelectItem value="scheduling_manager">Scheduling Manager</SelectItem>
                         <SelectItem value="shift_manager">Shift Manager</SelectItem>
                         <SelectItem value="manager">Manager</SelectItem>
                         <SelectItem value="admin">Admin</SelectItem>

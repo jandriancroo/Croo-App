@@ -64,7 +64,9 @@ export function LaborTotals({
   scheduleId,
   isEditable = false
 }: LaborTotalsProps) {
-  const { canViewAllWages } = useUserRole();
+  const { canViewAllWages: canSeeWages, wageMode } = useUserRole();
+  // Totals only: real wages for managers+, store blended rate for Scheduling Managers.
+  const canViewAllWages = canSeeWages || wageMode === 'blended';
   const { canSeeSales } = useTeamSalesVisibility();
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
