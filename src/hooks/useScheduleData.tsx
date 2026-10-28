@@ -184,7 +184,7 @@ export function useScheduleData() {
         // Wages come from a role-checked RPC (never selectable on profiles) — managers get real wages;
         // Scheduling Managers get the store blended rate from the server (never individual pay).
         wageMode !== 'none'
-          ? supabase.rpc('get_current_wages_batch', { p_user_ids: scopedIds, _location_id: currentLocation.id })
+          ? supabase.rpc('get_current_wages_batch', { p_user_ids: scopedIds, _location_id: currentLocation?.id })
           : Promise.resolve({ data: null } as any),
       ]);
 
@@ -339,7 +339,7 @@ export function useScheduleData() {
           const { data: shiftProfiles } = await supabase.from('profiles').select('id, full_name, nickname, profile_photo_url, display_order, appears_on_schedule, weekly_availability').in('id', shiftUserIds);
           const { data: roles } = await supabase.from("user_roles").select("user_id, role").in("user_id", shiftUserIds);
           const { data: shiftWageRows } = canViewAllWages
-            ? await supabase.rpc('get_current_wages_batch', { p_user_ids: shiftUserIds, _location_id: currentLocation.id })
+            ? await supabase.rpc('get_current_wages_batch', { p_user_ids: shiftUserIds, _location_id: currentLocation?.id })
             : { data: null };
           const shiftWageMap = new Map<string, number>(((shiftWageRows || []) as any[]).map((w) => [w.user_id, Number(w.hourly_wage)]));
           profilesWithRoles = (shiftProfiles || []).map(profile => {

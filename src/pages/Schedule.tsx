@@ -183,7 +183,7 @@ export default function Schedule() {
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
   );
 
-  const isTeamMemberView = !isAdmin && !isManager;
+  const isTeamMemberView = !canEditSchedule;
   const isTeamMemberDesktopView = !isMobile && isTeamMemberView;
   // Mobile: pass full data — MobileScheduleView applies its own canSeeFullSchedule gating
   const mobileShifts = shifts;
@@ -312,7 +312,7 @@ export default function Schedule() {
   const duoIsToastStore = duoLaborSource === 'toast';
   const duoWeekHasToday = (() => { const t = new Date(); t.setHours(0,0,0,0); const w = new Date(currentWeekStart); w.setHours(0,0,0,0); const d = Math.round((t.getTime() - w.getTime()) / 86400000); return d >= 0 && d < 7; })();
   useEffect(() => {
-    if (!duo.isOpen || isMobile || !(isAdmin || isManager)) return;
+    if (!duo.isOpen || isMobile || !canEditSchedule) return;
     const list: import('@/lib/duoPageActions').DuoPageAction[] = [];
     // Full grid: New Shift = tap a cell (Smart Tap), Punch lives on the phone day view, so neither is here.
     list.push({ label: 'Croo AI', icon: Sparkles, run: () => setAutoScheduleOpen(true) });
@@ -371,7 +371,7 @@ export default function Schedule() {
         />
       ) : (
         <div className={`pb-56 -mx-2${duo.isOpen ? ' duo-sched-grid' : ''}`}>
-        {(isAdmin || isManager) && <ScheduleApprovalBanner approval={approval} isPublished={isPublished} onChanged={onApprovalChanged} />}
+        {canEditSchedule && <ScheduleApprovalBanner approval={approval} isPublished={isPublished} onChanged={onApprovalChanged} />}
         <DndContext
           sensors={activeSensors}
           onDragStart={isTeamMemberDesktopView ? undefined : handleDragStart}
@@ -399,7 +399,7 @@ export default function Schedule() {
                   {getWeekLabel().label}
                 </Badge>
               </div>
-              {(isAdmin || isManager) && (
+              {canEditSchedule && (
                 <div className="flex items-start gap-1.5 flex-shrink-0">
 
                   <DropdownMenu>
@@ -513,13 +513,13 @@ export default function Schedule() {
                 return (
                   <div
                     key={index}
-                    className={`relative text-left ${isCompactMode ? 'px-2 py-1' : 'px-3 py-2.5'} border-r last:border-r-0 ${(isAdmin || isManager) ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                    className={`relative text-left ${isCompactMode ? 'px-2 py-1' : 'px-3 py-2.5'} border-r last:border-r-0 ${canEditSchedule ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                     style={{
                       borderColor: 'hsl(var(--border)/0.45)',
                       ...(isToday ? { background: 'linear-gradient(180deg, hsl(var(--primary)/0.16), hsl(var(--primary)/0.06))' } : {}),
                     }}
                     onClick={() => {
-                      if (isAdmin || isManager) {
+                      if canEditSchedule {
                         setSelectedDayForBreakdown(day);
                         setDayBreakdownOpen(true);
                       }
@@ -552,7 +552,7 @@ export default function Schedule() {
 
             {!isCompactMode && (
             <div className="border-b border-border">
-              <EventRow events={events} scheduleId={scheduleId} isEditable={isAdmin || isManager} onUpdate={fetchScheduleData} locationId={currentLocation?.id} />
+              <EventRow events={events} scheduleId={scheduleId} isEditable={canEditSchedule} onUpdate={fetchScheduleData} locationId={currentLocation?.id} />
             </div>
             )}
             </div>
@@ -641,12 +641,12 @@ export default function Schedule() {
                                         templates={templates}
                                         availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
                                         currentWeekStart={currentWeekStart}
-                                        isEditable={isAdmin || isManager}
+                                        isEditable={canEditSchedule}
                                         onUpdate={fetchScheduleData}
-                                        canTakeShifts={isAdmin || isManager}
+                                        canTakeShifts={canEditSchedule}
                                         currentUserId={currentUserId || undefined}
                                         onEditShift={(shift) => wrapEditAction(() => setEditingShift(shift))}
-                                        isDraggable={isAdmin || isManager}
+                                        isDraggable={canEditSchedule}
                                         isPublished={isPublished}
                                         publishedSnapshot={publishedSnapshot}
                                         canViewAllWages={canViewAllWages}
@@ -705,12 +705,12 @@ export default function Schedule() {
                                     templates={templates}
                                     availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
                                     currentWeekStart={currentWeekStart}
-                                    isEditable={isAdmin || isManager}
+                                    isEditable={canEditSchedule}
                                     onUpdate={fetchScheduleData}
-                                    canTakeShifts={isAdmin || isManager}
+                                    canTakeShifts={canEditSchedule}
                                     currentUserId={currentUserId || undefined}
                                     onEditShift={(shift) => wrapEditAction(() => setEditingShift(shift))}
-                                    isDraggable={isAdmin || isManager}
+                                    isDraggable={canEditSchedule}
                                     isPublished={isPublished}
                                     publishedSnapshot={publishedSnapshot}
                                     canViewAllWages={canViewAllWages}
@@ -763,10 +763,10 @@ export default function Schedule() {
 
 
           {/* Floating Templates Bar */}
-           {(isAdmin || isManager) && (
+           {canEditSchedule && (
             <div className="fixed bottom-0 left-0 right-0 z-50 overflow-visible">
               <div className="container max-w-7xl mx-auto px-4 overflow-visible">
-                <LaborTotals shifts={shifts} profiles={profiles} currentWeekStart={currentWeekStart} scheduleId={scheduleId} isEditable={isAdmin || isManager} />
+                <LaborTotals shifts={shifts} profiles={profiles} currentWeekStart={currentWeekStart} scheduleId={scheduleId} isEditable={canEditSchedule} />
               </div>
               {!hideTemplatesBar && (
               <div className="bg-card border-t border-border" style={{ touchAction: 'none' }}>
@@ -803,7 +803,7 @@ export default function Schedule() {
         </DndContext>
 
         {/* Dialogs */}
-        {(isAdmin || isManager) && editingShift && (() => {
+        {canEditSchedule && editingShift && (() => {
           const snapshotShift = publishedSnapshot?.find((s: any) => s.id === editingShift.id);
           const isShiftModified = snapshotShift && (
             snapshotShift.start_time !== editingShift.start_time || snapshotShift.end_time !== editingShift.end_time ||
@@ -826,16 +826,16 @@ export default function Schedule() {
           );
         })()}
 
-        {(isAdmin || isManager) && (
+        {canEditSchedule && (
           <ConflictWarningDialog open={conflictDialogOpen} onOpenChange={setConflictDialogOpen} onConfirm={handleConflictConfirm} conflicts={conflicts} />
         )}
 
-        {(isAdmin || isManager) && selectedDayForBreakdown && scheduleId && (
+        {canEditSchedule && selectedDayForBreakdown && scheduleId && (
           <Suspense fallback={null}><DayBreakdownDialog open={dayBreakdownOpen} onOpenChange={setDayBreakdownOpen} date={selectedDayForBreakdown} scheduleId={scheduleId} shifts={shifts} profiles={profiles} locationSettings={locationSettings} stations={useStationGrouping ? stations : undefined} /></Suspense>
         )}
 
 
-        {duo.isOpen && !isMobile && (isAdmin || isManager) && (
+        {duo.isOpen && !isMobile && canEditSchedule && (
           <QuickPunchDialog
             open={duoPunchOpen}
             onOpenChange={setDuoPunchOpen}
@@ -844,12 +844,12 @@ export default function Schedule() {
             onPunchCreated={() => { fetchScheduleData(false); invalidatePunchViews(queryClient); }}
           />
         )}
-        {(isAdmin || isManager) && isCreatingShift && (
+        {canEditSchedule && isCreatingShift && (
           <Suspense fallback={null}>
             <MobileShiftDialog
               open={isCreatingShift} onOpenChange={(open) => { setIsCreatingShift(open); if (!open) setNewShiftPreset(null); }}
               shift={{ id: '', user_id: newShiftPreset?.userId ?? null, day_of_week: newShiftPreset?.dayIndex ?? 0, start_time: '09:00', end_time: '17:00', shift_date: newShiftPreset?.shiftDate || format(currentWeekStart, 'yyyy-MM-dd') }}
-              profiles={profiles} isAdmin={isAdmin || isManager}
+              profiles={profiles} isAdmin={canEditSchedule}
               onShiftUpdated={fetchScheduleData} isCreating={true}
               scheduleId={scheduleId} templates={templates} locationId={currentLocation?.id}
               currentWeekStart={currentWeekStart}
@@ -858,7 +858,7 @@ export default function Schedule() {
         )}
 
 
-        {(isAdmin || isManager) && (
+        {canEditSchedule && (
           <AlertDialog open={clearScheduleDialogOpen} onOpenChange={setClearScheduleDialogOpen}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -873,7 +873,7 @@ export default function Schedule() {
           </AlertDialog>
         )}
 
-        {(isAdmin || isManager) && (
+        {canEditSchedule && (
           <AlertDialog open={withdrawDialogOpen} onOpenChange={setWithdrawDialogOpen}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -888,7 +888,7 @@ export default function Schedule() {
           </AlertDialog>
         )}
 
-        {(isAdmin || isManager) && (
+        {canEditSchedule && (
           <Dialog open={copyScheduleDialogOpen} onOpenChange={setCopyScheduleDialogOpen}>
             <DialogContent>
               <DialogHeader>
