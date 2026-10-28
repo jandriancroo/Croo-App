@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
 // Unified roles list (in hierarchy order, highest to lowest)
-export type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'shift_manager_in_training' | 'team_member';
+export type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'shift_manager_in_training' | 'scheduling_manager' | 'team_member';
 
 // Display names for roles
 export const ROLE_DISPLAY_NAMES: Record<AppRole, string> = {
@@ -14,6 +14,7 @@ export const ROLE_DISPLAY_NAMES: Record<AppRole, string> = {
   manager: 'Manager',
   shift_manager: 'Shift Manager',
   shift_manager_in_training: 'Shift Manager in Training',
+  scheduling_manager: 'Scheduling Manager',
   team_member: 'Team Member',
 };
 
@@ -83,6 +84,11 @@ export const useUserRole = () => {
   const canManageTemplates = isAdmin || isManager; // Shift/schedule templates
   const canCreateTasks = isAdmin || isManager; // Create and assign tasks
   const canViewTimecards = isAdmin || isManager; // View timecards/punch history
+  // Scheduling Manager: a separate role (never manager-tier). Edits schedules but only ever sees
+  // labor $ priced at the store blended rate — no individual pay.
+  const isSchedulingManager = role === 'scheduling_manager';
+  const canEditSchedule = canManageSchedule || isSchedulingManager;
+  const wageMode: 'full' | 'blended' | 'none' = canViewAllWages ? 'full' : isSchedulingManager ? 'blended' : 'none';
   const canViewSalesAndLabor = isShiftManager; // Shift managers and above can see sales/labor
   const canViewAllProfiles = isShiftManager; // Shift managers and above can see all user profiles
 
@@ -101,6 +107,9 @@ export const useUserRole = () => {
     isShiftManagerInTraining,
     isManager,
     canManageSchedule,
+    isSchedulingManager,
+    canEditSchedule,
+    wageMode,
     canViewAllWages,
     canApproveRequests,
     canEditChecklists,

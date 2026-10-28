@@ -20,7 +20,7 @@ export function useWeekLaborCost(shifts: WageShift[], profiles: WageProfile[], l
   }, [shifts]);
 
   const { data: wageMap = {}, isLoading } = useQuery({
-    queryKey: ['shift-wages', pairs.join(',')],
+    queryKey: ['shift-wages', locationId ?? null, pairs.join(',')],
     enabled: pairs.length > 0,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
@@ -28,7 +28,7 @@ export function useWeekLaborCost(shifts: WageShift[], profiles: WageProfile[], l
       const out: Record<string, number> = {};
       await Promise.all(pairs.map(async (k) => {
         const [uid, date] = k.split('|');
-        const { data, error } = await supabase.rpc('get_current_wage', { p_user_id: uid, p_date: date });
+        const { data, error } = await supabase.rpc('get_current_wage', { p_user_id: uid, p_date: date, ...(locationId ? { _location_id: locationId } : {}) });
         if (!error && data != null) out[k] = Number(data);
       }));
       return out;
