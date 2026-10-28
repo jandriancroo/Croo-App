@@ -77,7 +77,7 @@ export function ScheduleApprovalRulesBlock({ locationId }: { locationId: string 
   const { save, saving } = useApprovalSave(locationId);
   if (!s) return null;
   const editable = canEditApprovalSettings(role, s.roles);
-  const toggleRole = (r: "manager" | "admin", on: boolean) => {
+  const toggleRole = (r: "scheduling_manager" | "manager" | "admin", on: boolean) => {
     const next = on ? Array.from(new Set([...s.roles, r])) : s.roles.filter((x) => x !== r);
     if (next.length === 0) { toast.error("Pick at least one role."); return; }
     save({ roles: next });
@@ -92,11 +92,11 @@ export function ScheduleApprovalRulesBlock({ locationId }: { locationId: string 
       {!editable && <p className="text-xs text-muted-foreground">Set by your admin.</p>}
       <div className="space-y-1.5">
         <p className="text-sm">Who needs approval to post:</p>
-        <div className="flex gap-4">
-          {(["manager", "admin"] as const).map((r) => (
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          {(["scheduling_manager", "manager", "admin"] as const).map((r) => (
             <label key={r} className="flex items-center gap-2 text-sm">
               <Checkbox checked={s.roles.includes(r)} disabled={!editable || saving} onCheckedChange={(v) => toggleRole(r, !!v)} />
-              {r === "manager" ? "Managers" : "Admins"}
+              {r === "scheduling_manager" ? "Scheduling Managers" : r === "manager" ? "Managers" : "Admins"}
             </label>
           ))}
         </div>
