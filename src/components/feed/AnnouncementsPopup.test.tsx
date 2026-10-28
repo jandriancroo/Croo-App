@@ -10,8 +10,9 @@ vi.mock('@/lib/startupSequence', () => ({ whenInviteAllowed: (show: () => void) 
 describe('Dash announcement delivery', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    sessionStorage.clear(); localStorage.clear();
     mocks.markSeen.mockReset().mockResolvedValue(true);
-    mocks.posts = [{ id: 'one', is_announcement: true, seen_by_me: false, author_id: 'sender', created_at: '2026-01-01', subject: 'Team update', body: 'Hello team', media: [], author: null }];
+    mocks.posts = [{ id: 'one', require_confirm: false, is_announcement: true, seen_by_me: false, author_id: 'sender', created_at: '2026-01-01', subject: 'Team update', body: 'Hello team', media: [], author: null }];
   });
   afterEach(() => { vi.useRealTimers(); });
   it('waits for system alerts', () => {
@@ -31,6 +32,43 @@ describe('Dash announcement delivery', () => {
   });
   it('does not deliver already-read announcements', () => {
     mocks.posts[0].seen_by_me = true;
+    render(<AnnouncementsPopup enabled />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+  it('always renders the footer button, even for require_confirm posts', () => {
+    mocks.posts[0].require_confirm = true;
+    render(<AnnouncementsPopup enabled />);
+    expect(screen.getByRole('button', { name: "I've read this" })).toBeTruthy();
+  });
+  it('X closes for this session without marking read', async () => {
+    mocks.posts[0].require_confirm = true;
+    render(<AnnouncementsPopup enabled />);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /close/i })); });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(mocks.markSeen).not.toHaveBeenCalled();
+    expect(JSON.parse(sessionStorage.getItem('croo-ann-dismissed:reader')!)).toEqual(['one']);
+  });
+  it('Escape closes without marking read', async () => {
+    mocks.posts[0].require_confirm = true;
+    render(<AnnouncementsPopup enabled />);
+    await act(async () => { fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' }); });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(mocks.markSeen).not.toHaveBeenCalled();
+  });
+  it('failed ack shows the error, counts the launch, and can still be closed', async () => {
+    mocks.posts[0].require_confirm = true;
+    mocks.markSeen.mockRejectedValue(new Error('permission denied'));
+    const { toast } = await import('sonner');
+    const spy = vi.spyOn(toast, 'error');
+    render(<AnnouncementsPopup enabled />);
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: "I've read this" })); });
+    expect(spy.mock.calls[0][1]?.description).toContain('permission denied');
+    expect(JSON.parse(localStorage.getItem('croo-ann-ack-failed:reader')!)).toEqual({ one: 1 });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /close/i })); });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+  it('stops popping up after 3 failed launches', () => {
+    localStorage.setItem('croo-ann-ack-failed:reader', JSON.stringify({ one: 3 }));
     render(<AnnouncementsPopup enabled />);
     expect(screen.queryByRole('dialog')).toBeNull();
   });

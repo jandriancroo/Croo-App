@@ -814,3 +814,8 @@ html.duo .duo-insight-grid>div:not(:first-child) [class*="text-[11px]"]{font-siz
 /* v60: New Post: Post button lives in the bottom bar (top-right sat under Apple's status pill) */
 html.duo .duo-slide .duo-post-btn{background:hsl(var(--foreground));color:hsl(var(--background));font-weight:600;min-width:84px;height:40px;border-radius:20px}
 html.duo .duo-slide .duo-post-btn:disabled{opacity:.35}
+
+/* Announcement popup only: fits on-screen above the home indicator; shared .duo-popup (location picker) unchanged. */
+html.duo .duo-popup.duo-ann{display:flex!important;flex-direction:column!important;top:50%!important;transform:translateY(-50%)!important;
+  max-height:min(90dvh,calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px))!important;
+  padding-top:env(safe-area-inset-top)!important;padding-bottom:env(safe-area-inset-bottom)!important}
