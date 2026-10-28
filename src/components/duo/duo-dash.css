@@ -819,3 +819,5 @@ html.duo .duo-slide .duo-post-btn:disabled{opacity:.35}
 html.duo .duo-popup.duo-ann{display:flex!important;flex-direction:column!important;top:50%!important;transform:translateY(-50%)!important;
   max-height:min(90dvh,calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px))!important;
   padding-top:env(safe-area-inset-top)!important;padding-bottom:env(safe-area-inset-bottom)!important}
+/* Announcement photo viewer opens above the Duo announcement popup (z 101). */
+html.duo:has(.duo-ann) [role=dialog]:not(.duo-ann){z-index:102!important}
