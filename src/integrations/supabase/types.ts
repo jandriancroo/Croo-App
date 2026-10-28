@@ -17897,6 +17897,7 @@ export type Database = {
         | "brand_admin"
         | "fbc"
         | "shift_manager_in_training"
+        | "scheduling_manager"
       applicant_flag_color: "none" | "green" | "yellow" | "red"
       application_status:
         | "pending"
@@ -18065,6 +18066,7 @@ export const Constants = {
         "brand_admin",
         "fbc",
         "shift_manager_in_training",
+        "scheduling_manager",
       ],
       applicant_flag_color: ["none", "green", "yellow", "red"],
       application_status: [

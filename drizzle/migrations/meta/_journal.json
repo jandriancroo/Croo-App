@@ -505,6 +505,13 @@
       "when": 1792964481010,
       "tag": "0071_fix_labor_pace_scorecard_closers",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1793201668038,
+      "tag": "0072_add_scheduling_manager_role",
+      "breakpoints": true
     }
   ]
 }
