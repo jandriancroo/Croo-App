@@ -44,7 +44,7 @@ describe('Dash announcement delivery', () => {
   it('X closes for this session without marking read', async () => {
     mocks.posts[0].require_confirm = true;
     render(<AnnouncementsPopup enabled />);
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /close/i })); });
+    await act(async () => { fireEvent.click(screen.getByLabelText('Close', { selector: 'button' })); });
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(mocks.markSeen).not.toHaveBeenCalled();
     expect(JSON.parse(sessionStorage.getItem('croo-ann-dismissed:reader')!)).toEqual(['one']);
@@ -65,7 +65,7 @@ describe('Dash announcement delivery', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: "I've read this" })); });
     expect(spy.mock.calls[0][1]?.description).toContain('permission denied');
     expect(JSON.parse(localStorage.getItem('croo-ann-ack-failed:reader')!)).toEqual({ one: 1 });
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /close/i })); });
+    await act(async () => { fireEvent.click(screen.getByLabelText('Close', { selector: 'button' })); });
     expect(screen.queryByRole('dialog')).toBeNull();
   });
   it('stops popping up after 3 failed launches', () => {
@@ -91,10 +91,10 @@ describe('Dash announcement delivery', () => {
     const btn = screen.getByRole('button', { name: 'View photo' });
     expect(btn.querySelector('img')!.getAttribute('src')).toBe('https://signed.example/a.jpg?token=abc');
     await act(async () => { fireEvent.click(btn); });
-    expect(screen.getAllByRole('dialog').length).toBe(2);
-    await act(async () => { fireEvent.keyDown(screen.getAllByRole('dialog')[1], { key: 'Escape' }); });
+    expect(screen.getAllByRole('dialog', { hidden: true }).length).toBe(2);
+    await act(async () => { fireEvent.keyDown(screen.getAllByRole('dialog', { hidden: true })[1], { key: 'Escape' }); });
     await act(async () => { vi.advanceTimersByTime(500); });
-    expect(screen.getAllByRole('dialog').length).toBe(1);
+    expect(screen.getAllByRole('dialog', { hidden: true }).length).toBe(1);
     expect(screen.getByRole('heading', { name: 'Team update' })).toBeTruthy();
     expect(mocks.markSeen).not.toHaveBeenCalled();
     expect(sessionStorage.getItem('croo-ann-dismissed:reader')).toBeNull();
