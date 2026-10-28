@@ -5,6 +5,7 @@ import { AnnouncementsPopup } from './AnnouncementsPopup';
 const mocks = vi.hoisted(() => ({ markSeen: vi.fn(), posts: [] as any[] }));
 vi.mock('@/hooks/useAnnouncementFeed', () => ({ useAnnouncementFeed: () => ({ posts: mocks.posts, markSeen: mocks.markSeen }) }));
 vi.mock('@/lib/auth', () => ({ useAuth: () => ({ user: { id: 'reader' } }) }));
+vi.mock('@/hooks/useLocation', () => ({ useLocation: () => ({ currentLocation: { name: 'Hemet' } }) }));
 vi.mock('@/lib/startupSequence', () => ({ whenInviteAllowed: (show: () => void) => { show(); return () => {}; } }));
 
 describe('Dash announcement delivery', () => {
@@ -71,5 +72,37 @@ describe('Dash announcement delivery', () => {
     localStorage.setItem('croo-ann-ack-failed:reader', JSON.stringify({ one: 3 }));
     render(<AnnouncementsPopup enabled />);
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+  it('renders the header: eyebrow, title, date chip, location and poster, no megaphone', () => {
+    mocks.posts[0].created_at = '2026-10-27T16:14:00Z';
+    mocks.posts[0].author = { full_name: 'Jordan Andrian', nickname: 'Jordan A.' };
+    render(<AnnouncementsPopup enabled />);
+    expect(screen.getByRole('heading', { name: 'Team update' })).toBeTruthy();
+    expect(screen.getByText('Announcement')).toBeTruthy();
+    expect(screen.getByTestId('announcement-date').textContent).toMatch(/^Oct 2[67] · \d{1,2}:14 (AM|PM)$/);
+    expect(screen.getByText('Hemet')).toBeTruthy();
+    expect(screen.getByText('Jordan A.')).toBeTruthy();
+    expect(document.querySelector('.lucide-megaphone')).toBeNull();
+  });
+  it('image opens the lightbox with the exact url; closing it keeps the announcement open', async () => {
+    mocks.posts[0].require_confirm = true;
+    mocks.posts[0].media = [{ type: 'image', url: 'https://signed.example/a.jpg?token=abc', name: 'a.jpg' }];
+    render(<AnnouncementsPopup enabled />);
+    const btn = screen.getByRole('button', { name: 'View photo' });
+    expect(btn.querySelector('img')!.getAttribute('src')).toBe('https://signed.example/a.jpg?token=abc');
+    await act(async () => { fireEvent.click(btn); });
+    expect(screen.getAllByRole('dialog').length).toBe(2);
+    await act(async () => { fireEvent.keyDown(screen.getAllByRole('dialog')[1], { key: 'Escape' }); });
+    await act(async () => { vi.advanceTimersByTime(500); });
+    expect(screen.getAllByRole('dialog').length).toBe(1);
+    expect(screen.getByRole('heading', { name: 'Team update' })).toBeTruthy();
+    expect(mocks.markSeen).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem('croo-ann-dismissed:reader')).toBeNull();
+  });
+  it('renders body text literally, never as HTML', () => {
+    mocks.posts[0].body = '<b>bold</b><img src=x>';
+    render(<AnnouncementsPopup enabled />);
+    expect(screen.getByText('<b>bold</b><img src=x>')).toBeTruthy();
+    expect(screen.getByTestId('announcement-body').querySelector('b')).toBeNull();
   });
 });
