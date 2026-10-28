@@ -653,7 +653,7 @@ async function handleOptimizeLabor(req: Request, supabase: any, blendedRate: num
 
   const shiftsWithWages: GeneratedShift[] = (generated_shifts || []).map((s: GeneratedShift) => ({
     ...s,
-    hourly_wage: wageMap.get(s.user_id) || 15,
+    hourly_wage: wageMap.get(s.user_id) || blendedRate || 15,
   }));
 
   const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
