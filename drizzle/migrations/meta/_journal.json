@@ -512,6 +512,13 @@
       "when": 1793201668038,
       "tag": "0072_add_scheduling_manager_role",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1793201787987,
+      "tag": "0073_scheduling_manager_permissions",
+      "breakpoints": true
     }
   ]
 }

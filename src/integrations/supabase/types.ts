@@ -16646,6 +16646,10 @@ export type Database = {
           start_at: string
         }[]
       }
+      can_edit_schedule: {
+        Args: { _location_id: string; _uid: string }
+        Returns: boolean
+      }
       can_manage_org_applications: {
         Args: { _organization_id: string; _user_id: string }
         Returns: boolean
@@ -16931,11 +16935,11 @@ export type Database = {
         Returns: string
       }
       get_current_wage: {
-        Args: { p_date?: string; p_user_id: string }
+        Args: { _location_id?: string; p_date?: string; p_user_id: string }
         Returns: number
       }
       get_current_wages_batch: {
-        Args: { p_date?: string; p_user_ids: string[] }
+        Args: { _location_id?: string; p_date?: string; p_user_ids: string[] }
         Returns: {
           hourly_wage: number
           user_id: string
@@ -17797,6 +17801,10 @@ export type Database = {
       start_fresh_sandbox_count: {
         Args: { _source_location_id: string }
         Returns: string
+      }
+      store_blended_rate: {
+        Args: { _date?: string; _location_id: string }
+        Returns: number
       }
       submit_schedule_for_approval: {
         Args: { _schedule_id: string }
