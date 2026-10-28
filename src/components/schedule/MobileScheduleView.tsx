@@ -192,6 +192,8 @@ export function MobileScheduleView({
   const [_todayEvents, setTodayEvents] = useState<Event[]>([]);
   
   const { isAdmin, isManager, canEditSchedule, role } = useUserRole();
+  // Punch tools stay manager-tier only; Scheduling Managers edit schedules, never punches.
+  const canEditPunches = isAdmin || isManager;
   const { canSeeFullSchedule, loading: scheduleVisibilityLoading } = useTeamScheduleVisibility();
   const { user } = useAuth();
   const { currentLocation } = useLocation();
@@ -708,14 +710,14 @@ export function MobileScheduleView({
   useEffect(() => {
     if (!document.documentElement.classList.contains('duo') || !canEditSchedule) return;
     const list: DuoPageAction[] = [];
-    if (!isToastLaborStore) list.push({ label: 'Punch', icon: ClockIcon, run: () => setQuickPunchOpen(true), disabled: !isSelectedDateToday });
+    if (!isToastLaborStore && canEditPunches) list.push({ label: 'Punch', icon: ClockIcon, run: () => setQuickPunchOpen(true), disabled: !isSelectedDateToday });
     if (scheduleId) list.push({ label: 'New Shift', icon: CalendarPlusIcon, run: () => { setAddSheetTab('shift'); setAddSheetLockTab(true); setAddSheetWeekOverride(null); setAddSheetOpen(true); } });
     list.push({ label: 'Build Week', icon: LayoutGridIcon, run: () => setBuildWizardOpen(true) });
     if (scheduleId) list.push({ label: 'New Event', icon: CalendarDaysIcon, run: () => setEventDialogOpen(true) });
     if (onSharePdf) list.push({ label: 'Share PDF', icon: FileDownIcon, run: () => onSharePdf(), disabled: !isPublished });
     setDuoPageActions('schedule-mobile', list);
     return () => clearDuoPageActions('schedule-mobile');
-  }, [canEditSchedule, isToastLaborStore, isSelectedDateToday, scheduleId, isPublished, onSharePdf]);
+  }, [canEditSchedule, canEditPunches, isToastLaborStore, isSelectedDateToday, scheduleId, isPublished, onSharePdf]);
   const isPastDate = selectedDateStr && todayStr && selectedDateStr < todayStr;
 
 
@@ -986,7 +988,7 @@ export function MobileScheduleView({
                   return { text: n ? `${n} ON THE CLOCK` : 'NO ONE ON THE CLOCK' };
                 })() : undefined} action={
                   <div className="duo-sched-split"><ScheduleActionSplitButton
-                    isToastLaborStore={isToastLaborStore}
+                    isToastLaborStore={isToastLaborStore || !canEditPunches}
                     isToday={isSelectedDateToday}
                     hasSchedule={!!scheduleId}
                     isPublished={isPublished}
@@ -1503,7 +1505,7 @@ export function MobileScheduleView({
 
 
 
-      <QuickPunchDialog
+      {canEditPunches && <QuickPunchDialog
         open={quickPunchOpen}
         onOpenChange={setQuickPunchOpen}
         profiles={profiles}
@@ -1513,9 +1515,9 @@ export function MobileScheduleView({
           refetchPunches();
           invalidatePunchViews(queryClient);
         }}
-      />
+      />}
 
-      {selectedPunch && currentLocation?.id && (
+      {canEditPunches && selectedPunch && currentLocation?.id && (
         <EditPunchDialog
           open={editPunchOpen}
           onOpenChange={setEditPunchOpen}

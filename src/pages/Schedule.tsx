@@ -835,7 +835,7 @@ export default function Schedule() {
         )}
 
 
-        {duo.isOpen && !isMobile && canEditSchedule && (
+        {duo.isOpen && !isMobile && (isAdmin || isManager) && (
           <QuickPunchDialog
             open={duoPunchOpen}
             onOpenChange={setDuoPunchOpen}
