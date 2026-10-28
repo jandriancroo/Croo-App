@@ -533,6 +533,13 @@
       "when": 1793203245231,
       "tag": "0075_scheduling_manager_no_labor_insights",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1793204204808,
+      "tag": "0076_scheduling_manager_no_briefings",
+      "breakpoints": true
     }
   ]
 }

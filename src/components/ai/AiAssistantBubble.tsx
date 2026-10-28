@@ -37,7 +37,7 @@ const SUGGESTIONS = [
 ];
 
 export function AiAssistantBubble() {
-  const { isShiftManager } = useUserRole();
+  const { isShiftManager, isSchedulingManager } = useUserRole();
   const { currentLocation } = useLocation();
   const { timezone } = useLocationTimezone();
   const queryClient = useQueryClient();
@@ -164,7 +164,7 @@ export function AiAssistantBubble() {
       if (error) throw error;
       return data;
     },
-    enabled: !!currentLocation && isShiftManager,
+    enabled: !!currentLocation && isShiftManager && !isSchedulingManager,
     staleTime: 5 * 60 * 1000,
   });
 
