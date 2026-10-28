@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { requireCaller } from '../_shared/callerAuth.ts';
+import { getWageVisibility, getBlendedRate } from '../_shared/wageVisibility.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -46,7 +47,7 @@ async function getCutoff(supabase: any): Promise<string> {
 // ACTION: backfill
 // ============================================================================
 
-async function handleBackfill(req: Request, supabase: any): Promise<Response> {
+async function handleBackfill(req: Request, supabase: any, callerId: string | null = null): Promise<Response> {
   const { locationId, daysBack = 90, startDate: inputStartDate, endDate: inputEndDate, forceRefresh = false } = await req.json();
 
   if (!locationId) return json({ error: 'locationId is required' }, 400);
@@ -96,6 +97,12 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
   if (datesToProcess.length === 0) {
     return json({ success: true, message: 'All punch labor already cached', processed: 0, skipped: allDates.length });
   }
+
+  // Scheduling Manager callers never get real-wage totals: hours × store blended rate instead.
+  // (labor_cache rows written below are unchanged — they're the stored record, not this response.)
+  const blendedRate = callerId && (await getWageVisibility(supabase, callerId, locationId)) === 'blended'
+    ? await getBlendedRate(supabase, locationId, todayStr)
+    : null;
 
   let processed = 0;
   let errors = 0;
@@ -160,7 +167,7 @@ async function handleBackfill(req: Request, supabase: any): Promise<Response> {
     errors,
     skipped: allDates.length - datesToProcess.length,
     totalHours: Math.round(totalHours * 100) / 100,
-    totalCost: Math.round(totalCost * 100) / 100,
+    totalCost: blendedRate == null ? Math.round(totalCost * 100) / 100 : Math.round(totalHours * blendedRate * 100) / 100,
     dateRange: { start: datesToProcess[0], end: datesToProcess[datesToProcess.length - 1] },
   });
 }
@@ -239,7 +246,7 @@ serve(async (req) => {
 
     switch (action) {
       case 'backfill':
-        return await handleBackfill(req, supabase);
+        return await handleBackfill(req, supabase, authed.caller.kind === 'user' ? authed.caller.userId : null);
       case 'refresh-stale':
         return await handleRefreshStale(supabase);
       default:

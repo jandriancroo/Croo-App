@@ -12,6 +12,7 @@ import { buildNudgeProposal, PROPOSE_NUDGE_TOOL } from "./nudges.ts";
 import { buildAnnouncementProposal, recheckAnnouncement, PROPOSE_ANNOUNCEMENT_TOOL } from "./announcements.ts";
 import { findChats, readChat, buildMessageProposal, recheckMessage, FIND_CHATS_TOOL, READ_CHAT_TOOL, PROPOSE_MESSAGE_TOOL } from "./messages.ts";
 import { roleForUser, theoActionsAt, NO_ACTIONS } from "../_shared/theoActions.ts";
+import { getWageVisibility, getBlendedRate } from "../_shared/wageVisibility.ts";
 import { isReadOnlyTool, runToolsSplit } from "./toolSplit.ts";
 import { isWarmPing, warmResponse } from "../_shared/warm.ts";
 import { bridge, readStreamedRound, streamEligible, wantsStream, type Streamer } from "./sseBridge.ts";
@@ -276,7 +277,26 @@ function businessDateOf(iso: string, windows: Record<string, DayWindow>, tz: str
 
 // === LABOR: ONLY public.get_store_labor (same function as the dashboard) ===
 // Called with the SIGNED-IN user's client so the function's own role + store checks decide.
-async function fetchStoreLaborRows(userClient: any, locationId: string, start: string, end: string): Promise<{ rows: any[] | null; error: string | null }> {
+// Scheduling Manager ('blended'): no individual wages. Hours come from the same per-day row
+// get_store_labor returns (_store_labor, via service role); cost = hours × store blended rate.
+type BlendedLabor = { admin: any; rate: number; today: string } | null;
+async function fetchStoreLaborRows(userClient: any, locationId: string, start: string, end: string, blended: BlendedLabor = null): Promise<{ rows: any[] | null; error: string | null }> {
+  if (blended) {
+    if (!locationId || start > end) return { rows: [], error: null };
+    const dates = datesBetween(start, end).filter((d) => d <= blended.today).slice(0, 93);
+    const res = await Promise.all(dates.map((d) => blended.admin.rpc("_store_labor", { _location_id: locationId, _date: d, _live: d === blended.today })));
+    if (res.some((r: any) => r.error)) return { rows: null, error: "blended labor unavailable" };
+    const rows = res.map((r: any, i: number) => {
+      const row = Array.isArray(r.data) ? r.data[0] : r.data;
+      if (!row) return null;
+      const hours = Number(row.hours) || 0;
+      const cost = Math.round(hours * blended.rate * 100) / 100;
+      const net = row.net_sales == null ? null : Number(row.net_sales);
+      return { location_id: locationId, date: dates[i], source: row.source, hours, cost, net_sales: net,
+        labor_pct: net && net > 0 ? Math.round((cost / net) * 1000) / 10 : null, is_live: row.is_live, as_of: row.as_of };
+    }).filter(Boolean);
+    return { rows, error: null };
+  }
   const windows: Array<[string, string]> = [];
   for (let cur = start; cur <= end; ) {
     const wEnd = addDays(cur, 89) < end ? addDays(cur, 89) : end;
@@ -598,7 +618,7 @@ async function buildContextSnapshot(supabase: any, locationId: string, today: st
 }
 
 // Per-request labor lines for the snapshot (NOT cached; uses the asking user's permissions).
-async function buildLaborLines(userClient: any, locationId: string, yesterday: string, today: string): Promise<string> {
+async function buildLaborLines(userClient: any, locationId: string, yesterday: string, today: string, blended: BlendedLabor = null): Promise<string> {
   if (!locationId) return "";
   const { data: tz } = await userClient.from("location_settings").select("timezone").eq("location_id", locationId).maybeSingle();
   const zone = tz?.timezone || "America/Los_Angeles";
@@ -606,7 +626,7 @@ async function buildLaborLines(userClient: any, locationId: string, yesterday: s
   const start = [bounds.monthStart, bounds.weekStart, yesterday].sort()[0];
   const end = [bounds.monthEnd, bounds.weekEnd].sort().pop();
   const [{ rows, error }, sales, goals] = await Promise.all([
-    fetchStoreLaborRows(userClient, locationId, start, end),
+    fetchStoreLaborRows(userClient, locationId, start, end, blended),
     userClient.from("sales_cache").select("sale_date, net_sales").eq("location_id", locationId).gte("sale_date", start).lte("sale_date", end),
     fetchLaborGoals(userClient, locationId, yesterday, today),
   ]);
@@ -1228,11 +1248,12 @@ function validateTaskProposal(args: any, crew: { id: string; full_name: string; 
 // Execute tool calls against the database
 const MANAGER_PLUS_ROLES = ["manager", "general_manager", "admin", "org_admin", "brand_admin", "super_admin"];
 
-async function executeTool(supabase: any, toolName: string, args: any, timezone: string, userId?: string, userRole?: string, ctx: { userClient?: any; today?: string; exposeIds?: boolean; locationId?: string } = {}): Promise<string> {
+async function executeTool(supabase: any, toolName: string, args: any, timezone: string, userId?: string, userRole?: string, ctx: { userClient?: any; today?: string; exposeIds?: boolean; locationId?: string; blended?: BlendedLabor } = {}): Promise<string> {
   const storeToday = ctx.today || new Date().toLocaleDateString("en-CA", { timeZone: timezone });
   const offset = getTzOffset(timezone);
   // Per-person wage/cost data is manager+ only.
-  const canSeeWages = MANAGER_PLUS_ROLES.includes(userRole || "");
+  const canSeeWages = MANAGER_PLUS_ROLES.includes(userRole || "") && !ctx.blended;
+  const blendedFor = (loc: string) => (ctx.blended && loc === ctx.locationId ? ctx.blended : null);
   try {
     // Only when a specific store is requested: the caller must have access to it.
     // Tools without a location (org-wide, admin queries) are never refused here.
@@ -1251,7 +1272,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
           if (!["day", "week", "month"].includes(args.period) || typeof args.start_date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(args.start_date)) return JSON.stringify({ error: "Invalid sales period or date" });
           const snapshot = await readSalesPeriods(ctx.userClient || supabase, args.location_id, args.start_date);
           const totals = snapshot.periods[args.period];
-          const labor = ctx.userClient ? await fetchStoreLaborRows(ctx.userClient, args.location_id, totals.start, totals.end) : { rows: null };
+          const labor = ctx.userClient ? await fetchStoreLaborRows(ctx.userClient, args.location_id, totals.start, totals.end, blendedFor(args.location_id)) : { rows: null };
           return JSON.stringify({ period: args.period, business_date: snapshot.today, timezone: snapshot.zone, totals: { ...totals, labor: laborTotals(labor.rows, totals.sales) } });
         }
         const endDate = args.end_date || args.start_date;
@@ -1389,7 +1410,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         // called as the signed-in user. Never total labor_cache rows; never fall back.
         const result: any = {};
         const { rows: storeRows, error: storeErr } = ctx.userClient
-          ? await fetchStoreLaborRows(ctx.userClient, args.location_id, args.start_date, endDate)
+          ? await fetchStoreLaborRows(ctx.userClient, args.location_id, args.start_date, endDate, blendedFor(args.location_id))
           : { rows: null, error: "no user client" };
         if (storeErr || !storeRows) {
           result.labor_summary = LABOR_UNAVAILABLE;
@@ -2881,7 +2902,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
 
         // Day labor totals ONLY from get_store_labor (signed-in user). Never labor_cache.
         const { rows: crewLaborRows, error: crewLaborErr } = ctx.userClient
-          ? await fetchStoreLaborRows(ctx.userClient, args.location_id, args.start_date, args.end_date)
+          ? await fetchStoreLaborRows(ctx.userClient, args.location_id, args.start_date, args.end_date, blendedFor(args.location_id))
           : { rows: null, error: "no user client" };
         if (crewLaborErr || !crewLaborRows) return JSON.stringify(LABOR_UNAVAILABLE);
         const laborRows = crewLaborRows.map((r: any) => ({ labor_date: String(r.date).slice(0, 10), labor_cost: Number(r.cost) || 0, labor_hours: Number(r.hours) || 0 }));
@@ -3073,10 +3094,14 @@ async function handleRequest(req: Request, streamer: Streamer | null): Promise<R
     }
 
     // Every role row, reduced to the highest (people can hold more than one).
-    const { role: highest } = await roleForUser(supabaseAdmin, user.id);
+    const { role: highestRaw, roles: allRoles } = await roleForUser(supabaseAdmin, user.id);
     
     const managerRoles = ["shift_manager", "shift_manager_in_training", "manager", "general_manager", "admin", "org_admin", "fbc", "brand_admin", "super_admin"];
-    if (!highest || !managerRoles.includes(highest)) {
+    // Scheduling Manager is its own role (never manager-tier): it may use Theo, with blended-rate labor only.
+    const highest = highestRaw && managerRoles.includes(highestRaw)
+      ? highestRaw
+      : ((allRoles || []).includes("scheduling_manager") ? "scheduling_manager" : highestRaw);
+    if (!highest || !(managerRoles.includes(highest) || highest === "scheduling_manager")) {
       return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -3140,10 +3165,23 @@ async function handleRequest(req: Request, streamer: Streamer | null): Promise<R
     const tomorrow = addDays(today, 1);
     const weekStart = periodBounds(today, timezone).weekStart;
 
+    // Scheduling Manager: only with store access, and labor priced at the store blended rate.
+    let blendedLabor: BlendedLabor = null;
+    if (userRole === "scheduling_manager") {
+      const vis = location_id ? await getWageVisibility(supabaseAdmin, user.id, location_id) : "none";
+      if (vis !== "blended") {
+        return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      blendedLabor = { admin: supabaseAdmin, rate: await getBlendedRate(supabaseAdmin, location_id, today), today };
+    }
+
     // === BUILD CONTEXT SNAPSHOT (cached per location for 60s; labor added per request) ===
     const [cachedSnapshot, laborLines, theoActionsEarly, , onClockLines] = await Promise.all([
       getCachedSnapshot(supabaseAdmin, location_id, today, yesterday, tomorrow, weekStart),
-      buildLaborLines(supabaseUser, location_id, yesterday, today),
+      buildLaborLines(supabaseUser, location_id, yesterday, today, blendedLabor),
       actionsP,
       memoryP,
       buildOnClockLines(supabaseAdmin, location_id, today),
@@ -3391,6 +3429,10 @@ ${userRole === 'team_member' ? `- TEAM MEMBER: You can see your OWN schedule, yo
 - CANNOT see: individual pay rates, wage history, dollar-amount labor costs per person (e.g. "$127.50"), overtime dollar costs, or HR write-ups/notes you didn't create.
 - When showing labor data, show HOURS only — never dollar amounts per person. Total labor cost and labor % are OK.
 - If asked about someone's pay rate or wage, respond: "Pay data is restricted to admin roles."` :
+
+userRole === 'scheduling_manager' ? `- SCHEDULING MANAGER: You can see schedules, labor HOURS, labor % and store labor dollar TOTALS (priced at the store's blended average rate, not real individual pay), checklists and tasks.
+- NEVER share or estimate any individual's pay, wage, hourly rate, raise, or "what someone makes" — not even approximately, and never per-person labor dollars.
+- If asked about any individual's pay, wage or rate, respond exactly: "I can't share individual pay."` :
 
 userRole === 'manager' ? `- MANAGER: You can see all operational data including labor hours, labor %, schedules, checklists, guest reviews, employee notes you created.
 - CANNOT see: individual pay rates or wage history unless you're the location admin.
@@ -4182,7 +4224,7 @@ ${memoryContext}`;
           cancelPending = true; liveProposal = null;
           result = JSON.stringify({ status: "dropped" });
         } else {
-          result = addLocalTimes(await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id, userRole, { userClient: supabaseUser, today, exposeIds: dryRun, locationId: location_id }), timezone);
+          result = addLocalTimes(await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id, userRole, { userClient: supabaseUser, today, exposeIds: dryRun, locationId: location_id, blended: blendedLabor }), timezone);
         }
         return result;
       };

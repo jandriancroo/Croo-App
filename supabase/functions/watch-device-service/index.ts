@@ -18,6 +18,7 @@ import { METRIC_CONFIGS, formatWatchValue, resolveAccentHex } from "./metricConf
 import { computePace, laborPct, resolveGoal, storeNow } from "../_shared/cubeMetrics.ts";
 import { clockedInUserIds } from "../_shared/onClock.ts";
 import { roleForUser } from "../_shared/theoActions.ts";
+import { getWageVisibility, getBlendedRate } from "../_shared/wageVisibility.ts";
 
 // Bump on every change so a deploy can be confirmed: POST {"action":"version"}.
 const WATCH_SERVICE_VERSION = "2026-10-21.2";
@@ -183,6 +184,11 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
       laborByDate.set(laborDays[i], { cost: Number(row.cost) || 0, hours: Number(row.hours) || 0 });
     }
   });
+  // Scheduling Manager pairing user: never real wages — price hours at the store blended rate.
+  if (device?.created_by && (await getWageVisibility(sb, device.created_by, locationId)) === 'blended') {
+    const rate = await getBlendedRate(sb, locationId, today);
+    for (const [d, r] of laborByDate) laborByDate.set(d, { hours: r.hours, cost: Math.round(r.hours * rate * 100) / 100 });
+  }
 
   const sales = salesRows || [];
   const inRange = (from: string, to: string) => sales.filter(r => r.sale_date >= from && r.sale_date <= to);
