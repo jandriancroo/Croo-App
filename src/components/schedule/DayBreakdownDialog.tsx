@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useWeekLaborCost } from "@/hooks/useWeekLaborCost";
+import { useUserRole } from "@/hooks/useUserRole";
 import { dayPay, personDayPay } from "@/utils/laborCost";
 import { grossShiftHours, paidShiftHours } from "@/utils/shiftUtils";
 import { Sparkles, Loader2, User, Printer } from "lucide-react";
@@ -56,6 +57,9 @@ export function DayBreakdownDialog({
   const dateStr = format(date, "yyyy-MM-dd");
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
+  // Blended (Scheduling Manager): totals only — per-person rows show hours, never $.
+  const { wageMode } = useUserRole();
+  const showPersonPay = wageMode === 'full';
   // The ONE scheduled pay calculation over the week's shifts (weekly OT, 7th day)
   const { pay: weekPay, rules: laborRules, wageFor } = useWeekLaborCost(shifts, profiles, currentLocation?.id);
   const laborGoals = useLaborGoals();
@@ -798,11 +802,13 @@ export function DayBreakdownDialog({
                       </div>
                       {!shift.is_time_off && (
                         <div className="text-right ml-4">
+                          {showPersonPay && (
                           <div className="font-semibold text-sm">
                             {formatCurrency(cost)}
                           </div>
+                          )}
                           <div className="text-xs text-muted-foreground">
-                            {workedHours.toFixed(2)} hrs × {formatCurrency(wage)}/hr
+                            {showPersonPay ? <>{workedHours.toFixed(2)} hrs × {formatCurrency(wage)}/hr</> : <>{workedHours.toFixed(2)} hrs</>}
                           </div>
                         </div>
                       )}

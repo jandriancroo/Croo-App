@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useWeekLaborCost } from "@/hooks/useWeekLaborCost";
+import { useUserRole } from "@/hooks/useUserRole";
 import { dayPay } from "@/utils/laborCost";
 import { useScheduleLaborRules } from '@/hooks/useScheduleLaborRules';
 import { paidShiftHours } from '@/utils/shiftUtils';
@@ -180,6 +181,9 @@ export function MobileDayPreviewSheet({
       : own;
   }, [shifts, scheduleId, pendingDraft, dateStr]);
   const { pay: weekPay } = useWeekLaborCost(weekShifts, profiles, currentLocation?.id);
+  // Blended (Scheduling Manager): per-person rows show hours only, never $.
+  const { wageMode } = useUserRole();
+  const showPersonPay = wageMode === 'full';
   const totalCost = dayPay(weekPay, dateStr).cost;
   const laborPct = salesData?.daily ? (totalCost / salesData.daily) * 100 : 0;
 
@@ -308,7 +312,7 @@ export function MobileDayPreviewSheet({
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-semibold tabular-nums text-primary">{pendingHours.toFixed(1)}h</p>
-                      <p className="text-[11px] text-muted-foreground tabular-nums">{formatCurrency(pendingCost)}</p>
+                      {showPersonPay && <p className="text-[11px] text-muted-foreground tabular-nums">{formatCurrency(pendingCost)}</p>}
                     </div>
                   </div>
                 )}
@@ -337,7 +341,7 @@ export function MobileDayPreviewSheet({
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-sm font-semibold tabular-nums">{wh.toFixed(1)}h</p>
-                          <p className="text-[11px] text-muted-foreground tabular-nums">{formatCurrency(cost)}</p>
+                          {showPersonPay && <p className="text-[11px] text-muted-foreground tabular-nums">{formatCurrency(cost)}</p>}
                         </div>
                       </div>
                     );
