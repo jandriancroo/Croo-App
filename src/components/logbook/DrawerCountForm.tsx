@@ -86,6 +86,34 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
   const [quDepositLoaded, setQuDepositLoaded] = useState(false);
   const [showEnvelopeFormat, setShowEnvelopeFormat] = useState(false);
   const [userName, setUserName] = useState<string>("");
+  const [expectedPosName, setExpectedPosName] = useState<string | null>(null);
+  const [integrationPosName, setIntegrationPosName] = useState<string | null>(null);
+
+  // Display-only fallback for saved figures whose live provider is not recorded.
+  useEffect(() => {
+    let cancelled = false;
+    setIntegrationPosName(null);
+    setExpectedPosName(null);
+    if (!currentLocation?.id) return;
+
+    const fetchIntegrationName = async () => {
+      const { data } = await supabase
+        .from("location_integrations")
+        .select("integration_type, is_active")
+        .eq("location_id", currentLocation.id)
+        .eq("is_active", true);
+      const types = (data || []).map((integration) => integration.integration_type);
+      const type = ["qubeyond", "clover", "toast"].find((name) => types.includes(name)) ?? types[0];
+      const names: Record<string, string> = { qubeyond: "Qu", clover: "Clover", toast: "Toast" };
+      if (!cancelled && type) {
+        setIntegrationPosName(names[type] ?? type.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()));
+      }
+    };
+    void fetchIntegrationName().catch(() => {
+      // A missing integration label must not interfere with expected cash.
+    });
+    return () => { cancelled = true; };
+  }, [currentLocation?.id]);
 
   // Fetch current user's name
   useEffect(() => {
@@ -140,6 +168,7 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
         ) {
           setExpectedDeposit(cloverRes.data.expectedCash.toFixed(2));
           setExpectedSource("pos_live");
+          setExpectedPosName("Clover");
           setQuDepositLoaded(true);
           return;
         }
@@ -157,6 +186,7 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
         if (!error && data?.tills?.expectedCash > 0) {
           setExpectedDeposit(data.tills.expectedCash.toFixed(2));
           setExpectedSource("pos_live");
+          setExpectedPosName("Qu");
           setQuDepositLoaded(true);
           return;
         }
@@ -176,6 +206,7 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
           if (liveCash > 0) {
             setExpectedDeposit(liveCash.toFixed(2));
             setExpectedSource("pos_live");
+            setExpectedPosName("Qu");
             setQuDepositLoaded(true);
             return;
           }
@@ -324,8 +355,22 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
     }).format(amount);
   };
 
+  const expectedFrom = expectedSource === "pos_cache"
+    ? "from cash sales"
+    : `from ${expectedPosName ?? integrationPosName ?? "POS"}`;
+  const expectedSummarySource = expectedSource === "manual" ? "manual entry" : expectedFrom;
+
   return (
     <div className="space-y-6">
+      <Badge variant="secondary" role="status" className="max-w-full gap-2 whitespace-normal px-3 py-2 text-sm">
+        {isLoadingQuDeposit && expectedSource !== "manual" ? (
+          <><Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />Expected cash loading…</>
+        ) : expectedSource === "none" || expectedDeposit === "" ? (
+          "Expected cash not available yet"
+        ) : (
+          <>Expected cash {formatCurrency(parseFloat(expectedDeposit) || 0)} · {expectedSummarySource}</>
+        )}
+      </Badge>
           {/* Denomination Inputs */}
           <Card>
             <CardHeader className="pb-3">
@@ -504,12 +549,12 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Deposit Verification</CardTitle>
-              <CardDescription>Compare your total cash handled to expected from Qu</CardDescription>
+              <CardDescription>Compare your total cash handled to expected {expectedFrom}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Label>Expected Deposit from Qu</Label>
+                  <Label>Expected Deposit {expectedFrom}</Label>
                   {isLoadingQuDeposit && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
                   {quDepositLoaded && !isLoadingQuDeposit && (
                     <Badge variant="secondary" className="text-xs py-0">
