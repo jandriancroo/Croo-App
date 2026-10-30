@@ -842,3 +842,13 @@ html.duo.duo-open .duo-sched-grid .sticky{top:0!important}
 /* v70: Hiring two-pane (open mode): applicants on the left, the selected applicant docked on the right */
 html.duo .duo-hiring-dock{padding-top:92px;color:hsl(var(--foreground))}
 html.duo .duo-hiring-card{padding-bottom:96px}
+
+/* v71: Hiring docked profile header — stack the name over the status + schedule controls so they never overlap */
+html.duo .duo-hiring-head{flex-direction:column!important;align-items:stretch!important;gap:14px!important}
+html.duo .duo-hiring-head h2{line-height:1.2!important;padding-right:0}
+html.duo .duo-hiring-ctl{width:100%!important;max-width:calc(100% - 104px);flex-wrap:wrap}
+html.duo .duo-hiring-ctl > button[role="combobox"]{flex:0 0 150px;width:150px}
+
+/* v72: the Dash is its own fixed layer (z 51), so its fold fade has to sit just above it (below the top band at 55) */
+html.duo.duo-open .duo-navroot .duo-crease-dash{z-index:52}
+

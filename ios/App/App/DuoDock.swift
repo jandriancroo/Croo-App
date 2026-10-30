@@ -174,7 +174,10 @@ final class DuoDockController: UINavigationController {
         let show = side || open || isDuo
         // Folded vs open is decided by width, not by the side column: the column is there in both
         // (seen on the device: 466 wide folded, 951 wide open, both with the column).
-        let nowOpen = (isDuo || side) && view.bounds.width >= 600
+        // Open = the wide inner screen held LANDSCAPE. Judge by the shorter side so rotating never flips the mode:
+        // the inner screen (951x669) is open only when wider than tall; held portrait (669x951) it uses the single-column layout.
+        let shortSide = min(view.bounds.width, view.bounds.height)
+        let nowOpen = (isDuo || side) && shortSide >= 600 && view.bounds.width > view.bounds.height
         if nowOpen != duoOpen {
             duoOpen = nowOpen
             rebuildItems()

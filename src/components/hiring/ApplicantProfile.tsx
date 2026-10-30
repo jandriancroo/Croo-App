@@ -186,7 +186,7 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
         ) : application ? (
           <>
             <DialogHeader className="pr-8">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div className={`flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3${dock ? ' duo-hiring-head' : ''}`}>
                 <div className="min-w-0">
                   {dock ? <h2 className="font-semibold leading-none tracking-tight text-xl sm:text-2xl">{application.full_name}</h2> : <DialogTitle className="text-xl sm:text-2xl">{application.full_name}</DialogTitle>}
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -196,7 +196,7 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
                     )}
                   </div>
                 </div>
-                <div className="flex gap-2 w-full sm:w-auto shrink-0">
+                <div className={`flex gap-2 w-full sm:w-auto shrink-0${dock ? ' duo-hiring-ctl' : ''}`}>
                 <Select 
                   value={application.status} 
                   onValueChange={val => onStatusChange(application.id, val as ApplicationStatus)}
