@@ -41,6 +41,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useTodayCount, countStatus } from '@/hooks/usePageStatus';
 
 import { DuoPage } from '@/components/duo/DuoPage';
+import { useDuo } from '@/hooks/useDuo';
+import { setDuoPageActions, clearDuoPageActions } from '@/lib/duoPageActions';
 const formatTime12 = (t: string) => {
   const [h, m] = t.split(':').map(Number);
   const h12 = h % 12 === 0 ? 12 : h % 12;
@@ -61,6 +63,8 @@ export default function Hiring() {
   const { isOrgAdmin, isBrandAdmin, isSuperAdmin } = useUserRole();
   const { hasPermission } = useRolePermissions();
   const navigate = useNavigate();
+  const duo = useDuo();
+  const duoDock = duo.isDuo && duo.isOpen;
   const canAccessHiring = isOrgAdmin || isBrandAdmin || isSuperAdmin || hasPermission('manage_hiring');
   const applicantsToday = useTodayCount('applicants', currentLocation?.id, canAccessHiring);
   const applicantsText = countStatus(applicantsToday, 'NEW APPLICANT TODAY', 'NEW APPLICANTS TODAY', 'NO NEW APPLICANTS TODAY');
@@ -76,6 +80,15 @@ export default function Hiring() {
   const [selectedApplicant, setSelectedApplicant] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showQrDialog, setShowQrDialog] = useState(false);
+  // Duo: the orb carries this page's actions (the header buttons are hidden there).
+  useEffect(() => {
+    if (!duo.isDuo) return;
+    setDuoPageActions('hiring', [
+      { label: 'Interviews', icon: CalendarDays, run: () => setShowInterviewCalendar(true) },
+      { label: 'Share Link', icon: QrCode, run: () => setShowQrDialog(true) },
+    ]);
+    return () => clearDuoPageActions('hiring');
+  }, [duo.isDuo]);
   const [showHireDialog, setShowHireDialog] = useState(false);
   const [showInterviewCalendar, setShowInterviewCalendar] = useState(false);
   const [showRejectionEmail, setShowRejectionEmail] = useState(false);
@@ -499,14 +512,14 @@ export default function Hiring() {
 
   return (
     <Layout>
-    <DuoPage>
+    <DuoPage split={duoDock}>
       <div>
         {/* Header */}
         <PageTitle color="purple" status={applicantsText ? { text: applicantsText } : undefined} subtitle={(organization as any).brand_name ? (
                   <><span className="font-medium text-foreground">{(organization as any).brand_name}</span> — {organization.name}</>
                 ) : (
                   organization.name
-                )} action={<>              <Button variant="outline" onClick={() => setShowInterviewCalendar(true)}>
+                )} action={duo.isDuo ? undefined : <>              <Button variant="outline" onClick={() => setShowInterviewCalendar(true)}>
                 <CalendarDays className="h-4 w-4 mr-2" />
                 <span className="hidden sm:inline">Interviews</span>
               </Button>
@@ -870,8 +883,9 @@ export default function Hiring() {
           </TabsContent>
         </Tabs>
 
-        {/* Applicant Profile Dialog */}
+        {duoDock ? (selectedApplicant && <aside className="duo-tasks-dock duo-hiring-dock">
         <ApplicantProfile
+          dock={duoDock}
           applicationId={selectedApplicant}
           open={!!selectedApplicant}
           onOpenChange={open => !open && setSelectedApplicant(null)}
@@ -922,6 +936,61 @@ export default function Hiring() {
             openScheduleForApp(app, !!opts?.reschedule);
           }}
         />
+        </aside>) : (
+        {/* Applicant Profile Dialog */}
+        <ApplicantProfile
+          dock={duoDock}
+          applicationId={selectedApplicant}
+          open={!!selectedApplicant}
+          onOpenChange={open => !open && setSelectedApplicant(null)}
+          onStatusChange={(id, status) => {
+            const app = applications?.find((a: any) => a.id === id);
+            if (!app) return;
+            
+            // If status is "hired", open the hire dialog
+            if (status === 'hired') {
+              setApplicantToHire({
+                id: app.id,
+                full_name: app.full_name,
+                email: app.email,
+                phone: app.phone,
+              });
+              setSelectedApplicant(null);
+              setShowHireDialog(true);
+            } 
+            // If status is "rejected", open rejection email dialog
+            else if (status === 'rejected') {
+              setApplicantToReject({
+                id: app.id,
+                full_name: app.full_name,
+                email: app.email,
+              });
+              setSelectedApplicant(null);
+              setShowRejectionEmail(true);
+            }
+            // Interviewing with no interview yet → schedule first; the invite writes the status
+            else if (status === 'interviewing' && !app.interview_date) {
+              openScheduleFor({ id: app.id, full_name: app.full_name });
+            } else {
+              updateStatusMutation.mutate({ id, status });
+            }
+          }}
+          onScheduleInterview={async (id, opts) => {
+            let app: any = applications?.find((a: any) => a.id === id);
+            if (opts?.reschedule) {
+              // Pull fresh interview fields so the dialog prefills what's stored now.
+              const { data } = await supabase
+                .from('job_applications')
+                .select('id, full_name, interview_date, interview_time, interview_modality, interview_meeting_url')
+                .eq('id', id)
+                .maybeSingle();
+              if (data) app = data;
+            }
+            if (!app) app = { id, full_name: 'this applicant' };
+            openScheduleForApp(app, !!opts?.reschedule);
+          }}
+        />
+        )}
 
         {/* Hire Applicant Dialog */}
         <HireApplicantDialog

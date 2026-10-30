@@ -837,3 +837,8 @@ html.duo .duo-insights>div:first-child button{background-color:hsl(222 30% 9%)!i
 /* v68: Paper theme only: data cubes get a deeper warm tone and a soft lift so they hold their own under the promo hero (OLED unchanged; color only, no data/logic) */
 html.duo:not([data-duo-theme=oled]) .duo-dash [data-tour=dashboard-cubes]{background:rgba(80,62,40,.26)}
 html.duo:not([data-duo-theme=oled]) .duo-dash [data-tour=dashboard-cubes]>div{background:#DCCFB7;box-shadow:inset 0 1px 0 rgba(255,255,255,.45)}
+/* v69: the Schedule grid's scroll area already starts under the top band, so the sticky header pins at its very top (no gap where rows slide up behind it) */
+html.duo.duo-open .duo-sched-grid .sticky{top:0!important}
+/* v70: Hiring two-pane (open mode): applicants on the left, the selected applicant docked on the right */
+html.duo .duo-hiring-dock{padding-top:92px;color:hsl(var(--foreground))}
+html.duo .duo-hiring-card{padding-bottom:96px}

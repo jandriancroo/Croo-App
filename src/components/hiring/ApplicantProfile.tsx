@@ -38,9 +38,11 @@ interface ApplicantProfileProps {
   onOpenChange: (open: boolean) => void;
   onStatusChange: (id: string, status: ApplicationStatus) => void;
   onScheduleInterview?: (applicationId: string, opts?: { reschedule?: boolean }) => void;
+  /** Duo open mode: render inline in the docked right pane instead of a dialog. */
+  dock?: boolean;
 }
 
-export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusChange, onScheduleInterview }: ApplicantProfileProps) {
+export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusChange, onScheduleInterview, dock = false }: ApplicantProfileProps) {
   const queryClient = useQueryClient();
   const { user: authUser } = useAuth();
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -175,9 +177,8 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
     );
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+  const inner = (
+    <>
         {isLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -187,7 +188,7 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
             <DialogHeader className="pr-8">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div className="min-w-0">
-                  <DialogTitle className="text-xl sm:text-2xl">{application.full_name}</DialogTitle>
+                  {dock ? <h2 className="font-semibold leading-none tracking-tight text-xl sm:text-2xl">{application.full_name}</h2> : <DialogTitle className="text-xl sm:text-2xl">{application.full_name}</DialogTitle>}
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <ApplicantFlagSelector applicationId={application.id} />
                     {application.template && (
@@ -587,7 +588,18 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
             Application not found
           </div>
         )}
-      </DialogContent>
+    </>
+  );
+
+  return (
+    <>
+      {dock ? (
+        <div className="duo-emp-dock duo-hiring-card flex flex-col">{inner}</div>
+      ) : (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden">{inner}</DialogContent>
+        </Dialog>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
@@ -616,6 +628,6 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Dialog>
+    </>
   );
 }

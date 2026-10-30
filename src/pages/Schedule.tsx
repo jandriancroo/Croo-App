@@ -171,7 +171,7 @@ export default function Schedule() {
         }
       }
     };
-    if (document.documentElement.classList.contains('duo')) { setNavbarHeight(88); return; }
+    if (document.documentElement.classList.contains('duo')) { setNavbarHeight(0); return; }
     measureHeader();
     window.addEventListener('resize', measureHeader);
     return () => window.removeEventListener('resize', measureHeader);
