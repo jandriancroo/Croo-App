@@ -72,13 +72,19 @@ struct StoreLargeWidget: Widget {
     }
 }
 
+// iOS 27 added a separate extra-large PORTRAIT size (4x6, a full page; the Duo's big widget).
+// It is not the old .systemExtraLarge, which is the landscape size for iPad only. The case only exists in the
+// Xcode 27 SDK (Swift 6.4), so older Xcode versions skip this widget instead of failing to build.
+#if compiler(>=6.4)
+@available(iOS 27.0, *)
 struct StoreTallWidget: Widget {
     var body: some WidgetConfiguration {
         homeConfig(kind: "CrooStoreTall", name: "Store overview (tall)",
                    summary: "Sales on top, sales by hour in the middle, today's schedule with a time ruler.",
-                   family: .systemExtraLarge) { TallStoreView(snap: $0) }
+                   family: .systemExtraLargePortrait) { TallStoreView(snap: $0) }
     }
 }
+#endif
 
 // MARK: - Lock screen
 
@@ -285,7 +291,9 @@ struct CrooWidgetBundle: WidgetBundle {
         TimelineMediumWidget()
         EventsMediumWidget()
         StoreLargeWidget()
-        StoreTallWidget()
+#if compiler(>=6.4)
+        if #available(iOS 27.0, *) { StoreTallWidget() }
+#endif
         LockSalesWidget()
         LockStoreRingWidget()
         LockLaborWidget()
