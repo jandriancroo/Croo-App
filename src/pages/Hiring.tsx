@@ -937,7 +937,6 @@ export default function Hiring() {
           }}
         />
         </aside>) : (
-        {/* Applicant Profile Dialog */}
         <ApplicantProfile
           dock={duoDock}
           applicationId={selectedApplicant}
