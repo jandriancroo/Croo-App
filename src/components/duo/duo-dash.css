@@ -834,3 +834,6 @@ html.duo.duo-open .duo-tasks-dock::before,html.duo.duo-open .duo-run-dock::befor
 /* v67: Week Insights pill is solid and sits above the CrooHQ wordmark on the full Schedule grid */
 html.duo:has(.duo-sched-grid) .duo-navroot .duo-wordmark-global{z-index:40}
 html.duo .duo-insights>div:first-child button{background-color:hsl(222 30% 9%)!important;opacity:1}
+/* v68: Paper theme only: data cubes get a deeper warm tone and a soft lift so they hold their own under the promo hero (OLED unchanged; color only, no data/logic) */
+html.duo:not([data-duo-theme=oled]) .duo-dash [data-tour=dashboard-cubes]{background:rgba(80,62,40,.26)}
+html.duo:not([data-duo-theme=oled]) .duo-dash [data-tour=dashboard-cubes]>div{background:#DCCFB7;box-shadow:inset 0 1px 0 rgba(255,255,255,.45)}
