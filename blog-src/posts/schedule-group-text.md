@@ -67,6 +67,6 @@ I built CrooHQ because I wanted my own stores to stop running on group texts. It
 
 Your crew's HQ. Built for operators, by operators.
 
-**If Saturday coverage keeps biting you, [book a demo with CrooHQ](https://supaclose.lovable.app/demo).**
+**If Saturday coverage keeps biting you, [book a demo with CrooHQ](https://croohq.com/#see-it).**
 
 **[See how CrooHQ handles shift swaps and scheduling](https://croohq.com).**

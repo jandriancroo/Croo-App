@@ -1,0 +1,20 @@
+[
+ {
+  "slug": "punches-dont-match",
+  "title": "When the Punches Don't Match the Paycheck",
+  "date": "2026-10-30",
+  "dateLabel": "October 30, 2026",
+  "img": "/blog/assets/punches-dont-match-1200x627.png",
+  "alt": "Restaurant manager in a back office holding his head while checking time punches on his phone against a printed schedule",
+  "url": "/blog/punches-dont-match/"
+ },
+ {
+  "slug": "schedule-group-text",
+  "title": "Your Schedule Shouldn't Live in a Group Text",
+  "date": "2026-10-26",
+  "dateLabel": "October 26, 2026",
+  "img": "/blog/assets/schedule-group-text-1200x627.png",
+  "alt": "Line cook in a black apron checking a shift-swap text on his phone in a restaurant kitchen",
+  "url": "/blog/schedule-group-text/"
+ }
+]

@@ -65,6 +65,6 @@ That's the kind of thing I built CrooHQ for: the stuff nobody wants to touch, ha
 
 Built for operators, by operators.
 
-**If this sounds like your Monday, [book a demo with CrooHQ](https://supaclose.lovable.app/demo).**
+**If this sounds like your Monday, [book a demo with CrooHQ](https://croohq.com/#see-it).**
 
 **[See how CrooHQ handles time punches and payroll prep](https://croohq.com).**

@@ -5,7 +5,7 @@
 import fs from "node:fs"; import path from "node:path";
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const SRC = path.join(ROOT, "blog-src"), OUT = path.join(ROOT, "public/blog"), A = path.join(OUT, "assets");
-const SITE = "https://croohq.com", DEMO = "https://supaclose.lovable.app/demo";
+const SITE = "https://croohq.com", DEMO = "https://croohq.com/#see-it";
 const BIO = "Ran four restaurant locations over 12 years before building CrooHQ.";
 const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 const inl = s => esc(s).replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2">$1</a>').replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
@@ -66,6 +66,8 @@ const desc = "Operator notes from CrooHQ founder Jordan Andrian on restaurant sc
 fs.writeFileSync(path.join(OUT,"index.html"), head({title:"CrooHQ Blog: Operator Notes on Running Restaurant Shifts",desc,url:`${SITE}/blog/`,img:`${SITE}/blog/assets/${posts[0].slug}-1200x627.png`,type:"website",
   ld:{"@context":"https://schema.org","@type":"Blog",name:"CrooHQ Blog",url:`${SITE}/blog/`,blogPost:posts.map(p=>({"@type":"BlogPosting",headline:p.title,url:`${SITE}/blog/${p.slug}/`,datePublished:p.date,author:{"@type":"Person",name:"Jordan Andrian"}}))}})
   + `${HEADER}<main class="wrap list"><div class="kicker">CrooHQ Blog · Operator notes</div><h1>Operator notes</h1><p class="lede">Straight talk on schedules, punches, and labor from someone who ran four restaurant locations. <a href="/">See what CrooHQ does</a>.</p><div class="cards">${cards}</div></main>${FOOTER}</body></html>\n`);
+// latest-posts feed for the homepage "Latest from the blog" block
+fs.writeFileSync(path.join(OUT,"posts.json"), JSON.stringify(posts.slice(0,3).map(p=>({slug:p.slug,title:p.title,date:p.date,dateLabel:fmtDate(p.date),img:`/blog/assets/${p.slug}-1200x627.png`,alt:p.hero_alt||p.title,url:`/blog/${p.slug}/`})),null,1)+"\n");
 // blog sitemap (referenced from public/sitemap.xml index)
 fs.writeFileSync(path.join(ROOT,"public/blog-sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${SITE}/blog/</loc><lastmod>${posts[0].date}</lastmod></url>\n${posts.map(p=>`  <url><loc>${SITE}/blog/${p.slug}/</loc><lastmod>${p.updated||p.date}</lastmod></url>`).join("\n")}\n</urlset>\n`);
 console.log(`listing: ${posts.length} posts`);

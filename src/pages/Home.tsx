@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, type CSSProperties } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
+import LatestPosts from "@/components/home/LatestPosts";
 
 const HomeDemos = lazy(() => import('@/components/home/HomeDemos'));
 
@@ -154,7 +155,7 @@ const Home = () => {
       </Helmet>
       <div className="wrap"><header className="hd">
         <img className="logo" src="/croohq-wordmark.png" alt="CrooHQ" width={136} height={32} />
-        <nav className="nv" aria-label="Main navigation"><a href="#how">How it works</a><a href="#stack">Replace the stack</a><Link to="/jobs">Jobs</Link></nav>
+        <nav className="nv" aria-label="Main navigation"><a href="#how">How it works</a><a href="#stack">Replace the stack</a><Link to="/jobs">Jobs</Link><a href="/blog/">Blog</a></nav>
         <div className="act"><Link className="btn bo" to="/auth">App Login</Link><a className="btn bp" href={MAILTO}>Book a walkthrough</a></div>
       </header></div>
       <main>
@@ -178,7 +179,7 @@ const Home = () => {
           </section>
         </div>
         <section className="how" id="how"><div className="pin"><div className="wrap"><h2 className="rv">No rip-and-replace<br />on day one.</h2><div className="st rv">{STEPS.map((step, i) => <div key={step}><b>{String(i + 1).padStart(2, '0')}</b><p>{step}</p></div>)}</div><div className="prog" aria-hidden="true"><i /></div><div className="feature-chips">{CHIPS.map(chip => <span className="chip" key={chip}>{chip}</span>)}</div></div></div></section>
-        <div className="wrap"><section className="end"><h2 className="rv">Not stuck.<br />Not sold to.</h2><p className="rv">If you do not love it, you are not stuck. Talk to an operator, not a sales pod.</p><a className="btn bo lg rv" href={MAILTO}>Book a 20-minute walkthrough</a></section><div className="jb rv"><span>Looking for a job? Open crew and manager roles in Southern California.</span><Link className="btn bp" to="/jobs">See open jobs</Link></div></div>
+        <div className="wrap"><LatestPosts /><section className="end"><h2 className="rv">Not stuck.<br />Not sold to.</h2><p className="rv">If you do not love it, you are not stuck. Talk to an operator, not a sales pod.</p><a className="btn bo lg rv" href={MAILTO}>Book a 20-minute walkthrough</a></section><div className="jb rv"><span>Looking for a job? Open crew and manager roles in Southern California.</span><Link className="btn bp" to="/jobs">See open jobs</Link></div></div>
       </main>
       <div className="wrap"><footer><span>croohq.com · Built for operators, by operators. · Proudly made in America.</span><nav aria-label="Footer navigation"><Link to="/jobs">Jobs</Link><a href="/blog/">Blog</a><Link to="/privacy">Privacy Policy</Link><a href={MAILTO}>Contact: jordan@croohq.com</a><Link to="/terms">Terms</Link><Link to="/auth">Log in</Link></nav></footer></div>
     </div>
