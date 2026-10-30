@@ -1,11 +1,22 @@
 #!/bin/bash
-# Get latest: pull GitHub, then build the web app into the iPhone app (npm install, build, cap sync).
+# Pull latest from Git: put this Mac on the right branch (testing, or main when CROO_BRANCH=main), pull GitHub,
+# catch testing up with Lovable's fixes on main, then build the web app into the iPhone app (npm install, build, cap sync).
 source "$(dirname "$0")/common.sh"
+BRANCH="${CROO_BRANCH:-$TEST_BRANCH}"
 
 step "Checking this Mac for local changes"
 reset_auto_files
 require_clean
-pull_latest
+ensure_branch "$BRANCH"
+pull_latest "$BRANCH"
+if [[ "$BRANCH" == "$TEST_BRANCH" ]]; then
+  catch_up_with_main
+  if git push -q origin "HEAD:$TEST_BRANCH" 2>/dev/null; then
+    ok "testing is saved on GitHub"
+  else
+    printf '%s\n' "  (Couldn't send testing to GitHub just now. It isn't a problem; press “Send local changes to GitHub” later.)"
+  fi
+fi
 
 step "Installing web packages (only new ones download)"
 npm install --no-audit --no-fund --loglevel=error || fail "npm install failed."
@@ -24,7 +35,7 @@ if ! npx cap sync ios >"$CACHE/cap-sync.log" 2>&1; then
 fi
 reset_auto_files quiet
 ensure_pods
-ok "Ready: this Mac has the newest app. Open Xcode or press Run / Ship."
+ok "Ready: this Mac (on $BRANCH) has the newest app. Next: Open in Xcode and test."
 
 # Croo Builder updates itself: if its own code changed, rebuild it once this finishes (it reopens on its own).
 APP_PLIST="$HOME/Applications/Croo Builder.app/Contents/Info.plist"

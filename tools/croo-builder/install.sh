@@ -4,14 +4,18 @@
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$DIR/../.." && pwd)"
-APP="$HOME/Applications/Croo Builder.app"
+FINAL_APP="$HOME/Applications/Croo Builder.app"
+# Build into a scratch folder first, so a failed build never removes the working app.
+APP="$(mktemp -d)/Croo Builder.app"
 
 echo "▶ Building Croo Builder (about a minute)"
-rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-xcrun swiftc -O -swift-version 5 -parse-as-library \
+if ! xcrun swiftc -O -swift-version 5 -parse-as-library \
   -target "$(uname -m)-apple-macos14.0" \
-  -o "$APP/Contents/MacOS/CrooBuilder" "$DIR"/App/*.swift
+  -o "$APP/Contents/MacOS/CrooBuilder" "$DIR"/App/*.swift 2>&1; then
+  echo "✖ Croo Builder couldn't be rebuilt. Your current Croo Builder is untouched and still works. Copy this log to Claude."
+  exit 1
+fi
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -44,7 +48,10 @@ if [[ -f "$SRC" ]]; then
   iconutil -c icns "$SET" -o "$APP/Contents/Resources/AppIcon.icns" || true
 fi
 
-codesign --force --deep -s - "$APP" >/dev/null 2>&1 || true
+mkdir -p "$HOME/Applications"
+rm -rf "$FINAL_APP"
+mv "$APP" "$FINAL_APP"
+codesign --force --deep -s - "$FINAL_APP" >/dev/null 2>&1 || true
 pkill -x CrooBuilder 2>/dev/null || true
-echo "✔ Installed: $APP (look for the hammer in your menu bar)"
-open "$APP"
+echo "✔ Installed: $FINAL_APP (look for the hammer in your menu bar)"
+open "$FINAL_APP"

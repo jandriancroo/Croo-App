@@ -2,12 +2,16 @@
 
 A small menu bar app (click the hammer, a panel pops out) so shipping CrooHQ needs no Terminal commands.
 
-| Button | What it does |
+Four steps, top to bottom. Each unlocks only after the one before it, and finished steps grey out. The panel always opens at step 1 (“Start over” goes back to it). The “Mac is on: …” label at the top is read-only.
+
+| Step | What it does |
 |---|---|
-| **Get latest** | Sets aside changes Xcode/npm made on their own (backup in Developer › CrooHQ backups), pulls GitHub, `npm install`, `npm run build`, `npx cap sync ios`. |
-| **Run on (device)** | Builds a test version and installs + opens it on your iPhone (App) or Vision Pro (CrooVision). |
-| **Ship to TestFlight** | Get latest → shows the **What to Test** notes (from `ios/TESTFLIGHT_NOTES.md`, "Next build") for you to edit → same build number on every app (saved to GitHub so both Macs agree) → archive → upload → notes posted to TestFlight once Apple finishes processing (needs the API key below; without it they're copied for you to paste) → notes filed under the build number. |
-| **Save my changes** | Sends anything you changed on this Mac (e.g. in Xcode) to GitHub. |
+| **1. Pull latest from Git** | Puts this Mac on the **testing** branch, pulls it from GitHub, brings Lovable's newest fixes from **main** into testing, then `npm install`, `npm run build`, `npx cap sync ios`. Sets aside changes Xcode/npm made on their own (backup in Developer › CrooHQ backups). |
+| **2. Open in Xcode and test** | Opens the project in Xcode (or run straight on a connected device from the picker). |
+| **3. Ship drafts to main** | Type `ship` to unlock. Tags main with a bookmark (`main-before-ship-…`), then sends testing into main. Lovable follows main; the website only changes when you press Publish in Lovable. |
+| **4. Ship to TestFlight** | Switches to main → shows the **What to Test** notes (from `ios/TESTFLIGHT_NOTES.md`) → same build number on every app → archive → upload → notes posted once Apple finishes processing → back to testing. |
+| **Send local changes to GitHub** | Sends anything new on this Mac to **testing only**, never main. |
+| **Only Lovable fixes? Skip to step 4** | For fixes already on main: skips steps 1–3. |
 | **Copy error** | Copies the errors + last lines to paste to Claude. |
 
 ## Install (once per Mac; after that it updates itself on Get latest)

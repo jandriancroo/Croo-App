@@ -3,13 +3,14 @@ import AppKit
 import UserNotifications
 
 enum BuilderAction: Equatable {
-    case getLatest, saveChanges, ship
+    case getLatest, saveChanges, shipToMain, ship
     case runOnDevice(scheme: String, udid: String, platform: String, name: String)
 
     var title: String {
         switch self {
-        case .getLatest: return "Get latest"
-        case .saveChanges: return "Save my changes"
+        case .getLatest: return "Pull latest from Git"
+        case .saveChanges: return "Send local changes to GitHub"
+        case .shipToMain: return "Ship drafts to main"
         case .ship: return "Ship to TestFlight"
         case .runOnDevice(_, _, _, let name): return "Run on \(name)"
         }
@@ -19,6 +20,7 @@ enum BuilderAction: Equatable {
         switch self {
         case .getLatest: return "get-latest.sh"
         case .saveChanges: return "save-changes.sh"
+        case .shipToMain: return "ship-to-main.sh"
         case .ship: return "ship.sh"
         case .runOnDevice: return "run-device.sh"
         }
@@ -67,6 +69,10 @@ final class Runner: ObservableObject {
     @Published private(set) var currentTitle = ""
     @Published private(set) var lastResult: (title: String, ok: Bool)?
     @Published var devices: [Device] = []
+    /// Which of the four steps are finished (or skipped). Always starts fresh at step 1 when the app opens.
+    @Published private(set) var stepDone: [Bool] = [false, false, false, false]
+    /// The branch this Mac is on right now (read-only, shown at the top).
+    @Published private(set) var branch = ""
     @Published var loadingDevices = false
     @Published var repoPath: String {
         didSet { UserDefaults.standard.set(repoPath, forKey: "repoPath") }
@@ -87,6 +93,48 @@ final class Runner: ObservableObject {
         let saved = UserDefaults.standard.string(forKey: "repoPath")
         let fromInstall = Bundle.main.object(forInfoDictionaryKey: "CrooRepoPath") as? String
         repoPath = saved ?? fromInstall ?? (NSHomeDirectory() + "/Developer/Croo-App")
+        refreshBranch()
+    }
+
+    // MARK: Steps and branch label
+
+    func complete(_ index: Int) {
+        guard stepDone.indices.contains(index) else { return }
+        stepDone[index] = true
+    }
+
+    /// For fixes that came only from Lovable (already on main): skip straight to TestFlight.
+    func skipToTestFlight() { stepDone = [true, true, true, false] }
+
+    func pullLatest() { run(.getLatest) { [weak self] in self?.complete(0) } }
+    func shipToMain() { run(.shipToMain) { [weak self] in self?.complete(2) } }
+    func runOnDevice(_ d: Device) {
+        run(.runOnDevice(scheme: d.scheme, udid: d.id, platform: d.platform, name: d.name)) { [weak self] in self?.complete(1) }
+    }
+
+    func startOver() {
+        guard !isRunning else { return }
+        stepDone = [false, false, false, false]
+        notesDraft = nil
+        notesStatus = ""
+        lastResult = nil
+    }
+
+    func refreshBranch() {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        p.arguments = ["-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD"]
+        let pipe = Pipe()
+        p.standardOutput = pipe
+        p.standardError = FileHandle.nullDevice
+        do {
+            try p.run()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            p.waitUntilExit()
+            branch = (String(data: data, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            branch = ""
+        }
     }
 
     var scriptsDir: String { repoPath + "/tools/croo-builder/scripts" }
@@ -156,6 +204,7 @@ final class Runner: ObservableObject {
         (process?.standardOutput as? Pipe)?.fileHandleForReading.readabilityHandler = nil
         process = nil
         isRunning = false
+        refreshBranch()
         let ok = status == 0
         lastResult = (action.title, ok)
         if !ok && !lines.contains(where: { $0.kind == .error }) {
@@ -173,7 +222,7 @@ final class Runner: ObservableObject {
     /// Step 1: get the latest (so the notes include everyone's changes), then show the notes editor.
     func prepareShip() {
         notesStatus = ""
-        run(.getLatest) { [weak self] in
+        run(.getLatest, env: ["CROO_BRANCH": "main"]) { [weak self] in
             guard let self else { return }
             self.notesDraft = TestFlightNotes.draft(repo: self.repoPath)
         }
@@ -188,6 +237,7 @@ final class Runner: ObservableObject {
         let file = NSTemporaryDirectory() + "croo-testflight-notes.txt"
         try? text.write(toFile: file, atomically: true, encoding: .utf8)
         run(.ship, env: ["CROO_NOTES_FILE": file]) { [weak self] in
+            self?.complete(3)
             self?.afterShip(notes: text)
         }
     }

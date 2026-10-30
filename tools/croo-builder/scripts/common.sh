@@ -64,22 +64,66 @@ reset_auto_files() {
   done
 }
 
-# Stops if there are real edits that aren't saved to GitHub yet.
+# The one branch where new iOS and Duo work waits to be tested. Lovable never sees it; main is what Lovable follows.
+TEST_BRANCH="testing"
+
+current_branch() { git rev-parse --abbrev-ref HEAD; }
+
+# Stops if there are real edits that aren't sent to GitHub yet.
 require_clean() {
   local dirty
   dirty="$(git status --porcelain | grep -v '^??' || true)"
   if [[ -n "$dirty" ]]; then
-    printf '%s\n' "✖ This Mac has changes that aren't on GitHub yet:"
+    printf '%s\n' "✖ This Mac has local changes that aren't on GitHub yet:"
     printf '%s\n' "$dirty"
-    printf '%s\n' "  Press “Save my changes” first (or ask Claude what they are)."
+    printf '%s\n' "  Press “Send local changes to GitHub” first (or ask Claude what they are)."
     exit 2
   fi
 }
 
+# Puts this Mac on the given branch (needs a clean tree; creates it from GitHub if this Mac doesn't have it yet).
+ensure_branch() {
+  local want="$1"
+  [[ "$(current_branch)" == "$want" ]] && return 0
+  git fetch -q origin 2>/dev/null || true
+  if git show-ref --verify --quiet "refs/heads/$want"; then
+    git checkout -q "$want" || fail "Couldn't switch this Mac to $want."
+  elif git show-ref --verify --quiet "refs/remotes/origin/$want"; then
+    git checkout -q -b "$want" "origin/$want" || fail "Couldn't switch this Mac to $want."
+  elif [[ "$want" == "$TEST_BRANCH" ]]; then
+    git checkout -q -b "$want" origin/main || fail "Couldn't create $want."
+  else
+    fail "This Mac has no branch called $want."
+  fi
+  ok "Switched this Mac to $want"
+}
+
 pull_latest() {
-  step "Getting the latest from GitHub"
-  git pull --rebase --quiet origin main || fail "Couldn't pull from GitHub. Copy this log to Claude."
+  local b="${1:-$(current_branch)}"
+  step "Getting the latest $b from GitHub"
+  git fetch -q origin || fail "Couldn't reach GitHub. Copy this log to Claude."
+  if git show-ref --verify --quiet "refs/remotes/origin/$b"; then
+    git pull --rebase --quiet origin "$b" || fail "Couldn't pull $b from GitHub. Copy this log to Claude."
+  else
+    printf '%s\n' "  ($b isn't on GitHub yet. It gets created the first time local changes are sent.)"
+  fi
   ok "Up to date with GitHub ($(git log -1 --format='%h · %s' | cut -c1-70))"
+}
+
+# Brings Lovable's newest fixes (which land on main) into testing, so a test build includes them.
+catch_up_with_main() {
+  step "Catching up with main (Lovable's latest fixes)"
+  git fetch -q origin main || fail "Couldn't reach GitHub. Copy this log to Claude."
+  if git merge-base --is-ancestor origin/main HEAD; then
+    ok "Testing already has everything on main"
+    return 0
+  fi
+  if git merge --no-edit -q origin/main >/dev/null 2>&1; then
+    ok "Brought main's newest changes into testing"
+  else
+    git merge --abort 2>/dev/null || true
+    fail "Main and testing changed the same lines, so nothing was merged and nothing was lost. Press “Copy error” and paste it to Claude."
+  fi
 }
 
 # Makes sure Xcode's CocoaPods folder matches Podfile.lock (runs `pod install` only when needed).

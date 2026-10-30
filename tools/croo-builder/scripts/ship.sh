@@ -4,6 +4,8 @@
 #   ~/.croo-builder/asc.env with ASC_KEY_PATH, ASC_KEY_ID, ASC_ISSUER_ID.
 source "$(dirname "$0")/common.sh"
 
+# TestFlight builds always come from main.
+export CROO_BRANCH=main
 "$(dirname "$0")/get-latest.sh"
 
 step "Checking this Mac can upload to GitHub"
@@ -120,4 +122,14 @@ PY
     git push -q origin HEAD:main || { git pull --rebase --autostash -q origin main && git push -q origin HEAD:main; } || true
     ok "Notes filed under build $NEW"
   fi
+fi
+
+# Put this Mac back on testing (and carry the build-number commit into it) so the next round starts clean.
+step "Putting this Mac back on testing"
+if git checkout -q "$TEST_BRANCH" 2>/dev/null && git merge --no-edit -q origin/main >/dev/null 2>&1; then
+  git push -q origin "HEAD:$TEST_BRANCH" 2>/dev/null || true
+  ok "This Mac is back on testing"
+else
+  git merge --abort 2>/dev/null || true
+  printf '%s\n' "  (Couldn't switch back to testing automatically. Press “Pull latest from Git” to do it.)"
 fi

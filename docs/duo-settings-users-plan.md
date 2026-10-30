@@ -2,7 +2,7 @@
 
 _Stored in the repo (docs/) because the CrooHQ Project is full — remove old Project docs if you want it there too. Patterns referenced: Project doc claude/duo-ui-patterns.md._
 
-Built and pushed to branch duo-dash-fixes (commits 51a16c027, 6e5da3daa). Not merged, not on TestFlight. Nothing was visually checked on the simulator; Jordan reviews page by page. Patterns referenced here are defined in duo-ui-patterns.md.
+Built and pushed to branch duo-dash-fixes (since renamed testing; commits 51a16c027, 6e5da3daa). Not merged, not on TestFlight. Nothing was visually checked on the simulator; Jordan reviews page by page. Patterns referenced here are defined in duo-ui-patterns.md.
 
 ## Global changes that touch every page (check these first)
 1. Overlay fallback (src/lib/duoOverlay.ts): every Dialog / AlertDialog / Sheet on Duo is auto-classed slide-over or popup. This also changes dialogs on pages not redone yet (Schedule, Inventory, Hiring...). If any dialog looks wrong, add `duo-native` to its className to opt out, or classify it by hand.
