@@ -77,6 +77,7 @@ struct WHourly: Codable, Hashable {
     var hour: Int?
     var sales: Double?
     var projected: Double?
+    var laborPercent: Double?
 }
 
 struct WSnapshot: Codable {
@@ -197,7 +198,7 @@ extension WSnapshot {
     /// Today's hours that have a projection or sales, in order (empty when the store has no hourly data yet).
     var hourly: [WHourly] {
         (hourlyToday ?? [])
-            .filter { $0.hour != nil && (($0.sales ?? 0) > 0 || ($0.projected ?? 0) > 0) }
+            .filter { $0.hour != nil && (($0.sales ?? 0) > 0 || ($0.projected ?? 0) > 0 || ($0.laborPercent ?? 0) > 0) }
             .sorted { ($0.hour ?? 0) < ($1.hour ?? 0) }
     }
 }

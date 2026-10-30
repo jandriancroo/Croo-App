@@ -21,7 +21,7 @@ import { roleForUser } from "../_shared/theoActions.ts";
 import { getWageVisibility, getBlendedRate } from "../_shared/wageVisibility.ts";
 
 // Bump on every change so a deploy can be confirmed: POST {"action":"version"}.
-const WATCH_SERVICE_VERSION = "2026-10-21.2";
+const WATCH_SERVICE_VERSION = "2026-10-30.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -750,7 +750,7 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
     return h >= 0 && h <= 24 ? h : null;
   };
   const hourlyToday = (Array.isArray(todayRow?.hourly_data) ? todayRow.hourly_data : [])
-    .map((h: any) => ({ hour: hourNum(h?.hour), sales: Number(h?.sales) || 0, projected: Number(h?.projected) || 0 }))
+    .map((h: any) => ({ hour: hourNum(h?.hour), sales: Number(h?.sales) || 0, projected: Number(h?.projected) || 0, laborPercent: Number.isFinite(Number(h?.laborPercent)) && h?.laborPercent != null ? Number(h.laborPercent) : null }))
     .filter((h: { hour: number | null }) => h.hour !== null);
 
   return {

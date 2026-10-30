@@ -6,11 +6,20 @@ import { DuoOvation } from '@/components/duo/DuoOvation';
 import { useDuoPageActions } from '@/lib/duoPageActions';
 import { useDuoTheme, setDuoThemeMode, type DuoThemeMode } from '@/lib/duoTheme';
 import { useOvationData } from '@/components/dashboard/OvationScorePopover';
-import { Pencil, Mail, Inbox, ChevronRight, MapPin, X, Sparkles, Hand, SlidersHorizontal, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock, Gauge, Zap, ClipboardList, FileText as FileTextIcon, Copy, Plus, BookOpen, Upload, UserPlus, RefreshCw, FlaskConical, Save, Award, ListChecks, Sun, Moon, SunMoon, ChevronDown } from 'lucide-react';
+import { Pencil, Mail, Inbox, ChevronRight, MapPin, X, Sparkles, Hand, SlidersHorizontal, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock, Gauge, Zap, ClipboardList, FileText as FileTextIcon, Copy, Plus, BookOpen, Upload, UserPlus, RefreshCw, FlaskConical, Save, Award, ListChecks, Sun, Moon, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation } from '@/hooks/useLocation';
+
+// Auto theme icon: a small sun with an "A" inside (Duo slide-out menu).
+const DuoAutoIcon = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <circle cx="12" cy="12" r="6.2" />
+    <path d="M12 2.2v1.6M12 20.2v1.6M2.2 12h1.6M20.2 12h1.6M5.1 5.1l1.1 1.1M17.8 17.8l1.1 1.1M5.1 18.9l1.1-1.1M17.8 6.2l1.1-1.1" />
+    <path d="M9.7 15l2.3-6 2.3 6M10.5 13.1h3" strokeWidth="1.5" />
+  </svg>
+);
 import './duo-dash.css';
 
 /** Duo-only left-edge slide-out navigation. Rendered by Layout on every Duo page. */
@@ -175,7 +184,7 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
     <Button variant="ghost" aria-label="Close page menu" tabIndex={open ? 0 : -1} data-state={open ? 'open' : 'closed'} className="duo-dim duo-menu-dim" onClick={() => setOpen(false)} />
     <Button variant="ghost" className="duo-handle duo-glass" aria-label="Open page menu" onClick={() => setOpen(true)}><ChevronRight size={13} /></Button>
     <aside data-state={open ? 'open' : 'closed'} aria-hidden={!open} className="duo-menu duo-glass" aria-label="Page menu"><div className="duo-menu-title"><span className="duo-menu-name">CrooHQ</span>
-        <span className="duo-theme-switch" role="radiogroup" aria-label="Theme">{([['auto', SunMoon, 'Auto'], ['paper', Sun, 'Paper'], ['oled', Moon, 'OLED']] as [DuoThemeMode, typeof Sun, string][]).map(([m, Ic, label]) => <Button key={m} variant="ghost" role="radio" aria-checked={themeMode === m} aria-label={label} className={themeMode === m ? 'duo-on' : ''} onClick={() => setDuoThemeMode(m)}><Ic size={16} /></Button>)}</span>
+        <span className="duo-theme-switch" role="radiogroup" aria-label="Theme">{([['auto', DuoAutoIcon, 'Auto'], ['paper', Sun, 'Paper'], ['oled', Moon, 'OLED']] as [DuoThemeMode, React.ComponentType<{ size?: number }>, string][]).map(([m, Ic, label]) => <Button key={m} variant="ghost" role="radio" aria-checked={themeMode === m} aria-label={label} className={themeMode === m ? 'duo-on' : ''} onClick={() => setDuoThemeMode(m)}><Ic size={16} /></Button>)}</span>
         <Button variant="ghost" aria-label="Close page menu" onClick={() => setOpen(false)}><X /></Button></div>
       <div className="duo-menu-top">
         <Button variant="ghost" className="duo-menu-loc" onClick={() => { setOpen(false); window.setTimeout(openLocation, 300); }}>{brandLogo ? <img src={brandLogo} alt="" /> : <i aria-hidden />}<span><b>{currentLocation?.name}</b><small>{brandName} · tap to switch</small></span><ChevronRight size={16} /></Button>

@@ -572,44 +572,133 @@ struct StoreLargeView: View {
 /// Sales by hour: the gray bar is what was projected for that hour, the white bar is what actually sold.
 struct WHourlyChart: View {
     let hours: [WHourly]
+    var laborGoal: Double? = nil
+
+    private let axisW: CGFloat = 32
+    private let gap: CGFloat = 3
 
     private var lo: Int { hours.compactMap { $0.hour }.min() ?? 10 }
     private var hi: Int { hours.compactMap { $0.hour }.max() ?? 22 }
-    private var peak: Double { max(hours.map { max($0.sales ?? 0, $0.projected ?? 0) }.max() ?? 1, 1) }
+
+    private func niceCeil(_ v: Double, steps: [Double]) -> Double {
+        for s in steps where v <= s { return s }
+        return (v / 500).rounded(.up) * 500
+    }
+    /// Left axis top: next round dollar amount above the biggest bar.
+    private var salesMax: Double {
+        let m = max(hours.map { max($0.sales ?? 0, $0.projected ?? 0) }.max() ?? 1, 1)
+        return niceCeil(m, steps: [100, 200, 250, 300, 400, 500, 600, 800, 1000, 1200, 1500, 2000])
+    }
+    /// Right axis top: round percent above the goal and the highest hour.
+    private var laborMax: Double {
+        let seen = hours.compactMap { $0.laborPercent }.max() ?? 0
+        let m = min(max(seen, (laborGoal ?? 0) * 1.6, 20), 100)
+        return niceCeil(m, steps: [20, 30, 40, 50, 60, 80, 100])
+    }
 
     private func label(_ h: Int) -> String {
         let hh = h % 24
         let n = hh % 12 == 0 ? 12 : hh % 12
         return "\(n)\(hh < 12 ? "a" : "p")"
     }
+    private func dollars(_ v: Double) -> String {
+        v >= 1000 ? String(format: "$%.1fk", v / 1000).replacingOccurrences(of: ".0k", with: "k") : "$\(Int(v))"
+    }
 
     var body: some View {
         let slots = max(hi - lo + 1, 1)
         VStack(spacing: 4) {
-            GeometryReader { geo in
-                HStack(alignment: .bottom, spacing: 3) {
-                    ForEach(0..<slots, id: \.self) { i in
-                        let row = hours.first(where: { $0.hour == lo + i })
-                        let p = CGFloat((row?.projected ?? 0) / peak) * geo.size.height
-                        let a = CGFloat((row?.sales ?? 0) / peak) * geo.size.height
-                        HStack(alignment: .bottom, spacing: 1) {
-                            RoundedRectangle(cornerRadius: 2).fill(Color.white.opacity(0.25))
-                                .frame(height: max(p, 2))
-                            RoundedRectangle(cornerRadius: 2).fill(Color.white)
-                                .frame(height: a > 0 ? max(a, 2) : 0)
+            HStack(spacing: 4) {
+                // Left side: sales amounts
+                VStack(alignment: .trailing) {
+                    Text(dollars(salesMax))
+                    Spacer(minLength: 0)
+                    Text(dollars(salesMax / 2))
+                    Spacer(minLength: 0)
+                    Text("$0")
+                }
+                .font(wFont(8, .regular)).foregroundStyle(WColor.muted)
+                .frame(width: axisW, alignment: .trailing)
+
+                GeometryReader { geo in
+                    let sw = (geo.size.width - gap * CGFloat(slots - 1)) / CGFloat(slots)
+                    let h = geo.size.height
+                    ZStack(alignment: .bottomLeading) {
+                        // faint guide lines at top / middle
+                        ForEach([0.0, 0.5, 1.0], id: \.self) { f in
+                            Rectangle().fill(Color.white.opacity(f == 0 ? 0.0 : 0.07)).frame(height: 1)
+                                .offset(y: -CGFloat(f) * h)
                         }
-                        .frame(maxWidth: .infinity, alignment: .bottom)
+                        HStack(alignment: .bottom, spacing: gap) {
+                            ForEach(0..<slots, id: \.self) { i in
+                                let row = hours.first(where: { $0.hour == lo + i })
+                                let p = CGFloat((row?.projected ?? 0) / salesMax) * h
+                                let a = CGFloat((row?.sales ?? 0) / salesMax) * h
+                                HStack(alignment: .bottom, spacing: 1) {
+                                    RoundedRectangle(cornerRadius: 2).fill(Color.white.opacity(0.25))
+                                        .frame(height: max(p, 2))
+                                    RoundedRectangle(cornerRadius: 2).fill(Color.white)
+                                        .frame(height: a > 0 ? max(a, 2) : 0)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .bottom)
+                            }
+                        }
+                        .frame(width: geo.size.width, height: h, alignment: .bottom)
+
+                        // Labor goal: dashed line across the whole chart
+                        if let g = laborGoal, g > 0 {
+                            Path { path in
+                                let y = h - CGFloat(min(g, laborMax) / laborMax) * h
+                                path.move(to: CGPoint(x: 0, y: y))
+                                path.addLine(to: CGPoint(x: geo.size.width, y: y))
+                            }
+                            .stroke(WColor.tealBright, style: StrokeStyle(lineWidth: 1.2, dash: [4, 3]))
+                        }
+                        // Labor % by hour: stepped line with a dot per hour
+                        let pts: [CGPoint] = (0..<slots).compactMap { i in
+                            guard let lp = hours.first(where: { $0.hour == lo + i })?.laborPercent else { return nil }
+                            let x = CGFloat(i) * (sw + gap) + sw / 2
+                            let y = h - CGFloat(min(max(lp, 0), laborMax) / laborMax) * h
+                            return CGPoint(x: x, y: y)
+                        }
+                        if pts.count > 1 {
+                            Path { path in
+                                for (n, pt) in pts.enumerated() {
+                                    n == 0 ? path.move(to: pt) : path.addLine(to: pt)
+                                }
+                            }
+                            .stroke(WColor.orange, style: StrokeStyle(lineWidth: 1.6, lineJoin: .round))
+                        }
+                        ForEach(Array(pts.enumerated()), id: \.offset) { _, pt in
+                            Circle().fill(WColor.orange).frame(width: 5, height: 5)
+                                .position(x: pt.x, y: pt.y)
+                        }
+                    }
+                    .frame(width: geo.size.width, height: h, alignment: .bottomLeading)
+                }
+
+                // Right side: labor percentages
+                VStack(alignment: .leading) {
+                    Text("\(Int(laborMax))%")
+                    Spacer(minLength: 0)
+                    Text("\(Int(laborMax / 2))%")
+                    Spacer(minLength: 0)
+                    Text("0%")
+                }
+                .font(wFont(8, .regular)).foregroundStyle(WColor.orange)
+                .frame(width: axisW, alignment: .leading)
+            }
+            HStack(spacing: 4) {
+                Color.clear.frame(width: axisW, height: 1)
+                HStack(spacing: gap) {
+                    ForEach(0..<slots, id: \.self) { i in
+                        Text((lo + i) % 2 == 0 ? label(lo + i) : "")
+                            .font(wFont(9, .regular)).foregroundStyle(WColor.muted)
+                            .lineLimit(1).minimumScaleFactor(0.6)
+                            .frame(maxWidth: .infinity)
                     }
                 }
-                .frame(width: geo.size.width, height: geo.size.height, alignment: .bottom)
-            }
-            HStack(spacing: 3) {
-                ForEach(0..<slots, id: \.self) { i in
-                    Text((lo + i) % 2 == 0 ? label(lo + i) : "")
-                        .font(wFont(9, .regular)).foregroundStyle(WColor.muted)
-                        .lineLimit(1).minimumScaleFactor(0.6)
-                        .frame(maxWidth: .infinity)
-                }
+                Color.clear.frame(width: axisW, height: 1)
             }
             HStack(spacing: 12) {
                 HStack(spacing: 4) {
@@ -619,6 +708,16 @@ struct WHourlyChart: View {
                 HStack(spacing: 4) {
                     RoundedRectangle(cornerRadius: 2).fill(Color.white).frame(width: 8, height: 8)
                     Text("Actual").font(wFont(9, .regular)).foregroundStyle(WColor.muted)
+                }
+                HStack(spacing: 4) {
+                    Circle().fill(WColor.orange).frame(width: 6, height: 6)
+                    Text("Labor %").font(wFont(9, .regular)).foregroundStyle(WColor.muted)
+                }
+                if let g = laborGoal, g > 0 {
+                    HStack(spacing: 4) {
+                        Rectangle().fill(WColor.tealBright).frame(width: 10, height: 1.5)
+                        Text("Goal \(Int(g.rounded()))%").font(wFont(9, .regular)).foregroundStyle(WColor.muted)
+                    }
                 }
                 Spacer(minLength: 0)
             }
@@ -658,7 +757,7 @@ struct TallStoreView: View {
                         .font(wFont(12, .regular)).foregroundStyle(WColor.muted)
                         .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
                 } else {
-                    WHourlyChart(hours: snap.hourly).frame(height: 160)
+                    WHourlyChart(hours: snap.hourly, laborGoal: snap.today?.laborGoalPct).frame(height: 160)
                 }
             }
             Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
