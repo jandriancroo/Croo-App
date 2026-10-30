@@ -6,6 +6,12 @@ Croo Builder's Ship button shows this for editing, posts it to TestFlight, then 
 
 ## Next build
 
+## Build 25 · Oct 30, 2026
+
+What's new:
+- Duo fixes (theme guard vs Spookified, promo dots, Schedule header, shell fold fade, Week Insights pill) + widget refresh every 10 min in store hours and on app open
+- TestFlight notes for build 24
+
 ## Build 24 · Oct 27, 2026
 
 What's new:
