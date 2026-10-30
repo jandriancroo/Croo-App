@@ -85,7 +85,9 @@ html.duo .duo-dash [data-promo-hero]>.top-3>div>div:last-child>span:first-child{
 html.duo .duo-dash [data-promo-hero]>.top-3>div>div:last-child>span:first-child>span{width:10px;height:10px;background:var(--duo-live);box-shadow:0 0 14px var(--duo-live);animation:duo-live 3s ease-in-out infinite}
 html.duo .duo-dash [data-promo-hero]>.bottom-3{left:20px;right:20px;bottom:16px}
 html.duo .duo-dash [data-promo-hero] .bottom-3 button{color:var(--duo-photo-ink);font-size:14px}
-html.duo .duo-dash [data-promo-hero] .bottom-3 button>span{background:transparent;color:var(--duo-photo-ink)}
+html.duo .duo-dash [data-promo-hero] .bottom-3 button>span{background-color:transparent;color:var(--duo-photo-ink)}
+/* v67: item photo dots keep their cover/center photo (the shorthand above used to reset it, which zoomed and cropped them) */
+html.duo .duo-dash [data-promo-hero] .bottom-3 button.w-10>span{background-color:hsl(var(--primary));background-size:cover;background-position:center}
 html.duo .duo-dash [data-promo-hero] .bottom-3>div:last-child{background:var(--duo-photo-glass);border-radius:12px}
 html.duo .duo-dash [data-promo-hero] .bottom-3>div:last-child button[aria-pressed=true]{background:var(--duo-selected);color:var(--duo-ink)}
 html.duo .duo-glass,html.duo .duo-sales-summary>div:first-child,html.duo .duo-dash [data-promo-hero] .bottom-3>div:last-child{background:var(--duo-fill);backdrop-filter:blur(26px) saturate(185%) brightness(1.04);-webkit-backdrop-filter:blur(26px) saturate(185%) brightness(1.04);border:0;box-shadow:var(--duo-shadow),inset 1.5px 1.5px 0 -.5px var(--duo-edge),inset -1px -1.5px 0 -.5px var(--duo-rim),inset 0 0 18px var(--duo-photo-glass)}
@@ -821,3 +823,14 @@ html.duo .duo-popup.duo-ann{display:flex!important;flex-direction:column!importa
   padding-top:env(safe-area-inset-top)!important;padding-bottom:env(safe-area-inset-bottom)!important}
 /* Announcement photo viewer opens above the Duo announcement popup (z 101). */
 html.duo:has(.duo-ann) [role=dialog]:not(.duo-ann){z-index:102!important}
+/* v67: full-width Schedule grid: the top band runs across the whole screen (open mode used to cover only the left half, so rows leaked above the sticky header on the right), and the sticky header pins just under it */
+html.duo.duo-open:has(.duo-sched-grid) .duo-navroot .duo-topbar{right:0;width:auto}
+html.duo.duo-open .duo-sched-grid .sticky{z-index:40}
+
+/* v67: the book-spine fade is part of the shell now (two-pane pages only, never the full-width Schedule grid), so Dash, Logs and Users get it too */
+html.duo.duo-open .duo-navroot .duo-crease{position:fixed;top:0;bottom:0;left:calc(50% - 20px);width:40px;pointer-events:none;z-index:31;background:linear-gradient(90deg,transparent,rgba(70,45,20,.16) 50%,transparent)}
+html.duo.duo-open[data-duo-theme=oled] .duo-navroot .duo-crease{background:linear-gradient(90deg,transparent,rgba(255,255,255,.09) 50%,transparent)}
+html.duo.duo-open .duo-tasks-dock::before,html.duo.duo-open .duo-run-dock::before,html.duo.duo-open .duo-dm-dock::before,html.duo.duo-open .duo-editor-dock::before{content:none!important}
+/* v67: Week Insights pill is solid and sits above the CrooHQ wordmark on the full Schedule grid */
+html.duo:has(.duo-sched-grid) .duo-navroot .duo-wordmark-global{z-index:40}
+html.duo .duo-insights>div:first-child button{background-color:hsl(222 30% 9%)!important;opacity:1}

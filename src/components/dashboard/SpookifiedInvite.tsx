@@ -23,6 +23,7 @@ export function SpookifiedInvite() {
 
   useEffect(() => {
     if (!user?.email) return;
+    if (document.documentElement.classList.contains('duo')) return; // Duo keeps its own Paper/OLED look
     const email = user.email.toLowerCase();
     if (TEST_ONLY_EMAILS.length && !TEST_ONLY_EMAILS.includes(email)) return;
     if (localStorage.getItem(SEEN_KEY)) return;

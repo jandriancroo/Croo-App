@@ -54,8 +54,34 @@ struct CrooProvider: AppIntentTimelineProvider {
 
     func timeline(for configuration: SelectLocationIntent, in context: Context) async -> Timeline<CrooEntry> {
         let entry = await makeEntry(configuration)
-        let next = Date().addingTimeInterval(15 * 60)
-        return Timeline(entries: [entry], policy: .after(next))
+        return Timeline(entries: [entry], policy: .after(Self.nextRefresh(for: entry.snapshot)))
+    }
+
+    /// Store-hours refresh: every 10 minutes while the store is working (today's first shift minus an hour to the
+    /// last shift plus an hour), one wake-up at the start of that window, and nothing overnight except a single
+    /// early-morning check to pick up the new day's schedule. iOS treats this as a request, not a promise.
+    static func nextRefresh(for snap: WSnapshot?, now: Date = Date()) -> Date {
+        let cal = Calendar.current
+        let nowMin = Double(cal.component(.hour, from: now) * 60 + cal.component(.minute, from: now))
+        func atMinute(_ m: Double, dayOffset: Int = 0) -> Date {
+            let start = cal.startOfDay(for: now)
+            let day = cal.date(byAdding: .day, value: dayOffset, to: start) ?? start
+            return day.addingTimeInterval(m * 60)
+        }
+        let shifts = snap?.shifts ?? []
+        let starts = shifts.compactMap { $0.startMin }
+        let ends = shifts.compactMap { $0.endMin }
+        var open = 6.0 * 60
+        var close = 22.0 * 60
+        var every = 30.0   // no schedule to read: slower, daytime only
+        if let s = starts.min(), let e = ends.max() {
+            open = max(0, s - 60)
+            close = e + 60
+            every = 10.0
+        }
+        if nowMin < open { return atMinute(open) }
+        if nowMin < close { return now.addingTimeInterval(every * 60) }
+        return atMinute(5 * 60, dayOffset: 1)
     }
 
     #if os(watchOS)

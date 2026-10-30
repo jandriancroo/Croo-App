@@ -156,7 +156,9 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
       ...(onDash ? [{ label: 'Edit layout', icon: SlidersHorizontal, action: () => fire('open-edit-layout') }] : []),
   ];
   const actions = [...baseActions, ...pageActions.map(a => ({ label: a.label, icon: a.icon, disabled: a.disabled, action: () => { if (a.disabled) return; setFan(false); void a.run(); } }))];
+  const onTwoPane = onChat || onDash || onTasks || onLogs || onUsers || onProfile || onLocationEdit || onOrgEdit || /^\/(settings|library)/.test(route.pathname);
   return <div className="duo-navroot" data-duo-theme={theme}>
+    {onTwoPane && <div className="duo-crease" aria-hidden />}
     <div className={`duo-topbar${onDash ? ' duo-topbar-dash' : ''}`}>
       <div className="duo-brandrow">
         <Button variant="ghost" className="duo-brand duo-brand-loc" aria-label="Go to Dash" onClick={() => navigate('/dashboard')}>{brandLogo ? <img src={brandLogo} alt="" /> : <i aria-hidden />}<span>{currentLocation?.name}</span></Button>

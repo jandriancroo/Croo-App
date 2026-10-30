@@ -1,6 +1,7 @@
 import UIKit
 import Capacitor
 import WebKit
+import WidgetKit
 
 /// A direct WebKit channel for dashboard snapshots. App-local Swift files are
 /// not included in Capacitor's generated package plugin list, so this channel
@@ -135,6 +136,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
+        // Widgets show fresh numbers whenever someone opens the app.
+        WidgetCenter.shared.reloadAllTimelines()
         // Get Theo's voice pass ready so a Talk to Theo call right after connects faster.
         if #available(iOS 18.0, *) { TheoCallManager.shared.prefetch() }
         // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
