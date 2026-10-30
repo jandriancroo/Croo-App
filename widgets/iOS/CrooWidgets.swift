@@ -72,6 +72,14 @@ struct StoreLargeWidget: Widget {
     }
 }
 
+struct StoreTallWidget: Widget {
+    var body: some WidgetConfiguration {
+        homeConfig(kind: "CrooStoreTall", name: "Store overview (tall)",
+                   summary: "Sales on top, sales by hour in the middle, today's schedule with a time ruler.",
+                   family: .systemExtraLarge) { TallStoreView(snap: $0) }
+    }
+}
+
 // MARK: - Lock screen
 
 private func lockConfig<Content: View>(
@@ -277,6 +285,7 @@ struct CrooWidgetBundle: WidgetBundle {
         TimelineMediumWidget()
         EventsMediumWidget()
         StoreLargeWidget()
+        StoreTallWidget()
         LockSalesWidget()
         LockStoreRingWidget()
         LockLaborWidget()

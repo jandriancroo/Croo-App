@@ -72,6 +72,13 @@ struct WEvent: Codable, Hashable {
     var color: String?
 }
 
+/// One store hour from today's sales: what was projected and what actually sold (hour 0 to 24).
+struct WHourly: Codable, Hashable {
+    var hour: Int?
+    var sales: Double?
+    var projected: Double?
+}
+
 struct WSnapshot: Codable {
     var updatedAt: String?
     var locationId: String?
@@ -81,6 +88,7 @@ struct WSnapshot: Codable {
     var schedule: [WShift]?
     var locations: [SharedLocation]?
     var scheduleEvents: [WEvent]?
+    var hourlyToday: [WHourly]?
 }
 
 private struct WEnvelope: Codable {
@@ -183,6 +191,15 @@ extension WSnapshot {
 extension WEvent {
     var displayTitle: String { (title ?? "").isEmpty ? "Event" : (title ?? "") }
     var tint: Color { WColor.from(hex: color, fallback: WColor.tealBright) }
+}
+
+extension WSnapshot {
+    /// Today's hours that have a projection or sales, in order (empty when the store has no hourly data yet).
+    var hourly: [WHourly] {
+        (hourlyToday ?? [])
+            .filter { $0.hour != nil && (($0.sales ?? 0) > 0 || ($0.projected ?? 0) > 0) }
+            .sorted { ($0.hour ?? 0) < ($1.hour ?? 0) }
+    }
 }
 
 extension WSnapshot {
@@ -353,6 +370,14 @@ extension CrooEntry {
                                 WEvent(id: "e2", title: "Team huddle", timeLabel: "11a", startMin: 660, endMin: nil, category: "Meeting", color: "#EB7D3C"),
                                 WEvent(id: "e3", title: "Health inspection", timeLabel: "2p", startMin: 840, endMin: nil, category: "Visit", color: "#FF453A"),
                                 WEvent(id: "e4", title: "Truck count", timeLabel: "4:30p", startMin: 990, endMin: nil, category: "Inventory", color: "#34C759")
+                             ],
+                             hourlyToday: [
+                                WHourly(hour: 10, sales: 170, projected: 150), WHourly(hour: 11, sales: 380, projected: 420),
+                                WHourly(hour: 12, sales: 690, projected: 640), WHourly(hour: 13, sales: 810, projected: 780),
+                                WHourly(hour: 14, sales: 690, projected: 720), WHourly(hour: 15, sales: 540, projected: 560),
+                                WHourly(hour: 16, sales: 500, projected: 520), WHourly(hour: 17, sales: 0, projected: 600),
+                                WHourly(hour: 18, sales: 0, projected: 760), WHourly(hour: 19, sales: 0, projected: 820),
+                                WHourly(hour: 20, sales: 0, projected: 620), WHourly(hour: 21, sales: 0, projected: 300)
                              ])
         return CrooEntry(date: Date(), snapshot: snap, paired: true)
     }

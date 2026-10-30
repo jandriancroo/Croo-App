@@ -341,6 +341,8 @@ struct ScoreboardMediumView: View {
 struct WTimeline: View {
     let snap: WSnapshot
     let maxRows: Int
+    /// Adds a time ruler (a label every 2 hours) and snaps the window to even hours.
+    var showRuler: Bool = false
 
     private let nameWidth: CGFloat = 46
     private let gap: CGFloat = 8
@@ -355,7 +357,30 @@ struct WTimeline: View {
         let starts = snap.shifts.compactMap { $0.startMin }
         let ends = snap.shifts.compactMap { $0.endMin }
         guard let lo = starts.min(), let hi = ends.max(), hi - lo >= 60 else { return (360, 1320) }
+        if showRuler { return ((lo / 120).rounded(.down) * 120, (hi / 120).rounded(.up) * 120) }
         return (lo, hi)
+    }
+
+    private func hourLabel(_ minute: Double) -> String {
+        let h = Int(minute / 60) % 24
+        let n = h % 12 == 0 ? 12 : h % 12
+        return "\(n)\(h < 12 ? "a" : "p")"
+    }
+
+    @ViewBuilder private var ruler: some View {
+        HStack(spacing: gap) {
+            Color.clear.frame(width: nameWidth, height: 12)
+            GeometryReader { geo in
+                ForEach(Array(stride(from: window.lo, through: window.hi, by: 120)), id: \.self) { m in
+                    Text(hourLabel(m))
+                        .font(wFont(9, .regular))
+                        .foregroundStyle(WColor.muted)
+                        .fixedSize()
+                        .position(x: min(max(geo.size.width * CGFloat(frac(m)), 10), geo.size.width - 10), y: 6)
+                }
+            }
+            .frame(height: 12)
+        }
     }
 
     private func frac(_ minute: Double) -> Double {
@@ -366,6 +391,7 @@ struct WTimeline: View {
     var body: some View {
         let list = rows
         VStack(spacing: 7) {
+            if showRuler { ruler }
             ForEach(0..<list.count, id: \.self) { i in
                 HStack(spacing: gap) {
                     Text(list[i].firstName).font(wFont(12, .medium)).lineLimit(1)
@@ -510,7 +536,7 @@ struct StoreLargeView: View {
                 }
             }
             Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
-            WTimeline(snap: snap, maxRows: 5)
+            WTimeline(snap: snap, maxRows: 5, showRuler: true)
             if !snap.upcomingEvents.isEmpty {
                 Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
                 VStack(alignment: .leading, spacing: 3) {
@@ -538,6 +564,133 @@ struct StoreLargeView: View {
             Text(value).font(wFont(19)).lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - Tall (Duo-size) store widget
+
+/// Sales by hour: the gray bar is what was projected for that hour, the white bar is what actually sold.
+struct WHourlyChart: View {
+    let hours: [WHourly]
+
+    private var lo: Int { hours.compactMap { $0.hour }.min() ?? 10 }
+    private var hi: Int { hours.compactMap { $0.hour }.max() ?? 22 }
+    private var peak: Double { max(hours.map { max($0.sales ?? 0, $0.projected ?? 0) }.max() ?? 1, 1) }
+
+    private func label(_ h: Int) -> String {
+        let hh = h % 24
+        let n = hh % 12 == 0 ? 12 : hh % 12
+        return "\(n)\(hh < 12 ? "a" : "p")"
+    }
+
+    var body: some View {
+        let slots = max(hi - lo + 1, 1)
+        VStack(spacing: 4) {
+            GeometryReader { geo in
+                HStack(alignment: .bottom, spacing: 3) {
+                    ForEach(0..<slots, id: \.self) { i in
+                        let row = hours.first(where: { $0.hour == lo + i })
+                        let p = CGFloat((row?.projected ?? 0) / peak) * geo.size.height
+                        let a = CGFloat((row?.sales ?? 0) / peak) * geo.size.height
+                        HStack(alignment: .bottom, spacing: 1) {
+                            RoundedRectangle(cornerRadius: 2).fill(Color.white.opacity(0.25))
+                                .frame(height: max(p, 2))
+                            RoundedRectangle(cornerRadius: 2).fill(Color.white)
+                                .frame(height: a > 0 ? max(a, 2) : 0)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .bottom)
+                    }
+                }
+                .frame(width: geo.size.width, height: geo.size.height, alignment: .bottom)
+            }
+            HStack(spacing: 3) {
+                ForEach(0..<slots, id: \.self) { i in
+                    Text((lo + i) % 2 == 0 ? label(lo + i) : "")
+                        .font(wFont(9, .regular)).foregroundStyle(WColor.muted)
+                        .lineLimit(1).minimumScaleFactor(0.6)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            HStack(spacing: 12) {
+                HStack(spacing: 4) {
+                    RoundedRectangle(cornerRadius: 2).fill(Color.white.opacity(0.25)).frame(width: 8, height: 8)
+                    Text("Projected").font(wFont(9, .regular)).foregroundStyle(WColor.muted)
+                }
+                HStack(spacing: 4) {
+                    RoundedRectangle(cornerRadius: 2).fill(Color.white).frame(width: 8, height: 8)
+                    Text("Actual").font(wFont(9, .regular)).foregroundStyle(WColor.muted)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+    }
+}
+
+/// Tall widget for the Duo: sales on top, hourly sales in the middle, schedule (with time ruler) at the bottom.
+struct TallStoreView: View {
+    let snap: WSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(snap.shortName).font(wFont(17)).lineLimit(1)
+                Spacer()
+                if !snap.updatedLabel.isEmpty {
+                    Text("Updated \(snap.updatedLabel)").font(wFont(11, .regular)).foregroundStyle(WColor.muted)
+                }
+            }
+            HStack(alignment: .bottom, spacing: 14) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("SALES TODAY").font(wFont(11)).foregroundStyle(WColor.tealBright)
+                    Text(WFormat.full(snap.sales)).font(wFont(34)).lineLimit(1).minimumScaleFactor(0.6)
+                }
+                Spacer(minLength: 0)
+                stat("GOAL", WFormat.full(snap.goal), WColor.muted)
+                stat("PACE", WFormat.full(snap.today?.paceValue ?? 0), WColor.tealBright)
+                stat("LABOR", snap.laborText, snap.laborColor)
+            }
+            WProgressLine(progress: snap.salesProgress, color: WColor.orange, track: WColor.trackOrange, height: 6)
+            Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("SALES BY HOUR").font(wFont(11)).foregroundStyle(WColor.tealBright)
+                if snap.hourly.isEmpty {
+                    Text("Hourly sales show up once the store is open.")
+                        .font(wFont(12, .regular)).foregroundStyle(WColor.muted)
+                        .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
+                } else {
+                    WHourlyChart(hours: snap.hourly).frame(height: 160)
+                }
+            }
+            Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("SCHEDULE · TODAY").font(wFont(11)).foregroundStyle(WColor.tealBright)
+                    Spacer()
+                    Text("\(snap.onNowCount) on · \(snap.scheduleSummary?.later ?? 0) next")
+                        .font(wFont(11, .regular)).foregroundStyle(WColor.muted)
+                }
+                WTimeline(snap: snap, maxRows: 6, showRuler: true)
+            }
+            Spacer(minLength: 0)
+            if let e = snap.nextEvent {
+                HStack(spacing: 8) {
+                    Capsule().fill(e.tint).frame(width: 3, height: 14)
+                    Text(e.displayTitle).font(wFont(12, .medium)).lineLimit(1)
+                    Spacer(minLength: 0)
+                    Text(e.timeLabel ?? "").font(wFont(12, .regular)).foregroundStyle(WColor.muted)
+                }
+                .padding(.trailing, 30)
+            }
+        }
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func stat(_ title: String, _ value: String, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(wFont(10)).foregroundStyle(WColor.muted)
+            Text(value).font(wFont(15)).foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.7)
+        }
     }
 }
 

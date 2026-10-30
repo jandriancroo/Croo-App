@@ -737,11 +737,28 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
       .slice(0, 20);
   } catch (e) { console.error('[watch-device-service] checklists failed', e); }
 
+  // Today's hourly sales + projection, passed straight through from sales_cache.hourly_data (read-only) for the tall widget graph.
+  const hourNum = (v: unknown): number | null => {
+    const m = String(v ?? '').trim().toLowerCase().match(/^(\d{1,2})(?::\d{2})?\s*(am|pm|a|p)?/);
+    if (!m) return null;
+    let h = parseInt(m[1], 10);
+    if (m[2]) {
+      const pm = m[2].startsWith('p');
+      if (pm && h < 12) h += 12;
+      if (!pm && h === 12) h = 0;
+    }
+    return h >= 0 && h <= 24 ? h : null;
+  };
+  const hourlyToday = (Array.isArray(todayRow?.hourly_data) ? todayRow.hourly_data : [])
+    .map((h: any) => ({ hour: hourNum(h?.hour), sales: Number(h?.sales) || 0, projected: Number(h?.projected) || 0 }))
+    .filter((h: { hour: number | null }) => h.hour !== null);
+
   return {
     version: WATCH_SERVICE_VERSION,
     updatedAt: new Date().toISOString(),
     locationId,
     locationName: location?.name || '',
+    hourlyToday,
     cubes,
     schedule,
     scheduleSummary,
