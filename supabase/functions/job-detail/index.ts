@@ -1,3 +1,4 @@
+// redeploy trigger 2026-10-30: directApply/validThrough/JSON-LD escaping (6d53de0f8)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logSyndicationServed } from "../_shared/jobSyndicationLog.ts";
 
