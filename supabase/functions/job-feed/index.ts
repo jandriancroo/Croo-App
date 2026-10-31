@@ -1,5 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const __safeJsonLd = (o: unknown) => JSON.stringify(o).replace(/</g, "\\u003c");
+function __validThrough(postedAt?: string | null, expiresAt?: string | null): string | undefined {
+  if (expiresAt) return new Date(expiresAt).toISOString();
+  if (!postedAt) return undefined;
+  const p = new Date(postedAt).getTime(); if (Number.isNaN(p)) return undefined;
+  const w = 60 * 86_400_000; const n = Math.max(1, Math.floor((Date.now() - p) / w) + 1);
+  return new Date(p + n * w).toISOString(); // rolling 60-day window from posted_at
+}
+
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
@@ -153,7 +163,7 @@ function toJsonLd(listing: any, supabaseUrl: string) {
         addressCountry: "US",
       },
     },
-    directApply: false,
+    directApply: true,
     url: getJobDetailUrl(listing, "google_jobs"),
   };
 
@@ -170,9 +180,7 @@ function toJsonLd(listing: any, supabaseUrl: string) {
     };
   }
 
-  if (listing.expires_at) {
-    jobPosting.validThrough = listing.expires_at.split("T")[0];
-  }
+  { const vt = __validThrough(listing.posted_at, listing.expires_at); if (vt) jobPosting.validThrough = vt; }
 
   return jobPosting;
 }

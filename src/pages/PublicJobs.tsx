@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { useState } from 'react';
 import crooLogo from '@/assets/croo-logo-square.png';
 import { Helmet } from 'react-helmet-async';
+import { safeJsonLd } from '@/lib/jobSeo';
 
 interface JobListing {
   id: string;
@@ -147,7 +148,8 @@ export default function PublicJobs() {
         <meta name="description" content="Find restaurant and fast food jobs at Blaze Pizza and other brands. Apply for pizza maker, team member, shift manager, cook, and kitchen crew positions near you — no account needed." />
         <meta name="keywords" content="pizza jobs, fast food jobs, restaurant jobs, team member jobs, shift manager jobs, kitchen crew, food service careers, Blaze Pizza hiring, cook jobs near me, cashier restaurant jobs" />
         <link rel="canonical" href="https://croohq.com/jobs" />
-        <script type="application/ld+json">{JSON.stringify(itemListJsonLd)}</script>
+        <meta property="og:url" content="https://croohq.com/jobs" />
+        <script type="application/ld+json">{safeJsonLd(itemListJsonLd)}</script>
       </Helmet>
 
       <div className="min-h-screen bg-[#f5f4f1]">

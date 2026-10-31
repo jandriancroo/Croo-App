@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Loader2, Plus, Trash2, Upload, CheckCircle, Sparkles } from 'lucide-react';
 import crooLogo from '@/assets/croo-logo.webp';
+import { safeJsonLd, computeValidThrough } from '@/lib/jobSeo';
 
 const TURNSTILE_SITE_KEY = '0x4AAAAAACcJ6BAHEpqeaClk';
 
@@ -235,14 +236,15 @@ export default function PublicApplication() {
           value: { '@type': 'QuantitativeValue', minValue: listing.pay_min, maxValue: listing.pay_max || listing.pay_min, unitText: listing.pay_type === 'salary' ? 'YEAR' : 'HOUR' },
         };
       }
-      if (listing.expires_at) posting.validThrough = listing.expires_at.split('T')[0];
+      const validThrough = computeValidThrough(listing.posted_at, listing.expires_at);
+      if (validThrough) posting.validThrough = validThrough;
       return posting;
     });
 
     const script = document.createElement('script');
     script.id = 'job-posting-jsonld';
     script.type = 'application/ld+json';
-    script.textContent = JSON.stringify(jsonLd.length === 1 ? jsonLd[0] : jsonLd);
+    script.textContent = safeJsonLd(jsonLd.length === 1 ? jsonLd[0] : jsonLd);
     document.head.appendChild(script);
 
     return () => {

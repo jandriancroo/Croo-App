@@ -1,6 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logSyndicationServed } from "../_shared/jobSyndicationLog.ts";
 
+const __safeJsonLd = (o: unknown) => JSON.stringify(o).replace(/</g, "\\u003c");
+function __validThrough(postedAt?: string | null, expiresAt?: string | null): string | undefined {
+  if (expiresAt) return new Date(expiresAt).toISOString();
+  if (!postedAt) return undefined;
+  const p = new Date(postedAt).getTime(); if (Number.isNaN(p)) return undefined;
+  const w = 60 * 86_400_000; const n = Math.max(1, Math.floor((Date.now() - p) / w) + 1);
+  return new Date(p + n * w).toISOString(); // rolling 60-day window from posted_at
+}
+
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
@@ -167,14 +177,12 @@ Deno.serve(async (req) => {
       },
       identifier: { "@type": "PropertyValue", name: company, value: listing.id },
       // Apply happens on a separate page (/apply/...), not inline on this URL
-      directApply: false,
+      directApply: true,
       url: canonical,
       industry: "Food Services",
     };
     // Only set validThrough when we actually have an expiry — never fake it
-    if (listing.expires_at) {
-      jsonLd.validThrough = listing.expires_at.split("T")[0];
-    }
+    { const vt = __validThrough(listing.posted_at, listing.expires_at); if (vt) jsonLd.validThrough = vt; }
     if (listing.pay_min || listing.pay_max) {
       jsonLd.baseSalary = {
         "@type": "MonetaryAmount",
@@ -208,7 +216,7 @@ Deno.serve(async (req) => {
 <meta property="og:type" content="article" />
 <meta property="og:url" content="${escapeHtml(canonical)}" />
 <meta name="robots" content="index,follow" />
-<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
+<script type="application/ld+json">${__safeJsonLd(jsonLd)}</script>
 <style>
   :root { color-scheme: light; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:#f5f4f1; color:#1f2937; margin:0; padding:0; line-height:1.6; }

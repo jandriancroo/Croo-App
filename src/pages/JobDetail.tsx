@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
+import { safeJsonLd, computeValidThrough } from '@/lib/jobSeo';
 import { supabase } from '@/integrations/supabase/client';
 import { MapPin, DollarSign, Clock, ArrowLeft, Loader2 } from 'lucide-react';
 import crooLogo from '@/assets/croo-logo-square.png';
@@ -74,6 +75,10 @@ export default function JobDetail() {
   if (error || !job) {
     return (
       <div className="min-h-screen bg-[#f5f4f1] flex flex-col items-center justify-center p-6 text-center">
+        <Helmet>
+          <title>Job no longer available | CrooHQ Jobs</title>
+          <meta name="robots" content="noindex" />
+        </Helmet>
         <h1 className="text-2xl font-semibold text-gray-900 mb-2">Job not found</h1>
         <p className="text-gray-500 mb-6">This listing is no longer available.</p>
         <Link to="/jobs" className="text-teal-700 font-medium">Browse open positions →</Link>
@@ -111,15 +116,14 @@ export default function JobDetail() {
       },
     },
     identifier: { '@type': 'PropertyValue', name: company, value: job.id },
-    // Apply happens on a separate page (/apply/...), not inline on this URL
-    directApply: false,
+    // Applicants apply on croohq.com through our own form (PublicApplication)
+    directApply: true,
     url: canonical,
     industry: 'Food Services',
   };
-  // Only set validThrough when there's a real expiry — never fake it
-  if (job.expires_at) {
-    jsonLd.validThrough = job.expires_at.split('T')[0];
-  }
+  // Real expires_at if set, else rolling 60-day window from posted_at (see computeValidThrough)
+  const validThrough = computeValidThrough(job.posted_at, job.expires_at);
+  if (validThrough) jsonLd.validThrough = validThrough;
   if (job.pay_min || job.pay_max) {
     jsonLd.baseSalary = {
       '@type': 'MonetaryAmount',
@@ -145,7 +149,7 @@ export default function JobDetail() {
         <meta property="og:description" content={metaDesc} />
         <meta property="og:type" content="article" />
         <meta property="og:url" content={canonical} />
-        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+        <script type="application/ld+json">{safeJsonLd(jsonLd)}</script>
       </Helmet>
       <div className="min-h-screen bg-[#f5f4f1]">
         <header className="bg-white border-b border-gray-200">
