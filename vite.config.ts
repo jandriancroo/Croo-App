@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import fs from "fs";
 import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
@@ -43,19 +42,6 @@ export default defineConfig(({ mode }) => {
     },
   };
 
-  // Crawler-readable homepage: inject the generated text-only snapshot of <Home/>
-  // (seo/home-snapshot.html, made by scripts/snapshot-home.mjs) inside #root.
-  // createRoot() replaces it on mount; index.html hides/removes it on non-"/" routes.
-  const homeSnapshot = {
-    name: 'croohq-home-snapshot',
-    transformIndexHtml(html: string) {
-      const f = path.resolve(__dirname, 'seo/home-snapshot.html');
-      if (!fs.existsSync(f)) return html;
-      const snap = fs.readFileSync(f, 'utf8').replace(/^<!--.*?-->\n/, '').trim();
-      return html.replace('<div id="root"></div>', `<div id="root">${snap}</div>`);
-    },
-  };
-
   return {
     define: {
       // Auto version: YY.MM.DD.HHMM format in PST (e.g., "24.12.13.1530")
@@ -68,7 +54,6 @@ export default defineConfig(({ mode }) => {
   plugins: [
     react(), 
     versionEndpoint,
-    homeSnapshot,
     mode === "development" && componentTagger(),
   ].filter(Boolean),
   resolve: {

@@ -9,8 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "build:blog": "node scripts/build-blog.mjs",
-    "snapshot:home": "node scripts/snapshot-home.mjs"
+    "build:blog": "node scripts/build-blog.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.0",

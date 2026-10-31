@@ -14,10 +14,6 @@
     <meta name="apple-mobile-web-app-title" content="CrooHQ" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
-    <!-- Homepage crawler snapshot (#seo-home, injected into #root at build): never shown on any route but "/" -->
-    <script>if(location.pathname!=='/'){var _s=document.createElement('style');_s.textContent='#seo-home{display:none!important}';document.head.appendChild(_s);}</script>
-    <style>#seo-home{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}</style>
-
     <title>CrooHQ — Restaurant Operations Software for Multi-Unit Teams</title>
     <meta
       name="description"
@@ -92,9 +88,6 @@
   <body>
     <div id="root"></div>
     <script>
-      if (location.pathname !== '/') { var _h = document.getElementById('seo-home'); if (_h) _h.remove(); }
-    </script>
-    <script>
       // Catch stale chunk failures after deploys change chunk hashes.
       // Force-reload once to fetch fresh assets. Guard prevents infinite loops.
       (function() {
@@ -130,7 +123,7 @@
         });
         // Clear counter after app renders successfully (delayed to ensure JS modules loaded)
         setTimeout(function() {
-          if (document.getElementById('root') && document.querySelector('#root > :not(#seo-home)')) {
+          if (document.getElementById('root') && document.getElementById('root').children.length > 0) {
             sessionStorage.removeItem(key);
           }
         }, 5000);
