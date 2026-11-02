@@ -509,6 +509,8 @@ return async (req: Request): Promise<Response> => {
     // Explicitly discard html/subject/email_* both at the top level and in data.
     const data: Record<string, any> = input.data && typeof input.data === 'object' && !Array.isArray(input.data)
       ? Object.fromEntries(Object.entries(input.data).filter(([key]) => !/^(?:html|subject|email_|applicant_token|access_token|token$)/i.test(key))) : {};
+    // Queue references are trusted only from internal producers, never user supplied.
+    if (caller?.kind !== 'service') delete data.dedup_ref;
     let applicantThread: any = null;
     let applicantSelf = false;
     if (applicantGateway) {
@@ -739,6 +741,7 @@ return async (req: Request): Promise<Response> => {
         rows.find(r => match(r) && r.notification_type === key) ?? rows.find(r => match(r));
 
       let orgSettings: any[] = [];
+      let emailRoleLookupOk = !rolesError;
       if (orgIds.length > 0) {
         const { data, error: roleSettingsError } = await supabaseClient
           .from('role_notification_settings')
@@ -746,6 +749,7 @@ return async (req: Request): Promise<Response> => {
           .in('notification_type', typeKeys)
           .in('organization_id', orgIds);
         if (roleSettingsError) console.error('Error fetching role notification settings:');
+        if (roleSettingsError) emailRoleLookupOk = false;
         orgSettings = data || [];
       }
       const { data: tplData, error: tplErr } = await supabaseClient
@@ -753,6 +757,7 @@ return async (req: Request): Promise<Response> => {
         .select('role, notification_type, enabled, from_home')
         .in('notification_type', typeKeys);
       if (tplErr) console.error('Error fetching role notification defaults:');
+      if (tplErr) emailRoleLookupOk = false;
       const templateSettings = tplData || [];
 
       let userPrefs: any[] = [];
@@ -803,8 +808,8 @@ return async (req: Request): Promise<Response> => {
         const userRow = userPrefs.find((p: any) => p.user_id === userId);
         const legacyVal = legacyRows.find((p: any) => p.user_id === userId)?.[notification_type];
         // Email has its own opt-in; role ceiling and sales visibility still apply.
-        const emailRoleAllowed = isLocked(notification_type) || (roleRow?.enabled !== false &&
-          (!PULSE_KEYS.has(key) || role !== 'team_member' || teamMemberViewSales));
+        const emailRoleAllowed = emailRoleLookupOk && (isLocked(notification_type) || (roleRow?.enabled !== false &&
+          (!PULSE_KEYS.has(key) || role !== 'team_member' || teamMemberViewSales)));
         if (emailRoleAllowed) {
           emailEligible.add(userId);
           const fromHome = gateRecipient({ type: notification_type, role, roleEnabled: true,
