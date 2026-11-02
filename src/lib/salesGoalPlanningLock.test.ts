@@ -17,6 +17,29 @@ async function setup() {
   await db.exec('CREATE TRIGGER guard BEFORE INSERT OR UPDATE ON sales_cache FOR EACH ROW EXECUTE FUNCTION guard_sales_cache_goals()');
   return db;
 }
+describe('Atomic cutover safety', () => {
+  it('preserves actuals and overrides, completes both goals and rejects a second cutover', async () => {
+    const db = new PGlite();
+    try {
+      await db.exec(`CREATE ROLE service_role; CREATE ROLE anon; CREATE ROLE authenticated;
+        CREATE TABLE location_settings(location_id uuid,timezone text);
+        CREATE TABLE location_integrations(location_id uuid,is_active boolean,integration_type text);
+        CREATE TABLE sales_cache(location_id uuid,sale_date date,pos_source text,initial_projection numeric,living_projection numeric,projected_sales numeric,override_projection numeric,override_at timestamptz,override_by uuid,net_sales numeric,PRIMARY KEY(location_id,sale_date));
+        CREATE TABLE goal_engine_runs(location_id uuid,local_run_date date,source text,wrote_planning boolean,window_start date,window_end date,week_adj numeric,days_written int,error text);
+        INSERT INTO location_settings VALUES('00000000-0000-0000-0000-000000000001','America/Los_Angeles');
+        INSERT INTO location_integrations VALUES('00000000-0000-0000-0000-000000000001',true,'qubeyond');`);
+      await db.exec(readFileSync('drizzle/migrations/0082_daily_goal_atomic_cutover.sql','utf8'));
+      const dates = (await db.query<{today:string;start:string;end:string}>(`WITH d AS (SELECT (now() AT TIME ZONE 'America/Los_Angeles')::date today, (now() AT TIME ZONE 'America/Los_Angeles')::date + CASE WHEN extract(hour FROM now() AT TIME ZONE 'America/Los_Angeles')<3 THEN 0 ELSE 1 END start) SELECT today::text,start::text,(date_trunc('week',start::timestamp)::date+13)::text AS end FROM d`)).rows[0];
+      const goals=(await db.query<{g:unknown}>(`SELECT jsonb_agg(jsonb_build_object('date',d::date,'goal',1234)) g FROM generate_series('${dates.start}'::date,'${dates.end}'::date,'1 day') d`)).rows[0].g;
+      await db.exec(`INSERT INTO sales_cache(location_id,sale_date,initial_projection,living_projection,override_projection,net_sales) VALUES('00000000-0000-0000-0000-000000000001','${dates.start}',900,950,1500,412.35)`);
+      const call=`SELECT replan_goal_cutover_20261101('00000000-0000-0000-0000-000000000001','${dates.today}','${dates.start}','${dates.end}','${JSON.stringify(goals)}') result`;
+      expect((await db.query<{result:{success:boolean}}>(call)).rows[0].result.success).toBe(true);
+      expect((await db.query('SELECT net_sales,override_projection,initial_projection,living_projection FROM sales_cache WHERE net_sales IS NOT NULL')).rows[0]).toEqual({net_sales:'412.35',override_projection:'1500',initial_projection:'1234',living_projection:'1234'});
+      await expect(db.query(call)).rejects.toMatchObject({message:'Cutover already completed'});
+    } finally { await db.close(); }
+  },20000);
+});
+
 describe('Planning insert-once lock', () => {
   it('allows NULL Planning to fill once and blocks later service-role changes, including zero', async () => {
     const db = await setup();

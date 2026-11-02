@@ -12625,6 +12625,42 @@ export type Database = {
           },
         ]
       }
+      sales_goal_cutover_backup_20261101: {
+        Row: {
+          backed_up_at: string
+          initial_projection: number | null
+          living_projection: number | null
+          location_id: string
+          override_at: string | null
+          override_by: string | null
+          override_projection: number | null
+          projected_sales: number | null
+          sale_date: string
+        }
+        Insert: {
+          backed_up_at?: string
+          initial_projection?: number | null
+          living_projection?: number | null
+          location_id: string
+          override_at?: string | null
+          override_by?: string | null
+          override_projection?: number | null
+          projected_sales?: number | null
+          sale_date: string
+        }
+        Update: {
+          backed_up_at?: string
+          initial_projection?: number | null
+          living_projection?: number | null
+          location_id?: string
+          override_at?: string | null
+          override_by?: string | null
+          override_projection?: number | null
+          projected_sales?: number | null
+          sale_date?: string
+        }
+        Relationships: []
+      }
       sales_goal_legacy_backup_20261101: {
         Row: {
           backed_up_at: string
@@ -17685,6 +17721,16 @@ export type Database = {
       }
       refresh_all_pfg_tokens: { Args: never; Returns: undefined }
       refresh_labor_close_habits: { Args: never; Returns: Json }
+      replan_goal_cutover_20261101: {
+        Args: {
+          _end: string
+          _goals: Json
+          _location_id: string
+          _start: string
+          _today: string
+        }
+        Returns: Json
+      }
       resolve_goal: {
         Args: { _date: string; _location_id: string }
         Returns: number

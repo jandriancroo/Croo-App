@@ -41,3 +41,4 @@
 - Scheduling Manager UI: edit gates use useUserRole().canEditSchedule; pay display uses wageMode ('full'|'blended'|'none') — blended shows totals only (server returns the store blended rate when _location_id is passed), never per-person $; punch tools stay isAdmin||isManager. Why: separate role, no wage leaks, no punch access.
 
 - Goal version tags query per-day Planning and location-scoped override history only when opened; stored daily resolver values are the only period goal inputs. Why: one number everywhere without extra dashboard requests.
+- One-time goal cutovers use scripts/goal-cutover.ts with existing goalEngine math and the service-only transactional replan_goal_cutover_20261101 function; completed stores cannot run twice. Why: backup, system-goal replacement and preservation checks commit together, with no scheduled wipe.
