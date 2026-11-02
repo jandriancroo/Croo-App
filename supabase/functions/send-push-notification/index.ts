@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { gateRecipient, settingsKey, isLocked, PULSE_KEYS } from "../_shared/notificationGate.ts";
 import { clockedInUserIds } from "../_shared/onClock.ts";
+import { requireCaller, type Caller } from "../_shared/callerAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -417,126 +418,197 @@ function isChatThrottled(chatId: string): boolean {
   return false;
 }
 
-// ============ Main Handler ============
-
-const handler = async (req: Request): Promise<Response> => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+// ============ Caller authorization (one catalog, no caller-provided email) ============
+export const KNOWN_NOTIFICATION_TYPES = [
+  'chat_messages', 'announcements', 'schedule_updates', 'shift_approvals',
+  'logbook_entry', 'drawer_count', 'safe_count', 'waste_log', 'catering_order',
+  'task_assigned', 'quick_task', 'test', 'overdue_checklists', 'overdue_checklist',
+  'late_arrivals', 'late_arrival', 'monthly_checklist', 'certificate_expiry',
+  'certification_expiring', 'arcade_scores', 'new_job_application', 'alarm_task',
+  'alarm', 'quick_nudge', 'shift_reminders', 'schedule_published', 'schedule_approval',
+  'shift_offer', 'shift_overstay', 'toast_late_clock_in', 'toast_no_clock_out',
+  'toast_robot_down', 'vendor_sku_health', 'day_part_pulse', 'hourly_sales_pulse',
+  'cash_bank_deposit', 'cash_drawer_count', 'cash_safe_count', 'hiring_doc_uploaded',
+  'hiring_interview_response', 'support_tickets', 'labor_rules_proposal', 'qr_task_report',
+  'time_off_weekly_digest', 'employee_write_up', 'read_and_sign', 'training_approval',
+  'personal', 'logbook_86_68_menu_items', 'logbook_bank_deposit', 'logbook_drawer_count',
+  'logbook_employee_write_up', 'logbook_guest_remakes', 'logbook_incidents',
+  'logbook_maintenance', 'logbook_manager_notes', 'logbook_online_refunds',
+  'logbook_pass_down', 'logbook_performance_review', 'logbook_read_sign',
+  'logbook_safe_count', 'logbook_waste_log', 'logbook_weekly_summary',
+] as const;
+const USER_TYPES = new Set<string>([
+  'chat_messages', 'announcements', 'schedule_updates', 'shift_approvals',
+  'logbook_entry', 'drawer_count', 'safe_count', 'waste_log', 'catering_order',
+  'task_assigned', 'quick_task', 'test',
+]);
+const MANAGER_TYPES = new Set<string>([
+  'announcements', 'schedule_updates', 'shift_approvals', 'logbook_entry',
+  'drawer_count', 'safe_count', 'waste_log', 'catering_order', 'task_assigned', 'quick_task',
+]);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const managerRoles = new Set(['shift_manager', 'shift_manager_in_training', 'scheduling_manager',
+  'manager', 'general_manager', 'admin', 'org_admin', 'fbc', 'brand_admin', 'super_admin']);
+export function plainPushText(value: string, limit: number): string {
+  return Array.from(value.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, ' ')
+    .replace(/<[^>]*>/g, ' ').replace(/&(?:nbsp|#160);/gi, ' ')
+    .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&amp;/gi, '&')
+    .replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()).slice(0, limit).join('');
+}
+const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), {
+  status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+});
+type AuthResult = { caller: Caller } | { response: Response };
+export interface HandlerDependencies {
+  authenticate?: (req: Request) => Promise<AuthResult>;
+  client?: () => any;
+  clockedIn?: (client: any, location: string) => Promise<string[]>;
+  // In-memory test transport only; never selected by a request body/flag.
+  deliver?: (ids: string[], content: { title: string; body: string }, data: Record<string, unknown>) => Promise<Response>;
+  throttle?: (chatId: string) => boolean;
+  rejectLog?: (line: string) => void;
+}
+export function createHandler(deps: HandlerDependencies = {}) {
+return async (req: Request): Promise<Response> => {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  let caller: Caller | null = null;
+  let loggedType = 'unparsed';
+  let loggedLocation = 'none';
+  const reject = (reason: string, error: 'Forbidden' | 'Unauthorized' | 'Unknown notification type' = 'Forbidden', status = 403) => {
+    (deps.rejectLog ?? console.warn)(JSON.stringify({ caller_id: caller?.userId ?? (caller?.kind === 'service' ? 'service' : 'unknown'),
+      type: loggedType, location: loggedLocation, reason }));
+    return json({ error }, status);
+  };
   try {
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
-    const { user_ids: providedUserIds, roles, location_id, title, body, data, notification_type, badge_count, sender_id }: PushNotificationRequest = await req.json();
-
-    // Chat message throttle: max 1 push per chat per 3 minutes
-    if (notification_type === 'chat_messages' && data?.chat_id) {
-      if (isChatThrottled(data.chat_id)) {
-        console.log(`[chat-throttle] Skipping push for chat ${data.chat_id} (within 3-min window)`);
-        return new Response(
-          JSON.stringify({ message: "Throttled - chat push sent recently" }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+    const auth = await (deps.authenticate ? deps.authenticate(req) : requireCaller(req, corsHeaders));
+    if ('response' in auth) return reject('authentication', 'Unauthorized', 401);
+    caller = auth.caller;
+    let input: any;
+    try { input = await req.json(); } catch { return reject('invalid_body'); }
+    if (!input || typeof input !== 'object' || Array.isArray(input)) return reject('invalid_body');
+    // A fixed unknown marker avoids reflecting arbitrary request text into logs.
+    const notification_type = input.notification_type;
+    loggedType = typeof notification_type === 'string' && (KNOWN_NOTIFICATION_TYPES as readonly string[]).includes(notification_type) ? notification_type : 'unknown';
+    loggedLocation = typeof input.location_id === 'string' && UUID.test(input.location_id) ? input.location_id : 'none';
+    if (loggedType === 'unknown') return reject('unknown_type', 'Unknown notification type');
+    if (caller.kind === 'user' && !USER_TYPES.has(notification_type)) return reject('user_type_not_allowed');
+    if (typeof input.title !== 'string' || typeof input.body !== 'string' ||
+        (input.user_ids !== undefined && (!Array.isArray(input.user_ids) || input.user_ids.length > 2000 || input.user_ids.some((id: unknown) => typeof id !== 'string' || !UUID.test(id)))) ||
+        (input.roles !== undefined && (!Array.isArray(input.roles) || input.roles.length > 30 || input.roles.some((r: unknown) => typeof r !== 'string' || !/^[a-z_]{1,40}$/.test(r)))) ||
+        (input.location_id !== undefined && (typeof input.location_id !== 'string' || !UUID.test(input.location_id)))) return reject('invalid_body');
+    const supabaseClient = deps.client ? deps.client() : createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
+    const roles: string[] = input.roles ?? [];
+    const providedUserIds: string[] = input.user_ids ?? [];
+    let location_id: string | undefined = input.location_id;
+    // Explicitly discard html/subject/email_* both at the top level and in data.
+    const data: Record<string, any> = input.data && typeof input.data === 'object' && !Array.isArray(input.data)
+      ? Object.fromEntries(Object.entries(input.data).filter(([key]) => !/^(?:html|subject|email_)/i.test(key))) : {};
+    const badge_count = typeof input.badge_count === 'number' ? input.badge_count : undefined;
+    const sender_id = caller.kind === 'user' ? caller.userId : input.sender_id;
+    const title = caller.kind === 'user' ? plainPushText(input.title, 80) : input.title;
+    const body = caller.kind === 'user' ? plainPushText(input.body, 200) : input.body;
+    const rpcBool = async (name: string, args: Record<string, unknown>) => {
+      const result = await supabaseClient.rpc(name, args);
+      if (result.error) throw new Error('authorization_lookup');
+      return result.data === true;
+    };
+    const row = async (table: string, columns: string, id: string) => {
+      if (!UUID.test(id)) throw new Error('invalid_record');
+      const result = await supabaseClient.from(table).select(columns).eq('id', id).maybeSingle();
+      if (result.error || !result.data) throw new Error('record_lookup');
+      return result.data;
+    };
+    const locationAccess = (id: string) => rpcBool('has_location_access', { _user_id: id, _location_id: location_id });
+    const chatId = data.chat_id ?? data.chatId;
+    let supportTicket: any = null;
+    let hiringLocation: string | undefined;
+    if (caller.kind === 'user') {
+      if (notification_type === 'chat_messages' && chatId !== undefined) {
+        if (typeof chatId !== 'string' || !UUID.test(chatId)) return reject('invalid_chat');
+        data.chat_id = chatId;
+        const chat = await row('chats', 'location_id', chatId);
+        if (!location_id && chat.location_id) location_id = chat.location_id;
+      }
+      if (notification_type === 'chat_messages' && data.type === 'hiring_message' && data.conversation_id) {
+        const conv = await row('hiring_conversations', 'application_id', data.conversation_id);
+        const app = await row('job_applications', 'location_id', conv.application_id);
+        hiringLocation = app.location_id;
+        if (location_id && hiringLocation !== location_id) return reject('hiring_location_mismatch');
+        location_id = hiringLocation;
+      }
+      if (notification_type === 'chat_messages' && data.type === 'support_message' && data.ticket_id) {
+        supportTicket = await row('support_tickets', 'user_id', data.ticket_id);
+      }
+      if (!location_id && !supportTicket) {
+        if (data.schedule_id) location_id = (await row('schedules', 'location_id', data.schedule_id)).location_id;
+        else if (data.post_id || data.postId) location_id = (await row('posts', 'location_id', data.post_id ?? data.postId)).location_id;
+        else if (chatId) location_id = (await row('chats', 'location_id', chatId)).location_id;
+        else if (notification_type === 'test' && providedUserIds.length === 1 && providedUserIds[0] === caller.userId && roles.length === 0)
+          location_id = (await row('profiles', 'default_location_id', caller.userId)).default_location_id;
+      }
+      loggedLocation = location_id ?? 'none';
+      if (!location_id && !supportTicket && !(notification_type === 'chat_messages' && chatId)) return reject('location_required');
+      if (MANAGER_TYPES.has(notification_type)) {
+        if (!await locationAccess(caller.userId)) return reject('caller_store_access');
+        const result = await supabaseClient.rpc('get_user_role', { _user_id: caller.userId });
+        if (result.error || !managerRoles.has(result.data)) return reject('manager_required');
       }
     }
-
-    const formattedContent = formatNotificationContent(notification_type, title, body);
-    const notificationSound = getNotificationSound(notification_type);
-
-    // If roles are provided, fetch user_ids from those roles at the specified location
-    let user_ids = providedUserIds || [];
-    
-    // Filter out sender_id if provided (prevents sender from receiving their own notification)
-    if (sender_id && user_ids.length > 0) {
-      const originalCount = user_ids.length;
-      user_ids = user_ids.filter(id => id !== sender_id);
-      if (user_ids.length < originalCount) {
-        console.log(`Filtered out sender ${sender_id} from recipients`);
-      }
+    // Expand before checking every target, including targets later excluded as sender.
+    let user_ids = [...providedUserIds];
+    if (roles.length) {
+      let query = supabaseClient.from('user_roles').select('user_id').in('role', roles);
+      if (location_id) {
+        const assigned = await supabaseClient.from('user_locations').select('user_id').eq('location_id', location_id);
+        if (assigned.error) return reject('role_location_lookup');
+        const ids = (assigned.data ?? []).map((r: any) => r.user_id);
+        if (ids.length) query = query.in('user_id', ids);
+        else query = query.in('user_id', []);
+      } else if (caller.kind === 'user') return reject('role_location_required');
+      const expanded = await query;
+      if (expanded.error) return reject('role_lookup');
+      const ids = (expanded.data ?? []).map((r: any) => r.user_id);
+      user_ids = caller.kind === 'service' ? ids : [...user_ids, ...ids];
     }
-    
-    if (roles && roles.length > 0 && location_id) {
-      console.log(`Fetching users by roles ${roles.join(', ')} at location ${location_id}`);
-      
-      // Get users with matching roles at the specified location
-      const { data: userLocations, error: locError } = await supabaseClient
-        .from('user_locations')
-        .select('user_id')
-        .eq('location_id', location_id);
-        
-      if (locError) {
-        console.error('Error fetching user locations:', locError);
-      }
-      
-      const locationUserIds = userLocations?.map(ul => ul.user_id) || [];
-      
-      if (locationUserIds.length > 0) {
-        const { data: matchingUsers, error: rolesErr } = await supabaseClient
-          .from('user_roles')
-          .select('user_id')
-          .in('role', roles)
-          .in('user_id', locationUserIds);
-          
-        if (rolesErr) {
-          console.error('Error fetching users by role:', rolesErr);
+    user_ids = [...new Set(user_ids)];
+    if (caller.kind === 'user') {
+      if (notification_type === 'test' && (roles.length || user_ids.length !== 1 || user_ids[0] !== caller.userId)) return reject('test_self_only');
+      if (supportTicket) {
+        const isSupportAdmin = async (id: string) => {
+          const result = await supabaseClient.from('user_roles').select('role').eq('user_id', id).in('role', ['admin', 'super_admin']);
+          if (result.error) throw new Error('support_role_lookup');
+          return (result.data ?? []).length > 0;
+        };
+        const callerAdmin = await isSupportAdmin(caller.userId);
+        if (!callerAdmin && supportTicket.user_id !== caller.userId) return reject('support_caller');
+        for (const target of user_ids) {
+          const targetAdmin = await isSupportAdmin(target);
+          if (!(targetAdmin || (callerAdmin && target === supportTicket.user_id))) return reject('support_target');
         }
-        
-        user_ids = matchingUsers?.map(u => u.user_id) || [];
-        console.log(`Found ${user_ids.length} users matching roles at location`);
-      }
-    } else if (roles && roles.length > 0 && !location_id) {
-      // No location specified, get all users with matching roles
-      const { data: matchingUsers, error: rolesErr } = await supabaseClient
-        .from('user_roles')
-        .select('user_id')
-        .in('role', roles);
-        
-      if (rolesErr) {
-        console.error('Error fetching users by role:', rolesErr);
-      }
-      
-      user_ids = matchingUsers?.map(u => u.user_id) || [];
-    }
-
-    console.log('Push notification request:', { 
-      user_ids_count: user_ids?.length, 
-      title: formattedContent.title, 
-      body: formattedContent.body?.substring(0, 50),
-      notification_type,
-    });
-
-    if (!user_ids || user_ids.length === 0) {
-      return new Response(
-        JSON.stringify({ message: "No users found for notification" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Only notify people assigned to this store. Fail open on lookup errors.
-    if (location_id) {
-      const { data: assigned, error: assignedErr } = await supabaseClient
-        .from('user_locations')
-        .select('user_id')
-        .eq('location_id', location_id)
-        .in('user_id', user_ids);
-      if (assignedErr) {
-        console.error('[location filter] user_locations lookup failed, sending unchanged:', assignedErr);
+      } else if (notification_type === 'chat_messages' && chatId && !hiringLocation) {
+        if (!await rpcBool('is_chat_member', { _user_id: caller.userId, _chat_id: chatId })) return reject('caller_chat_membership');
+        for (const target of user_ids) if (!await rpcBool('is_chat_member', { _user_id: target, _chat_id: chatId })) return reject('target_chat_membership');
       } else {
-        const allowed = new Set((assigned || []).map((r: any) => r.user_id));
-        const before = user_ids.length;
-        user_ids = user_ids.filter((id: string) => allowed.has(id));
-        console.log(`[location filter] dropped ${before - user_ids.length} of ${before} recipients not assigned to location ${location_id}`);
-        if (user_ids.length === 0) {
-          return new Response(
-            JSON.stringify({ message: "No users assigned to this location" }),
-            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
+        if (!await locationAccess(caller.userId)) return reject('caller_store_access');
+        for (const target of user_ids) if (!await locationAccess(target)) return reject('target_store_access');
       }
     }
+    // Existing service delivery scoping stays unchanged; user scoping above never drops targets.
+    if (caller.kind === 'service' && location_id && user_ids.length) {
+      const assigned = await supabaseClient.from('user_locations').select('user_id').eq('location_id', location_id).in('user_id', user_ids);
+      if (!assigned.error) {
+        const allowed = new Set((assigned.data ?? []).map((r: any) => r.user_id));
+        user_ids = user_ids.filter(id => allowed.has(id));
+      }
+    }
+    if (sender_id) user_ids = user_ids.filter(id => id !== sender_id);
+    if (!user_ids.length) return json({ message: 'No users found for notification' });
+    // Authorization precedes throttle so unauthorized calls cannot silence a chat.
+    if (notification_type === 'chat_messages' && data.chat_id && (deps.throttle ?? isChatThrottled)(data.chat_id)) return json({ message: 'Throttled - chat push sent recently' });
+    const formattedContent = formatNotificationContent(notification_type, title, body);
+    if (caller.kind === 'user') formattedContent.title = plainPushText(formattedContent.title, 80);
+    const notificationSound = getNotificationSound(notification_type);
 
     // Get user roles for all requested users
     const { data: userRoles, error: rolesError } = await supabaseClient
@@ -545,7 +617,7 @@ const handler = async (req: Request): Promise<Response> => {
       .in('user_id', user_ids);
 
     if (rolesError) {
-      console.error('Error fetching user roles:', rolesError);
+      console.error('Error fetching user roles:');
     }
 
     // Role notification settings are per organization (D3). Resolve the org from the
@@ -590,14 +662,14 @@ const handler = async (req: Request): Promise<Response> => {
           .select('organization_id, role, notification_type, enabled, from_home')
           .in('notification_type', typeKeys)
           .in('organization_id', orgIds);
-        if (roleSettingsError) console.error('Error fetching role notification settings:', roleSettingsError);
+        if (roleSettingsError) console.error('Error fetching role notification settings:');
         orgSettings = data || [];
       }
       const { data: tplData, error: tplErr } = await supabaseClient
         .from('role_notification_settings_template')
         .select('role, notification_type, enabled, from_home')
         .in('notification_type', typeKeys);
-      if (tplErr) console.error('Error fetching role notification defaults:', tplErr);
+      if (tplErr) console.error('Error fetching role notification defaults:');
       const templateSettings = tplData || [];
 
       let userPrefs: any[] = [];
@@ -608,7 +680,7 @@ const handler = async (req: Request): Promise<Response> => {
           .eq('notification_type', key)
           .eq('location_id', location_id)
           .in('user_id', user_ids);
-        if (error) console.error('Error fetching user notification settings:', error);
+        if (error) console.error('Error fetching user notification settings:');
         userPrefs = data || [];
       }
 
@@ -629,9 +701,9 @@ const handler = async (req: Request): Promise<Response> => {
       let clockedIn: Set<string> | null = null;
       if (location_id && !isLocked(notification_type)) {
         try {
-          clockedIn = new Set(await clockedInUserIds(supabaseClient, location_id));
+          clockedIn = new Set(await (deps.clockedIn ?? clockedInUserIds)(supabaseClient, location_id));
         } catch (e) {
-          console.error('[from-home] clock lookup failed, skipping clock check:', e);
+          console.error('[from-home] clock lookup failed, skipping clock check:');
         }
       } else if (!location_id) {
         console.log(`[from-home] no location_id on ${notification_type} push; clock check skipped`);
@@ -717,13 +789,13 @@ const handler = async (req: Request): Promise<Response> => {
           .upsert(rows, { onConflict: 'user_id,notification_id', ignoreDuplicates: true });
 
         if (vaErr) {
-          console.error('[visual-alert-queue] insert failed:', vaErr);
+          console.error('[visual-alert-queue] insert failed:');
         } else {
           console.log(`[visual-alert-queue] queued ${rows.length} alerts (${visualAlertNotificationId})`);
         }
       }
     } catch (vaCatch) {
-      console.error('[visual-alert-queue] unexpected error:', vaCatch);
+      console.error('[visual-alert-queue] unexpected error:');
     }
 
     // Augment payload data with notification_id so SW can deep-link to the right card
@@ -738,31 +810,21 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
+    if (deps.deliver) return await deps.deliver(finalUserIds, formattedContent, payloadData);
+
     // Get push tokens WITH user info for detailed logging
     const { data: tokens, error: tokensError } = await supabaseClient
       .from('push_notification_tokens')
       .select('token, platform, user_id')
       .in('user_id', finalUserIds);
 
-    // Get user names for logging
-    const { data: userProfiles } = await supabaseClient
-      .from('profiles')
-      .select('id, full_name, email')
-      .in('id', finalUserIds);
-
-    const userNameMap = new Map(userProfiles?.map(u => [u.id, u.full_name || u.email]) || []);
-
+    const userNameMap = new Map(finalUserIds.map(id => [id, id]));
     console.log('Push tokens found:', tokens?.length || 0);
-    tokens?.forEach(t => {
-      const userName = userNameMap.get(t.user_id) || 'Unknown';
-      const tokenPreview = typeof t.token === 'string' ? t.token.substring(0, 50) : JSON.stringify(t.token).substring(0, 50);
-      console.log(`  - ${userName} (${t.platform}): ${tokenPreview}...`);
-    });
 
     if (tokensError) {
-      console.error('Error fetching tokens:', tokensError);
+      console.error('Error fetching tokens:');
       return new Response(
-        JSON.stringify({ error: "Failed to fetch push tokens" }),
+        JSON.stringify({ error: "Forbidden" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -806,7 +868,7 @@ const handler = async (req: Request): Promise<Response> => {
                                   endpoint.includes('mozilla') ? 'Mozilla' : 'Unknown';
               
               console.log(`[${userName}] Sending web push via ${pushService}...`);
-              console.log(`[${userName}] Endpoint: ${endpoint.substring(0, 80)}...`);
+
               
               const response = await sendWebPushNotification(
                 subscription,
@@ -819,7 +881,7 @@ const handler = async (req: Request): Promise<Response> => {
               
               if (!response.ok) {
                 const errorText = await response.text();
-                console.error(`[${userName}] Web push FAILED: ${response.status} - ${errorText}`);
+                console.error(`[${userName}] Web push failed: HTTP ${response.status}`);
                 // Auto-prune dead subscriptions: 410 Gone = unsubscribed/expired, 404 = not found.
                 // Also prune VapidPkHashMismatch — the browser subscribed with a different
                 // applicationServerKey than we sign with, so this token can never be delivered.
@@ -832,7 +894,7 @@ const handler = async (req: Request): Promise<Response> => {
                     .delete()
                     .eq('token', token);
                 }
-                throw new Error(`Web push failed: ${response.status} - ${errorText}`);
+                throw new Error(`Web push failed: HTTP ${response.status}`);
               }
 
 
@@ -840,7 +902,7 @@ const handler = async (req: Request): Promise<Response> => {
               console.log(`[${userName}] ✅ Web push sent successfully`);
               return { success: true, user: userName };
             } catch (err) {
-              console.error(`[${userName}] ❌ Web push error:`, err);
+              console.error(`[${userName}] Web push failed`);
               throw err;
             }
           })
@@ -865,7 +927,7 @@ const handler = async (req: Request): Promise<Response> => {
           nativeTokens.map(async ({ token, user_id }) => {
             const userName = userNameMap.get(user_id) || 'Unknown';
             console.log(`[${userName}] Sending native iOS push via FCM...`);
-            console.log(`[${userName}] Token: ${token.substring(0, 50)}...`);
+
             
             const fcmResponse = await fetch(
               `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
@@ -905,8 +967,8 @@ const handler = async (req: Request): Promise<Response> => {
             
             if (!fcmResponse.ok) {
               const error = await fcmResponse.text();
-              console.error(`[${userName}] ❌ FCM error:`, error);
-              throw new Error(`FCM request failed: ${error}`);
+              console.error(`[${userName}] FCM failed: HTTP ${fcmResponse.status}`);
+              throw new Error(`FCM failed: HTTP ${fcmResponse.status}`);
             }
             
             const result = await fcmResponse.json();
@@ -934,13 +996,10 @@ const handler = async (req: Request): Promise<Response> => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error("Error in send-push-notification:", error);
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return reject('request_or_lookup_failed');
   }
 };
+}
 
-serve(handler);
+export const handler = createHandler();
+if (import.meta.main) serve(handler);
