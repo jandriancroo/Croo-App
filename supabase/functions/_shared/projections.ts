@@ -144,6 +144,13 @@ export function getSeededRandomFactor(seed: string): number {
   return 0.97 + (normalized * 0.05);
 }
 
+// Shared daily-goal blend; hourly jitter and curves deliberately stay separate.
+export function calculateDailyGoal(date: string, locationId: string, dowAverage: number, ly: number, weight = 0.5): number {
+  const base = dowAverage > 0 && ly > 0 ? (1 - weight) * dowAverage + weight * ly
+    : dowAverage > 0 ? dowAverage : ly > 0 ? ly : 0;
+  return Math.round(base * getSeededRandomFactor(`${date}-${locationId}`));
+}
+
 // ── Historical data loader (reads sales_cache; POS-agnostic) ────────────────
 export async function fetchHistoricalDataFromCache(
   supabase: any,
@@ -166,7 +173,7 @@ export async function fetchHistoricalDataFromCache(
   } | undefined;
   prevWeekSales: number;
   prevMonthSales: number;
-  holidayContext: { lastYearWeight: number; reason: string };
+  holidayContext: { lastYearWeight: number; reason: string; dailyGoal?: number };
 }> {
   const today = new Date(todayStr + 'T12:00:00');
   const dayOfWeek = today.getDay();
@@ -248,7 +255,7 @@ export async function fetchHistoricalDataFromCache(
       lastYearData: undefined,
       prevWeekSales: 0,
       prevMonthSales: 0,
-      holidayContext: { lastYearWeight: 0.5, reason: 'Cache error - default' },
+      holidayContext: { lastYearWeight: 0.5, reason: 'Cache error - default', dailyGoal: 0 },
     };
   }
 
@@ -408,7 +415,13 @@ export async function fetchHistoricalDataFromCache(
   const prevWeekSales = prevWeekDates.reduce((sum, d) => sum + (cacheMap.get(d)?.net_sales || 0), 0);
   const prevMonthSales = prevMonthDates.reduce((sum, d) => sum + (cacheMap.get(d)?.net_sales || 0), 0);
 
-  return { fourWeekAverage, fourWeekHourlyPattern, lastYearData, prevWeekSales, prevMonthSales, holidayContext };
+  // Load only the DAILY goal from the write-date engine. Historical hourly
+  // patterns and week/month inputs above remain unchanged. Dynamic import
+  // avoids a static cycle through weekProjections and this module.
+  const { dailyGoalFromCache } = await import('./goalEngine.ts');
+  const dailyGoal = await dailyGoalFromCache(supabase, locationId, todayStr);
+  return { fourWeekAverage, fourWeekHourlyPattern, lastYearData, prevWeekSales, prevMonthSales,
+    holidayContext: { ...holidayContext, dailyGoal } };
 }
 
 // ── Hourly projections ──────────────────────────────────────────────────────
@@ -560,31 +573,16 @@ export function generateProjections(
     avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[];
     weeks: { weekStart: string; total: number }[];
   },
-  holidayContext?: { lastYearWeight: number; reason: string },
+  holidayContext?: { lastYearWeight: number; reason: string; dailyGoal?: number },
 ): { todayProjected: number; todayPaceAdjusted: number; weekProjected: number; monthProjected: number } {
   const today = new Date(todayStr + 'T12:00:00');
   const dayOfWeek = today.getDay();
   const randomFactor = getSeededRandomFactor(`${todayStr}-${locationId}`);
   const lyWeight = holidayContext?.lastYearWeight ?? 0.5;
-  const fwWeight = 1 - lyWeight;
-
-  let todayProjected = 0;
   const fourWeekDayAvg = fourWeekAverage?.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek)?.avgSales || 0;
   const lastYearSameDay = lastYearData?.sameDay || 0;
-  if (fourWeekDayAvg > 0 && lastYearSameDay > 0) {
-    todayProjected = ((fourWeekDayAvg * fwWeight) + (lastYearSameDay * lyWeight)) * randomFactor;
-  } else if (fourWeekDayAvg > 0) {
-    todayProjected = fourWeekDayAvg * randomFactor;
-  } else if (lastYearSameDay > 0) {
-    todayProjected = lastYearSameDay * randomFactor;
-  } else {
-    const completedDays = weeklyBreakdown.filter(d => d.sales > 0);
-    if (completedDays.length > 0) {
-      todayProjected = (completedDays.reduce((sum, d) => sum + d.sales, 0) / completedDays.length) * randomFactor;
-    } else {
-      todayProjected = dailySales;
-    }
-  }
+  const todayProjected = holidayContext?.dailyGoal
+    ?? calculateDailyGoal(todayStr, locationId, fourWeekDayAvg, lastYearSameDay, lyWeight);
 
   const todayPaceAdjusted = calculatePaceAdjustedProjection(
     dailySales, currentHour, currentMinutes, hoursOpen, hoursClose, hourlyProjections,
