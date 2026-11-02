@@ -34,7 +34,7 @@ async function setup(minutes=16) {
  // Execute the exact deployed sections in isolation, using a fixed store-local test clock.
  const sql=readFileSync('drizzle/migrations/0086_employee_job_alerts.sql','utf8');
  const late=sql.split('$late$')[1]; const cert=sql.split('$cert$')[1];
- const blocks=(late+cert).replaceAll('now()',"TIMESTAMPTZ '2026-11-02 17:05:00+00'");
+ const blocks=(late+cert).split('now()').join("TIMESTAMPTZ '2026-11-02 17:05:00+00'");
  await db.exec(`CREATE FUNCTION test_alerts() RETURNS void LANGUAGE plpgsql AS $fn$
  DECLARE loc record; tz text := 'America/Los_Angeles';local_date text := '2026-11-02';current_total_minutes integer := 545;
  start_of_day_utc timestamptz := '2026-11-02 08:00:00+00';end_of_day_utc timestamptz := '2026-11-03 07:59:59+00';v_dedup_key text;
