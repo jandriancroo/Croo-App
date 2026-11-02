@@ -505,7 +505,7 @@ return async (req: Request): Promise<Response> => {
     const data: Record<string, any> = input.data && typeof input.data === 'object' && !Array.isArray(input.data)
       ? Object.fromEntries(Object.entries(input.data).filter(([key]) => !/^(?:html|subject|email_)/i.test(key))) : {};
     const badge_count = typeof input.badge_count === 'number' ? input.badge_count : undefined;
-    const sender_id = caller.kind === 'user' ? caller.userId : input.sender_id;
+    const sender_id = caller.kind === 'user' ? (notification_type === 'test' ? undefined : caller.userId) : input.sender_id;
     const title = caller.kind === 'user' ? plainPushText(input.title, 80) : input.title;
     const body = caller.kind === 'user' ? plainPushText(input.body, 200) : input.body;
     const rpcBool = async (name: string, args: Record<string, unknown>) => {
