@@ -1,6 +1,6 @@
 import { assertEquals, assert } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { goalHistoryWindow, currentWeekAdjustment, livingGoal, goalForDate, goalDates, defaultGoalHorizon } from './goalEngine.ts';
-import { calculateDailyGoal, getSeededRandomFactor } from './projections.ts';
+import { goalHistoryWindow, currentWeekAdjustment, livingGoal, goalForDate, goalDates, defaultGoalHorizon, runGoalEngine } from './goalEngine.ts';
+import { calculateDailyGoal, getSeededRandomFactor, generateProjections } from './projections.ts';
 
 for (const [T, start, end] of [
   ['2026-11-02', '2026-10-05', '2026-11-01'],
@@ -45,4 +45,61 @@ Deno.test('window excludes current week and future target-week sales', () => {
 Deno.test('horizon covers month end or next Sunday, whichever is later', () => {
   assertEquals(defaultGoalHorizon('2026-11-04'), '2026-11-30');
   assertEquals(defaultGoalHorizon('2026-11-30'), '2026-12-13');
+});
+
+Deno.test('daily goal never falls back to current actual sales', () => {
+  const result = generateProjections(9000, 9000, 9000,
+    [{ date: '2026-11-02', sales: 9000 }], [], 3, 0, 10, 22, '2026-11-04', 'store', []);
+  assertEquals(result.todayProjected, 0);
+});
+
+Deno.test('runner preserves actuals, overrides, and non-null Planning; ensure only fills null Living', async () => {
+  const rows = new Map<string, Record<string, unknown>>([
+    ['2026-11-09', { sale_date: '2026-11-09', net_sales: 412, initial_projection: 0, living_projection: 999, override_projection: 700 }],
+    ['2026-11-10', { sale_date: '2026-11-10', net_sales: 10, initial_projection: 555, living_projection: null }],
+  ]);
+  const writes: Record<string, unknown>[] = [];
+  const logs: Record<string, unknown>[] = [];
+  const fake = { from(table: string) {
+    let operation = 'read'; let payload: Record<string, unknown> = {}; let ignore = false;
+    const filters: Array<(row: Record<string, unknown>) => boolean> = [];
+    const query: any = {
+      select: () => query,
+      eq: (key: string, value: unknown) => { filters.push(row => row[key] === value); return query; },
+      in: (key: string, values: unknown[]) => { filters.push(row => values.includes(row[key])); return query; },
+      gte: (key: string, value: string) => { filters.push(row => String(row[key]) >= value); return query; },
+      lt: (key: string, value: string) => { filters.push(row => String(row[key]) < value); return query; },
+      is: (key: string, value: unknown) => { filters.push(row => (row[key] ?? null) === value); return query; },
+      upsert: (value: Record<string, unknown>, opts: { ignoreDuplicates?: boolean }) => { operation = 'upsert'; payload = value; ignore = opts.ignoreDuplicates === true; return query; },
+      update: (value: Record<string, unknown>) => { operation = 'update'; payload = value; return query; },
+      then: (resolve: (value: unknown) => unknown) => {
+        if (table === 'location_integrations') return Promise.resolve(resolve({ data: [{ integration_type: 'clover' }] }));
+        if (table === 'goal_engine_runs') { logs.push(payload); return Promise.resolve(resolve({ data: [] })); }
+        if (operation === 'read') return Promise.resolve(resolve({ data: [...rows.values()].filter(row => filters.every(test => test(row))) }));
+        const changed: Record<string, unknown>[] = [];
+        if (operation === 'upsert') {
+          const key = String(payload.sale_date); const old = rows.get(key);
+          if (!old || !ignore) { rows.set(key, { ...old, ...payload }); writes.push(payload); changed.push({ sale_date: key }); }
+        } else {
+          for (const [key, row] of rows) if (filters.every(test => test(row))) {
+            rows.set(key, { ...row, ...payload }); writes.push(payload); changed.push({ sale_date: key });
+          }
+        }
+        return Promise.resolve(resolve({ data: changed }));
+      },
+    };
+    // Location scope is implicit in this single-location fixture.
+    const eq = query.eq; query.eq = (key: string, value: unknown) => key === 'location_id' ? query : eq(key, value);
+    return query;
+  } };
+  await runGoalEngine(fake, 'store', { T: '2026-11-02', tz: 'America/Los_Angeles', source: 'ensure',
+    writePlanning: false, onlyNullLiving: true, livingStart: '2026-11-09', horizonEnd: '2026-11-15' });
+  assertEquals(rows.get('2026-11-09')?.living_projection, 999);
+  assertEquals(rows.get('2026-11-10')?.living_projection, 0);
+  assertEquals(rows.get('2026-11-09')?.initial_projection, 0);
+  assertEquals(rows.get('2026-11-10')?.initial_projection, 555);
+  assertEquals(rows.get('2026-11-09')?.net_sales, 412);
+  assertEquals(rows.get('2026-11-09')?.override_projection, 700);
+  assert(writes.every(row => !('net_sales' in row) && !('initial_projection' in row) && !('override_projection' in row)));
+  assertEquals(logs[0].wrote_planning, false);
 });
