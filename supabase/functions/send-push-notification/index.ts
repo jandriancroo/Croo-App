@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { gateRecipient, settingsKey, isLocked, PULSE_KEYS } from "../_shared/notificationGate.ts";
 import { clockedInUserIds } from "../_shared/onClock.ts";
 import { requireCaller, type Caller } from "../_shared/callerAuth.ts";
+import { notifyEmail, type NotifyEmailInput, type PushOutcome } from '../_shared/notifyEmail.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -423,7 +424,7 @@ export const KNOWN_NOTIFICATION_TYPES = [
   'chat_messages', 'announcements', 'schedule_updates', 'shift_approvals',
   'logbook_entry', 'drawer_count', 'safe_count', 'waste_log', 'catering_order',
   'task_assigned', 'quick_task', 'test', 'overdue_checklists', 'overdue_checklist',
-  'late_arrivals', 'late_arrival', 'monthly_checklist', 'certificate_expiry',
+  'late_arrivals', 'late_arrival', 'no_call_no_show', 'monthly_checklist', 'certificate_expiry',
   'certification_expiring', 'arcade_scores', 'new_job_application', 'alarm_task',
   'alarm', 'quick_nudge', 'shift_reminders', 'schedule_published', 'schedule_approval',
   'shift_offer', 'shift_overstay', 'toast_late_clock_in', 'toast_no_clock_out',
@@ -467,6 +468,7 @@ export interface HandlerDependencies {
   // In-memory test transport only; never selected by a request body/flag.
   deliver?: (ids: string[], content: { title: string; body: string }, data: Record<string, unknown>) => Promise<Response>;
   deliverApplicant?: (thread: string, content: { title: string; body: string }) => Promise<Response>;
+  email?: (client: any, input: NotifyEmailInput) => Promise<{ emailed: number; emailed_fallback: number }>;
   throttle?: (chatId: string) => boolean;
   rejectLog?: (line: string) => void;
 }
@@ -728,6 +730,8 @@ return async (req: Request): Promise<Response> => {
     const orgIds = Array.from(new Set([requestOrgId, ...recipientOrg.values()].filter(Boolean))) as string[];
     // One gate for every recipient: enabled + "From home" (_shared/notificationGate.ts).
     let finalUserIds = user_ids;
+    const emailEligible = new Set<string>();
+    const emailFromHome = new Set<string>();
     if (notification_type) {
       const key = settingsKey(notification_type);
       const typeKeys = Array.from(new Set([key, notification_type]));
@@ -798,6 +802,16 @@ return async (req: Request): Promise<Response> => {
           : undefined;
         const userRow = userPrefs.find((p: any) => p.user_id === userId);
         const legacyVal = legacyRows.find((p: any) => p.user_id === userId)?.[notification_type];
+        // Email has its own opt-in; role ceiling and sales visibility still apply.
+        const emailRoleAllowed = isLocked(notification_type) || (roleRow?.enabled !== false &&
+          (!PULSE_KEYS.has(key) || role !== 'team_member' || teamMemberViewSales));
+        if (emailRoleAllowed) {
+          emailEligible.add(userId);
+          const fromHome = gateRecipient({ type: notification_type, role, roleEnabled: true,
+            userPush: true, roleFromHome: roleRow?.from_home, userFromHome: userRow?.from_home,
+            teamMemberViewSales, clockedIn: clockedIn ? clockedIn.has(userId) : null });
+          if (fromHome.send) emailFromHome.add(userId);
+        }
         const res = gateRecipient({
           type: notification_type,
           role,
@@ -822,13 +836,6 @@ return async (req: Request): Promise<Response> => {
       if (finalUserIds.length < beforeCount) {
         console.log(`Filtered out sender ${sender_id} from final recipients (was in ${beforeCount}, now ${finalUserIds.length})`);
       }
-    }
-
-    if (finalUserIds.length === 0) {
-      return new Response(
-        JSON.stringify({ message: "No users have this notification type enabled" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
 
     // ============ Visual Alert Queue ============
@@ -889,13 +896,11 @@ return async (req: Request): Promise<Response> => {
       }
     }
 
-    if (deps.deliver) return await deps.deliver(finalUserIds, formattedContent, payloadData);
-
     // Get push tokens WITH user info for detailed logging
     const { data: tokens, error: tokensError } = await supabaseClient
       .from('push_notification_tokens')
       .select('token, platform, user_id')
-      .in('user_id', finalUserIds);
+      .in('user_id', [...new Set([...emailEligible, ...finalUserIds])]);
 
     const userNameMap = new Map(finalUserIds.map(id => [id, id]));
     console.log('Push tokens found:', tokens?.length || 0);
@@ -908,16 +913,31 @@ return async (req: Request): Promise<Response> => {
       );
     }
 
-    if (!tokens || tokens.length === 0) {
-      return new Response(
-        JSON.stringify({ message: "No push tokens found for users" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    const tokenUsers = new Set<string>((tokens ?? []).map((t: any) => t.user_id));
+    const outcomes = new Map<string, PushOutcome>();
+    const outcomeFor = (id: string) => {
+      let value = outcomes.get(id);
+      if (!value) { value = { attempted: 0, succeeded: 0, dead: 0 }; outcomes.set(id, value); }
+      return value;
+    };
+    const runEmail = async (pushed: number) => {
+      const counts = diagnostic || notification_type === 'test' || applicantThread ? { emailed: 0, emailed_fallback: 0 }
+        : await (deps.email ?? notifyEmail)(supabaseClient, { notification_type,
+          eligible_user_ids: [...emailEligible], location_id, data, tokenUsers,
+          pushResults: outcomes, fromHomeAllowed: emailFromHome });
+      const result = { pushed, ...counts };
+      console.log(JSON.stringify(result));
+      return result;
+    };
+    if (deps.deliver) {
+      const response = await deps.deliver(finalUserIds, formattedContent, payloadData);
+      const result = await response.json();
+      return json({ ...result, ...await runEmail(finalUserIds.length) }, response.status);
     }
 
     // Separate web and native tokens
-    const webTokens = tokens.filter((t: { token: string; platform: string; user_id: string }) => t.platform === 'web');
-    const nativeTokens = tokens.filter((t: { token: string; platform: string; user_id: string }) => t.platform === 'ios');
+    const webTokens = (tokens ?? []).filter((t: { token: string; platform: string; user_id: string }) => t.platform === 'web' && finalUserIds.includes(t.user_id));
+    const nativeTokens = (tokens ?? []).filter((t: { token: string; platform: string; user_id: string }) => t.platform === 'ios' && finalUserIds.includes(t.user_id));
 
     console.log(`Sending to ${webTokens.length} web and ${nativeTokens.length} native iOS devices`);
 
@@ -938,6 +958,7 @@ return async (req: Request): Promise<Response> => {
 
         const webResults = await Promise.allSettled(
           webTokens.map(async ({ token, user_id }: { token: string; user_id: string }) => {
+            const outcome = outcomeFor(user_id); outcome.attempted++;
             const userName = userNameMap.get(user_id) || 'Unknown';
             try {
               const subscription = JSON.parse(token);
@@ -959,6 +980,7 @@ return async (req: Request): Promise<Response> => {
               console.log(`[${userName}] Response status: ${response.status} ${response.statusText}`);
               
               if (!response.ok) {
+                if (response.status === 404 || response.status === 410) outcome.dead++;
                 const errorText = await response.text();
                 console.error(`[${userName}] Web push failed: HTTP ${response.status}`);
                 // Auto-prune dead subscriptions: 410 Gone = unsubscribed/expired, 404 = not found.
@@ -978,6 +1000,8 @@ return async (req: Request): Promise<Response> => {
 
 
               
+              await response.text();
+              outcome.succeeded++;
               console.log(`[${userName}] ✅ Web push sent successfully`);
               return { success: true, user: userName };
             } catch (err) {
@@ -1004,6 +1028,7 @@ return async (req: Request): Promise<Response> => {
 
         const fcmResults = await Promise.allSettled(
           nativeTokens.map(async ({ token, user_id }: { token: string; user_id: string }) => {
+            const outcome = outcomeFor(user_id); outcome.attempted++;
             const userName = userNameMap.get(user_id) || 'Unknown';
             console.log(`[${userName}] Sending native iOS push via FCM...`);
 
@@ -1045,12 +1070,14 @@ return async (req: Request): Promise<Response> => {
             console.log(`[${userName}] FCM Response status: ${fcmResponse.status} ${fcmResponse.statusText}`);
             
             if (!fcmResponse.ok) {
+              if (fcmResponse.status === 404 || fcmResponse.status === 410) outcome.dead++;
               const error = await fcmResponse.text();
               console.error(`[${userName}] FCM failed: HTTP ${fcmResponse.status}`);
               throw new Error(`FCM failed: HTTP ${fcmResponse.status}`);
             }
             
             const result = await fcmResponse.json();
+            outcome.succeeded++;
             console.log(`[${userName}] ✅ FCM push sent successfully`);
             return result;
           })
@@ -1061,6 +1088,7 @@ return async (req: Request): Promise<Response> => {
 
     const successful = results.filter(r => r.status === 'fulfilled').length;
     const failed = results.filter(r => r.status === 'rejected').length;
+    const channelCounts = await runEmail([...outcomes.values()].filter(o => o.succeeded > 0).length);
 
     console.log(`Push notification results: ${successful} successful, ${failed} failed`);
 
@@ -1071,6 +1099,7 @@ return async (req: Request): Promise<Response> => {
         failed,
         web: webTokens.length,
         native: nativeTokens.length,
+        ...channelCounts,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

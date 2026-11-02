@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/sonner';
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { supabase } from '@/integrations/supabase/client';
@@ -123,6 +123,7 @@ const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> =
 
 export default function Settings() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const duo = useDuo();
   const [duoSel, setDuoSel] = useState<string | null>(null);
   const { isAdmin, isSuperAdmin, isOrgAdmin, isBrandAdmin, isShiftManager, isManager, role } = useUserRole();
@@ -157,6 +158,13 @@ export default function Settings() {
   const toggleSection = (sectionId: string) => {
     setOpenSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
   };
+  useEffect(() => {
+    if (searchParams.get('section') === 'notifications') {
+      setActiveTab('location');
+      setOpenSections(prev => ({ ...prev, notifications: true }));
+      setDuoSel('notifications');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
