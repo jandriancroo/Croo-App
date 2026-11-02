@@ -6,7 +6,9 @@ import { format } from 'date-fns';
 import { BarChart3, Radio, Sparkles, CheckCircle2, PencilLine } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useAuth } from '@/lib/auth';
+import { useUserRole } from '@/hooks/useUserRole';
+import { canEditDailyGoal } from '@/lib/goalResolver';
+import { ProjectionTag } from '@/components/ui/projection-tag';
 import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 import { resolveProjection } from '@/hooks/useResolvedProjection';
 import { refreshLiveSalesForToday } from '@/lib/pos/liveSales';
@@ -17,7 +19,7 @@ import { LaborGoalPopover } from '@/components/schedule/LaborGoalPopover';
 import { InsightField } from '@/components/schedule/InsightField';
 import { ensureFutureWeekLiving } from '@/lib/ensureFutureWeekLiving';
 
-type SalesSource = 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial';
+type SalesSource = 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'planning' | 'none';
 
 interface DayShift {
   id: string;
@@ -76,7 +78,8 @@ export function DayInsightsBar({
   weekStart,
 }: DayInsightsBarProps) {
   const { canSeeSales } = useTeamSalesVisibility();
-  const { user } = useAuth();
+  const { role } = useUserRole();
+  const goalEditable = canEditDailyGoal(role, dateStr, todayStr);
   const [expanded, setExpanded] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const laborGoals = useLaborGoals(locationId);
@@ -133,7 +136,7 @@ export function DayInsightsBar({
       try {
         const { data: row } = await supabase
           .from('sales_cache')
-          .select('net_sales, initial_projection, living_projection, override_projection, projected_sales')
+          .select('net_sales, initial_projection, living_projection, override_projection')
           .eq('location_id', locationId)
           .eq('sale_date', dateStr)
           .maybeSingle();
@@ -143,12 +146,11 @@ export function DayInsightsBar({
             initial_projection: r?.initial_projection,
             living_projection: r?.living_projection,
             override_projection: r?.override_projection,
-            projected_sales: r?.projected_sales,
           });
           if (resolved.value && resolved.value > 0) {
             if (!cancelled) {
               setSales(Math.round(resolved.value * 100) / 100);
-              setSalesSource(resolved.source === 'legacy' ? 'ai' : (resolved.source as SalesSource));
+              setSalesSource(resolved.source as SalesSource);
             }
             return true;
           }
@@ -167,7 +169,7 @@ export function DayInsightsBar({
           const goal = resolveProjection(row);
           if (!cancelled) {
             setTodayGoal(goal.value);
-            setTodayGoalSource(goal.source === 'legacy' ? 'ai' : goal.source ?? undefined);
+            setTodayGoalSource(goal.source);
           }
           if (Number(row?.net_sales) > 0) {
             if (!cancelled) {
@@ -175,7 +177,7 @@ export function DayInsightsBar({
               setSalesSource('living');
             }
           } else {
-            applyProjection({ ...row, projected_sales: null });
+            applyProjection({ ...row: null });
           }
           // Refresh through the store's own POS in the background
           refreshLiveSalesForToday(locationId, timezone).then(daily => {
@@ -188,12 +190,12 @@ export function DayInsightsBar({
         }
 
         // Future day
-        if (applyProjection({ ...row, projected_sales: null })) return;
+        if (applyProjection({ ...row: null })) return;
         // Only a future WEEK may request NULL-only Living from the goal engine.
         await ensureFutureWeekLiving(locationId, weekStart, todayStr, [{ ...row, sale_date: dateStr }]);
         const { data: seeded } = await supabase
           .from('sales_cache')
-          .select('initial_projection, living_projection, override_projection, projected_sales')
+          .select('initial_projection, living_projection, override_projection')
           .eq('location_id', locationId)
           .eq('sale_date', dateStr)
           .maybeSingle();
@@ -206,81 +208,36 @@ export function DayInsightsBar({
     return () => { cancelled = true; };
   }, [locationId, dateStr, phase, timezone, weekStart, todayStr]);
 
-  const saveOverride = async (value: number, excludedDates?: string[]) => {
-    if (!locationId) return;
-    if (phase === 'today') { setTodayGoal(value); setTodayGoalSource('override'); }
-    else { setSales(value); setSalesSource('override'); }
-    try {
-      const { error } = await (supabase.from('sales_cache') as any).upsert({
-        location_id: locationId,
-        sale_date: dateStr,
-        override_projection: value,
-        override_at: new Date().toISOString(),
-        override_by: user?.id || null,
-        override_excluded_dates: excludedDates ?? [],
-      }, { onConflict: 'location_id,sale_date' });
-      if (error) throw error;
-
-      if (scheduleId) {
-        await supabase.from('schedule_projected_sales').upsert({
-          schedule_id: scheduleId,
-          day_of_week: dayIndex,
-          projected_sales: value,
-        }, { onConflict: 'schedule_id,day_of_week' });
-      }
-      toast.success('Goal saved');
-    } catch (e) {
-      console.error('[DayInsightsBar] override save failed:', e);
-      toast.error('Failed to save goal');
-    }
+  const reloadGoal = async () => {
+    const { data, error } = await supabase.from('sales_cache')
+      .select('net_sales, initial_projection, living_projection, override_projection')
+      .eq('location_id', locationId ?? '').eq('sale_date', dateStr).maybeSingle();
+    if (error) throw error;
+    const goal = resolveProjection(data);
+    if (phase === 'today') { setTodayGoal(goal.value); setTodayGoalSource(goal.source); }
+    if (phase === 'future') { setSales(goal.value ?? 0); setSalesSource(goal.source); }
   };
-
-  const resetToProjection = async () => {
-    if (!locationId) return;
-    try {
-      await (supabase.from('sales_cache') as any)
-        .update({ override_projection: null, override_at: null, override_by: null, override_excluded_dates: null })
-        .eq('location_id', locationId)
-        .eq('sale_date', dateStr);
-
-      if (scheduleId) {
-        await supabase
-          .from('schedule_projected_sales')
-          .delete()
-          .eq('schedule_id', scheduleId)
-          .eq('day_of_week', dayIndex);
-      }
-
-      const { data: row } = await supabase
-        .from('sales_cache')
-        .select('net_sales, initial_projection, living_projection, projected_sales')
-        .eq('location_id', locationId)
-        .eq('sale_date', dateStr)
-        .maybeSingle();
-
-      if (phase === 'today') {
-        const goal = resolveProjection(row);
-        setTodayGoal(goal.value);
-        setTodayGoalSource(goal.source === 'legacy' ? 'ai' : goal.source ?? undefined);
-      }
-      if (phase === 'future') {
-        const resolved = resolveProjection({
-          initial_projection: row?.initial_projection,
-          living_projection: row?.living_projection,
-          override_projection: null,
-          projected_sales: row?.projected_sales,
-        });
-        setSales(Math.round((resolved.value || 0) * 100) / 100);
-        setSalesSource(resolved.source === 'legacy' ? 'ai' : (resolved.source as SalesSource));
-      } else {
-        setSales(Math.round((Number(row?.net_sales) || 0) * 100) / 100);
-        setSalesSource(phase === 'today' ? 'living' : 'historical');
-      }
-      toast.success('Back to the automatic goal');
-    } catch (e) {
-      console.error('[DayInsightsBar] reset failed:', e);
-      toast.error('Failed to reset goal');
+  const saveOverride = async (value: number, excludedDates?: string[]) => {
+    if (!locationId || !goalEditable) return;
+    const { error } = await supabase.rpc('set_goal_override', {
+      _location_id: locationId, _sale_date: dateStr, _value: Math.round(value), _excluded_dates: excludedDates ?? [], _reason: null,
+    });
+    if (error) {
+      toast.error(error.code === '42501' ? 'Only managers and above can change the daily goal.' : 'Failed to save goal');
+      throw error;
     }
+    await reloadGoal();
+    toast.success('Goal saved');
+  };
+  const resetToProjection = async () => {
+    if (!locationId || !goalEditable) return;
+    const { error } = await supabase.rpc('clear_goal_override', { _location_id: locationId, _sale_date: dateStr, _reason: null });
+    if (error) {
+      toast.error(error.code === '42501' ? 'Only managers and above can change the daily goal.' : 'Failed to reset goal');
+      throw error;
+    }
+    await reloadGoal();
+    toast.success('Back to the automatic goal');
   };
 
   if (!canSeeSales) return null;
@@ -305,7 +262,7 @@ export function DayInsightsBar({
       ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
       : displaySource === 'living'
         ? 'border-blue-400/40 bg-blue-500/10 text-blue-200'
-        : displaySource === 'initial' || displaySource === 'ai'
+        : displaySource === 'planning' || displaySource === 'ai'
           ? 'border-blue-400/20 bg-blue-500/5 text-blue-200'
           : displaySource === 'historical'
             ? 'border-green-500/40 bg-green-500/10 text-green-300'
@@ -314,7 +271,7 @@ export function DayInsightsBar({
   const SalesIcon =
     displaySource === 'override' ? PencilLine
       : displaySource === 'living' ? Radio
-        : displaySource === 'initial' || displaySource === 'ai' ? Sparkles
+        : displaySource === 'planning' || displaySource === 'ai' ? Sparkles
           : displaySource === 'historical' ? CheckCircle2
             : null;
 
@@ -396,6 +353,7 @@ export function DayInsightsBar({
               {displaySales != null ? `$${displaySales.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}
             </span>
           </button>
+          {phase !== 'completed' && <ProjectionTag source={displaySource === 'override' || displaySource === 'living' || displaySource === 'planning' ? displaySource : 'none'} locationId={locationId} dateStr={dateStr} timezone={timezone} className="mt-1" />}
         </div>
       )}
 
@@ -407,7 +365,7 @@ export function DayInsightsBar({
         todayStr={todayStr}
         currentValue={displaySales ?? 0}
         currentSource={displaySource}
-        canEdit={canEdit && phase !== 'completed'}
+        canEdit={goalEditable}
         onSaveOverride={saveOverride}
         onResetToProjection={resetToProjection}
       />
