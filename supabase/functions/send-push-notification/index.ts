@@ -544,7 +544,7 @@ return async (req: Request): Promise<Response> => {
       Object.assign(data, { type: 'hiring_message', conversation_id: applicantThread.id });
     }
     const diagnostic = caller?.kind === 'user' && ((data.type === 'test' && notification_type !== 'test') || data.chat_id === 'diagnostic-test');
-    if (diagnostic) {
+    if (diagnostic && caller?.kind === 'user') {
       const admin = await supabaseClient.from('user_roles').select('role').eq('user_id', caller.userId).in('role', ['admin', 'super_admin']);
       if (admin.error || !(admin.data ?? []).length) return reject('diagnostic_admin');
       if (roles.length || providedUserIds.length !== 1 || providedUserIds[0] !== caller.userId) return reject('diagnostic_self_only');
