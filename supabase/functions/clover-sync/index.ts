@@ -7,13 +7,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { requireAuthorizedCaller } from "../_shared/callerAuth.ts";
 import { computeAndSavePace } from "../_shared/projections.ts";
-import {
-  fetchHistoricalDataFromCache,
-  generateHourlyProjections,
-  generateProjections,
-  getCurrentHourInTimezone,
-  getCurrentMinutesInTimezone,
-} from "../_shared/projections.ts";
 
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
@@ -536,7 +529,7 @@ async function syncOneDay(
   // Conditional spread protects projections/overrides set elsewhere.
   const { data: existingMail } = await supabase
     .from("sales_cache")
-    .select("projected_sales, living_projection, override_projection, override_at, override_by, initial_projection, validation_status, validation_attempts, yoy_sale_date, yoy_net_sales, yoy_hourly_data")
+    .select("validation_status, validation_attempts, yoy_sale_date, yoy_net_sales, yoy_hourly_data")
     .eq("location_id", locationId)
     .eq("sale_date", date)
     .maybeSingle();
@@ -591,54 +584,17 @@ async function syncOneDay(
     console.error(`[clover-sync] daily_tips error for ${date}:`, e);
   }
 
-  // ── YOY projection seed (only if missing) ──────────────────────────────
-  // Pull same-day last year (-364 days to keep day-of-week aligned).
+  // YOY reference fields remain actual-sales metadata, never goal seeds.
   try {
-    const existingProj = existingMail ?? {};
-    const hasProjection =
-      (existingProj.living_projection ?? 0) > 0 ||
-      (existingProj.initial_projection ?? 0) > 0 ||
-      (existingProj.override_projection ?? 0) > 0;
-    if (!hasProjection) {
+    if (!existingMail?.yoy_net_sales) {
       const yoyDate = addDays(date, -364);
-      const { data: yoy } = await supabase
-        .from("sales_cache")
-        .select("net_sales, hourly_data")
-        .eq("location_id", locationId)
-        .eq("sale_date", yoyDate)
-        .maybeSingle();
-      const yoyNet = Number(yoy?.net_sales ?? 0);
-      if (yoyNet > 0) {
-        await supabase.from("sales_cache").update({
-          initial_projection: yoyNet,
-          living_projection: yoyNet,
-          yoy_sale_date: yoyDate,
-          yoy_net_sales: yoyNet,
-          yoy_hourly_data: yoy?.hourly_data ?? null,
-        }).eq("location_id", locationId).eq("sale_date", date);
-      }
-    } else {
-      // Still backfill yoy_* reference fields if missing (cheap, read-only refs).
-      if (!existingProj.yoy_net_sales) {
-        const yoyDate = addDays(date, -364);
-        const { data: yoy } = await supabase
-          .from("sales_cache")
-          .select("net_sales, hourly_data")
-          .eq("location_id", locationId)
-          .eq("sale_date", yoyDate)
-          .maybeSingle();
-        if (yoy?.net_sales) {
-          await supabase.from("sales_cache").update({
-            yoy_sale_date: yoyDate,
-            yoy_net_sales: Number(yoy.net_sales),
-            yoy_hourly_data: yoy.hourly_data ?? null,
-          }).eq("location_id", locationId).eq("sale_date", date);
-        }
-      }
+      const { data: yoy } = await supabase.from("sales_cache").select("net_sales, hourly_data")
+        .eq("location_id", locationId).eq("sale_date", yoyDate).maybeSingle();
+      if (Number(yoy?.net_sales) > 0) await supabase.from("sales_cache").update({
+        yoy_sale_date: yoyDate, yoy_net_sales: Number(yoy.net_sales), yoy_hourly_data: yoy.hourly_data ?? null,
+      }).eq("location_id", locationId).eq("sale_date", date);
     }
-  } catch (e) {
-    console.warn(`[clover-sync] YOY seed skipped for ${date}:`, e);
-  }
+  } catch (e) { console.warn(`[clover-sync] YOY reference skipped for ${date}:`, e); }
 
   // ── Shared projection + pace engine (POS-agnostic) ─────────────────────
   // Only runs for "today" — historical days already have net_sales/hourly
@@ -667,116 +623,12 @@ async function syncOneDay(
         if (closeH != null) hoursClose = closeH;
       } catch {}
 
-      const hist = await fetchHistoricalDataFromCache(supabase, locationId, date);
-
-      // Weekly / monthly breakdowns from sales_cache for orchestrator inputs.
-      const [{ data: weekRows }, { data: monthRows }] = await Promise.all([
-        supabase.from("sales_cache")
-          .select("sale_date, net_sales")
-          .eq("location_id", locationId)
-          .gte("sale_date", (() => {
-            const d = new Date(date + "T12:00:00");
-            const dow = d.getDay();
-            const diff = dow === 0 ? 6 : dow - 1;
-            d.setDate(d.getDate() - diff);
-            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-          })())
-          .lte("sale_date", date),
-        supabase.from("sales_cache")
-          .select("sale_date, net_sales")
-          .eq("location_id", locationId)
-          .gte("sale_date", `${date.slice(0, 7)}-01`)
-          .lte("sale_date", date),
-      ]);
-
-      const weeklyBreakdown = (weekRows || []).map((r: any) => ({
-        date: r.sale_date, sales: Number(r.net_sales) || 0,
-      }));
-      const monthlyBreakdown = (monthRows || []).map((r: any) => ({
-        date: r.sale_date, sales: Number(r.net_sales) || 0,
-      }));
-      const weeklySales = weeklyBreakdown.reduce((s: number, r: { sales: number }) => s + r.sales, 0);
-      const monthlySales = monthlyBreakdown.reduce((s: number, r: { sales: number }) => s + r.sales, 0);
-
-      // Provisional daily projection to shape hourly curve, then run pace.
-      const provisionalDaily =
-        (hist.fourWeekAverage?.avgDailyByDayOfWeek.find(
-          (d) => d.dayOfWeek === new Date(date + "T12:00:00").getDay(),
-        )?.avgSales) ||
-        hist.lastYearData?.sameDay ||
-        agg.netSales ||
-        0;
-
-      const hourlyProjections = generateHourlyProjections(
-        agg.hourly,
-        hoursOpen,
-        hoursClose,
-        date,
-        locationId,
-        provisionalDaily,
-        hist.fourWeekHourlyPattern,
-        hist.lastYearData?.hourlyData,
-      );
-
-      const currentHour = getCurrentHourInTimezone(tz);
-      const currentMinutes = getCurrentMinutesInTimezone(tz);
-
-      const projections = generateProjections(
-        agg.netSales,
-        weeklySales,
-        monthlySales,
-        weeklyBreakdown,
-        monthlyBreakdown,
-        currentHour,
-        currentMinutes,
-        hoursOpen,
-        hoursClose,
-        date,
-        locationId,
-        hourlyProjections,
-        hist.lastYearData
-          ? {
-              sameDay: hist.lastYearData.sameDay,
-              sameWeek: hist.lastYearData.sameWeek,
-              sameMonth: hist.lastYearData.sameMonth,
-              weeklyBreakdown: hist.lastYearData.weeklyBreakdown,
-              yoyHourlyData: hist.lastYearData.hourlyData,
-            }
-          : undefined,
-        hist.fourWeekAverage,
-        hist.holidayContext,
-      );
-
-      // Persist: living_projection = today's target (refresh each sync),
-      // initial_projection = seed if empty, pace_adjusted_projection = live pace.
-      // Pace itself is written only by the shared computeAndSavePace below.
-      const paceUpdate: Record<string, any> = {};
-      if (projections.todayProjected > 0) {
-        paceUpdate.living_projection = projections.todayProjected;
-        // Only seed initial if missing (respect the "first projection wins" rule).
-        const { data: seedCheck } = await supabase
-          .from("sales_cache")
-          .select("initial_projection")
-          .eq("location_id", locationId)
-          .eq("sale_date", date)
-          .maybeSingle();
-        if (!seedCheck?.initial_projection || Number(seedCheck.initial_projection) <= 0) {
-          paceUpdate.initial_projection = projections.todayProjected;
-        }
-      }
-      if (Object.keys(paceUpdate).length) {
-        await supabase
-          .from("sales_cache")
-          .update(paceUpdate)
-          .eq("location_id", locationId)
-          .eq("sale_date", date);
-      }
-      await computeAndSavePace(supabase, { locationId, date, timezone: tz, openHour: hoursOpen, closeHour: hoursClose });
+      const pace = await computeAndSavePace(supabase, { locationId, date, timezone: tz, openHour: hoursOpen, closeHour: hoursClose });
 
       console.log(
         `[clover-sync] pace for ${locationId} ${date}: ` +
-        `actual=$${agg.netSales.toFixed(0)}, target=$${projections.todayProjected.toFixed(0)}, ` +
-        `pace=$${projections.todayPaceAdjusted}`,
+        `actual=$${agg.netSales.toFixed(0)}, target=$${(pace?.goal ?? 0).toFixed(0)}, ` +
+        `pace=$${pace?.day ?? 0}`,
       );
     }
   } catch (e) {

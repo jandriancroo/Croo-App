@@ -5,7 +5,7 @@ import { DateTime } from 'npm:luxon@3.7.2';
 import { authorizeCaller, authenticateCaller, requireAuthorizedCaller, requireInternalCaller } from '../_shared/callerAuth.ts';
 import { POS_SOURCES } from '../_shared/posSources.ts';
 import { getLocationTimezone, todayInTimezone, weekStartFor } from '../_shared/weekProjections.ts';
-import { addGoalDays, runGoalEngine } from '../_shared/goalEngine.ts';
+import { ensureLivingWeek, runGoalEngine } from '../_shared/goalEngine.ts';
 
 const corsHeaders = { ...sdkCorsHeaders, 'Access-Control-Allow-Headers': `${sdkCorsHeaders['Access-Control-Allow-Headers']}, x-cron-secret` };
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => DateTime.fromFormat(value, 'yyyy-MM-dd').isValid);
@@ -46,11 +46,7 @@ Deno.serve(async req => {
       if (weekStartFor(body.weekStart) !== body.weekStart || body.weekStart <= weekStartFor(T)) {
         return reply({ error: 'weekStart must be a future Monday' }, 400);
       }
-      const result = await runGoalEngine(supabase, body.locationId, {
-        T, tz, source: 'ensure', writePlanning: false, onlyNullLiving: true,
-        livingStart: body.weekStart > T ? body.weekStart : addGoalDays(T, 1),
-        horizonEnd: addGoalDays(body.weekStart, 6),
-      });
+      const result = await ensureLivingWeek(supabase, body.locationId, body.weekStart);
       return reply({ success: true, ...result });
     }
 

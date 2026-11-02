@@ -22,14 +22,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "npm:zod@3.23.8";
 import { requireInternalCaller } from "../_shared/callerAuth.ts";
 import { isToastRunner, TOAST_RUNNER_HEADER } from "../_shared/toastRunnerKey.ts";
-import {
-  computeAndSavePace,
-  fetchHistoricalDataFromCache,
-  generateHourlyProjections,
-  generateProjections,
-  getCurrentHourInTimezone,
-  getCurrentMinutesInTimezone,
-} from "../_shared/projections.ts";
+import { computeAndSavePace } from "../_shared/projections.ts";
 import { formatHourlyTo24 } from "../_shared/hourly.ts";
 import { pizzaCountFromMix } from "../_shared/productMix.ts";
 import { normToastName } from "../_shared/toastNames.ts";
@@ -176,7 +169,7 @@ async function ingestDay(supabase: any, day: z.infer<typeof DaySchema>) {
 
   const { data: existingMail } = await supabase
     .from("sales_cache")
-    .select("projected_sales, living_projection, override_projection, override_at, override_by, initial_projection, yoy_sale_date, yoy_net_sales, yoy_hourly_data, hourly_data")
+    .select("yoy_sale_date, yoy_net_sales, yoy_hourly_data, hourly_data")
     .eq("location_id", locationId)
     .eq("sale_date", date)
     .maybeSingle();
@@ -239,12 +232,10 @@ async function ingestDay(supabase: any, day: z.infer<typeof DaySchema>) {
       .eq("location_id", locationId).eq("sale_date", yoyDate).maybeSingle();
     const yoyNet = Number(yoy?.net_sales ?? 0);
     if (yoyNet > 0 && !existingMail?.yoy_net_sales) {
-      const hasProj = (existingMail?.living_projection ?? 0) > 0 || (existingMail?.initial_projection ?? 0) > 0 || (existingMail?.override_projection ?? 0) > 0;
       await supabase.from("sales_cache").update({
         yoy_sale_date: yoyDate,
         yoy_net_sales: yoyNet,
         yoy_hourly_data: yoy?.hourly_data ?? null,
-        ...(hasProj ? {} : { initial_projection: yoyNet, living_projection: yoyNet }),
       }).eq("location_id", locationId).eq("sale_date", date);
     }
   } catch (e) {
@@ -273,38 +264,6 @@ async function runPace(supabase: any, locationId: string, date: string, netSales
   const open = h(settings?.hours_open, 10);
   const close = h(settings?.hours_close, 22);
 
-  const hist = await fetchHistoricalDataFromCache(supabase, locationId, date);
-  const d = new Date(date + "T12:00:00Z");
-  const dow = d.getUTCDay();
-  const weekStart = addDays(date, -(dow === 0 ? 6 : dow - 1));
-  const [{ data: weekRows }, { data: monthRows }] = await Promise.all([
-    supabase.from("sales_cache").select("sale_date, net_sales").eq("location_id", locationId).gte("sale_date", weekStart).lte("sale_date", date),
-    supabase.from("sales_cache").select("sale_date, net_sales").eq("location_id", locationId).gte("sale_date", `${date.slice(0, 7)}-01`).lte("sale_date", date),
-  ]);
-  const wb = (weekRows || []).map((r: any) => ({ date: r.sale_date, sales: Number(r.net_sales) || 0 }));
-  const mb = (monthRows || []).map((r: any) => ({ date: r.sale_date, sales: Number(r.net_sales) || 0 }));
-  const provisional =
-    hist.fourWeekAverage?.avgDailyByDayOfWeek.find((x: any) => x.dayOfWeek === dow)?.avgSales ||
-    hist.lastYearData?.sameDay || netSales || 0;
-
-  const hourlyProj = generateHourlyProjections(hourly, open, close, date, locationId, provisional, hist.fourWeekHourlyPattern, hist.lastYearData?.hourlyData);
-  const proj = generateProjections(
-    netSales, wb.reduce((s: number, r: any) => s + r.sales, 0), mb.reduce((s: number, r: any) => s + r.sales, 0),
-    wb, mb, getCurrentHourInTimezone(tz), getCurrentMinutesInTimezone(tz), open, close, date, locationId, hourlyProj,
-    hist.lastYearData ? {
-      sameDay: hist.lastYearData.sameDay, sameWeek: hist.lastYearData.sameWeek, sameMonth: hist.lastYearData.sameMonth,
-      weeklyBreakdown: hist.lastYearData.weeklyBreakdown, yoyHourlyData: hist.lastYearData.hourlyData,
-    } : undefined,
-    hist.fourWeekAverage, hist.holidayContext,
-  );
-
-  if (proj.todayProjected > 0) {
-    const { data: seed } = await supabase.from("sales_cache").select("initial_projection").eq("location_id", locationId).eq("sale_date", date).maybeSingle();
-    await supabase.from("sales_cache").update({
-      living_projection: proj.todayProjected,
-      ...(!(Number(seed?.initial_projection) > 0) ? { initial_projection: proj.todayProjected } : {}),
-    }).eq("location_id", locationId).eq("sale_date", date);
-  }
   await computeAndSavePace(supabase, { locationId, date, timezone: tz, openHour: open, closeHour: close });
 }
 

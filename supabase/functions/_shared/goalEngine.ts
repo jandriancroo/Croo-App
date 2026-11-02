@@ -172,3 +172,16 @@ export async function dailyGoalFromCache(supabase: any, locationId: string, targ
   const history = await loadGoalHistory(supabase, locationId, T, [targetDate]);
   return goalForDate(targetDate, locationId, history);
 }
+
+export async function ensureLivingWeek(supabase: any, locationId: string, weekStart: string) {
+  localDate(weekStart);
+  const tz = await getLocationTimezone(supabase, locationId);
+  const T = todayInTimezone(tz);
+  if (weekStartFor(weekStart) !== weekStart || weekStart <= weekStartFor(T)) {
+    throw new Error('weekStart must be a future Monday');
+  }
+  return runGoalEngine(supabase, locationId, {
+    T, tz, source: 'ensure', writePlanning: false, onlyNullLiving: true,
+    livingStart: weekStart, horizonEnd: addGoalDays(weekStart, 6),
+  });
+}

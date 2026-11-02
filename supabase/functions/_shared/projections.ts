@@ -5,6 +5,7 @@
 //
 // Rule: no adapter reimplements projection or pace math. Call the functions
 // exported here; supply raw sales inputs only.
+import { resolveStoredGoal } from './storedGoal.ts';
 
 export interface HolidayInfo {
   name: string;
@@ -639,11 +640,7 @@ const PACE_DEFAULT_PATTERN: Record<number, number> = {
 };
 
 function goalOf(r: any): number {
-  for (const k of ['override_projection', 'living_projection', 'initial_projection', 'projected_sales']) {
-    const v = Number(r?.[k]);
-    if (v && v !== 0) return v;
-  }
-  return 0;
+  return resolveStoredGoal(r);
 }
 
 export function normalizeHourlyCurve(
@@ -694,8 +691,7 @@ export async function computeAndSavePace(
     .eq('location_id', locationId).eq('sale_date', date).maybeSingle();
   if (!row) return null;
 
-  const { data: goalRpc } = await supabase.rpc('resolve_goal', { _location_id: locationId, _date: date });
-  const goal = Number(goalRpc) || goalOf(row);
+  const goal = goalOf(row);
   if (!goal) return null;
 
   const net = Number(row.net_sales) || 0;

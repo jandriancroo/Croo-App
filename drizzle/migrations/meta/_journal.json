@@ -554,6 +554,13 @@
       "when": 1793594046895,
       "tag": "0078_goal_engine_hourly_tick",
       "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1793594647403,
+      "tag": "0079_daily_goal_planning_insert_once",
+      "breakpoints": true
     }
   ]
 }
