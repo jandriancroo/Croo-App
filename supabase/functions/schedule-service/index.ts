@@ -621,7 +621,7 @@ async function handleOptimizeLabor(req: Request, supabase: any, blendedRate: num
   // Daily stored goals are shared with the dashboard; templates only supply staffing.
   const dailySettings: Record<number, { laborTarget: number; projectedSales: number }> = {};
   const dailySales: Record<number, number> = {};
-  const start = DateTime.fromFormat(week_start_date, 'yyyy-MM-dd', { zone: 'America/Los_Angeles' });
+  const start = DateTime.fromFormat(week_start, 'yyyy-MM-dd', { zone: 'America/Los_Angeles' });
   const { data: goalRows, error: goalError } = await supabase.from('sales_cache')
     .select('sale_date, override_projection, living_projection, initial_projection')
     .eq('location_id', location_id).gte('sale_date', start.toFormat('yyyy-MM-dd'))

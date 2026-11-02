@@ -568,6 +568,13 @@
       "when": 1793595904442,
       "tag": "0080_daily_goal_legacy_backfill_and_resolver",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1793595982562,
+      "tag": "0081_daily_goal_past_living_freeze",
+      "breakpoints": true
     }
   ]
 }
