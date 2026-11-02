@@ -575,6 +575,13 @@
       "when": 1793595982562,
       "tag": "0081_daily_goal_past_living_freeze",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1793597207693,
+      "tag": "0082_daily_goal_atomic_cutover",
+      "breakpoints": true
     }
   ]
 }
