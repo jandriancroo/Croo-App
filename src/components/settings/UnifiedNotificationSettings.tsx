@@ -15,6 +15,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { getVapidPublicKey, ensureSubscriptionForKey } from '@/utils/pushVapid';
 import { defaultEmailEnabled } from '@/lib/notificationDefaults';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface NotificationSetting {
   notification_type: string;
@@ -57,6 +59,8 @@ export const UnifiedNotificationSettings = () => {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
   const [isEnabling, setIsEnabling] = useState(false);
   const [amCutoff, setAmCutoff] = useState<string>('16:00');
+  const [ncnsMinutes, setNcnsMinutes] = useState(30);
+  const [savingNcns, setSavingNcns] = useState(false);
 
   const isManagerOrAbove = isShiftManager || isManager || isGeneralManager || isAdmin;
   const canSeeHiring = isGeneralManager || isManager || isAdmin;
@@ -94,12 +98,13 @@ export const UnifiedNotificationSettings = () => {
       // Fetch AM cutoff for this location
       const { data: locSettings } = await (supabase as any)
         .from('location_settings')
-        .select('day_part_am_cutoff')
+        .select('day_part_am_cutoff,ncns_alert_minutes')
         .eq('location_id', selectedLocationId)
         .maybeSingle();
       if (locSettings?.day_part_am_cutoff) {
         setAmCutoff(String(locSettings.day_part_am_cutoff).slice(0, 5));
       }
+      setNcnsMinutes(locSettings?.ncns_alert_minutes ?? 30);
 
       // Build settings with defaults for this location
       const allSettings: NotificationSetting[] = NOTIFICATION_TYPES.map(nt => {
@@ -132,6 +137,15 @@ export const UnifiedNotificationSettings = () => {
     if (error) {
       toast({ title: 'Error', description: 'Failed to update AM cutoff', variant: 'destructive' });
     }
+  };
+
+  const saveNcns = async () => {
+    if (!selectedLocationId || !isManagerOrAbove || !Number.isInteger(ncnsMinutes) || ncnsMinutes < 0) return;
+    setSavingNcns(true);
+    const { error } = await supabase.from('location_settings')
+      .upsert({ location_id: selectedLocationId, ncns_alert_minutes: ncnsMinutes }, { onConflict: 'location_id' });
+    setSavingNcns(false);
+    toast({ title: error ? 'Error' : 'Saved', description: error ? 'Could not save no-call/no-show timing.' : 'No-call/no-show timing saved.', ...(error ? { variant: 'destructive' as const } : {}) });
   };
 
   const enableNotifications = async () => {
@@ -422,6 +436,7 @@ export const UnifiedNotificationSettings = () => {
               {NOTIFICATION_TYPES.filter(nt => nt.category === 'general').map(nt => {
                 const setting = getSetting(nt.key, selectedLocationId);
                 return (
+                  <div key={nt.key}>
                   <div
                     key={nt.key}
                     className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50"
@@ -457,6 +472,17 @@ export const UnifiedNotificationSettings = () => {
                         }
                       />
                     </div>
+                  </div>
+                  {nt.key === 'late_arrivals' && isManagerOrAbove && (
+                    <div className="space-y-2 px-1 pb-3">
+                      <Label htmlFor="ncns-minutes" className="text-xs">No-call/no-show alert after minutes (0 = off)</Label>
+                      <div className="flex items-center gap-2">
+                        <Input id="ncns-minutes" type="number" min={0} step={1} value={ncnsMinutes}
+                          onChange={e => setNcnsMinutes(Number(e.target.value))} className="w-24" />
+                        <Button variant="outline" size="sm" onClick={saveNcns} disabled={savingNcns || !Number.isInteger(ncnsMinutes) || ncnsMinutes < 0}>{savingNcns ? 'Saving…' : 'Save'}</Button>
+                      </div>
+                    </div>
+                  )}
                   </div>
                 );
               })}

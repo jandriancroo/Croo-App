@@ -425,6 +425,7 @@ export const KNOWN_NOTIFICATION_TYPES = [
   'logbook_entry', 'drawer_count', 'safe_count', 'waste_log', 'catering_order',
   'task_assigned', 'quick_task', 'test', 'overdue_checklists', 'overdue_checklist',
   'late_arrivals', 'late_arrival', 'no_call_no_show', 'monthly_checklist', 'certificate_expiry',
+  'late_arrival_self', 'no_call_no_show_self', 'cert_expiring_self',
   'certification_expiring', 'arcade_scores', 'new_job_application', 'alarm_task',
   'alarm', 'quick_nudge', 'shift_reminders', 'schedule_published', 'schedule_approval',
   'shift_offer', 'shift_overstay', 'toast_late_clock_in', 'toast_no_clock_out',
