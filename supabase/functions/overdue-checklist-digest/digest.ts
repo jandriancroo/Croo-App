@@ -84,7 +84,7 @@ async function overdueAt(client: any, loc: Row, window: ReturnType<typeof closeW
   return result;
 }
 
-export async function runDigest(client: any, now = DateTime.now(), dryRun = false) {
+export async function runDigest(client: any, now: DateTime = DateTime.now(), dryRun = false) {
   const counts = { locations_checked:0, eligible:0, queued:0 };
   const locations = await rows(client.from('locations').select('id,name,organization_id').eq('is_active',true));
   const settings = await rows(client.from('location_settings').select('location_id,timezone,hours_close'));
