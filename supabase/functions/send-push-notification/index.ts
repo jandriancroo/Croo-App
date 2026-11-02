@@ -443,9 +443,9 @@ const USER_TYPES = new Set<string>([
   'task_assigned', 'quick_task', 'test',
 ]);
 const MANAGER_TYPES = new Set<string>([
-  'announcements', 'schedule_updates', 'shift_approvals', 'logbook_entry',
-  'drawer_count', 'safe_count', 'waste_log', 'catering_order', 'task_assigned', 'quick_task',
+  'announcements', 'schedule_updates', 'shift_approvals', 'task_assigned', 'quick_task',
 ]);
+const STORE_ALERT_TYPES = new Set<string>(['logbook_entry', 'drawer_count', 'safe_count', 'waste_log', 'catering_order']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const managerRoles = new Set(['shift_manager', 'shift_manager_in_training', 'scheduling_manager',
   'manager', 'general_manager', 'admin', 'org_admin', 'fbc', 'brand_admin', 'super_admin']);
@@ -466,6 +466,7 @@ export interface HandlerDependencies {
   clockedIn?: (client: any, location: string) => Promise<string[]>;
   // In-memory test transport only; never selected by a request body/flag.
   deliver?: (ids: string[], content: { title: string; body: string }, data: Record<string, unknown>) => Promise<Response>;
+  deliverApplicant?: (thread: string, content: { title: string; body: string }) => Promise<Response>;
   throttle?: (chatId: string) => boolean;
   rejectLog?: (line: string) => void;
 }
@@ -482,8 +483,11 @@ return async (req: Request): Promise<Response> => {
   };
   try {
     const auth = await (deps.authenticate ? deps.authenticate(req) : requireCaller(req, corsHeaders));
-    if ('response' in auth) return reject('authentication', 'Unauthorized', 401);
-    caller = auth.caller;
+    const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+    // Only the configured anon gateway key may reach the separate applicant verifier.
+    const applicantGateway = 'response' in auth && !!Deno.env.get('SUPABASE_ANON_KEY') && bearer === Deno.env.get('SUPABASE_ANON_KEY');
+    if ('response' in auth && !applicantGateway) return reject('authentication', 'Unauthorized', 401);
+    if ('caller' in auth) caller = auth.caller;
     let input: any;
     try { input = await req.json(); } catch { return reject('invalid_body'); }
     if (!input || typeof input !== 'object' || Array.isArray(input)) return reject('invalid_body');
@@ -492,22 +496,70 @@ return async (req: Request): Promise<Response> => {
     loggedType = typeof notification_type === 'string' && (KNOWN_NOTIFICATION_TYPES as readonly string[]).includes(notification_type) ? notification_type : 'unknown';
     loggedLocation = typeof input.location_id === 'string' && UUID.test(input.location_id) ? input.location_id : 'none';
     if (loggedType === 'unknown') return reject('unknown_type', 'Unknown notification type');
-    if (caller.kind === 'user' && !USER_TYPES.has(notification_type)) return reject('user_type_not_allowed');
     if (typeof input.title !== 'string' || typeof input.body !== 'string' ||
         (input.user_ids !== undefined && (!Array.isArray(input.user_ids) || input.user_ids.length > 2000 || input.user_ids.some((id: unknown) => typeof id !== 'string' || !UUID.test(id)))) ||
         (input.roles !== undefined && (!Array.isArray(input.roles) || input.roles.length > 30 || input.roles.some((r: unknown) => typeof r !== 'string' || !/^[a-z_]{1,40}$/.test(r)))) ||
         (input.location_id !== undefined && (typeof input.location_id !== 'string' || !UUID.test(input.location_id)))) return reject('invalid_body');
     const supabaseClient = deps.client ? deps.client() : createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
-    const roles: string[] = input.roles ?? [];
-    const providedUserIds: string[] = input.user_ids ?? [];
+    let roles: string[] = input.roles ?? [];
+    let providedUserIds: string[] = input.user_ids ?? [];
     let location_id: string | undefined = input.location_id;
     // Explicitly discard html/subject/email_* both at the top level and in data.
     const data: Record<string, any> = input.data && typeof input.data === 'object' && !Array.isArray(input.data)
-      ? Object.fromEntries(Object.entries(input.data).filter(([key]) => !/^(?:html|subject|email_)/i.test(key))) : {};
+      ? Object.fromEntries(Object.entries(input.data).filter(([key]) => !/^(?:html|subject|email_|applicant_token|access_token|token$)/i.test(key))) : {};
+    let applicantThread: any = null;
+    let applicantSelf = false;
+    if (applicantGateway) {
+      const token = input.applicant_token;
+      if (typeof token !== 'string' || !token.trim() || token.length > 200) return reject('applicant_token', 'Unauthorized', 401);
+      const verified = await supabaseClient.rpc('applicant_get_hiring_chat', { _token: token });
+      if (verified.error || !verified.data?.id) return reject('applicant_token', 'Unauthorized', 401);
+      applicantThread = verified.data;
+      if (notification_type !== 'chat_messages' || data.type !== 'hiring_message' || data.conversation_id !== applicantThread.id ||
+          (location_id && location_id !== applicantThread.location_id) || data.chat_id || data.chatId) return reject('applicant_thread');
+      location_id = applicantThread.location_id;
+      loggedLocation = location_id ?? 'none';
+      if (!location_id || !UUID.test(location_id)) return reject('applicant_store');
+      // Same manager audience as the existing hiring caller; never accept arbitrary roles.
+      const hiringRoles = ['admin', 'manager', 'general_manager'];
+      if (roles.some(role => !hiringRoles.includes(role))) return reject('applicant_roles');
+      const assigned = await supabaseClient.from('user_locations').select('user_id').eq('location_id', location_id);
+      if (assigned.error) return reject('applicant_participants');
+      const managers = await supabaseClient.from('user_roles').select('user_id').in('role', hiringRoles)
+        .in('user_id', (assigned.data ?? []).map((r: any) => r.user_id));
+      if (managers.error) return reject('applicant_participants');
+      const allowed = new Set<string>((managers.data ?? []).map((r: any) => r.user_id));
+      if (providedUserIds.some(id => !allowed.has(id))) return reject('applicant_target');
+      if (data.target !== undefined && data.target !== 'applicant') return reject('applicant_target');
+      applicantSelf = data.target === 'applicant';
+      if (applicantSelf && (roles.length || providedUserIds.length)) return reject('applicant_target');
+      // Resolve targets server-side, independent of the caller's role list.
+      providedUserIds = [...allowed];
+      roles = [];
+      for (const id of providedUserIds) {
+        const access = await supabaseClient.rpc('has_location_access', { _user_id: id, _location_id: location_id });
+        if (access.error || access.data !== true) return reject('applicant_target_store');
+      }
+      const messages = Array.isArray(applicantThread.messages) ? applicantThread.messages : [];
+      const message = messages.filter((m: any) => m.sender_type === 'applicant').at(-1);
+      if (!message || typeof message.content !== 'string') return reject('applicant_message');
+      input.title = 'Hiring chat';
+      input.body = plainPushText(message.content, 200);
+      for (const key of Object.keys(data)) delete data[key];
+      Object.assign(data, { type: 'hiring_message', conversation_id: applicantThread.id });
+    }
+    const diagnostic = caller?.kind === 'user' && ((data.type === 'test' && notification_type !== 'test') || data.chat_id === 'diagnostic-test');
+    if (diagnostic && caller?.kind === 'user') {
+      const admin = await supabaseClient.from('user_roles').select('role').eq('user_id', caller.userId).in('role', ['admin', 'super_admin']);
+      if (admin.error || !(admin.data ?? []).length) return reject('diagnostic_admin');
+      if (roles.length || providedUserIds.length !== 1 || providedUserIds[0] !== caller.userId) return reject('diagnostic_self_only');
+      if (data.chat_id === 'diagnostic-test') delete data.chat_id;
+    }
+    if (caller?.kind === 'user' && !USER_TYPES.has(notification_type) && !diagnostic) return reject('user_type_not_allowed');
     const badge_count = typeof input.badge_count === 'number' ? input.badge_count : undefined;
-    const sender_id = caller.kind === 'user' ? (notification_type === 'test' ? undefined : caller.userId) : input.sender_id;
-    const title = caller.kind === 'user' ? plainPushText(input.title, 80) : input.title;
-    const body = caller.kind === 'user' ? plainPushText(input.body, 200) : input.body;
+    const sender_id = applicantThread ? undefined : caller?.kind === 'user' ? (notification_type === 'test' || diagnostic ? undefined : caller.userId) : input.sender_id;
+    const title = caller?.kind === 'service' ? input.title : plainPushText(input.title, 80);
+    const body = caller?.kind === 'service' ? input.body : plainPushText(input.body, 200);
     const rpcBool = async (name: string, args: Record<string, unknown>) => {
       const result = await supabaseClient.rpc(name, args);
       if (result.error) throw new Error('authorization_lookup');
@@ -523,7 +575,7 @@ return async (req: Request): Promise<Response> => {
     const chatId = data.chat_id ?? data.chatId;
     let supportTicket: any = null;
     let hiringLocation: string | undefined;
-    if (caller.kind === 'user') {
+    if (caller?.kind === 'user') {
       if (notification_type === 'chat_messages' && chatId !== undefined) {
         if (typeof chatId !== 'string' || !UUID.test(chatId)) return reject('invalid_chat');
         data.chat_id = chatId;
@@ -544,12 +596,12 @@ return async (req: Request): Promise<Response> => {
         if (data.schedule_id) location_id = (await row('schedules', 'location_id', data.schedule_id)).location_id;
         else if (data.post_id || data.postId) location_id = (await row('announcement_posts', 'location_id', data.post_id ?? data.postId)).location_id;
         else if (chatId) location_id = (await row('chats', 'location_id', chatId)).location_id;
-        else if (notification_type === 'test' && providedUserIds.length === 1 && providedUserIds[0] === caller.userId && roles.length === 0)
+        else if ((notification_type === 'test' || diagnostic) && providedUserIds.length === 1 && providedUserIds[0] === caller.userId && roles.length === 0)
           location_id = (await row('profiles', 'default_location_id', caller.userId)).default_location_id;
       }
       loggedLocation = location_id ?? 'none';
       if (!location_id && !supportTicket && !(notification_type === 'chat_messages' && chatId)) return reject('location_required');
-      if (MANAGER_TYPES.has(notification_type)) {
+      if (MANAGER_TYPES.has(notification_type) && !diagnostic) {
         if (!await locationAccess(caller.userId)) return reject('caller_store_access');
         const result = await supabaseClient.rpc('get_user_role', { _user_id: caller.userId });
         if (result.error || !managerRoles.has(result.data)) return reject('manager_required');
@@ -565,14 +617,14 @@ return async (req: Request): Promise<Response> => {
         const ids = (assigned.data ?? []).map((r: any) => r.user_id);
         if (ids.length) query = query.in('user_id', ids);
         else query = query.in('user_id', []);
-      } else if (caller.kind === 'user') return reject('role_location_required');
+      } else if (caller?.kind === 'user') return reject('role_location_required');
       const expanded = await query;
       if (expanded.error) return reject('role_lookup');
       const ids = (expanded.data ?? []).map((r: any) => r.user_id);
-      user_ids = caller.kind === 'service' ? ids : [...user_ids, ...ids];
+      user_ids = caller?.kind === 'service' ? ids : [...user_ids, ...ids];
     }
     user_ids = [...new Set(user_ids)];
-    if (caller.kind === 'user') {
+    if (caller?.kind === 'user') {
       if (notification_type === 'test' && (roles.length || user_ids.length !== 1 || user_ids[0] !== caller.userId)) return reject('test_self_only');
       if (supportTicket) {
         const isSupportAdmin = async (id: string) => {
@@ -593,9 +645,16 @@ return async (req: Request): Promise<Response> => {
         if (!await locationAccess(caller.userId)) return reject('caller_store_access');
         for (const target of user_ids) if (!await locationAccess(target)) return reject('target_store_access');
       }
+      if (STORE_ALERT_TYPES.has(notification_type) && !diagnostic) {
+        for (const target of user_ids) {
+          if (!await locationAccess(target)) return reject('target_store_access');
+          const role = await supabaseClient.rpc('get_user_role', { _user_id: target });
+          if (role.error || !managerRoles.has(role.data)) return reject('store_manager_target_required');
+        }
+      }
     }
     // Existing service delivery scoping stays unchanged; user scoping above never drops targets.
-    if (caller.kind === 'service' && location_id && user_ids.length) {
+    if (caller?.kind === 'service' && location_id && user_ids.length) {
       const assigned = await supabaseClient.from('user_locations').select('user_id').eq('location_id', location_id).in('user_id', user_ids);
       if (!assigned.error) {
         const allowed = new Set((assigned.data ?? []).map((r: any) => r.user_id));
@@ -603,11 +662,31 @@ return async (req: Request): Promise<Response> => {
       }
     }
     if (sender_id) user_ids = user_ids.filter(id => id !== sender_id);
+    if (applicantSelf) {
+      // Applicant subscriptions have no auth user ID: scope directly to the verified thread.
+      const content = { title: '💬 Hiring chat', body };
+      if (deps.deliverApplicant) return await deps.deliverApplicant(applicantThread.id, content);
+      const subscriptions = await supabaseClient.from('applicant_push_subscriptions').select('subscription_data').eq('conversation_id', applicantThread.id);
+      if (subscriptions.error) return reject('applicant_subscriptions');
+      const publicKey = Deno.env.get('VAPID_PUBLIC_KEY');
+      const privateKey = Deno.env.get('VAPID_PRIVATE_KEY');
+      if (!publicKey || !privateKey) return reject('applicant_delivery_config');
+      let successful = 0;
+      let failed = 0;
+      for (const sub of subscriptions.data ?? []) {
+        try {
+          const response = await sendWebPushNotification(JSON.parse(sub.subscription_data), JSON.stringify({ ...content, data }), publicKey, privateKey);
+          await response.text();
+          if (response.ok) successful++; else failed++;
+        } catch { failed++; }
+      }
+      return json({ successful, failed });
+    }
     if (!user_ids.length) return json({ message: 'No users found for notification' });
     // Authorization precedes throttle so unauthorized calls cannot silence a chat.
     if (notification_type === 'chat_messages' && data.chat_id && (deps.throttle ?? isChatThrottled)(data.chat_id)) return json({ message: 'Throttled - chat push sent recently' });
     const formattedContent = formatNotificationContent(notification_type, title, body);
-    if (caller.kind === 'user') formattedContent.title = plainPushText(formattedContent.title, 80);
+    if (caller?.kind !== 'service') formattedContent.title = plainPushText(formattedContent.title, 80);
     const notificationSound = getNotificationSound(notification_type);
 
     // Get user roles for all requested users

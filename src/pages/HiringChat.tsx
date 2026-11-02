@@ -301,7 +301,10 @@ export default function HiringChat() {
 
         if (application?.location_id) {
           supabase.functions.invoke('send-push-notification', {
+            // Applicant link token is checked server-side; the anon key only passes the JWT gateway.
+            headers: { Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
             body: {
+              applicant_token: token,
               roles: ['admin', 'manager', 'general_manager'],
               location_id: application.location_id,
               title: `${conversation.application.full_name}`,
