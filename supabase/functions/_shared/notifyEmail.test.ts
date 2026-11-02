@@ -38,10 +38,14 @@ function fixture() {
   const setting=(enabled:boolean,type='announcements')=>rows.user_notification_settings.push({user_id:USER,location_id:STORE,notification_type:type,email_enabled:enabled});
   return {rows,input,setting,run:()=>notifyEmail(client,input),setNow:(n:number)=>{now=n;}};
 }
-for(const [type,data] of [['schedule_published',{schedule_id:REF}],['shift_offer',{offer_id:REF}],['announcements',{post_id:REF}]] as const) Deno.test(`${type}: no token fallback correct dedup, repeat suppressed`,async()=>{
+for(const [type,data] of [['schedule_updates',{schedule_id:REF}],['shift_offer',{offer_id:REF}],['announcements',{post_id:REF}]] as const) Deno.test(`${type}: no token fallback correct dedup, repeat suppressed`,async()=>{
   const f=fixture();f.input.notification_type=type;f.input.data=data;
   assertEquals(await f.run(),{emailed:1,emailed_fallback:1});assertEquals(f.rows.email_queue[0].dedup_key,`${type}:${REF}:version1:${USER}`);
   assertEquals(await f.run(),{emailed:0,emailed_fallback:0});assertEquals(f.rows.email_queue.length,1);
+});
+Deno.test('schedule_published exclusively uses weekly email path; no generic duplicate',async()=>{
+ const f=fixture();f.input.notification_type='schedule_published';f.input.data={schedule_id:REF};
+ assertEquals((await f.run()).emailed,0);assertEquals(f.rows.email_queue.length,0);
 });
 Deno.test('announcement registered push + email OFF only push; ON adds email',async()=>{
   const f=fixture();f.input.tokenUsers.add(USER);f.setting(false);assertEquals((await f.run()).emailed,0);

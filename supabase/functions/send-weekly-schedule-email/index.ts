@@ -3,13 +3,14 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { requireCaller } from "../_shared/callerAuth.ts";
 import { renderEmailHeader, resolveEmailLogo } from "../_shared/emailHeader.ts";
+import { deliverableEmail, suppressedEmailSet } from '../_shared/emailRecipients.ts';
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 async function queueEmail(opts: { from: string; to: string[]; subject: string; html: string; source: string; dedupKey?: string }) {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const { error } = await supabase.from('email_queue').insert({
+  const { error } = await supabase.from('email_queue').upsert({
     from_address: opts.from,
     to_addresses: opts.to,
     subject: opts.subject,
@@ -17,12 +18,12 @@ async function queueEmail(opts: { from: string; to: string[]; subject: string; h
     source: opts.source,
     dedup_key: opts.dedupKey || null,
     metadata: {},
-  });
+  }, { onConflict: 'dedup_key', ignoreDuplicates: true });
   if (error) {
     console.error(`[schedule-email] Queue insert failed:`, error);
     throw error;
   }
-  console.log(`[schedule-email] Queued → ${opts.to.join(', ')}`);
+  console.log('[schedule-email] Queued');
 }
 
 const corsHeaders = {
@@ -54,12 +55,13 @@ function formatTime12h(time24: string): string {
   return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
 }
 
-serve(async (req) => {
+export function createHandler(deps: { client?: () => any; authenticate?: typeof requireCaller; queue?: typeof queueEmail } = {}) {
+return async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const auth = await requireCaller(req, corsHeaders);
+  const auth = await (deps.authenticate ?? requireCaller)(req, corsHeaders);
   if ("response" in auth) return auth.response;
 
   try {
@@ -157,7 +159,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "schedule_id and location_id required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = deps.client ? deps.client() : createClient(supabaseUrl, supabaseServiceKey);
 
     // Get schedule info
     const { data: schedule } = await supabase
@@ -204,22 +206,15 @@ serve(async (req) => {
     const userIds = Array.from(shiftsByUser.keys());
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, full_name, email")
+      .select("id, full_name, email, is_active")
       .in("id", userIds);
 
     if (!profiles) {
       return new Response(JSON.stringify({ success: true, message: "No profiles found" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Check notification preferences
-    const { data: notifSettings } = await supabase
-      .from("user_notification_settings")
-      .select("user_id, push_enabled")
-      .eq("location_id", location_id)
-      .eq("notification_type", "schedule_updates")
-      .eq("push_enabled", false);
-
-    const optedOutUsers = new Set((notifSettings || []).map(s => s.user_id));
+    // A published weekly schedule is always emailed, independent of push/email toggles.
+    const blockedEmails = await suppressedEmailSet(supabase);
 
     // Format week dates for subject
     const startDate = new Date(schedule.week_start_date + 'T12:00:00');
@@ -229,7 +224,8 @@ serve(async (req) => {
     let sentCount = 0;
 
     for (const profile of profiles) {
-      if (!profile.email || optedOutUsers.has(profile.id)) continue;
+      const email = deliverableEmail(profile, blockedEmails);
+      if (!email) continue;
 
       const userShifts = shiftsByUser.get(profile.id) || [];
       if (userShifts.length === 0) continue;
@@ -276,9 +272,9 @@ serve(async (req) => {
       `);
 
       try {
-        await queueEmail({
+        await (deps.queue ?? queueEmail)({
           from: "CrooHQ <hello@croohq.email>",
-          to: [profile.email],
+          to: [email],
           subject: `Schedule Published: ${weekLabel} - ${locationName}`,
           html: emailHtml,
           source: "schedule_published",
@@ -286,7 +282,7 @@ serve(async (req) => {
         });
         sentCount++;
       } catch (e) {
-        console.error(`[schedule-email] Failed for ${profile.email}:`, e);
+        console.error('[schedule-email] Queue failed');
       }
     }
 
@@ -296,4 +292,7 @@ serve(async (req) => {
     console.error("[send-weekly-schedule-email] Error:", error);
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
-});
+};
+}
+export const handler = createHandler();
+if (import.meta.main) serve(handler);

@@ -172,3 +172,6 @@ verify_jwt = true
 
 [functions.toast-status]
 verify_jwt = false
+
+[functions.overdue-checklist-digest]
+verify_jwt = true
