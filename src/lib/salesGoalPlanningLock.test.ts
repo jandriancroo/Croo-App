@@ -67,3 +67,27 @@ describe('Past Living freeze', () => {
     } finally { await db.close(); }
   }, 20000);
 });
+
+describe('Legacy backfill safety', () => {
+  it('backs up every legacy row, fills only double-null gaps, clears legacy and preserves monthly totals', async () => {
+    const db = await setup();
+    try {
+      await db.exec(`CREATE ROLE service_role; CREATE ROLE anon; CREATE ROLE authenticated;
+        CREATE TABLE schedule_projected_sales(id int);
+        CREATE FUNCTION _schedule_week_labor_check(uuid) RETURNS jsonb LANGUAGE sql AS $$ SELECT '{}'::jsonb $$;
+        INSERT INTO sales_cache(id,location_id,sale_date,projected_sales,initial_projection,living_projection,override_projection) VALUES
+          (1,'00000000-0000-0000-0000-000000000001','2026-11-02',100,NULL,NULL,NULL),
+          (2,'00000000-0000-0000-0000-000000000001','2026-11-03',900,200,NULL,NULL),
+          (3,'00000000-0000-0000-0000-000000000001','2026-11-04',900,200,300,NULL),
+          (4,'00000000-0000-0000-0000-000000000001','2026-11-05',900,200,300,400);
+        BEGIN;`);
+      await db.exec(readFileSync('drizzle/migrations/0080_daily_goal_legacy_backfill_and_resolver.sql', 'utf8'));
+      await db.exec('COMMIT');
+      expect((await db.query('SELECT count(*)::int AS n FROM sales_goal_legacy_backup_20261101')).rows[0]).toEqual({n:4});
+      expect((await db.query('SELECT initial_projection,living_projection,projected_sales FROM sales_cache WHERE id=1')).rows[0]).toEqual({initial_projection:'100',living_projection:null,projected_sales:null});
+      expect((await db.query('SELECT initial_projection,living_projection FROM sales_cache WHERE id=2')).rows[0]).toEqual({initial_projection:'200',living_projection:null});
+      expect((await db.query('SELECT sum(coalesce(nullif(override_projection,0),living_projection,initial_projection,0)) AS total FROM sales_cache')).rows[0]).toEqual({total:'1000'});
+      expect((await db.query('SELECT count(*)::int AS n FROM sales_cache WHERE projected_sales IS NOT NULL')).rows[0]).toEqual({n:0});
+    } finally { await db.close(); }
+  }, 20000);
+});
