@@ -466,6 +466,7 @@ export interface HandlerDependencies {
   clockedIn?: (client: any, location: string) => Promise<string[]>;
   // In-memory test transport only; never selected by a request body/flag.
   deliver?: (ids: string[], content: { title: string; body: string }, data: Record<string, unknown>) => Promise<Response>;
+  deliverApplicant?: (thread: string, content: { title: string; body: string }) => Promise<Response>;
   throttle?: (chatId: string) => boolean;
   rejectLog?: (line: string) => void;
 }
@@ -507,6 +508,7 @@ return async (req: Request): Promise<Response> => {
     const data: Record<string, any> = input.data && typeof input.data === 'object' && !Array.isArray(input.data)
       ? Object.fromEntries(Object.entries(input.data).filter(([key]) => !/^(?:html|subject|email_|applicant_token|access_token|token$)/i.test(key))) : {};
     let applicantThread: any = null;
+    let applicantSelf = false;
     if (applicantGateway) {
       const token = input.applicant_token;
       if (typeof token !== 'string' || !token.trim() || token.length > 200) return reject('applicant_token', 'Unauthorized', 401);
@@ -528,6 +530,9 @@ return async (req: Request): Promise<Response> => {
       if (managers.error) return reject('applicant_participants');
       const allowed = new Set<string>((managers.data ?? []).map((r: any) => r.user_id));
       if (providedUserIds.some(id => !allowed.has(id))) return reject('applicant_target');
+      if (data.target !== undefined && data.target !== 'applicant') return reject('applicant_target');
+      applicantSelf = data.target === 'applicant';
+      if (applicantSelf && (roles.length || providedUserIds.length)) return reject('applicant_target');
       // Resolve targets server-side, independent of the caller's role list.
       providedUserIds = [...allowed];
       roles = [];
@@ -657,6 +662,26 @@ return async (req: Request): Promise<Response> => {
       }
     }
     if (sender_id) user_ids = user_ids.filter(id => id !== sender_id);
+    if (applicantSelf) {
+      // Applicant subscriptions have no auth user ID: scope directly to the verified thread.
+      const content = { title: '💬 Hiring chat', body };
+      if (deps.deliverApplicant) return await deps.deliverApplicant(applicantThread.id, content);
+      const subscriptions = await supabaseClient.from('applicant_push_subscriptions').select('subscription_data').eq('conversation_id', applicantThread.id);
+      if (subscriptions.error) return reject('applicant_subscriptions');
+      const publicKey = Deno.env.get('VAPID_PUBLIC_KEY');
+      const privateKey = Deno.env.get('VAPID_PRIVATE_KEY');
+      if (!publicKey || !privateKey) return reject('applicant_delivery_config');
+      let successful = 0;
+      let failed = 0;
+      for (const sub of subscriptions.data ?? []) {
+        try {
+          const response = await sendWebPushNotification(JSON.parse(sub.subscription_data), JSON.stringify({ ...content, data }), publicKey, privateKey);
+          await response.text();
+          if (response.ok) successful++; else failed++;
+        } catch { failed++; }
+      }
+      return json({ successful, failed });
+    }
     if (!user_ids.length) return json({ message: 'No users found for notification' });
     // Authorization precedes throttle so unauthorized calls cannot silence a chat.
     if (notification_type === 'chat_messages' && data.chat_id && (deps.throttle ?? isChatThrottled)(data.chat_id)) return json({ message: 'Throttled - chat push sent recently' });

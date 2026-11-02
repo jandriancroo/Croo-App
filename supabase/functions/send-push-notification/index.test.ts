@@ -17,6 +17,7 @@ type Row = Record<string, any>;
 function fixture(caller: Caller | null = { kind: 'user', userId: TEAM }) {
   const writes: { table: string; rows: unknown }[] = [];
   const sent: { ids: string[]; content: { title: string; body: string }; data: Row }[] = [];
+  const applicantSent: string[] = [];
   const logs: string[] = [];
   const lookups: string[] = [];
   const tables: Record<string, Row[]> = {
@@ -63,9 +64,10 @@ function fixture(caller: Caller | null = { kind: 'user', userId: TEAM }) {
     client:()=>client, clockedIn:async()=>[TEAM,MANAGER,EMPLOYEE], throttle:()=>false,
     rejectLog:line=>logs.push(line),
     deliver:async(ids,content,data)=>{sent.push({ids,content,data});return new Response(JSON.stringify({successful:ids.length}),{status:200});},
+    deliverApplicant:async(thread)=>{applicantSent.push(thread);return new Response('{}',{status:200});},
   });
   const request = (overrides:Row={}) => handler(new Request('http://localhost/notification',{method:'POST',headers:caller ? {} : {Authorization:'Bearer seeded-anon-gateway-key'},body:JSON.stringify({user_ids:[EMPLOYEE],location_id:A,title:'Title',body:'Body',notification_type:'chat_messages',...overrides})}));
-  return {request,sent,writes,logs,lookups,tables,setFailRpc:()=>{failRpc=true;}};
+  return {request,sent,applicantSent,writes,logs,lookups,tables,setFailRpc:()=>{failRpc=true;}};
 }
 
 Deno.test('team Store A targeting Store B: 403, nothing sent or written', async()=>{
@@ -180,6 +182,7 @@ Deno.test('applicant valid link token resolves own thread managers only; other t
     r=await f.request({...payload,user_ids:[EMPLOYEE]});assertEquals(r.status,403);await r.text();
     r=await f.request({...payload,data:{type:'hiring_message',conversation_id:CHAT}});assertEquals(r.status,403);await r.text();
     r=await f.request({...payload,notification_type:'announcements'});assertEquals(r.status,403);await r.text();assertEquals(f.sent.length,1);assertEquals(f.writes.length,0);
+    r=await f.request({...payload,roles:[],data:{type:'hiring_message',conversation_id:RECORD,target:'applicant'}});assertEquals(r.status,200);await r.text();assertEquals(f.applicantSent,[RECORD]);
     r=await f.request({...payload,applicant_token:'invalid'});assertEquals(r.status,401);await r.text();
     r=await f.request({...payload,applicant_token:undefined});assertEquals(r.status,401);await r.text();
   } finally {Deno.env.delete('SUPABASE_ANON_KEY');}
