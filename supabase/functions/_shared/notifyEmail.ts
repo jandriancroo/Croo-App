@@ -154,7 +154,7 @@ export async function notifyEmail(client: any, i: NotifyEmailInput): Promise<{ e
   if (Deno.env.get('NOTIFY_EMAIL_ENABLED') === 'false') return counts;
   const key = emailSettingsKey(i.notification_type);
   const always = EMAIL_ALWAYS_KEYS.has(i.notification_type);
-  if (!i.location_id || key === 'overdue_checklists' || key === 'test' || i.data.type === 'hiring_message') return counts;
+  if (i.notification_type === 'schedule_published' || !i.location_id || key === 'overdue_checklists' || key === 'test' || i.data.type === 'hiring_message') return counts;
   const content = await template(client, i, key);
   if (!content) return counts;
   const settings = await client.from('user_notification_settings').select('user_id,email_enabled').eq('notification_type', key).eq('location_id', i.location_id).in('user_id', i.eligible_user_ids);
