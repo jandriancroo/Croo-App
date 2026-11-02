@@ -37,6 +37,9 @@ Deno.test('before local close, empty lists or fully complete -> no email',async(
  const f=fixture();assertEquals((await f.run(DateTime.fromISO('2026-11-30T04:45:00Z'))).queued,0);
  f.tables.checklists=[];assertEquals((await f.run()).queued,0);
  const g=fixture();g.tables.checklist_items=[];assertEquals((await g.run()).queued,0);
+ const complete=fixture();complete.tables.checklist_submissions=['daily','weekly','monthly'].map(id=>({id,checklist_id:id,location_id:'store',submitted_at:'2026-11-30T06:00:00.000Z'}));
+ complete.tables.checklist_responses=['daily','weekly','monthly'].map(id=>({submission_id:id,item_id:id+'-item'}));
+ assertEquals((await complete.run()).queued,0);
 });
 Deno.test('role ceiling excludes manager even when no token; address exclusions honored',async()=>{
  const f=fixture();f.tables.role_notification_settings=[{role:'manager',enabled:false,organization_id:'org',notification_type:'overdue_checklists'}];assertEquals((await f.run()).queued,0);

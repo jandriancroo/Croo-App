@@ -465,7 +465,7 @@ export const UnifiedNotificationSettings = () => {
                       />
                     </div>
                     {fromHomeCell(nt.key)}
-                    <div className="w-10 flex justify-center">
+                    <div className="w-10 flex flex-col items-center justify-center gap-1">
                       <Checkbox
                         checked={setting?.email_enabled ?? false}
                         aria-label={nt.key === 'overdue_checklists' ? 'Email daily digest' : undefined}
@@ -474,7 +474,7 @@ export const UnifiedNotificationSettings = () => {
                           updateSetting(nt.key, selectedLocationId, 'email_enabled', !!checked)
                         }
                       />
-                      {nt.key === 'overdue_checklists' && <span className="sr-only">daily digest</span>}
+                      {nt.key === 'overdue_checklists' && <span className="text-center text-[10px] leading-tight text-muted-foreground">daily digest</span>}
                     </div>
                   </div>
                   {nt.key === 'late_arrivals' && isManagerOrAbove && (
