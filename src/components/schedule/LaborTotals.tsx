@@ -93,7 +93,7 @@ export function LaborTotals({
   // Auto-fill from Qu data:
   // - Past days: use net_sales from sales_cache (fast)
   // - Today: fetch live from API (slow - done in background)
-  // - Future days: read from sales_cache.projected_sales (fast)
+  // - Future days: read from stored goal columns (fast)
   // 
   // OPTIMIZATION: Load cached data immediately, then fetch today's live data in background
   useEffect(() => {

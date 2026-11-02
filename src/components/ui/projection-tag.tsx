@@ -1,119 +1,60 @@
-import { Badge } from "@/components/ui/badge";
-import { Pencil, Radio } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ProjectionSource } from "@/hooks/useResolvedProjection";
+import { useState } from 'react';
+import { DateTime } from 'luxon';
+import { Pencil, Radio, CalendarDays, CircleHelp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+import { resolveGoalWithSource, type GoalSource } from '@/lib/goalResolver';
 
 interface ProjectionTagProps {
-  source: ProjectionSource;
-  size?: 'sm' | 'md';
-  showLabel?: boolean;
-  className?: string;
+  source?: GoalSource | null;
+  size?: 'sm' | 'md'; showLabel?: boolean; className?: string;
+  locationId?: string; dateStr?: string; timezone?: string;
+  planningValue?: number | null;
 }
-
-/**
- * Visual tag to indicate projection source:
- * - living: "Live AI Projection" with sparkles icon (blue)
- * - override: Pencil icon (amber/orange)
- * - initial: No tag (default for schedule planning)
- * - legacy: No tag (backwards compatibility)
- */
-export function ProjectionTag({ 
-  source, 
-  size = 'sm', 
-  showLabel = true,
-  className = '' 
-}: ProjectionTagProps) {
-  if (!source || source === 'legacy') {
-    return null;
-  }
-
-  const iconSize = size === 'sm' ? 'h-3 w-3' : 'h-4 w-4';
-  const badgeSize = size === 'sm' ? 'text-[10px] px-1.5 py-0' : 'text-xs px-2 py-0.5';
-
-  if (source === 'living' || source === 'initial') {
-    const tooltipText = source === 'living' 
-      ? 'Live AI Projection - Updated daily based on recent trends'
-      : 'AI Projection - Generated for schedule planning';
-    
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Badge 
-            variant="outline" 
-            className={`${badgeSize} border-primary/30 bg-primary/10 text-primary font-medium gap-1 ${className}`}
-          >
-            <Radio className={`${iconSize} animate-pulse`} />
-            {showLabel && <span>Live AI</span>}
-          </Badge>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>{tooltipText}</p>
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  if (source === 'override') {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Badge 
-            variant="outline" 
-            className={`${badgeSize} border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium gap-1 ${className}`}
-          >
-            <Pencil className={iconSize} />
-            {showLabel && <span>Override</span>}
-          </Badge>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>Manager Override - Manually set projection</p>
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  return null;
+const dollars = (n: number) => `$${Math.round(n).toLocaleString()}`;
+export function ProjectionTag({ source = 'none', size = 'sm', showLabel = true, className = '', locationId, dateStr, timezone = 'America/Los_Angeles', planningValue }: ProjectionTagProps) {
+  const [open, setOpen] = useState(false);
+  const { data } = useQuery({
+    queryKey: ['goal-version-details', locationId, dateStr], enabled: open && !!locationId && !!dateStr,
+    queryFn: async () => {
+      const [goal, audit] = await Promise.all([
+        supabase.from('sales_cache').select('initial_projection, living_projection, override_projection').eq('location_id', locationId ?? '').eq('sale_date', dateStr ?? '').maybeSingle(),
+        supabase.from('sales_goal_override_log').select('*').eq('location_id', locationId ?? '').eq('sale_date', dateStr ?? '').order('changed_at', { ascending: false }),
+      ]);
+      if (goal.error) throw goal.error;
+      const logs = audit.data ?? [];
+      const ids = [...new Set(logs.flatMap(r => r.changed_by ? [r.changed_by] : []))];
+      const profiles = ids.length ? await supabase.from('profiles').select('id, full_name').in('id', ids) : { data: [] };
+      const names = new Map((profiles.data ?? []).map(p => [p.id, p.full_name]));
+      return { goal: goal.data, logs: logs.map(r => ({ ...r, name: r.changed_by ? names.get(r.changed_by) ?? 'Manager' : 'System' })) };
+    }, staleTime: 0,
+  });
+  const kind = source ?? 'none';
+  const labels = { planning: 'Planning', living: 'Living', override: 'Override', none: 'None' };
+  const Icon = kind === 'override' ? Pencil : kind === 'living' ? Radio : kind === 'planning' ? CalendarDays : CircleHelp;
+  const planning = data?.goal?.initial_projection ?? planningValue;
+  const date = DateTime.fromFormat(dateStr ?? '', 'yyyy-MM-dd', { zone: timezone });
+  const lockDate = date.isValid ? date.startOf('week').minus({ weeks: 1 }).toFormat('MMM d') : '';
+  return <Popover open={open} onOpenChange={setOpen}>
+    <PopoverTrigger asChild>
+      <Button variant="outline" size="sm" onPointerDown={e => e.stopPropagation()} onPointerUp={e => e.stopPropagation()} onClick={e => e.stopPropagation()} className={`h-auto min-h-5 gap-1 rounded-sm border-border bg-muted text-foreground px-1.5 py-0 font-medium ${size === 'sm' ? 'text-[10px]' : 'text-xs'} ${className}`} aria-label={`${labels[kind]} goal details`}>
+        <Icon className="h-3 w-3" />{showLabel && labels[kind]}
+      </Button>
+    </PopoverTrigger>
+    <PopoverContent className="w-72 max-h-64 overflow-y-auto text-xs space-y-2" onPointerDown={e => e.stopPropagation()} onPointerUp={e => e.stopPropagation()}>
+      {kind === 'none' && <p>No goal yet</p>}
+      {kind === 'living' && <p>{planning != null ? `Started at ${dollars(planning)} (Planning, locked Mon ${lockDate})` : `Planning locks Mon ${lockDate}`}</p>}
+      {kind === 'planning' && <p>{planning != null ? `${dollars(planning)} · Planning, locked Mon ${lockDate}` : `Planning locks Mon ${lockDate}`}</p>}
+      {kind === 'override' && (data?.logs.length ? data.logs.map(log => {
+        const prior = resolveGoalWithSource({ override_projection: log.old_value, living_projection: log.living_at_change, initial_projection: log.planning_value });
+        const at = DateTime.fromISO(log.changed_at, { setZone: true }).setZone(timezone).toFormat('MMM d, yyyy h:mm a');
+        return <p key={log.id}>Set by {log.name} · {at} · was {dollars(prior.value)} ({labels[prior.source]}){log.action === 'clear' ? ' · cleared' : ''}</p>;
+      }) : <p>{open && data ? 'No recorded changes' : 'Loading changes…'}</p>)}
+    </PopoverContent>
+  </Popover>;
 }
-
-/**
- * Compact icon-only version for tight spaces (like schedule cells)
- */
-export function ProjectionIcon({ 
-  source, 
-  className = '' 
-}: { 
-  source: ProjectionSource; 
-  className?: string;
-}) {
-  if (!source || source === 'legacy') {
-    return null;
-  }
-
-  if (source === 'living' || source === 'initial') {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Radio className={`h-3 w-3 text-primary animate-pulse ${className}`} />
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>Live AI Projection</p>
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  if (source === 'override') {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Pencil className={`h-3 w-3 text-amber-500 ${className}`} />
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>Manager Override</p>
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  return null;
+export function ProjectionIcon(props: ProjectionTagProps) {
+  return <ProjectionTag {...props} showLabel={false} />;
 }
