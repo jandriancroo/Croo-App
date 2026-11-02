@@ -589,6 +589,13 @@
       "when": 1793597981030,
       "tag": "0083_dashboard_cube_manager_add_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1793599217419,
+      "tag": "0084_pos_sales_extras_and_aloha_backfill",
+      "breakpoints": true
     }
   ]
 }

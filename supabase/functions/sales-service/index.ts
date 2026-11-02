@@ -1,3 +1,4 @@
+import { knownNumber, quHourlyExtras, posExtrasPatch } from "../_shared/posExtras.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { requireCaller } from '../_shared/callerAuth.ts';
@@ -191,7 +192,7 @@ async function fetchHourlySales(
   tokenGw: string, 
   dateStr: string,
   qbLocationId: string
-): Promise<{ hour: string; sales: number; checksCount: number }[]> {
+): Promise<{ hour: string; sales: number; checksCount: number; discountAmount?: number | null }[]> {
   const requestPayload = {
     fields: [
       { fieldName: "hour" }, { fieldName: "checksCount" }, { fieldName: "netSales" },
@@ -225,7 +226,7 @@ async function fetchHourlySales(
   }
 
   const data = await response.json();
-  const hourlyData: { hour: string; sales: number; checksCount: number }[] = [];
+  const hourlyData: { hour: string; sales: number; checksCount: number; discountAmount?: number | null }[] = [];
 
   if (data.items && Array.isArray(data.items)) {
     for (const item of data.items) {
@@ -233,7 +234,7 @@ async function fetchHourlySales(
       const hour24 = convertTo24Hour(rawHour);
       const sales = parseFloat(String(item.netSales || '0').replace(/[$,]/g, '')) || 0;
       const checksCount = parseInt(String(item.checksCount || '0').replace(/,/g, '')) || 0;
-      if (rawHour) hourlyData.push({ hour: hour24, sales, checksCount });
+      if (rawHour) hourlyData.push({ hour: hour24, sales, checksCount, discountAmount: knownNumber(item.discount) });
     }
   }
   
@@ -447,6 +448,7 @@ async function fetchAllSalesData(
   formattedHourly: any[];
   productMix: any[];
   paymentsData: any[];
+  extras: ReturnType<typeof quHourlyExtras>;
   yoyNetSales: number | null;
   yoyHourlyData: any[] | null;
   yoySaleDate: string | null;
@@ -467,6 +469,7 @@ async function fetchAllSalesData(
   const formattedHourly = formatHourlyTo24(hourlyData, existingHourly);
 
   return {
+    extras: quHourlyExtras(hourlyData),
     netSales,
     guestCount,
     avgTicket,
@@ -482,6 +485,7 @@ function buildUpsertPayload(locationId: string, dateStr: string, data: Awaited<R
   return {
     location_id: locationId,
     sale_date: dateStr,
+    ...posExtrasPatch(data.extras),
     net_sales: data.netSales,
     guest_count: data.guestCount,
     avg_ticket: data.avgTicket,

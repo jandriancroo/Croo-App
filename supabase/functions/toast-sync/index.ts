@@ -1,3 +1,4 @@
+import { posExtrasPatch, toastRawExtras } from "../_shared/posExtras.ts";
 // Toast → toast_sales_cache + sales_cache (pos_source='toast') + labor_cache (source='toast').
 //
 // Homemade Toast integration (no paid Toast API). Data arrives from two
@@ -41,6 +42,7 @@ const DaySchema = z.object({
   locationId: z.string().uuid(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   source: z.enum(["export", "live", "api"]),
+  extras: z.object({ discount_amount: z.number().finite().nullable().optional(), comp_amount: z.number().finite().nullable().optional(), comp_count: z.number().finite().nullable().optional(), void_amount: z.number().finite().nullable().optional(), void_count: z.number().finite().nullable().optional(), promo_amount: z.number().finite().nullable().optional(), promo_count: z.number().finite().nullable().optional(), check_count: z.number().finite().nullable().optional(), tips_amount: z.number().finite().nullable().optional() }).optional(),
   netSales: z.number().finite().min(0),
   guestCount: z.number().int().min(0).default(0),
   checkCount: z.number().int().min(0).default(0),
@@ -65,7 +67,15 @@ const DaySchema = z.object({
     netSales: z.number().finite(),
   })).max(1500).default([]),
   raw: z.unknown().optional(),
+  providedCheckCount: z.boolean().optional(),
+  providedTips: z.boolean().optional(),
 });
+const ParsedDaySchema = z.preprocess((input) => {
+  if (!input || typeof input !== "object") return input;
+  const row = input as Record<string, unknown>;
+  const payments = row.payments as Record<string, unknown> | undefined;
+  return { ...row, providedCheckCount: row.checkCount != null, providedTips: payments?.total_tips != null };
+}, DaySchema);
 
 // ── Labor (read-only Toast punches → labor_cache source='toast') ───────────
 const ShiftSchema = z.object({
@@ -95,7 +105,7 @@ const ShiftSchema = z.object({
 
 const BodySchema = z.object({
   action: z.literal("ingest"),
-  days: z.array(DaySchema).min(1).max(400),
+  days: z.array(ParsedDaySchema).min(1).max(400),
 });
 
 const LaborBodySchema = z.object({
@@ -210,6 +220,7 @@ async function ingestDay(supabase: any, day: z.infer<typeof DaySchema>) {
     location_id: locationId,
     sale_date: date,
     pos_source: "toast",
+    ...posExtrasPatch({ ...toastRawExtras(day.raw), ...day.extras, ...(day.providedCheckCount ? { check_count: day.checkCount } : {}), ...(day.providedTips ? { tips_amount: day.payments.total_tips } : {}) }),
     net_sales: day.netSales,
     guest_count: guests,
     avg_ticket: avgTicket,

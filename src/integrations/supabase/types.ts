@@ -154,6 +154,41 @@ export type Database = {
           },
         ]
       }
+      aloha_history_backfill_progress: {
+        Row: {
+          attempts: number
+          error: string | null
+          location_id: string
+          sale_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          error?: string | null
+          location_id: string
+          sale_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          error?: string | null
+          location_id?: string
+          sale_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aloha_history_backfill_progress_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aloha_sales_cache: {
         Row: {
           avg_ticket: number
@@ -12581,7 +12616,11 @@ export type Database = {
       sales_cache: {
         Row: {
           avg_ticket: number | null
+          check_count: number | null
+          comp_amount: number | null
+          comp_count: number | null
           created_at: string
+          discount_amount: number | null
           external_event_id: string | null
           fetched_at: string
           flagged_no_sales: boolean | null
@@ -12605,16 +12644,25 @@ export type Database = {
           pos_source: string
           product_mix: Json | null
           projected_sales: number | null
+          promo_amount: number | null
+          promo_count: number | null
           sale_date: string
+          tips_amount: number | null
           validation_attempts: number | null
           validation_status: string | null
+          void_amount: number | null
+          void_count: number | null
           yoy_hourly_data: Json | null
           yoy_net_sales: number | null
           yoy_sale_date: string | null
         }
         Insert: {
           avg_ticket?: number | null
+          check_count?: number | null
+          comp_amount?: number | null
+          comp_count?: number | null
           created_at?: string
+          discount_amount?: number | null
           external_event_id?: string | null
           fetched_at?: string
           flagged_no_sales?: boolean | null
@@ -12638,16 +12686,25 @@ export type Database = {
           pos_source?: string
           product_mix?: Json | null
           projected_sales?: number | null
+          promo_amount?: number | null
+          promo_count?: number | null
           sale_date: string
+          tips_amount?: number | null
           validation_attempts?: number | null
           validation_status?: string | null
+          void_amount?: number | null
+          void_count?: number | null
           yoy_hourly_data?: Json | null
           yoy_net_sales?: number | null
           yoy_sale_date?: string | null
         }
         Update: {
           avg_ticket?: number | null
+          check_count?: number | null
+          comp_amount?: number | null
+          comp_count?: number | null
           created_at?: string
+          discount_amount?: number | null
           external_event_id?: string | null
           fetched_at?: string
           flagged_no_sales?: boolean | null
@@ -12671,9 +12728,14 @@ export type Database = {
           pos_source?: string
           product_mix?: Json | null
           projected_sales?: number | null
+          promo_amount?: number | null
+          promo_count?: number | null
           sale_date?: string
+          tips_amount?: number | null
           validation_attempts?: number | null
           validation_status?: string | null
+          void_amount?: number | null
+          void_count?: number | null
           yoy_hourly_data?: Json | null
           yoy_net_sales?: number | null
           yoy_sale_date?: string | null
@@ -16933,6 +16995,23 @@ export type Database = {
           d: string
         }
         Returns: boolean
+      }
+      claim_aloha_history_backfill: {
+        Args: { _location_id: string }
+        Returns: {
+          attempts: number
+          error: string | null
+          location_id: string
+          sale_date: string
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "aloha_history_backfill_progress"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       claim_checklist_photo: {
         Args: {
