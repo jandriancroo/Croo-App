@@ -3380,6 +3380,69 @@ export type Database = {
           },
         ]
       }
+      dashboard_widgets_bak_20261101: {
+        Row: {
+          accent_color: string | null
+          audience_roles: Database["public"]["Enums"]["app_role"][] | null
+          authority_scope: string | null
+          brand_id: string | null
+          config: Json | null
+          created_at: string | null
+          created_by: string | null
+          display_order: number | null
+          hidden_for_user_ids: string[] | null
+          id: string | null
+          is_active: boolean | null
+          location_id: string | null
+          organization_id: string | null
+          reference_id: string | null
+          title: string | null
+          updated_at: string | null
+          widget_size: string | null
+          widget_type: string | null
+        }
+        Insert: {
+          accent_color?: string | null
+          audience_roles?: Database["public"]["Enums"]["app_role"][] | null
+          authority_scope?: string | null
+          brand_id?: string | null
+          config?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          display_order?: number | null
+          hidden_for_user_ids?: string[] | null
+          id?: string | null
+          is_active?: boolean | null
+          location_id?: string | null
+          organization_id?: string | null
+          reference_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          widget_size?: string | null
+          widget_type?: string | null
+        }
+        Update: {
+          accent_color?: string | null
+          audience_roles?: Database["public"]["Enums"]["app_role"][] | null
+          authority_scope?: string | null
+          brand_id?: string | null
+          config?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          display_order?: number | null
+          hidden_for_user_ids?: string[] | null
+          id?: string | null
+          is_active?: boolean | null
+          location_id?: string | null
+          organization_id?: string | null
+          reference_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          widget_size?: string | null
+          widget_type?: string | null
+        }
+        Relationships: []
+      }
       data_point_registry: {
         Row: {
           canonical_column: string | null
@@ -17721,6 +17784,7 @@ export type Database = {
       }
       refresh_all_pfg_tokens: { Args: never; Returns: undefined }
       refresh_labor_close_habits: { Args: never; Returns: Json }
+      remove_dashboard_cubes_20261101: { Args: never; Returns: Json }
       replan_goal_cutover_20261101: {
         Args: {
           _end: string
