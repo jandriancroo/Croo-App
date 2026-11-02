@@ -481,7 +481,8 @@ export function DataCube3D({
     if (requested[0] === 'sales_wtd') requested = ['sales_wtd', 'sales_pace_week', 'sales_last_year_week'];
     if (requested[0] === 'sales_mtd') requested = ['sales_mtd', 'sales_pace_month', 'sales_last_year_month'];
     const metrics = requested.map(metric => ({
-      label: metric === 'sales_projected_today' ? 'Projection' : getDynamicLabel(metric, undefined, effectiveSalesData?.lastYear?.date),
+      label: metric === 'sales_projected_today' ? 'Goal' : getDynamicLabel(metric, undefined, effectiveSalesData?.lastYear?.date),
+      goalTag: metric === 'sales_projected_today' ? <DailyGoalVersion source={effectiveSalesData?.projections?.todaySource} /> : undefined,
       value: isLoading ? '--' : formatValue(getMetricValue(metric, effectiveSalesData), METRIC_CONFIGS[metric]?.format ?? 'number'),
       behind: isPaceMetric(metric) && getPacingStatus(metric, effectiveSalesData) === 'down',
     }));
