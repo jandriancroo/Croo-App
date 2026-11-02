@@ -8645,6 +8645,7 @@ export type Database = {
           inventory_period_end_day: number
           labor_percentage_target: number | null
           location_id: string
+          ncns_alert_minutes: number | null
           pizza_sales_percentage: number | null
           pm_safe_count_window_minutes: number
           punch_clock_background_url: string | null
@@ -8684,6 +8685,7 @@ export type Database = {
           inventory_period_end_day?: number
           labor_percentage_target?: number | null
           location_id: string
+          ncns_alert_minutes?: number | null
           pizza_sales_percentage?: number | null
           pm_safe_count_window_minutes?: number
           punch_clock_background_url?: string | null
@@ -8723,6 +8725,7 @@ export type Database = {
           inventory_period_end_day?: number
           labor_percentage_target?: number | null
           location_id?: string
+          ncns_alert_minutes?: number | null
           pizza_sales_percentage?: number | null
           pm_safe_count_window_minutes?: number
           punch_clock_background_url?: string | null
