@@ -540,6 +540,13 @@
       "when": 1793204204808,
       "tag": "0076_scheduling_manager_no_briefings",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1793593627522,
+      "tag": "0077_daily_goal_consistency_security",
+      "breakpoints": true
     }
   ]
 }

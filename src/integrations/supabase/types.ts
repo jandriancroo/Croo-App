@@ -4086,6 +4086,53 @@ export type Database = {
           },
         ]
       }
+      goal_engine_runs: {
+        Row: {
+          days_written: number | null
+          error: string | null
+          local_run_date: string
+          location_id: string
+          ran_at: string
+          source: string
+          week_adj: number | null
+          window_end: string | null
+          window_start: string | null
+          wrote_planning: boolean
+        }
+        Insert: {
+          days_written?: number | null
+          error?: string | null
+          local_run_date: string
+          location_id: string
+          ran_at?: string
+          source?: string
+          week_adj?: number | null
+          window_end?: string | null
+          window_start?: string | null
+          wrote_planning?: boolean
+        }
+        Update: {
+          days_written?: number | null
+          error?: string | null
+          local_run_date?: string
+          location_id?: string
+          ran_at?: string
+          source?: string
+          week_adj?: number | null
+          window_end?: string | null
+          window_start?: string | null
+          wrote_planning?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_engine_runs_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hiring_conversations: {
         Row: {
           access_token: string
@@ -12578,6 +12625,62 @@ export type Database = {
           },
         ]
       }
+      sales_goal_override_log: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          changed_by_role: string | null
+          id: string
+          living_at_change: number | null
+          location_id: string
+          new_value: number | null
+          old_value: number | null
+          planning_value: number | null
+          reason: string | null
+          sale_date: string
+          source: string | null
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_role?: string | null
+          id?: string
+          living_at_change?: number | null
+          location_id: string
+          new_value?: number | null
+          old_value?: number | null
+          planning_value?: number | null
+          reason?: string | null
+          sale_date: string
+          source?: string | null
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_role?: string | null
+          id?: string
+          living_at_change?: number | null
+          location_id?: string
+          new_value?: number | null
+          old_value?: number | null
+          planning_value?: number | null
+          reason?: string | null
+          sale_date?: string
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_goal_override_log_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sandbox_active_fix: {
         Row: {
           bug_description: string
@@ -16053,6 +16156,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      _can_override_goal: { Args: { _user_id: string }; Returns: boolean }
       _invert_log_rows: {
         Args: {
           _rows: Database["public"]["Tables"]["schedule_change_log"]["Row"][]
@@ -16713,6 +16817,10 @@ export type Database = {
       cleanup_internal_logs: { Args: never; Returns: undefined }
       cleanup_theo_chat_messages: { Args: never; Returns: undefined }
       clear_all_pending_pin_plaintext: { Args: never; Returns: Json }
+      clear_goal_override: {
+        Args: { _location_id: string; _reason?: string; _sale_date: string }
+        Returns: undefined
+      }
       clone_count_to_sandbox: {
         Args: { _source_count_id: string; _source_location_id: string }
         Returns: string
@@ -17754,6 +17862,16 @@ export type Database = {
       send_day_part_pulse: { Args: never; Returns: undefined }
       send_hourly_sales_pulse: { Args: never; Returns: undefined }
       send_shift_overstay_alerts: { Args: never; Returns: undefined }
+      set_goal_override: {
+        Args: {
+          _excluded_dates?: Json
+          _location_id: string
+          _reason?: string
+          _sale_date: string
+          _value: number
+        }
+        Returns: undefined
+      }
       set_labor_goal: {
         Args: { _day_of_week?: number; _location_id: string; _pct?: number }
         Returns: Json
