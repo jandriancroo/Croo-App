@@ -1,4 +1,4 @@
-import { posExtrasPatch } from "../_shared/posExtras.ts";
+import { posExtrasPatch, toastRawExtras } from "../_shared/posExtras.ts";
 // Toast → toast_sales_cache + sales_cache (pos_source='toast') + labor_cache (source='toast').
 //
 // Homemade Toast integration (no paid Toast API). Data arrives from two
@@ -220,7 +220,7 @@ async function ingestDay(supabase: any, day: z.infer<typeof DaySchema>) {
     location_id: locationId,
     sale_date: date,
     pos_source: "toast",
-    ...posExtrasPatch({ ...day.extras, ...(day.providedCheckCount ? { check_count: day.checkCount } : {}), ...(day.providedTips ? { tips_amount: day.payments.total_tips } : {}) }),
+    ...posExtrasPatch({ ...toastRawExtras(day.raw), ...day.extras, ...(day.providedCheckCount ? { check_count: day.checkCount } : {}), ...(day.providedTips ? { tips_amount: day.payments.total_tips } : {}) }),
     net_sales: day.netSales,
     guest_count: guests,
     avg_ticket: avgTicket,

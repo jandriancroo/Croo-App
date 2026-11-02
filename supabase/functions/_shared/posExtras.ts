@@ -35,3 +35,11 @@ export function hasHourlyAndGuests(row: { hourly_data?: unknown; guest_count?: u
 export function isPortalAccessError(error: unknown): boolean {
   return /login|locked|lockout|credentials|captcha|session|unauthori[sz]ed|HTTP (401|403)/i.test(error instanceof Error ? error.message : String(error));
 }
+
+export function toastRawExtras(raw: unknown): PosExtras {
+  if (!raw || typeof raw !== 'object') return {};
+  const discounts = (raw as Record<string, unknown>).discounts;
+  if (!Array.isArray(discounts)) return {};
+  const amounts = discounts.map(row => knownNumber(row?.discountAmount));
+  return amounts.every(v => v != null) ? { discount_amount: amounts.reduce<number>((sum, v) => sum + (v ?? 0), 0) } : {};
+}

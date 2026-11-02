@@ -681,6 +681,7 @@ export async function fetchAlohaHourly(
     throw new Error(`Aloha ddv_parse_hrly failed: HTTP ${res.status}`);
   }
   const html = await res.text();
+  assertAlohaReportSession(html);
   return parseAlohaHourlyHtml(html);
 }
 
@@ -768,6 +769,7 @@ export async function fetchAlohaMenu(
 
   if (!res.ok) throw new Error(`Aloha ddv_parse_menu failed: HTTP ${res.status}`);
   const html = await res.text();
+  assertAlohaReportSession(html);
   return parseAlohaMenuHtml(html);
 }
 
@@ -878,7 +880,15 @@ async function postDdvTable(
     body: form.toString(),
   });
   if (!res.ok) throw new Error(`Aloha ${path} failed: HTTP ${res.status}`);
-  return await res.text();
+  const html = await res.text();
+  assertAlohaReportSession(html);
+  return html;
+}
+
+function assertAlohaReportSession(html: string): void {
+  if (/name=["']loginForm["']|session (?:expired|invalid)|account.{0,20}locked|invalid (?:login|password)/i.test(html)) {
+    throw new Error('Aloha login/session blocked');
+  }
 }
 
 function stripHtml(s: string): string {

@@ -604,7 +604,7 @@ async function syncOneDay(
     ...(payload.paymentsData.tenders.length ? payload.paymentsData : { source: "aloha" }),
     metrics: {
       ...previousMetrics,
-      check_count: payload.checkCount,
+      check_count: preservedMetric("check_count", payload.extras?.check_count),
       ppa: payload.ppa,
       comp_count: preservedMetric("comp_count", payload.extras?.comp_count),
       comp_dollars: preservedMetric("comp_dollars", payload.extras?.comp_amount),
@@ -627,12 +627,7 @@ async function syncOneDay(
   const effectiveGuests = Math.max(payload.guestCount || 0, payload.checkCount || 0);
 
   // ── Raw archive: aloha_sales_cache (conditional-spread merge) ─────────
-  const { data: existingRaw } = await supabase
-    .from("aloha_sales_cache")
-    .select("*")
-    .eq("location_id", locationId)
-    .eq("sale_date", date)
-    .maybeSingle();
+  const existingRaw = previousRaw;
 
   const rawRow = {
     ...(existingRaw ?? {}),
@@ -655,12 +650,14 @@ async function syncOneDay(
   if (rawErr) throw new Error(`aloha_sales_cache upsert failed for ${date}: ${rawErr.message}`);
 
   // ── Mailroom: sales_cache (POS-agnostic, protects projections/overrides) ─
-  const { data: existingMail } = await supabase
+  const { data: existingMail, error: existingMailError } = await supabase
     .from("sales_cache")
     .select("validation_status, validation_attempts, yoy_sale_date, yoy_net_sales, yoy_hourly_data, net_sales, guest_count, avg_ticket, hourly_data, product_mix, payments_data, discount_amount, comp_amount, comp_count, void_amount, void_count, promo_amount, promo_count, check_count, tips_amount")
     .eq("location_id", locationId)
     .eq("sale_date", date)
     .maybeSingle();
+
+  if (existingMailError) throw new Error(existingMailError.message);
 
   const mailRow = {
     ...(existingMail ?? {}),
