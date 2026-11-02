@@ -12,6 +12,10 @@
 // confirmed (Aloha Cloud API vs Insight SFTP vs portal scrape) — everything
 // downstream lights up automatically. See docs/brands/bww-go.md.
 
+import { DateTime } from "npm:luxon@3.7.2";
+import { z } from "npm:zod@3.23.8";
+import { requireInternalCaller } from "../_shared/callerAuth.ts";
+import { posExtrasPatch, hasHourlyAndGuests, isPortalAccessError, type PosExtras } from "../_shared/posExtras.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { computeAndSavePace } from "../_shared/projections.ts";
 import {
@@ -38,7 +42,7 @@ function paddedHour(h: number): string {
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -47,6 +51,7 @@ const DEFAULT_TZ = "America/Los_Angeles";
 
 interface Body {
   action:
+    | "backfill_history"
     | "sync_today"
     | "sync_yesterday"
     | "sync_date"
@@ -76,6 +81,8 @@ interface Hour {
 }
 
 interface AlohaDayPayload {
+  extras?: PosExtras;
+  netSalesLastYear?: number;
   netSales: number;
   guestCount: number;
   checkCount: number;
@@ -125,13 +132,15 @@ function todayInTz(tz: string): string {
 }
 
 function addDays(yyyyMmDd: string, n: number): string {
-  const [y, m, d] = yyyyMmDd.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  dt.setUTCDate(dt.getUTCDate() + n);
-  const y2 = dt.getUTCFullYear();
-  const m2 = String(dt.getUTCMonth() + 1).padStart(2, "0");
-  const d2 = String(dt.getUTCDate()).padStart(2, "0");
-  return `${y2}-${m2}-${d2}`;
+  const value = DateTime.fromISO(yyyyMmDd, { zone: DEFAULT_TZ }).plus({ days: n }).toISODate();
+  if (!value) throw new Error("Invalid sale date");
+  return value;
+}
+
+function gridExtras(row: AlohaGridRow | { availableMetrics?: Record<string, number> }): PosExtras {
+  const m = row.availableMetrics ?? {};
+  return { comp_count: m.CompCount, comp_amount: m.CompDollars, promo_count: m.PromoCount,
+    promo_amount: m.PromoDollars, void_count: m.VoidCount, void_amount: m.VoidDollars, check_count: m.CheckCount };
 }
 
 async function sleep(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
@@ -280,8 +289,10 @@ async function augmentWithDrilldowns(
   storeName: string,
   date: string,
   payload: AlohaDayPayload,
+  throttleMs = 0,
 ): Promise<void> {
   try {
+    if (throttleMs) await sleep(throttleMs);
     const slots = await fetchAlohaHourly(session, portalUrl, storeID, storeName, date);
     if (slots.length) {
       payload.hourly = slots.map((s) => ({
@@ -289,9 +300,11 @@ async function augmentWithDrilldowns(
       }));
     }
   } catch (e) {
+    if (isPortalAccessError(e)) throw e;
     console.warn(`[aloha-sync] hourly fetch failed for ${date}:`, (e as Error).message);
   }
   try {
+    if (throttleMs) await sleep(throttleMs);
     const menu = await fetchAlohaMenu(session, portalUrl, storeID, storeName, date);
     if (menu.length) {
       payload.productMix = menu
@@ -305,9 +318,11 @@ async function augmentWithDrilldowns(
         }));
     }
   } catch (e) {
+    if (isPortalAccessError(e)) throw e;
     console.warn(`[aloha-sync] menu fetch failed for ${date}:`, (e as Error).message);
   }
   try {
+    if (throttleMs) await sleep(throttleMs);
     const pmts = await fetchAlohaPayments(session, portalUrl, storeID, storeName, date);
     if (pmts.tenders.length) {
       payload.paymentsData = {
@@ -317,12 +332,15 @@ async function augmentWithDrilldowns(
         })),
         total_tips: pmts.totalTips,
       };
+      payload.extras = { ...payload.extras, tips_amount: pmts.totalTips };
       // Backfill checkCount from payments when base didn't provide it.
       if (!payload.checkCount) {
         payload.checkCount = pmts.tenders.reduce((s, t) => s + (t.count || 0), 0);
+        payload.extras = { ...payload.extras, check_count: payload.checkCount };
       }
     }
   } catch (e) {
+    if (isPortalAccessError(e)) throw e;
     console.warn(`[aloha-sync] payments fetch failed for ${date}:`, (e as Error).message);
   }
   // Backfill netSales from hourly sum when base didn't provide it (e.g. CSV
@@ -350,6 +368,7 @@ async function augmentWithDrilldowns(
     payload.avgTicket = payload.netSales / payload.checkCount;
   }
   try {
+    if (throttleMs) await sleep(throttleMs);
     const lab = await fetchAlohaLabor(session, portalUrl, storeID, storeName, date);
     if (lab.totalHours > 0 || lab.totalCost > 0) {
       const sales = payload.netSales || 0;
@@ -364,6 +383,7 @@ async function augmentWithDrilldowns(
       };
     }
   } catch (e) {
+    if (isPortalAccessError(e)) throw e;
     console.warn(`[aloha-sync] labor fetch failed for ${date}:`, (e as Error).message);
   }
 }
@@ -374,6 +394,7 @@ async function fetchAlohaDay(
   tz: string,
   locationName: string,
   mode: SyncMode,
+  throttleMs = 0,
 ): Promise<AlohaDayPayload> {
   const session = await alohaLogin({
     portalUrl: creds.portal_url,
@@ -394,6 +415,7 @@ async function fetchAlohaDay(
     matched = matchTickerRow(tickers, creds.store_id, locationName);
     console.log(`[aloha-sync] tickers[${date}]: ${tickers.length} rows, matched=${matched?.storeName ?? "none"} (id=${matched?.storeID ?? 0})`);
   } catch (e) {
+    if (isPortalAccessError(e)) throw e;
     console.warn(`[aloha-sync] getTickers failed for ${date}:`, (e as Error).message);
   }
   let resolvedStoreID = matched?.storeID ?? 0;
@@ -405,7 +427,8 @@ async function fetchAlohaDay(
       console.log(`[aloha-sync] fallback today tickers: ${todayTickers.length} rows [${todayTickers.map(x => `${x.storeID}:${x.storeName}`).join(" | ")}], matched=${t?.storeName ?? "none"} (id=${t?.storeID ?? 0})`);
       if (t) { resolvedStoreID = t.storeID; resolvedStoreName = t.storeName; }
     } catch (e) {
-      console.warn(`[aloha-sync] today-ticker storeID lookup failed:`, (e as Error).message);
+      if (isPortalAccessError(e)) throw e;
+    console.warn(`[aloha-sync] today-ticker storeID lookup failed:`, (e as Error).message);
     }
   }
 
@@ -417,7 +440,7 @@ async function fetchAlohaDay(
   const isYesterday = mode === "yesterday";
 
   // ── Base path 1: ticker fast path (current day polling has data). ──
-  if (!isYesterday && matched && (matched.totalSales > 0 || matched.totalHours > 0 || matched.pollingStatus === 0)) {
+  if (mode === "live" && matched && (matched.totalSales > 0 || matched.totalHours > 0 || matched.pollingStatus === 0)) {
     payload = tickerToPayload(matched, tickers);
   }
 
@@ -429,6 +452,8 @@ async function fetchAlohaDay(
       (rpt.stores.length === 1 ? rpt.stores[0] : undefined) ?? rpt.grand;
     const avg = m.ckAvg || (m.checkCount > 0 ? m.netSales / m.checkCount : 0);
     payload = {
+      extras: gridExtras(m),
+      netSalesLastYear: m.availableMetrics?.NetSalesLastYear,
       netSales: m.netSales,
       guestCount: m.guestCount,
       checkCount: m.checkCount,
@@ -472,6 +497,7 @@ async function fetchAlohaDay(
   // those drill-downs (hourly sum for sales; payments sum for check counts).
   if (!payload) {
     try {
+      if (throttleMs) await sleep(throttleMs);
       const csv = await fetchAlohaGridCsv(session, creds.portal_url, date, date, 5, 0);
       const { stores } = parseAlohaGridCsv(csv);
       if (stores.length > 0) {
@@ -480,6 +506,8 @@ async function fetchAlohaDay(
         if (!row && stores.length === 1) row = stores[0];
         if (row) {
           payload = {
+            extras: gridExtras(row),
+            netSalesLastYear: row.availableMetrics?.NetSalesLastYear,
             netSales: row.NetSales,
             guestCount: row.GuestCount,
             checkCount: row.CheckCount,
@@ -505,7 +533,8 @@ async function fetchAlohaDay(
         }
       }
     } catch (e) {
-      console.warn(`[aloha-sync] CSV grid failed for ${date}, falling back to drill-downs only:`, (e as Error).message);
+      if (isPortalAccessError(e)) throw e;
+    console.warn(`[aloha-sync] CSV grid failed for ${date}, falling back to drill-downs only:`, (e as Error).message);
     }
   }
 
@@ -543,8 +572,9 @@ async function fetchAlohaDay(
 
 
   if (storeID > 0) {
-    await augmentWithDrilldowns(session, creds.portal_url, storeID, storeName, date, payload);
+    await augmentWithDrilldowns(session, creds.portal_url, storeID, storeName, date, payload, throttleMs);
   } else {
+    if (isPortalAccessError(e)) throw e;
     console.warn(`[aloha-sync] no storeID resolved for ${date}; skipping drill-downs`);
   }
   return payload;
@@ -561,22 +591,29 @@ async function syncOneDay(
   tz: string,
   locationName: string,
   mode: SyncMode,
+  backfill = false,
 ) {
-  const payload = await fetchAlohaDay(creds, date, tz, locationName, mode);
+  const payload = await fetchAlohaDay(creds, date, tz, locationName, mode, backfill ? 2000 : 0);
 
   // Pack Aloha-only extras into payments_data (JSONB already accepts arbitrary
   // fields, keeps the base tender contract intact, and avoids a schema change).
+  const { data: previousRaw, error: previousRawError } = await supabase.from("aloha_sales_cache").select("*").eq("location_id", locationId).eq("sale_date", date).maybeSingle();
+  if (previousRawError) throw new Error(previousRawError.message);
+  const previousMetrics = previousRaw?.payments_data?.metrics ?? {};
+  const preservedMetric = (key: string, value: number | null | undefined) => value == null || (value === 0 && Number(previousMetrics[key]) > 0) ? previousMetrics[key] : value;
   const paymentsWithExtras = {
-    ...payload.paymentsData,
+    ...(previousRaw?.payments_data ?? {}),
+    ...(payload.paymentsData.tenders.length ? payload.paymentsData : { source: "aloha" }),
     metrics: {
+      ...previousMetrics,
       check_count: payload.checkCount,
       ppa: payload.ppa,
-      comp_count: payload.compCount,
-      comp_dollars: payload.compDollars,
-      promo_count: payload.promoCount,
-      promo_dollars: payload.promoDollars,
-      void_count: payload.voidCount,
-      void_dollars: payload.voidDollars,
+      comp_count: preservedMetric("comp_count", payload.extras?.comp_count),
+      comp_dollars: preservedMetric("comp_dollars", payload.extras?.comp_amount),
+      promo_count: preservedMetric("promo_count", payload.extras?.promo_count),
+      promo_dollars: preservedMetric("promo_dollars", payload.extras?.promo_amount),
+      void_count: preservedMetric("void_count", payload.extras?.void_count),
+      void_dollars: preservedMetric("void_dollars", payload.extras?.void_amount),
       labor_percent: payload.labor?.labor_percent ?? 0,
       sales_per_labor_hour: payload.labor?.sales_per_labor_hour ?? 0,
     },
@@ -603,11 +640,11 @@ async function syncOneDay(
     ...(existingRaw ?? {}),
     location_id: locationId,
     sale_date: date,
-    net_sales: payload.netSales,
-    guest_count: effectiveGuests,
-    avg_ticket: payload.avgTicket,
-    hourly_data: payload.hourly,
-    product_mix: payload.productMix,
+    net_sales: payload.netSales > 0 ? payload.netSales : (existingRaw?.net_sales ?? 0),
+    guest_count: effectiveGuests > 0 ? effectiveGuests : (existingRaw?.guest_count ?? 0),
+    avg_ticket: payload.avgTicket > 0 ? payload.avgTicket : existingRaw?.avg_ticket,
+    hourly_data: payload.hourly.length ? payload.hourly : (existingRaw?.hourly_data ?? []),
+    product_mix: payload.productMix.length ? payload.productMix : (existingRaw?.product_mix ?? []),
     payments_data: paymentsWithExtras,
     flagged_no_sales: payload.netSales === 0,
     fetched_at: new Date().toISOString(),
@@ -622,7 +659,7 @@ async function syncOneDay(
   // ── Mailroom: sales_cache (POS-agnostic, protects projections/overrides) ─
   const { data: existingMail } = await supabase
     .from("sales_cache")
-    .select("validation_status, validation_attempts, yoy_sale_date, yoy_net_sales, yoy_hourly_data")
+    .select("validation_status, validation_attempts, yoy_sale_date, yoy_net_sales, yoy_hourly_data, net_sales, guest_count, avg_ticket, hourly_data, product_mix, payments_data, discount_amount, comp_amount, comp_count, void_amount, void_count, promo_amount, promo_count, check_count, tips_amount")
     .eq("location_id", locationId)
     .eq("sale_date", date)
     .maybeSingle();
@@ -632,12 +669,13 @@ async function syncOneDay(
     location_id: locationId,
     sale_date: date,
     pos_source: "aloha",
-    net_sales: payload.netSales,
-    guest_count: effectiveGuests,
+    ...posExtrasPatch(payload.extras ?? {}, existingMail ?? {}),
+    net_sales: backfill && Number(existingMail?.net_sales) > 0 ? existingMail.net_sales : (payload.netSales > 0 ? payload.netSales : (existingMail?.net_sales ?? 0)),
+    guest_count: effectiveGuests > 0 ? effectiveGuests : (existingMail?.guest_count ?? 0),
     pizza_count: 0,
-    avg_ticket: payload.avgTicket,
-    hourly_data: payload.hourly,
-    product_mix: payload.productMix,
+    avg_ticket: payload.avgTicket > 0 ? payload.avgTicket : existingMail?.avg_ticket,
+    hourly_data: payload.hourly.length ? payload.hourly : (existingMail?.hourly_data ?? []),
+    product_mix: payload.productMix.length ? payload.productMix : (existingMail?.product_mix ?? []),
     payments_data: paymentsWithExtras,
     flagged_no_sales: payload.netSales === 0,
     fetched_at: new Date().toISOString(),
@@ -651,7 +689,7 @@ async function syncOneDay(
   // ── Labor dual-write (source='aloha'). Punch clock keeps writing
   //     source='punch_clock' independently; both coexist per unique
   //     (location_id, labor_date, source). ──
-  if (payload.labor) {
+  if (!backfill && payload.labor) {
     try {
       await supabase.from("labor_cache").upsert(
         {
@@ -666,7 +704,8 @@ async function syncOneDay(
         { onConflict: "location_id,labor_date,source" },
       );
     } catch (e) {
-      console.warn(`[aloha-sync] labor_cache upsert skipped for ${date}:`, e);
+      if (isPortalAccessError(e)) throw e;
+    console.warn(`[aloha-sync] labor_cache upsert skipped for ${date}:`, e);
     }
   }
 
@@ -676,11 +715,14 @@ async function syncOneDay(
       const yoyDate = addDays(date, -364);
       const { data: yoy } = await supabase.from("sales_cache").select("net_sales, hourly_data")
         .eq("location_id", locationId).eq("sale_date", yoyDate).maybeSingle();
-      if (Number(yoy?.net_sales) > 0) await supabase.from("sales_cache").update({
-        yoy_sale_date: yoyDate, yoy_net_sales: Number(yoy.net_sales), yoy_hourly_data: yoy.hourly_data ?? null,
-      }).eq("location_id", locationId).eq("sale_date", date);
+      const ly = Number(yoy?.net_sales) > 0 ? Number(yoy.net_sales) : payload.netSalesLastYear;
+      if (ly != null && ly > 0) await supabase.from("sales_cache").update({
+        yoy_sale_date: yoyDate, yoy_net_sales: ly,
+        ...(Number(yoy?.net_sales) > 0 && yoy?.hourly_data ? { yoy_hourly_data: yoy.hourly_data } : {}),
+      }).eq("location_id", locationId).eq("sale_date", date).or("yoy_net_sales.is.null,yoy_net_sales.eq.0");
     }
-  } catch (e) { console.warn(`[aloha-sync] YOY reference skipped for ${date}:`, e); }
+  } catch (e) { if (isPortalAccessError(e)) throw e;
+    console.warn(`[aloha-sync] YOY reference skipped for ${date}:`, e); }
 
   // ── Shared projection + pace engine (POS-agnostic) — today only ────────
   try {
@@ -713,6 +755,7 @@ async function syncOneDay(
       );
     }
   } catch (e) {
+    if (isPortalAccessError(e)) throw e;
     console.warn(`[aloha-sync] pace calc skipped for ${date}:`, e);
   }
 
@@ -737,13 +780,16 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const body = (await req.json()) as Body;
+    const parsed = z.object({ action: z.enum(["backfill_history","sync_today","sync_yesterday","sync_date","sync_range","sync_dates","sync_all_today","sync_all_yesterday"]), locationId: z.string().uuid().optional(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), startDate: z.string().optional(), endDate: z.string().optional(), dates: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).max(30).optional() }).safeParse(await req.json());
+    if (!parsed.success) return new Response(JSON.stringify({ error: "Invalid sync request" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const body = parsed.data as Body;
+    if (body.action === "backfill_history") { const denied = requireInternalCaller(req, corsHeaders); if (denied) return denied; }
     const { action } = body;
     if (!action) throw new Error("action required");
 
     const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
     // Fan-out: sync today/yesterday for every active BWW GO Aloha location
@@ -794,6 +840,35 @@ Deno.serve(async (req) => {
     const creds = await getAlohaCreds(supabase, locationId);
     const tz = await getLocationTimezone(supabase, locationId);
     const today = todayInTz(tz);
+
+    if (action === "backfill_history") {
+      const { data: jobs, error: claimError } = await supabase.rpc("claim_aloha_history_backfill", { _location_id: locationId });
+      if (claimError) throw new Error(claimError.message);
+      const results: unknown[] = [];
+      for (const job of jobs ?? []) {
+        try {
+          const { data: existing } = await supabase.from("sales_cache").select("hourly_data,guest_count,net_sales").eq("location_id",locationId).eq("sale_date",job.sale_date).maybeSingle();
+          if (!hasHourlyAndGuests(existing)) await syncOneDay(supabase,locationId,creds,job.sale_date,tz,name,"date",true);
+          const { data: saved } = await supabase.from("sales_cache").select("hourly_data,guest_count,net_sales").eq("location_id",locationId).eq("sale_date",job.sale_date).maybeSingle();
+          const status = hasHourlyAndGuests(saved) ? "complete" : "retry";
+          const error = status === "retry" ? "Portal did not provide hourly sales and guest/check count" : null;
+          const { error: progressError } = await supabase.from("aloha_history_backfill_progress").update({status,error,updated_at:new Date().toISOString()}).eq("location_id",locationId).eq("sale_date",job.sale_date);
+          if (progressError) throw new Error(progressError.message);
+          results.push({ date:job.sale_date,status });
+        } catch(e) {
+          const blocked = isPortalAccessError(e);
+          const error = blocked ? "Aloha login/session blocked; stopped without retrying login" : "Aloha history request failed";
+          await supabase.from("aloha_history_backfill_progress").update({status:blocked ? "blocked" : "retry",error,updated_at:new Date().toISOString()}).eq("location_id",locationId).eq("sale_date",job.sale_date);
+          results.push({date:job.sale_date,status:blocked ? "blocked" : "retry",error});
+          if (blocked) {
+            await supabase.from("aloha_history_backfill_progress").update({status:"pending",updated_at:new Date().toISOString()}).eq("location_id",locationId).eq("status","running");
+            break;
+          }
+        }
+        await sleep(3000);
+      }
+      return new Response(JSON.stringify({success:true,action,results}),{headers:{...corsHeaders,"Content-Type":"application/json"}});
+    }
 
     let dates: string[] = [];
     let mode: SyncMode = "date";
