@@ -15,6 +15,7 @@
 import { DateTime } from "npm:luxon@3.7.2";
 import { z } from "npm:zod@3.23.8";
 import { requireInternalCaller } from "../_shared/callerAuth.ts";
+import { resolveAlohaCloseout } from "./closeout.ts";
 import { posExtrasPatch, hasHourlyAndGuests, isPortalAccessError, type PosExtras } from "../_shared/posExtras.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { computeAndSavePace } from "../_shared/projections.ts";
@@ -671,8 +672,7 @@ async function syncOneDay(
     sale_date: date,
     pos_source: "aloha",
     ...posExtrasPatch(incomingExtras, existingMail ?? {}),
-    net_sales: mode !== "live" && Number(existingMail?.net_sales) > 0 ? existingMail.net_sales : (payload.netSales > 0 ? payload.netSales : (existingMail?.net_sales ?? 0)),
-    guest_count: mode !== "live" && Number(existingMail?.guest_count) > 0 ? existingMail.guest_count : (effectiveGuests > 0 ? effectiveGuests : (existingMail?.guest_count ?? 0)),
+    ...resolveAlohaCloseout(mode, payload.netSales, effectiveGuests, existingMail),
     pizza_count: 0,
     avg_ticket: payload.avgTicket > 0 ? payload.avgTicket : existingMail?.avg_ticket,
     hourly_data: payload.hourly.length ? payload.hourly : (existingMail?.hourly_data ?? []),
