@@ -11,7 +11,7 @@
 - Marketplace Assign/Approve/Undo refresh only the selected shift's published snapshot in the same RPC transaction; unpublished weeks are rejected, and the schedule lifecycle marks only that shift's history sent. Why: confirmations cannot leave draft assignments or publish unrelated edits.
 
 - POS list: server only _shared/posSources.ts, client only src/lib/pos/liveSales.ts; never a hard-coded fallback POS (unknown = null). Why: missing lists mislabeled Hayward.
-- Daily goals use _shared/goalEngine.ts with a store-local write-date, four finished weeks, existing holiday/jitter helpers, and NULL-only Planning writes; hourly curves remain in projections.ts. Why: one POS-neutral goal formula without current-week history leaks.
+- Daily goals are written only by _shared/goalEngine.ts (including shared ensureLivingWeek), with a store-local write-date, four finished weeks and NULL-only Planning; POS writes omit goal columns and pace reads storedGoal.ts (override > living > initial > 0); browser gap fills use ensureFutureWeekLiving only for future weeks. Why: one writer, no stale upsert goal overwrites or current-week history leaks; hourly curves stay in projections.ts.
 - New data/POS source: update data_point_registry in the same migration. Why: one writer map.
 <!-- LOVABLE:BEGIN -->
 - Settings mode uses useStationMode + ScheduleOrganizeBy for one query/save; sales goal display stays separate from labor denominators. Why: prevent drift.
