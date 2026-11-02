@@ -4,6 +4,7 @@
 (none)
 
 ## In progress
+- Step 4: weekly schedule email push-independent address safety; after-close overdue manager digest and cron; settings notes; seeded tests, no real delivery or publishing.
 - Aloha historical completion: 285 gaps queued (2025-06-26–2026-04-07), first five attempted but portal returned incomplete detail; 280 pending/5 retry. Manual bounded runner available, no cron; completion waits on historical portal data.
 - Shift marketplace + support chats batch (Oct 23): built, waiting for Jordan's "ship". Not published.
 - Toast Status public downloads: blocked by workspace public-bucket restriction. Owner/admin must allow public buckets under Settings → Privacy & Security, then make toast-status-releases public. Release publishing deliberately returns 503 until then.
