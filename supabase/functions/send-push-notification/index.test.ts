@@ -18,6 +18,7 @@ function fixture(caller: Caller | null = { kind: 'user', userId: TEAM }) {
   const writes: { table: string; rows: unknown }[] = [];
   const sent: { ids: string[]; content: { title: string; body: string }; data: Row }[] = [];
   const applicantSent: string[] = [];
+  const emailInputs: any[] = [];
   const logs: string[] = [];
   const lookups: string[] = [];
   const tables: Record<string, Row[]> = {
@@ -65,11 +66,21 @@ function fixture(caller: Caller | null = { kind: 'user', userId: TEAM }) {
     rejectLog:line=>logs.push(line),
     deliver:async(ids,content,data)=>{sent.push({ids,content,data});return new Response(JSON.stringify({successful:ids.length}),{status:200});},
     deliverApplicant:async(thread)=>{applicantSent.push(thread);return new Response('{}',{status:200});},
-    email:async()=>({emailed:0,emailed_fallback:0}),
+    email:async(_client,input)=>{emailInputs.push(input);return {emailed:0,emailed_fallback:0};},
   });
   const request = (overrides:Row={}) => handler(new Request('http://localhost/notification',{method:'POST',headers:caller ? {} : {Authorization:'Bearer seeded-anon-gateway-key'},body:JSON.stringify({user_ids:[EMPLOYEE],location_id:A,title:'Title',body:'Body',notification_type:'chat_messages',...overrides})}));
-  return {request,sent,applicantSent,writes,logs,lookups,tables,setFailRpc:()=>{failRpc=true;}};
+  return {request,sent,applicantSent,emailInputs,writes,logs,lookups,tables,setFailRpc:()=>{failRpc=true;}};
 }
+
+Deno.test('email eligibility survives personal push OFF while role ceiling is honored',async()=>{
+  const f=fixture();f.tables.user_notification_settings=[{user_id:EMPLOYEE,location_id:A,notification_type:'chat_messages',push_enabled:false}];
+  let r=await f.request({data:{chat_id:CHAT}});assertEquals(r.status,200);await r.text();assertEquals(f.sent[0].ids,[]);assertEquals(f.emailInputs[0].eligible_user_ids,[EMPLOYEE]);
+  f.tables.role_notification_settings_template=[{role:'team_member',notification_type:'chat_messages',enabled:false}];
+  r=await f.request({data:{chat_id:CHAT}});await r.text();assertEquals(f.emailInputs[1].eligible_user_ids,[]);
+});
+Deno.test('user-supplied dedup_ref never reaches email templates',async()=>{
+  const f=fixture();const r=await f.request({data:{dedup_ref:'forged'}});await r.text();assertEquals(f.emailInputs[0].data.dedup_ref,undefined);
+});
 
 Deno.test('team Store A targeting Store B: 403, nothing sent or written', async()=>{
   const f=fixture(); const r=await f.request({user_ids:[OUTSIDER]});
