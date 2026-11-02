@@ -15,6 +15,7 @@
 - Announcements pop up on Dash after system alerts (read via Chat or popup, optional required "I've read this", who's-read list, out of Quick Tasks). Not yet tried live with test data.
 
 ## Done
+- Daily Goal Consistency step B: shared engine deployed; 0078 replaces old seed crons with hourly :30 store-local 3 AM tick; 12 Deno tests pass; live Hemet run/readback preserves actuals, Planning and overrides; ensure preserves existing Living. No frontend publishing.
 - Compact break/shift dialogs: shared stateless rows, pinned Edit Shift/Edit Punch footers, both Quick Punch editors; all pre-render logic byte-identical, 57 regression tests passed, signed-in 390×667 and Duo scrolling checked, preview compile clean. Publishing requested by Jordan.
 - Duo-only prototype Dashboard: scoped SF/Paper/OLED layout, live promo photos, flat sales carousel, real Quick Tasks/checklists and existing sales summary; signed-in open/folded, store picker, Nudge and Edit verified; 11 regression tests pass and latest preview build clean. Non-Duo source rendering preserved and 390/1024 inspected, but controlled baseline screenshots did not hydrate, so pixel-identical verification remains unconfirmed. No physical Duo test or publishing.
 - Duo Design Lab archived (Oct 25): files moved to src/archive/duo-lab/ with a restore README, /duo-lab route and Settings → Super Admin entry removed. Verified signed-in as super admin: link gone, /duo-lab shows the app's 404. Typecheck and build clean; nothing published.

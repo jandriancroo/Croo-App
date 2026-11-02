@@ -152,6 +152,9 @@ verify_jwt = false
 [functions.sales-week-projections]
 verify_jwt = false
 
+[functions.goal-engine]
+verify_jwt = false
+
 [functions.availability-insights]
 verify_jwt = false
 

@@ -547,6 +547,13 @@
       "when": 1793593627522,
       "tag": "0077_daily_goal_consistency_security",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1793594046895,
+      "tag": "0078_goal_engine_hourly_tick",
+      "breakpoints": true
     }
   ]
 }
