@@ -19,6 +19,7 @@ import { PROMO_BANNER_ASPECT, PROMO_BANNER_ASPECT_CLASS, PromoBadgeOverlay, Prom
 
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useCanAddDashboardCube } from "@/hooks/useCanAddDashboardCube";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "@/hooks/useLocation";
@@ -101,6 +102,7 @@ export function AddWidgetDialog({
   const { currentLocation } = useLocation();
   const { isAdmin, isOrgAdmin, isBrandAdmin, isSuperAdmin } = useUserRole();
   const canPublish = isAdmin; // admin, org_admin, brand_admin, super_admin
+  const canAddCube = useCanAddDashboardCube();
   const [excludedLocationIds, setExcludedLocationIds] = useState<string[]>([]);
   const [excludeOpen, setExcludeOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -285,6 +287,7 @@ export function AddWidgetDialog({
   };
 
   const handleTypeSelect = (type: CubeType) => {
+    if (type === 'data' && !canAddCube) return;
     setSelectedType(type);
     setConfig(prev => ({ ...prev, cubeType: type }));
     
@@ -340,6 +343,7 @@ export function AddWidgetDialog({
   };
 
   const handleAddDataCube = async () => {
+    if (config.cubeType === 'data' && !canAddCube) return;
     if (config.cubeType !== 'tracker' && config.metrics.length === 0) return;
 
     // For trackers: always publish to all (non-excluded) brand locations
@@ -431,7 +435,7 @@ export function AddWidgetDialog({
             
             <div className="grid grid-cols-2 gap-4">
               {/* Data Cube (3D) */}
-              {onAdd3DCube && (
+              {canAddCube && onAdd3DCube && (
                 <button
                   className="flex flex-col items-center gap-3 p-4 rounded-xl border-2 border-primary/30 hover:border-primary hover:bg-accent transition-all bg-primary/5"
                   onClick={() => {
@@ -439,7 +443,7 @@ export function AddWidgetDialog({
                     onAdd3DCube();
                   }}
                 >
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/30 to-primary/50 flex items-center justify-center">
+                  <div className="w-14 h-14 rounded-xl bg-primary/30 flex items-center justify-center">
                     <Box className="h-6 w-6 text-primary" />
                   </div>
                   <div className="text-center">
@@ -459,8 +463,8 @@ export function AddWidgetDialog({
                 onClick={() => !hasSalesChart && handleTypeSelect('sales-chart')}
                 disabled={hasSalesChart}
               >
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-500/40 flex items-center justify-center">
-                  <LineChart className="h-6 w-6 text-blue-500" />
+                <div className="w-14 h-14 rounded-xl bg-primary/20 flex items-center justify-center">
+                  <LineChart className="h-6 w-6 text-primary" />
                 </div>
                 <div className="text-center">
                   <span className="text-sm font-medium block">Sales Chart</span>
@@ -487,7 +491,7 @@ export function AddWidgetDialog({
                 className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-transparent hover:border-primary/50 hover:bg-accent transition-all"
                 onClick={() => handleSizeSelect('small')}
               >
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
+                <div className="w-14 h-14 rounded-xl bg-primary/20 flex items-center justify-center">
                   <Square className="h-6 w-6 text-primary" />
                 </div>
                 <span className="text-sm font-medium">Small</span>
@@ -499,7 +503,7 @@ export function AddWidgetDialog({
                 className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-transparent hover:border-primary/50 hover:bg-accent transition-all"
                 onClick={() => handleSizeSelect('medium')}
               >
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
+                <div className="w-14 h-14 rounded-xl bg-primary/20 flex items-center justify-center">
                   <RectangleHorizontal className="h-6 w-6 text-primary" />
                 </div>
                 <span className="text-sm font-medium">Medium</span>

@@ -16,6 +16,7 @@ import { useDashboardSections } from '@/components/dashboard/DataCubesSection';
 import { useWatchSync } from '@/hooks/useWatchSync';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useCanAddDashboardCube } from '@/hooks/useCanAddDashboardCube';
 import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 // useShouldUseRoleCubes removed — unified dashboard_widgets handles role visibility via RLS
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -100,6 +101,7 @@ export default function Dashboard() {
   const { isSectionVisible } = useDashboardSections();
   const { data: activePromo } = useActivePromoTracker(currentLocation?.id);
   const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
+  const canAddCube = useCanAddDashboardCube();
   const [showEditDashboard, setShowEditDashboard] = useState(false);
   const [dashboardSectionOrder, setDashboardSectionOrder] = useState<SectionKey[]>(() =>
     currentLocation?.id ? getSectionOrder(currentLocation.id) : DEFAULT_SECTION_ORDER
@@ -613,7 +615,7 @@ export default function Dashboard() {
       salesData={combinedSalesData} 
       isLoadingSales={isLoadingSales} 
       hasQuBeyondIntegration={hasQuBeyondIntegration} 
-      showAddDialog={showAddCubeDialog} 
+      showAddDialog={canAddCube && showAddCubeDialog} 
       onAddDialogChange={setShowAddCubeDialog} 
       locationSettings={locationSettings} 
       isReorderMode={false}
@@ -658,7 +660,7 @@ export default function Dashboard() {
               cubes={dashboardCubes}
               onUpdateCube={handleUpdateCube}
               onDeleteCube={handleDeleteCube}
-              onAddCube={() => setShowAddCubeDialog(true)}
+              onAddCube={() => { if (canAddCube) setShowAddCubeDialog(true); }}
               onReorderCubes={handleReorderCubes}
               onSectionOrderChange={setDashboardSectionOrder}
             />

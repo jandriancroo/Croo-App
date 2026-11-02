@@ -22,6 +22,7 @@ import {
   METRIC_GROUPS,
 } from "./DashboardWidget";
 import { THEME_COLORS, ThemeColorKey, getThemeColorClass } from "@/utils/themeColors";
+import { useCanAddDashboardCube } from "@/hooks/useCanAddDashboardCube";
 
 export interface New3DCubeConfig {
   title?: string; // Legacy single title (optional now)
@@ -44,6 +45,7 @@ export function Add3DCubeDialog({
   onAdd,
   defaultColorIndex = 0,
 }: Add3DCubeDialogProps) {
+  const canAddCube = useCanAddDashboardCube();
   const [numFaces, setNumFaces] = useState(2);
   const [activeFace, setActiveFace] = useState(0);
   const [faceTitles, setFaceTitles] = useState<string[]>(['', '', '', '']);
@@ -98,7 +100,7 @@ export function Add3DCubeDialog({
   };
 
   const handleAddCube = async () => {
-    if (isSubmitting) return;
+    if (!canAddCube || isSubmitting) return;
     
     // Get only the faces we're using
     const usedFaces = faceMetrics.slice(0, numFaces);
@@ -133,6 +135,8 @@ export function Add3DCubeDialog({
   const isMetricUsedElsewhere = (metric: MetricType) => {
     return faceMetrics.some((face, idx) => idx !== activeFace && idx < numFaces && face.includes(metric));
   };
+
+  if (!canAddCube) return null;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
