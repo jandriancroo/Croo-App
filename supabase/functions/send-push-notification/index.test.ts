@@ -142,3 +142,21 @@ Deno.test('known type catalog has no duplicates and includes every seeded user t
   assertEquals(new Set(KNOWN_NOTIFICATION_TYPES).size,KNOWN_NOTIFICATION_TYPES.length);
   for(const type of ['chat_messages','announcements','schedule_updates','shift_approvals','logbook_entry','drawer_count','safe_count','waste_log','catering_order','task_assigned','quick_task','test']) assert((KNOWN_NOTIFICATION_TYPES as readonly string[]).includes(type));
 });
+for (const type of ['announcements','shift_approvals','logbook_entry','drawer_count','safe_count','waste_log','catering_order','task_assigned','quick_task']) {
+  Deno.test(`${type}: team sender blocked, shift manager with store targets permitted`,async()=>{
+    const team=fixture();let r=await team.request({notification_type:type});assertEquals(r.status,403);await r.text();assertEquals(team.sent.length,0);
+    const manager=fixture({kind:'user',userId:MANAGER});r=await manager.request({notification_type:type});assertEquals(r.status,200);await r.text();assertEquals(manager.sent[0].ids,[EMPLOYEE]);
+  });
+}
+Deno.test('AnnouncementStats chatId reminder resolves its store',async()=>{
+  const f=fixture({kind:'user',userId:MANAGER});const r=await f.request({notification_type:'announcements',location_id:undefined,data:{chatId:CHAT}});assertEquals(r.status,200);await r.text();assertEquals(f.sent.length,1);
+});
+Deno.test('support caller cannot push to an unrelated non-admin using a valid ticket',async()=>{
+  const f=fixture({kind:'user',userId:ADMIN});const r=await f.request({user_ids:[EMPLOYEE],location_id:undefined,data:{type:'support_message',ticket_id:RECORD}});assertEquals(r.status,403);await r.text();assertEquals(f.sent.length,0);
+});
+Deno.test('real requireCaller denies missing token before any injected client can run',async()=>{
+  let clientUsed=false;const logs:string[]=[];
+  const handler=createHandler({client:()=>{clientUsed=true;throw new Error('must not run');},rejectLog:line=>logs.push(line)});
+  const r=await handler(new Request('http://localhost/notification',{method:'POST',body:'not-json'}));
+  assertEquals(r.status,401);assertEquals(await r.json(),{error:'Unauthorized'});assertEquals(clientUsed,false);assertEquals(logs.length,1);
+});
