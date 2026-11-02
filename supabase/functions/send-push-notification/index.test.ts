@@ -153,7 +153,7 @@ for (const type of ['announcements','shift_approvals','task_assigned','quick_tas
 for (const type of ['logbook_entry','drawer_count','safe_count','waste_log','catering_order']) {
   Deno.test(`${type}: crew to store manager 200; crew recipient and other-store manager 403`,async()=>{
     const f=fixture();
-    f.tables.user_roles.find(r=>r.user_id===OUTSIDER).role='manager';
+    const outsiderRole=f.tables.user_roles.find(r=>r.user_id===OUTSIDER);assert(outsiderRole);outsiderRole.role='manager';
     let r=await f.request({notification_type:type,user_ids:[MANAGER]});assertEquals(r.status,200);await r.text();assertEquals(f.sent[0].ids,[MANAGER]);
     r=await f.request({notification_type:type,user_ids:[EMPLOYEE]});assertEquals(r.status,403);await r.text();
     r=await f.request({notification_type:type,user_ids:[OUTSIDER]});assertEquals(r.status,403);await r.text();assertEquals(f.sent.length,1);
@@ -161,7 +161,7 @@ for (const type of ['logbook_entry','drawer_count','safe_count','waste_log','cat
 }
 for (const role of ['admin','super_admin']) Deno.test(`${role} diagnostic self-only 200; other target 403`,async()=>{
   const f=fixture({kind:'user',userId:ADMIN});
-  f.tables.user_roles.find(r=>r.user_id===ADMIN).role=role;
+  const adminRole=f.tables.user_roles.find(r=>r.user_id===ADMIN);assert(adminRole);adminRole.role=role;
   f.tables.user_locations.push({user_id:ADMIN,location_id:A});f.tables.profiles.push({id:ADMIN,default_location_id:A});
   let r=await f.request({notification_type:'late_arrivals',user_ids:[ADMIN],location_id:undefined,data:{type:'test'}});assertEquals(r.status,200);await r.text();assertEquals(f.sent[0].ids,[ADMIN]);
   r=await f.request({notification_type:'chat_messages',user_ids:[ADMIN],location_id:undefined,data:{chat_id:'diagnostic-test',type:'message'}});assertEquals(r.status,200);await r.text();assertEquals(f.sent[1].ids,[ADMIN]);
@@ -173,7 +173,7 @@ Deno.test('non-admin diagnostic marker rejected even for self',async()=>{
 Deno.test('applicant valid link token resolves own thread managers only; other targets and thread 403',async()=>{
   Deno.env.set('SUPABASE_ANON_KEY','seeded-anon-gateway-key');
   try {
-    const f=fixture(null);f.tables.user_roles.find(r=>r.user_id===MANAGER).role='manager';
+    const f=fixture(null);const managerRole=f.tables.user_roles.find(r=>r.user_id===MANAGER);assert(managerRole);managerRole.role='manager';
     const payload={applicant_token:'seeded-link-token',user_ids:[],roles:['manager'],data:{type:'hiring_message',conversation_id:RECORD},title:'Untrusted title',body:'Untrusted preview',html:'unsafe'};
     let r=await f.request(payload);assertEquals(r.status,200);await r.text();assertEquals(f.sent[0].ids,[MANAGER]);assertEquals(f.sent[0].content,{title:'💬 Hiring chat',body:'Available Monday'});assertEquals(f.sent[0].data,{type:'hiring_message',conversation_id:RECORD});
     r=await f.request({...payload,user_ids:[OUTSIDER]});assertEquals(r.status,403);await r.text();
