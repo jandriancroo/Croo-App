@@ -172,8 +172,8 @@ export function LaborTotals({
         }
         
         // Process cached data immediately
-        const newSales: Record<number, number> = { ...projectedSales };
-        const newSources: Record<number, 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'planning' | 'none'> = { ...salesSource };
+        const newSales: Record<number, number> = Object.fromEntries(weekDays.map((_, i) => [i, 0]));
+        const newSources: Record<number, 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'planning' | 'none'> = Object.fromEntries(weekDays.map((_, i) => [i, 'none']));
         
         // Past days from net_sales
         if (pastResponse.data) {

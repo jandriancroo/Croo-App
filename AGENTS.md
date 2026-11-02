@@ -11,7 +11,7 @@
 - Marketplace Assign/Approve/Undo refresh only the selected shift's published snapshot in the same RPC transaction; unpublished weeks are rejected, and the schedule lifecycle marks only that shift's history sent. Why: confirmations cannot leave draft assignments or publish unrelated edits.
 
 - POS list: server only _shared/posSources.ts, client only src/lib/pos/liveSales.ts; never a hard-coded fallback POS (unknown = null). Why: missing lists mislabeled Hayward.
-- Daily goals are written only by _shared/goalEngine.ts (including shared ensureLivingWeek), with a store-local write-date, four finished weeks and NULL-only Planning; POS writes omit goal columns and pace reads storedGoal.ts (override > living > initial > 0); browser gap fills use ensureFutureWeekLiving only for future weeks. Why: one writer, no stale upsert goal overwrites or current-week history leaks; hourly curves stay in projections.ts.
+- Daily goals are written only by _shared/goalEngine.ts (including shared ensureLivingWeek), with a store-local write-date, four finished weeks and NULL-only Planning; POS writes omit goal columns and all goal readers use cubeMetrics via storedGoal.ts/server or goalResolver.ts/browser (positive override > non-null living > non-null initial > zero); browser gap fills use ensureFutureWeekLiving only for future weeks. Why: one writer, no stale upsert goal overwrites or current-week history leaks; hourly curves stay in projections.ts.
 - New data/POS source: update data_point_registry in the same migration. Why: one writer map.
 <!-- LOVABLE:BEGIN -->
 - Settings mode uses useStationMode + ScheduleOrganizeBy for one query/save; sales goal display stays separate from labor denominators. Why: prevent drift.
@@ -39,3 +39,5 @@
 - Punch dialogs (Edit Shift, Edit Punch, both Quick Punch) share the stateless components/timecard/ShiftCardFields presentation; dialogs retain their own state, validation and save handlers. Why: one shared card layout must not change punch records or break enforcement.
 - Duo Dashboard presentation lives in components/duo, enabled by useDuo only at Dashboard and its local presentation context; existing WidgetsSection, task/checklist components, SalesSummary master writer and cube metric readers remain mounted once. Why: isolate the prototype from other pages without new requests or changed non-Duo markup.
 - Scheduling Manager UI: edit gates use useUserRole().canEditSchedule; pay display uses wageMode ('full'|'blended'|'none') — blended shows totals only (server returns the store blended rate when _location_id is passed), never per-person $; punch tools stay isAdmin||isManager. Why: separate role, no wage leaks, no punch access.
+
+- Goal version tags query per-day Planning and location-scoped override history only when opened; stored daily resolver values are the only period goal inputs. Why: one number everywhere without extra dashboard requests.

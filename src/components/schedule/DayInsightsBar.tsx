@@ -79,7 +79,7 @@ export function DayInsightsBar({
 }: DayInsightsBarProps) {
   const { canSeeSales } = useTeamSalesVisibility();
   const { role } = useUserRole();
-  const goalEditable = canEditDailyGoal(role, dateStr, todayStr);
+  const goalEditable = canEditDailyGoal(role, dateStr, DateTime.now().setZone(timezone).toFormat('yyyy-MM-dd'));
   const [expanded, setExpanded] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const laborGoals = useLaborGoals(locationId);
@@ -147,13 +147,14 @@ export function DayInsightsBar({
             living_projection: r?.living_projection,
             override_projection: r?.override_projection,
           });
-          if (resolved.value && resolved.value > 0) {
+          if (resolved.source !== 'none') {
             if (!cancelled) {
               setSales(Math.round(resolved.value * 100) / 100);
               setSalesSource(resolved.source as SalesSource);
             }
             return true;
           }
+          if (!cancelled) { setSales(0); setSalesSource('none'); }
           return false;
         };
 

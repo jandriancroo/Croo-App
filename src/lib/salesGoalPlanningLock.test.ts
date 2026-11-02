@@ -13,7 +13,7 @@ async function setup() {
       initial_projection numeric, living_projection numeric, projected_sales numeric, override_projection numeric,
       override_at timestamptz, override_by uuid, override_excluded_dates jsonb);
   `);
-  await db.exec(readFileSync('drizzle/migrations/0079_daily_goal_planning_insert_once.sql', 'utf8'));
+  await db.exec(readFileSync('drizzle/migrations/0081_daily_goal_past_living_freeze.sql', 'utf8'));
   await db.exec('CREATE TRIGGER guard BEFORE INSERT OR UPDATE ON sales_cache FOR EACH ROW EXECUTE FUNCTION guard_sales_cache_goals()');
   return db;
 }
@@ -45,6 +45,25 @@ describe('Planning insert-once lock', () => {
     try {
       await db.exec(`SET request.jwt.claims='{"role":"authenticated"}'`);
       await expect(db.exec('INSERT INTO sales_cache(id,living_projection) VALUES(1,100)')).rejects.toMatchObject({ code: '42501', message: 'Planning/Living goals are system-managed' });
+    } finally { await db.close(); }
+  }, 20000);
+});
+describe('Past Living freeze', () => {
+  it('blocks service changes and inserts for yesterday, but preserves actuals and today', async () => {
+    const db = await setup();
+    try {
+      await db.exec("SET croo.goal_backfill='on'; INSERT INTO sales_cache(id,sale_date,living_projection) VALUES(1,'2026-11-01',900); SET croo.goal_backfill='off'");
+      await expect(db.exec('UPDATE sales_cache SET living_projection=1000 WHERE id=1')).rejects.toMatchObject({code:'42501', message:'Past goals are locked'});
+      await expect(db.exec("INSERT INTO sales_cache(id,sale_date,living_projection) VALUES(2,'2026-11-01',1000)")).rejects.toMatchObject({code:'42501'});
+      await db.exec("UPDATE sales_cache SET net_sales=123.45 WHERE id=1; INSERT INTO sales_cache(id,sale_date,living_projection) VALUES(3,'2026-11-02',1000)");
+      expect((await db.query('SELECT net_sales FROM sales_cache WHERE id=1')).rows[0]).toEqual({net_sales:'123.45'});
+    } finally { await db.close(); }
+  }, 20000);
+  it('allows explicit backfill of historical Living', async () => {
+    const db = await setup();
+    try {
+      await db.exec("SET croo.goal_backfill='on'; INSERT INTO sales_cache(id,sale_date,living_projection) VALUES(1,'2026-11-01',900); UPDATE sales_cache SET living_projection=1000 WHERE id=1");
+      expect((await db.query('SELECT living_projection FROM sales_cache')).rows[0]).toEqual({living_projection:'1000'});
     } finally { await db.close(); }
   }, 20000);
 });
