@@ -1,5 +1,5 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders as sdkCorsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { createClient } from 'npm:@supabase/supabase-js@2.118.0';
+import { corsHeaders as sdkCorsHeaders } from 'npm:@supabase/supabase-js@2.118.0/cors';
 import { z } from 'npm:zod@3';
 import { DateTime } from 'npm:luxon@3.7.2';
 import { authorizeCaller, authenticateCaller, requireAuthorizedCaller, requireInternalCaller } from '../_shared/callerAuth.ts';
