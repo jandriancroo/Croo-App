@@ -1,5 +1,5 @@
 import { assert, assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { notifyEmail, type NotifyEmailInput } from './notifyEmail.ts';
+import { notifyEmail, EMAIL_ALWAYS_KEYS, type NotifyEmailInput } from './notifyEmail.ts';
 import { defaultEmailEnabled } from './notificationDefaults.ts';
 
 const STORE = '10000000-0000-0000-0000-000000000001';
@@ -12,6 +12,12 @@ function fixture() {
     announcement_posts:[{id:REF,location_id:STORE,subject:'Saved announcement',updated_at:'version1'}],
     chats:[{id:REF,location_id:STORE,title:'Seeded chat'}], messages:[{id:REF,chat_id:REF,created_at:'version1'}],
     user_notification_settings:[], email_queue:[], bounced_emails:[],suppressed_emails:[],
+    scheduled_shifts:[{id:REF,user_id:USER,schedule_id:REF,start_time:'09:00:00'}],
+    certifications:[{id:REF,user_id:USER,certification_type:'Food handler',expiration_date:'2026-11-09'}],
+    toast_shifts:[{id:REF,toast_shift_id:REF,croo_user_id:USER,location_id:STORE,in_time:'2026-11-02T17:00:00Z'}],
+    read_and_sign_assignments:[{id:REF,employee_id:USER,document_id:REF,signed_at:null}],
+    read_and_sign_documents:[{id:REF,location_id:STORE,title:'Saved document',is_active:true}],
+    location_settings:[{location_id:STORE,timezone:'America/Los_Angeles'}],
   };
   let now = 0;
   const client = {
@@ -85,4 +91,27 @@ for(const type of ['hourly_sales_pulse','day_part_pulse']) Deno.test(`${type}: d
   assertEquals((await f.run()).emailed,0);f.setting(true,type);
   assertEquals((await f.run()).emailed,1);assertEquals((await f.run()).emailed,0);
   f.input.data.dedup_ref='verified-pulse-12';assertEquals((await f.run()).emailed,1);
+});
+for (const [type,data] of [
+  ['late_arrival_self',{shift_id:REF}], ['no_call_no_show_self',{shift_id:REF}],
+  ['cert_expiring_self',{cert_id:REF}], ['read_and_sign',{assignment_id:REF}],
+] as const) {
+  Deno.test(`${type}: always email with token, toggle OFF and off-clock; dedup and sandbox exclusion`,async()=>{
+    const f=fixture();f.input.notification_type=type;f.input.data={...data,dedup_ref:`seed-${type}`,body:'UNTRUSTED',html:'UNTRUSTED'};
+    f.input.tokenUsers.add(USER);f.input.fromHomeAllowed.clear();f.setting(false,type);
+    assert(EMAIL_ALWAYS_KEYS.has(type));assertEquals(await f.run(),{emailed:1,emailed_fallback:0});
+    assertEquals(f.rows.email_queue[0].dedup_key,`${type}:seed-${type}:${USER}`);
+    assert(!f.rows.email_queue[0].html.includes('UNTRUSTED'));
+    assertEquals((await f.run()).emailed,0);
+    f.rows.email_queue=[];f.rows.profiles[0].email='sandbox@example.com';assertEquals((await f.run()).emailed,0);
+  });
+  Deno.test(`${type}: no token also emails, non-owner never receives content`,async()=>{
+    const f=fixture();f.input.notification_type=type;f.input.data=data;f.input.fromHomeAllowed.clear();
+    assertEquals((await f.run()).emailed,1);
+    f.rows.email_queue=[];f.input.eligible_user_ids=['20000000-0000-0000-0000-000000000002'];assertEquals((await f.run()).emailed,0);
+  });
+}
+Deno.test('Toast late employee copy uses stored mapped employee, not caller text',async()=>{
+ const f=fixture();f.input.notification_type='late_arrival_self';f.input.data={toast_shift_id:REF};f.input.fromHomeAllowed.clear();
+ assertEquals((await f.run()).emailed,1);assert(f.rows.email_queue[0].html.includes('from Toast'));
 });

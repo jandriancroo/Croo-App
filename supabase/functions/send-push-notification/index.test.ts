@@ -211,3 +211,17 @@ Deno.test('real requireCaller denies missing token before any injected client ca
   const r=await handler(new Request('http://localhost/notification',{method:'POST',body:'not-json'}));
   assertEquals(r.status,401);assertEquals(await r.json(),{error:'Unauthorized'});assertEquals(clientUsed,false);assertEquals(logs.length,1);
 });
+for (const type of ['late_arrival_self','no_call_no_show_self','cert_expiring_self','read_and_sign']) {
+ Deno.test(`${type}: even admin diagnostic cannot spoof a service-only employee alert`,async()=>{
+  const f=fixture({kind:'user',userId:ADMIN});const r=await f.request({notification_type:type,user_ids:[ADMIN],data:{type:'test'}});
+  assertEquals(r.status,403);await r.text();assertEquals(f.sent.length,0);
+ });
+ Deno.test(`${type}: service pushes locked employee despite disabled settings, user caller forbidden`,async()=>{
+  const f=fixture({kind:'service',userId:null});
+  f.tables.user_notification_settings=[{user_id:EMPLOYEE,location_id:A,notification_type:type==='read_and_sign'?type:'personal',push_enabled:false,from_home:false}];
+  f.tables.role_notification_settings_template=[{role:'team_member',notification_type:type==='read_and_sign'?type:'personal',enabled:false,from_home:false}];
+  const r=await f.request({notification_type:type,data:{dedup_ref:'seeded-job-alert'}});assertEquals(r.status,200);await r.text();
+  assertEquals(f.sent[0].ids,[EMPLOYEE]);assertEquals(f.emailInputs[0].eligible_user_ids,[EMPLOYEE]);assertEquals([...f.emailInputs[0].fromHomeAllowed],[EMPLOYEE]);
+  const user=fixture();const denied=await user.request({notification_type:type});assertEquals(denied.status,403);await denied.text();assertEquals(user.sent.length,0);
+ });
+}

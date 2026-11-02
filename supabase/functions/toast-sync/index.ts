@@ -609,6 +609,8 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
   // ── Punch alerts (today only, paired against the CrooHQ schedule) ──
   if (isToday) {
     const queueRows: any[] = [];
+    const employeeQueueRows: any[] = [];
+    const { data: alertLocation } = await supabase.from("locations").select("name").eq("id", locationId).maybeSingle();
     for (const e of employeeBreakdown as any[]) {
       if (e.croo_user_id && e.late_minutes != null) {
         queueRows.push({
@@ -621,6 +623,18 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
             user_ids: managerIds,
             notification_type: "toast_late_clock_in",
             data: { location_id: locationId, shift_id: e.id, late_minutes: e.late_minutes },
+          },
+        });
+        employeeQueueRows.push({
+          alert_type: "late_arrival_self",
+          dedup_key: `toast-late-in-self:${e.id}`,
+          location_id: locationId,
+          payload: {
+            title: "Late clock-in",
+            body: `You clocked in ${e.late_minutes} min late at ${alertLocation?.name || "your store"} today (from Toast).`,
+            user_ids: [e.croo_user_id],
+            notification_type: "late_arrival_self",
+            data: { location_id: locationId, toast_shift_id: e.id, url: "https://croohq.com/schedule" },
           },
         });
       }
@@ -652,6 +666,9 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
     }
     if (queueRows.length > 0 && managerIds.length > 0) {
       await supabase.from("alert_queue").upsert(queueRows, { onConflict: "dedup_key" });
+    }
+    if (employeeQueueRows.length > 0) {
+      await supabase.from("alert_queue").upsert(employeeQueueRows, { onConflict: "dedup_key", ignoreDuplicates: true });
     }
   }
 

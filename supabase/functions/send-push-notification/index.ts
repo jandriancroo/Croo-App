@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { gateRecipient, settingsKey, isLocked, PULSE_KEYS } from "../_shared/notificationGate.ts";
 import { clockedInUserIds } from "../_shared/onClock.ts";
 import { requireCaller, type Caller } from "../_shared/callerAuth.ts";
-import { notifyEmail, type NotifyEmailInput, type PushOutcome } from '../_shared/notifyEmail.ts';
+import { notifyEmail, EMAIL_ALWAYS_KEYS, type NotifyEmailInput, type PushOutcome } from '../_shared/notifyEmail.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -425,6 +425,7 @@ export const KNOWN_NOTIFICATION_TYPES = [
   'logbook_entry', 'drawer_count', 'safe_count', 'waste_log', 'catering_order',
   'task_assigned', 'quick_task', 'test', 'overdue_checklists', 'overdue_checklist',
   'late_arrivals', 'late_arrival', 'no_call_no_show', 'monthly_checklist', 'certificate_expiry',
+  'late_arrival_self', 'no_call_no_show_self', 'cert_expiring_self',
   'certification_expiring', 'arcade_scores', 'new_job_application', 'alarm_task',
   'alarm', 'quick_nudge', 'shift_reminders', 'schedule_published', 'schedule_approval',
   'shift_offer', 'shift_overstay', 'toast_late_clock_in', 'toast_no_clock_out',
@@ -552,6 +553,7 @@ return async (req: Request): Promise<Response> => {
       for (const key of Object.keys(data)) delete data[key];
       Object.assign(data, { type: 'hiring_message', conversation_id: applicantThread.id });
     }
+    if (caller?.kind !== 'service' && EMAIL_ALWAYS_KEYS.has(notification_type)) return reject('employee_alert_service_only');
     const diagnostic = caller?.kind === 'user' && ((data.type === 'test' && notification_type !== 'test') || data.chat_id === 'diagnostic-test');
     if (diagnostic && caller?.kind === 'user') {
       const admin = await supabaseClient.from('user_roles').select('role').eq('user_id', caller.userId).in('role', ['admin', 'super_admin']);

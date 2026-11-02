@@ -1,5 +1,8 @@
 import { escapeEmailHtml, renderEmailHeader, resolveEmailLogo } from './emailHeader.ts';
 import { defaultEmailEnabled, emailSettingsKey, EMAIL_FALLBACK_KEYS } from './notificationDefaults.ts';
+import { DateTime } from 'https://esm.sh/luxon@3.7.2';
+
+export const EMAIL_ALWAYS_KEYS = new Set(['late_arrival_self', 'no_call_no_show_self', 'cert_expiring_self', 'read_and_sign']);
 
 export type PushOutcome = { attempted: number; succeeded: number; dead: number };
 export interface NotifyEmailInput {
@@ -20,6 +23,8 @@ const LABELS: Record<string, string> = {
   shift_overstay: 'Shift overstay', cash_drawer_count: 'Drawer counts', cash_safe_count: 'Safe counts',
   cash_bank_deposit: 'Bank deposits', logbook_entry: 'Logbook entry', catering_order: 'Catering order',
   task_assigned: 'Task assigned', quick_task: 'Quick task', alarm_task: 'Task reminder',
+  late_arrival_self: 'Your late arrival', no_call_no_show_self: 'Please contact your manager',
+  cert_expiring_self: 'Your certification',
 };
 
 // Record values are used only after scope verification; no request title/body/html reaches this module.
@@ -35,9 +40,57 @@ async function template(client: any, i: NotifyEmailInput, key: string) {
   let paragraph = `There is a new ${LABELS[key]?.toLowerCase() ?? 'notification'} for you.`;
   let path = '/dashboard';
   let chat: string | null = null;
+  let owner: string | null = null;
   const postId = d.post_id ?? d.postId;
   const chatId = d.chat_id ?? d.chatId;
-  if (postId) {
+  if (EMAIL_ALWAYS_KEYS.has(i.notification_type)) {
+    const loc = await load('locations', i.location_id ?? '');
+    const settings = await client.from('location_settings').select('timezone').eq('location_id', i.location_id).maybeSingle();
+    if (!loc || settings.error) return null;
+    const zone = settings.data?.timezone ?? 'America/Los_Angeles';
+    if (i.notification_type === 'read_and_sign') {
+      const assignment = await load('read_and_sign_assignments', d.assignment_id);
+      const doc = assignment && await load('read_and_sign_documents', assignment.document_id);
+      if (!assignment || !doc || !doc.is_active || assignment.signed_at || doc.location_id !== i.location_id) return null;
+      owner = assignment.employee_id;
+      ref = assignment.id;
+      paragraph = `New document to read & sign: ${doc.title}.`;
+    } else if (i.notification_type === 'cert_expiring_self') {
+      const cert = await load('certifications', d.cert_id);
+      if (!cert) return null;
+      owner = cert.user_id;
+      ref = cert.id;
+      const expiry = DateTime.fromFormat(String(cert.expiration_date), 'yyyy-MM-dd', { zone });
+      if (!expiry.isValid) return null;
+      const days = Math.round(expiry.diff(DateTime.now().setZone(zone).startOf('day'), 'days').days);
+      paragraph = `Your ${cert.certification_type} expires ${days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`}. Upload your new card in CrooHQ so you stay on the schedule.`;
+      path = '/certifications';
+    } else if (d.toast_shift_id) {
+      const result = await client.from('toast_shifts').select('*').eq('toast_shift_id', d.toast_shift_id).eq('location_id', i.location_id).maybeSingle();
+      const shift = result.error ? null : result.data;
+      if (!shift || shift.location_id !== i.location_id || !shift.in_time) return null;
+      owner = shift.croo_user_id;
+      ref = shift.id;
+      const scheduleResult = shift.croo_scheduled_shift_id ? await load('scheduled_shifts', shift.croo_scheduled_shift_id) : null;
+      const actualIn = DateTime.fromISO(String(shift.in_time), { zone });
+      const scheduledIn = scheduleResult ? DateTime.fromFormat(`${shift.shift_date} ${String(scheduleResult.start_time).slice(0, 5)}`, 'yyyy-MM-dd HH:mm', { zone }) : null;
+      const late = actualIn.isValid && scheduledIn?.isValid ? Math.max(0, Math.floor(actualIn.diff(scheduledIn, 'minutes').minutes)) : null;
+      paragraph = `You clocked in ${late === null ? '' : `${late} min `}late at ${loc.name} today (from Toast).`;
+      path = '/schedule';
+    } else {
+      const shift = await load('scheduled_shifts', d.shift_id);
+      const schedule = shift && await load('schedules', shift.schedule_id);
+      if (!shift || !schedule || schedule.location_id !== i.location_id) return null;
+      owner = shift.user_id;
+      ref = shift.id;
+      const start = DateTime.fromFormat(String(shift.start_time).slice(0, 5), 'HH:mm', { zone }).toFormat('h:mm a');
+      paragraph = i.notification_type === 'no_call_no_show_self'
+        ? `You were scheduled at ${start} at ${loc.name} and haven't clocked in. Please contact your manager now.`
+        : `You were scheduled at ${start} at ${loc.name}. You haven't clocked in yet. If you're running late, let your manager know.`;
+      path = '/schedule';
+    }
+    if (!owner || !i.eligible_user_ids.includes(owner)) return null;
+  } else if (postId) {
     const post = await load('announcement_posts', postId);
     if (!post || post.deleted_at) return null;
     paragraph = post.subject ? `New announcement: ${post.subject}` : 'A new team announcement is ready.';
@@ -93,13 +146,14 @@ async function template(client: any, i: NotifyEmailInput, key: string) {
   if (typeof d.dedup_ref === 'string' && d.dedup_ref.length <= 500) ref = d.dedup_ref;
   if (!ref || !LABELS[key]) return null;
   if (key === 'hourly_sales_pulse' || key === 'day_part_pulse') ref = `${i.location_id}:${ref}`;
-  return { ref, paragraph, path, chat };
+  return { ref, paragraph, path, chat, owner };
 }
 
 export async function notifyEmail(client: any, i: NotifyEmailInput): Promise<{ emailed: number; emailed_fallback: number }> {
   const counts = { emailed: 0, emailed_fallback: 0 };
   if (Deno.env.get('NOTIFY_EMAIL_ENABLED') === 'false') return counts;
   const key = emailSettingsKey(i.notification_type);
+  const always = EMAIL_ALWAYS_KEYS.has(i.notification_type);
   if (!i.location_id || key === 'overdue_checklists' || key === 'test' || i.data.type === 'hiring_message') return counts;
   const content = await template(client, i, key);
   if (!content) return counts;
@@ -113,12 +167,13 @@ export async function notifyEmail(client: any, i: NotifyEmailInput): Promise<{ e
   if (loc.error || !loc.data) return counts;
   const logo = await resolveEmailLogo(client, { locationId: i.location_id });
   for (const p of profiles.data ?? []) {
+    if (content.owner && p.id !== content.owner) continue;
     const email = String(p.email ?? '').trim().toLowerCase();
     if (p.is_active !== true || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || /@example\.com$/i.test(email) || blocked.has(email)) continue;
     const outcome = i.pushResults.get(p.id);
     const fallback = EMAIL_FALLBACK_KEYS.has(key) && (!i.tokenUsers.has(p.id) || !!(outcome && outcome.attempted > 0 && outcome.dead === outcome.attempted && outcome.succeeded === 0));
     const enabled = (settings.data ?? []).find((s: any) => s.user_id === p.id)?.email_enabled ?? defaultEmailEnabled(key);
-    if (!fallback && (!enabled || !i.fromHomeAllowed.has(p.id))) continue;
+    if (!always && !fallback && (!enabled || !i.fromHomeAllowed.has(p.id))) continue;
     const e = escapeEmailHtml;
     const label = LABELS[key];
     const html = `<html><body style="background:#f4f5f6;font-family:Arial,sans-serif"><table role="presentation" style="max-width:600px;width:100%;margin:auto;background:#fff">${renderEmailHeader({ title: label, logoUrl: logo.logoUrl, alt: logo.alt, line1: loc.data.name })}<tr><td style="padding:28px"><p>${e(content.paragraph)}</p><a href="${e('https://croohq.com' + content.path)}" style="display:inline-block;background:#0a7a8a;color:#fff;padding:12px 20px;text-decoration:none">Open CrooHQ</a><p style="font-size:12px;color:#666">You're getting this because email is on for ${e(label)}, or push isn't set up on your phone. Manage: <a href="https://croohq.com/settings?section=notifications">https://croohq.com/settings</a> (Notifications).</p></td></tr></table></body></html>`;

@@ -603,6 +603,13 @@
       "when": 1793602977646,
       "tag": "0085_notification_email_channel",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1793603808752,
+      "tag": "0086_employee_job_alerts",
+      "breakpoints": true
     }
   ]
 }
