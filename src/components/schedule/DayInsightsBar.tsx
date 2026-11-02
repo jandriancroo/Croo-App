@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { canEditDailyGoal } from '@/lib/goalResolver';
+import { DateTime } from 'luxon';
 import { ProjectionTag } from '@/components/ui/projection-tag';
 import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 import { resolveProjection } from '@/hooks/useResolvedProjection';
