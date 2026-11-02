@@ -262,7 +262,7 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
 
     sales_wtd: wtdSales || undefined,
     sales_pace_week: periodProjection(weekStart, weekEnd),
-    sales_projected_week: periodProjection(weekStart, weekEnd),
+    sales_projected_week: inRange(weekStart, weekEnd).reduce((s, r) => s + resolveGoal(r), 0),
     sales_prev_week: sum(inRange(prevWeekStart, prevWeekEnd), 'net_sales') || undefined,
     sales_last_year_week: lyWeek,
     guest_count_wtd: sum(inRange(weekStart, today), 'guest_count') || undefined,
@@ -273,7 +273,7 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
 
     sales_mtd: mtdSales || undefined,
     sales_pace_month: periodProjection(monthStart, monthEnd),
-    sales_projected_month: periodProjection(monthStart, monthEnd),
+    sales_projected_month: inRange(monthStart, monthEnd).reduce((s, r) => s + resolveGoal(r), 0),
     sales_prev_month: sum(inRange(prevMonthStart, prevMonthEnd), 'net_sales') || undefined,
     sales_last_year_month: lyMonth,
     guest_count_mtd: sum(inRange(monthStart, today), 'guest_count') || undefined,
@@ -636,7 +636,7 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
   const count = (v?: number) => (v == null || Number.isNaN(v) ? '—' : Math.round(v).toLocaleString('en-US'));
   const goalSum = (from: string, to: string) => {
     const v = inRange(from, to).reduce((t, r) => t + (projectionFor(r) || 0), 0);
-    return v > 0 ? v : undefined;
+    return v;
   };
   // Same thresholds as getPaceStatus in SalesSummary.tsx.
   const paceStatus = (actual?: number, pace?: number, goal?: number) => {

@@ -177,7 +177,7 @@ export function DayInsightsBar({
               setSalesSource('living');
             }
           } else {
-            applyProjection({ ...row: null });
+            applyProjection(row);
           }
           // Refresh through the store's own POS in the background
           refreshLiveSalesForToday(locationId, timezone).then(daily => {
@@ -190,7 +190,7 @@ export function DayInsightsBar({
         }
 
         // Future day
-        if (applyProjection({ ...row: null })) return;
+        if (applyProjection(row)) return;
         // Only a future WEEK may request NULL-only Living from the goal engine.
         await ensureFutureWeekLiving(locationId, weekStart, todayStr, [{ ...row, sale_date: dateStr }]);
         const { data: seeded } = await supabase

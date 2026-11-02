@@ -1,5 +1,5 @@
-import { resolveGoal } from "./cubeMetrics.ts";
 // @ts-nocheck
+import { resolveGoal } from "./cubeMetrics.ts";
 // ---------------------------------------------------------------------------
 // Availability Insights — next schedule week's time off + weekly availability.
 //

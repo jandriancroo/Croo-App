@@ -367,7 +367,7 @@ export function LaborTotals({
         setTodayGoal({ date: dateStr, value: goal.value, source: goal.source });
       }
       let reloadCache = cacheData;
-      if (!isPast && !isTodayDate && !resolveProjection({ ...reloadCache: null }).value) {
+      if (!isPast && !isTodayDate && !resolveProjection(reloadCache).value) {
         await ensureFutureWeekLiving(currentLocation.id, format(weekDays[0], 'yyyy-MM-dd'), todayPST,
           [{ ...reloadCache, sale_date: dateStr }]);
         const { data: refreshed } = await supabase.from('sales_cache')

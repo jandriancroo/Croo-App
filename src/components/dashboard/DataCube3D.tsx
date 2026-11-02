@@ -1,3 +1,6 @@
+import { ProjectionTag } from '@/components/ui/projection-tag';
+import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown, Pause } from 'lucide-react';
@@ -51,6 +54,12 @@ function formatValue(value: number | undefined, format: 'currency' | 'currency_s
     default:
       return Math.round(value).toLocaleString();
   }
+}
+
+function DailyGoalVersion({ source }: { source?: import('@/lib/goalResolver').GoalSource }) {
+  const { currentLocation } = useAppLocation();
+  const { timezone, getBusinessDateInTimezone } = useLocationTimezone();
+  return <ProjectionTag source={source ?? 'none'} showLabel={false} locationId={currentLocation?.id} dateStr={getBusinessDateInTimezone()} timezone={timezone} />;
 }
 
 // Category prefix removed - labels now come directly from METRIC_CONFIGS
@@ -822,6 +831,7 @@ function CubeFaceComponent({
                         )}
                       >
                         {getDynamicLabel(metricType, undefined, salesData?.lastYear?.date)}
+                        {metricType === 'sales_projected_today' && <DailyGoalVersion source={salesData?.projections?.todaySource} />}
                         {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
                           <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                         )}
@@ -868,6 +878,7 @@ function CubeFaceComponent({
                       )}
                     >
                       {getDynamicLabel(centerMetric, undefined, salesData?.lastYear?.date)}
+                      {centerMetric === 'sales_projected_today' && <DailyGoalVersion source={salesData?.projections?.todaySource} />}
                       {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(centerMetric) && (
                         <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                       )}
@@ -932,6 +943,7 @@ function CubeFaceComponent({
                         )}
                       >
                         {getDynamicLabel(metricType, undefined, salesData?.lastYear?.date)}
+                        {metricType === 'sales_projected_today' && <DailyGoalVersion source={salesData?.projections?.todaySource} />}
                         {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
                           <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                         )}
@@ -972,6 +984,7 @@ function CubeFaceComponent({
                         )}
                       >
                         {getDynamicLabel(metricType, undefined, salesData?.lastYear?.date)}
+                        {metricType === 'sales_projected_today' && <DailyGoalVersion source={salesData?.projections?.todaySource} />}
                         {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
                           <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                         )}
@@ -1027,6 +1040,7 @@ function CubeFaceComponent({
                       )}
                     >
                       {getDynamicLabel(metricType, undefined, salesData?.lastYear?.date)}
+                        {metricType === 'sales_projected_today' && <DailyGoalVersion source={salesData?.projections?.todaySource} />}
                       {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
                         <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                       )}
@@ -1069,6 +1083,7 @@ function CubeFaceComponent({
                     )}
                   >
                     {getDynamicLabel(metricType, undefined, salesData?.lastYear?.date)}
+                        {metricType === 'sales_projected_today' && <DailyGoalVersion source={salesData?.projections?.todaySource} />}
                     {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
                       <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                     )}
