@@ -4,11 +4,11 @@
 (none)
 
 ## In progress
-- Dashboard cube follow-up 1: guarded eight-row backup/removal, manager+ add gate in database and four entry points; preserve charts/management cubes and protected code; test and verify without publishing.
 - Shift marketplace + support chats batch (Oct 23): built, waiting for Jordan's "ship". Not published.
 - Toast Status public downloads: blocked by workspace public-bucket restriction. Owner/admin must allow public buckets under Settings → Privacy & Security, then make toast-status-releases public. Release publishing deliberately returns 503 until then.
 
 ## Done (Toast Status v2)
+- Dashboard cube follow-up 1: 0083 backup/manager-only creation gate; separate service-only atomic cleanup rechecked exactly eight IDs and deleted eight with full backup equality. All 300 other widget rows fingerprint-identical, including both shift-lead sales charts. Four add entry points use the server hierarchy; 13 database tests pass, manager add dialog and simulated denial verified desktop/mobile, build OK; no goal/punch/kiosk/claims/catalog/rendering changes or publishing. No real lower-role session or physical-device test.
 - Daily Goal Consistency step E: 0082 service-only atomic cutover run once for all 14 active POS stores, Nov 2–15 (196 days), 161 existing rows backed up; identical non-null Planning/Living, no adjustment; 14 successful cutover logs, five Palm Springs overrides retained. Transaction checks preserved all existing non-goal fields and every outside day; backup override differences zero; no cron/UI/edge changes or publish. 15 Deno and 8 database tests passed; preview build OK. Earlier Step D frontend remains unpublished.
 - Daily Goal Consistency step D: 0080 legacy backup (3,441), double-null Planning fill (15), legacy clear (3,441), zero monthly differences; 0081 past Living freeze; unified stored-goal resolver, manager override RPCs and flat version details; 15 functions deployed. 59 browser-math regressions, 7 SQL safeguards and 14 Deno tests pass; preview build OK. Signed-in save/clear restored 4,313; override and cube tags verified; live QU/SQL day 3,098, week 19,832, month 84,368 agree. No frontend publishing; no physical-device testing available.
 - Added service-only tokens/restart tables, public release metadata, atomic restart RPC, scoped native-only toast-status function and tests. Deployed; 10 tests passed and live empty 401/404/405 + no-CORS checks passed. No tokens inserted; authorized live flows wait for owner-supplied tokens. Existing Toast, punch, kiosk, payroll and frontend unchanged.
