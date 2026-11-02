@@ -80,3 +80,9 @@ Deno.test('approved email defaults concrete values and identical copies',async()
   for(const key of ['overdue_checklists','late_arrivals','chat_messages','hourly_sales_pulse','day_part_pulse','shift_overstay','cash_drawer_count','cash_safe_count','cash_bank_deposit']) assertEquals(defaultEmailEnabled(key),false);
   assertEquals(await Deno.readTextFile(new URL('./notificationDefaults.ts',import.meta.url)),await Deno.readTextFile(new URL('../../../src/lib/notificationDefaults.ts',import.meta.url)));
 });
+for(const type of ['hourly_sales_pulse','day_part_pulse']) Deno.test(`${type}: deliberate opt-in only, one email per store pulse`,async()=>{
+  const f=fixture();f.input.notification_type=type;f.input.data={dedup_ref:'verified-pulse-11'};
+  assertEquals((await f.run()).emailed,0);f.setting(true,type);
+  assertEquals((await f.run()).emailed,1);assertEquals((await f.run()).emailed,0);
+  f.input.data.dedup_ref='verified-pulse-12';assertEquals((await f.run()).emailed,1);
+});
