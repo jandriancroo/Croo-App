@@ -14,7 +14,7 @@ function fixture() {
     user_notification_settings:[], email_queue:[], bounced_emails:[],suppressed_emails:[],
     scheduled_shifts:[{id:REF,user_id:USER,schedule_id:REF,start_time:'09:00:00'}],
     certifications:[{id:REF,user_id:USER,certification_type:'Food handler',expiration_date:'2026-11-09'}],
-    toast_shifts:[{id:REF,croo_user_id:USER,location_id:STORE,in_time:'2026-11-02T17:00:00Z'}],
+    toast_shifts:[{id:REF,toast_shift_id:REF,croo_user_id:USER,location_id:STORE,in_time:'2026-11-02T17:00:00Z'}],
     read_and_sign_assignments:[{id:REF,employee_id:USER,document_id:REF,signed_at:null}],
     read_and_sign_documents:[{id:REF,location_id:STORE,title:'Saved document',is_active:true}],
     location_settings:[{location_id:STORE,timezone:'America/Los_Angeles'}],

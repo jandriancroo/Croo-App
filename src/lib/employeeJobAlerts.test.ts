@@ -47,6 +47,15 @@ async function setup(minutes=16) {
 }
 
 describe('Employee job alerts: actual SQL sections, isolated seeded database',()=>{
+ it('guarded migration compiles against the previous complete detector definition',async()=>{
+  const db=new PGlite();try{
+   await db.exec('CREATE TABLE location_settings(location_id uuid)');
+   await db.exec(readFileSync('scripts/fixtures/alerts-step3-before.sql','utf8'));
+   await db.exec(readFileSync('drizzle/migrations/0086_employee_job_alerts.sql','utf8'));
+   const r=await db.query<{definition:string}>("SELECT pg_get_functiondef('check_alerts_sql()'::regprocedure) AS definition");
+   expect(r.rows[0].definition).toContain("'ncns_self_'");expect(r.rows[0].definition).toContain("TIMESTAMPTZ '2026-11-02 07:20:00+00'");
+  }finally{await db.close();}
+ },20000);
  it('16 minutes: one manager late and employee copy, rerun deduplicated',async()=>{const f=await setup();try{await f.run();await f.run();const rows=await f.rows();expect(rows.map(r=>r.alert_type)).toEqual(['late_arrival','late_arrival_self']);expect(rows[1].payload.user_ids).toEqual([EMPLOYEE]);expect(rows[1].dedup_key).toBe(`late_self_${SHIFT}_2026-11-02`);}finally{await f.db.close();}},20000);
  it('31 minutes: NCNS manager and employee once with correct keys',async()=>{const f=await setup(31);try{await f.run();await f.run();const rows=await f.rows();expect(rows.map(r=>r.alert_type)).toEqual(['no_call_no_show','no_call_no_show_self']);expect(rows[0].payload.user_ids).toEqual([MANAGER]);expect(rows[1].payload.user_ids).toEqual([EMPLOYEE]);expect(rows[1].dedup_key).toBe(`ncns_self_${SHIFT}_2026-11-02`);}finally{await f.db.close();}},20000);
  it.each(['punch','toast','disabled','time-off','phantom','coverage','unpublished'])('31 minutes skips %s',async reason=>{const f=await setup(31);try{

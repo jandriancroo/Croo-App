@@ -66,11 +66,16 @@ async function template(client: any, i: NotifyEmailInput, key: string) {
       paragraph = `Your ${cert.certification_type} expires ${days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`}. Upload your new card in CrooHQ so you stay on the schedule.`;
       path = '/certifications';
     } else if (d.toast_shift_id) {
-      const shift = await load('toast_shifts', d.toast_shift_id);
+      const result = await client.from('toast_shifts').select('*').eq('toast_shift_id', d.toast_shift_id).eq('location_id', i.location_id).maybeSingle();
+      const shift = result.error ? null : result.data;
       if (!shift || shift.location_id !== i.location_id || !shift.in_time) return null;
       owner = shift.croo_user_id;
       ref = shift.id;
-      paragraph = `You clocked in late at ${loc.name} today (from Toast).`;
+      const scheduleResult = shift.croo_scheduled_shift_id ? await load('scheduled_shifts', shift.croo_scheduled_shift_id) : null;
+      const actualIn = DateTime.fromISO(String(shift.in_time), { zone });
+      const scheduledIn = scheduleResult ? DateTime.fromFormat(`${shift.shift_date} ${String(scheduleResult.start_time).slice(0, 5)}`, 'yyyy-MM-dd HH:mm', { zone }) : null;
+      const late = actualIn.isValid && scheduledIn?.isValid ? Math.max(0, Math.floor(actualIn.diff(scheduledIn, 'minutes').minutes)) : null;
+      paragraph = `You clocked in ${late === null ? '' : `${late} min `}late at ${loc.name} today (from Toast).`;
       path = '/schedule';
     } else {
       const shift = await load('scheduled_shifts', d.shift_id);
