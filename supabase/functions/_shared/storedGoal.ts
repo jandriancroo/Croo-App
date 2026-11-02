@@ -1,4 +1,5 @@
 import { DateTime } from 'npm:luxon@3.7.2';
+import { resolveGoal } from './cubeMetrics.ts';
 
 export interface StoredGoalRow {
   sale_date?: string;
@@ -9,11 +10,7 @@ export interface StoredGoalRow {
 
 // No history, current actuals, or legacy projected_sales fallback.
 export function resolveStoredGoal(row?: StoredGoalRow | null): number {
-  for (const key of ['override_projection', 'living_projection', 'initial_projection'] as const) {
-    const value = Number(row?.[key]);
-    if (Number.isFinite(value) && value > 0) return value;
-  }
-  return 0;
+  return resolveGoal(row);
 }
 
 export function storedGoalBreakdown(
