@@ -188,7 +188,7 @@ export function DayInsightsBar({
         }
 
         // Future day
-        if (applyProjection(row)) return;
+        if (applyProjection({ ...row, projected_sales: null })) return;
         // Only a future WEEK may request NULL-only Living from the goal engine.
         await ensureFutureWeekLiving(locationId, weekStart, todayStr, [{ ...row, sale_date: dateStr }]);
         const { data: seeded } = await supabase

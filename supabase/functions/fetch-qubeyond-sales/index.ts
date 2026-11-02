@@ -2598,6 +2598,15 @@ serve(async (req) => {
       preliminaryTodayProjected,
       fourWeekHourlyPattern
     );
+    // Normalize to the stored target before calculating or reading pace.
+    const origTotal = hourlyWithProjections.reduce((sum, h) => sum + (h.projected || 0), 0);
+    const paceScaleFactor = origTotal > 0 ? preliminaryTodayProjected / origTotal : 1;
+    if (Math.abs(paceScaleFactor - 1) > 0.01) {
+      for (let i = 0; i < hourlyWithProjections.length; i++) {
+        hourlyWithProjections[i] = { ...hourlyWithProjections[i],
+          projected: Math.round((hourlyWithProjections[i].projected || 0) * paceScaleFactor) };
+      }
+    }
     
     // Now generate full projections including pace-adjusted (using hourly projections)
     let projections: any = { todayProjected: 0, todayPaceAdjusted: 0, weekProjected: 0, monthProjected: 0, todaySource: 'calculated' as string };
@@ -2651,18 +2660,6 @@ serve(async (req) => {
       // projections will remain 0, client will use cached values
     }
     
-    // Preserve the existing hourly scaling and pace formula; target is stored only.
-    const origTotal = hourlyWithProjections.reduce((sum, h) => sum + (h.projected || 0), 0);
-    const paceScaleFactor = origTotal > 0 ? preliminaryTodayProjected / origTotal : 1;
-    if (Math.abs(paceScaleFactor - 1) > 0.01) {
-      for (let i = 0; i < hourlyWithProjections.length; i++) {
-        hourlyWithProjections[i] = { ...hourlyWithProjections[i],
-          projected: Math.round((hourlyWithProjections[i].projected || 0) * paceScaleFactor) };
-      }
-    }
-    if (!skipProjections) projections.todayPaceAdjusted = calculatePaceAdjustedProjection(
-      dailySales, currentHour, currentMinutes, hoursOpen, hoursClose, hourlyWithProjections,
-    );
     const weeklyWithProjections = storedGoalBreakdown(weekStartStr, weekEndStr, weeklyBreakdown, storedGoals ?? []);
     const monthlyWithProjections = storedGoalBreakdown(monthStartStr, monthEndStr, monthlyBreakdown, storedGoals ?? []);
 
