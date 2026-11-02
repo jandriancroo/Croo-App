@@ -542,7 +542,7 @@ return async (req: Request): Promise<Response> => {
       }
       if (!location_id && !supportTicket) {
         if (data.schedule_id) location_id = (await row('schedules', 'location_id', data.schedule_id)).location_id;
-        else if (data.post_id || data.postId) location_id = (await row('posts', 'location_id', data.post_id ?? data.postId)).location_id;
+        else if (data.post_id || data.postId) location_id = (await row('announcement_posts', 'location_id', data.post_id ?? data.postId)).location_id;
         else if (chatId) location_id = (await row('chats', 'location_id', chatId)).location_id;
         else if (notification_type === 'test' && providedUserIds.length === 1 && providedUserIds[0] === caller.userId && roles.length === 0)
           location_id = (await row('profiles', 'default_location_id', caller.userId)).default_location_id;
