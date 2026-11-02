@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 import { parseHTML } from 'npm:linkedom@0.18.12';
 import { DateTime } from 'npm:luxon@3.7.2';
 import { alohaLogin } from '../_shared/aloha-portal.ts';
