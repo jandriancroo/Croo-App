@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { requireCaller } from '../_shared/callerAuth.ts';
 import { fetchQuLabor } from '../_shared/quLabor.ts';
+import { DateTime } from 'npm:luxon@3.7.2';
+import { resolveStoredGoal, storedGoalBreakdown } from '../_shared/storedGoal.ts';
 
 
 // Declare EdgeRuntime for background tasks
@@ -1793,147 +1795,6 @@ function generateHourlyProjections(
   return result;
 }
 
-// Generate daily projections for week view
-// Uses same logic as month view for consistency
-function generateDailyProjectionsForWeek(
-  weeklyBreakdown: { date: string; sales: number }[],
-  weekStartStr: string,
-  locationId: string,
-  fourWeekAverage?: { avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[] },
-  lastYearWeeklyBreakdown?: { date: string; sales: number }[]
-): { date: string; sales: number; projected: number }[] {
-  const result: { date: string; sales: number; projected: number }[] = [];
-  
-  // Fallback averages from week data we already have (for days with sales)
-  const observedDays = weeklyBreakdown.filter(d => (d.sales || 0) > 0);
-  const overallAvg = observedDays.length > 0
-    ? observedDays.reduce((sum, d) => sum + (d.sales || 0), 0) / observedDays.length
-    : 0;
-
-  const observedByDow: Record<number, number[]> = {};
-  for (const d of observedDays) {
-    const dow = new Date(d.date + 'T12:00:00').getDay();
-    (observedByDow[dow] ||= []).push(d.sales || 0);
-  }
-  const avgByDow: Record<number, number> = {};
-  for (const key of Object.keys(observedByDow)) {
-    const dow = Number(key);
-    const vals = observedByDow[dow];
-    avgByDow[dow] = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-  }
-  
-  // Generate all 7 days of the week
-  for (let i = 0; i < 7; i++) {
-    const date = new Date(weekStartStr + 'T12:00:00');
-    date.setDate(date.getDate() + i);
-    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    const dayOfWeek = date.getDay();
-    
-    const actual = weeklyBreakdown.find(d => d.date === dateStr)?.sales || 0;
-    
-    // Prefer 4-week by-DOW average when available; otherwise fall back to observed week averages
-    const fourWeekBase = fourWeekAverage
-      ? (fourWeekAverage.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek)?.avgSales || 0)
-      : 0;
-
-    const base = fourWeekBase > 0 ? fourWeekBase : (avgByDow[dayOfWeek] || overallAvg);
-    
-    // Blend with last year same-day-of-week: (4wk avg + YOY) / 2
-    // If no YOY data, use 4wk avg alone
-    const lastYearDay = lastYearWeeklyBreakdown?.find(d => {
-      const lyDow = new Date(d.date + 'T12:00:00').getDay();
-      return lyDow === dayOfWeek;
-    });
-    const lastYearSales = lastYearDay?.sales || 0;
-    
-    const randomFactor = getSeededRandomFactor(`${dateStr}-${locationId}`);
-    let projected: number;
-    if (base > 0 && lastYearSales > 0) {
-      projected = ((base + lastYearSales) / 2) * randomFactor;
-    } else {
-      projected = (base > 0 ? base : lastYearSales) * randomFactor;
-    }
-    
-    result.push({ date: dateStr, sales: actual, projected: Math.round(projected) });
-  }
-  
-  return result;
-}
-
-// Generate daily projections for month view
-function generateDailyProjectionsForMonth(
-  monthlyBreakdown: { date: string; sales: number }[],
-  monthStartStr: string,
-  locationId: string,
-  fourWeekAverage?: { avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[] },
-  lastYearMonthlyBreakdown?: { date: string; sales: number }[]
-): { date: string; sales: number; projected: number }[] {
-  const result: { date: string; sales: number; projected: number }[] = [];
-
-  const monthDate = new Date(monthStartStr + 'T12:00:00');
-  const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
-
-  // Fallback averages from whatever month data we already have (typically up to today)
-  const observedDays = monthlyBreakdown.filter(d => (d.sales || 0) > 0);
-  const overallAvg = observedDays.length > 0
-    ? observedDays.reduce((sum, d) => sum + (d.sales || 0), 0) / observedDays.length
-    : 0;
-
-  const observedByDow: Record<number, number[]> = {};
-  for (const d of observedDays) {
-    const dow = new Date(d.date + 'T12:00:00').getDay();
-    (observedByDow[dow] ||= []).push(d.sales || 0);
-  }
-  const avgByDow: Record<number, number> = {};
-  for (const key of Object.keys(observedByDow)) {
-    const dow = Number(key);
-    const vals = observedByDow[dow];
-    avgByDow[dow] = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-  }
-
-  // Build last year lookup by day-of-week
-  const lastYearByDow: Record<number, number[]> = {};
-  if (lastYearMonthlyBreakdown) {
-    for (const d of lastYearMonthlyBreakdown) {
-      if (d.sales > 0) {
-        const dow = new Date(d.date + 'T12:00:00').getDay();
-        (lastYearByDow[dow] ||= []).push(d.sales);
-      }
-    }
-  }
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(monthDate.getFullYear(), monthDate.getMonth(), day);
-    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    const dayOfWeek = date.getDay();
-
-    const actual = monthlyBreakdown.find(d => d.date === dateStr)?.sales || 0;
-
-    // Prefer 4-week by-DOW average when available; otherwise fall back to observed month averages
-    const fourWeekBase = fourWeekAverage
-      ? (fourWeekAverage.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek)?.avgSales || 0)
-      : 0;
-
-    const base = fourWeekBase > 0 ? fourWeekBase : (avgByDow[dayOfWeek] || overallAvg);
-    
-    // Blend with last year same DOW average for the month
-    const lyVals = lastYearByDow[dayOfWeek];
-    const lastYearAvg = lyVals && lyVals.length > 0 ? lyVals.reduce((a, b) => a + b, 0) / lyVals.length : 0;
-    
-    const randomFactor = getSeededRandomFactor(`${dateStr}-${locationId}`);
-    let projected: number;
-    if (base > 0 && lastYearAvg > 0) {
-      projected = ((base + lastYearAvg) / 2) * randomFactor;
-    } else {
-      projected = (base > 0 ? base : lastYearAvg) * randomFactor;
-    }
-
-    result.push({ date: dateStr, sales: actual, projected: Math.round(projected) });
-  }
-
-  return result;
-}
-
 // Calculate pace-adjusted projection: actual sales + remaining hourly projections
 // When <30 min into the current hour, use the full projection for that hour
 // instead of partial actual, to avoid penalizing a slow start to an hour.
@@ -2077,7 +1938,7 @@ function generateProjections(
     avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[];
     weeks: { weekStart: string; total: number }[];
   },
-  holidayContext?: { lastYearWeight: number; reason: string }
+  holidayContext?: { lastYearWeight: number; reason: string; dailyGoal?: number }
 ): { todayProjected: number; todayPaceAdjusted: number; weekProjected: number; monthProjected: number } {
   const today = new Date(todayStr + 'T12:00:00');
   const dayOfWeek = today.getDay();
@@ -2090,35 +1951,8 @@ function generateProjections(
   const lyWeight = holidayContext?.lastYearWeight ?? 0.5;
   const fwWeight = 1 - lyWeight;
   
-  // === DAILY PROJECTION (Historical-based starting projection) ===
-  // Uses holiday-aware weighting instead of simple 50/50 blend
-  let todayProjected = 0;
-  const fourWeekDayAvg = fourWeekAverage?.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek)?.avgSales || 0;
-  const lastYearSameDay = lastYearData?.sameDay || 0;
-  
-  if (fourWeekDayAvg > 0 && lastYearSameDay > 0) {
-    // Both available: use holiday-aware weighted blend
-    todayProjected = ((fourWeekDayAvg * fwWeight) + (lastYearSameDay * lyWeight)) * randomFactor;
-  } else if (fourWeekDayAvg > 0) {
-    // Only 4-week avg available
-    todayProjected = fourWeekDayAvg * randomFactor;
-  } else if (lastYearSameDay > 0) {
-    // Only last year available
-    todayProjected = lastYearSameDay * randomFactor;
-  } else {
-    // Fallback: use current daily sales or weekly average
-    const completedDays = weeklyBreakdown.filter(d => d.sales > 0);
-    if (completedDays.length > 0) {
-      todayProjected = (completedDays.reduce((sum, d) => sum + d.sales, 0) / completedDays.length) * randomFactor;
-    } else {
-      todayProjected = dailySales;
-    }
-  }
-  
-  // NOTE: todayProjected stays as the original historical-based target
-  // It should NOT be overwritten with actual sales after close
-  // The "Target EOD" is what we were aiming for, "Pacing To" reflects actual performance
-  
+  const todayProjected = holidayContext?.dailyGoal ?? 0;
+
   // === PACE-ADJUSTED PROJECTION (Actual sales + remaining hourly projections) ===
   const todayPaceAdjusted = calculatePaceAdjustedProjection(
     dailySales,
@@ -2174,7 +2008,6 @@ function generateProjections(
   monthProjected = Math.max(monthProjected, monthlySales);
   
   console.log(`Deterministic projections: daily=${todayProjected.toFixed(2)}, pace=${todayPaceAdjusted}, weekly=${weekProjected.toFixed(2)}, monthly=${monthProjected.toFixed(2)}`);
-  console.log(`  Inputs: 4wkDayAvg=${fourWeekDayAvg.toFixed(2)}, lastYrDay=${lastYearSameDay.toFixed(2)}, 4wkWeekAvg=${fourWeekAvgWeek.toFixed(2)}, lastYrWeek=${lastYearSameWeek.toFixed(2)}, lastYrMonth=${lastYearSameMonth.toFixed(2)}`);
   
   return { todayProjected, todayPaceAdjusted, weekProjected, monthProjected };
 }
@@ -2743,34 +2576,18 @@ serve(async (req) => {
       monthlyBreakdown: historicalData.lastYearData.monthlyBreakdown
     } : undefined;
 
-    // First, calculate preliminary daily projection for hourly distribution
-    // This is needed before we can calculate pace-adjusted projection
-    // Uses holiday-aware weighting for the blend
-    let preliminaryTodayProjected = dailySales * 1.3; // Default fallback
-    
-    if (fourWeekAverage || lastYearData) {
-      const today = new Date(todayStr + 'T12:00:00');
-      const dayOfWeek = today.getDay();
-      const fourWeekDayAvg = fourWeekAverage?.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek)?.avgSales || 0;
-      const lastYearSameDay = lastYearData?.sameDay || 0;
-      
-      // Use holiday-aware weighting instead of simple 50/50 blend
-      const lyWeight = holidayContext.lastYearWeight;
-      const fwWeight = 1 - lyWeight;
-      
-      if (fourWeekDayAvg > 0 && lastYearSameDay > 0) {
-        // Weighted blend based on holiday context
-        preliminaryTodayProjected = (fourWeekDayAvg * fwWeight) + (lastYearSameDay * lyWeight);
-        console.log(`[PROJECTION] Holiday-aware blend: 4wk($${fourWeekDayAvg.toFixed(0)} × ${(fwWeight * 100).toFixed(0)}%) + LY($${lastYearSameDay.toFixed(0)} × ${(lyWeight * 100).toFixed(0)}%) = $${preliminaryTodayProjected.toFixed(0)}`);
-      } else if (fourWeekDayAvg > 0) {
-        preliminaryTodayProjected = fourWeekDayAvg;
-        console.log(`[PROJECTION] Using 4-week avg only: $${fourWeekDayAvg.toFixed(0)}`);
-      } else if (lastYearSameDay > 0) {
-        preliminaryTodayProjected = lastYearSameDay;
-        console.log(`[PROJECTION] Using last year only: $${lastYearSameDay.toFixed(0)}`);
-      }
-    }
-    
+    // Daily goals come only from stored engine output, never live sales/history.
+    const weekEndStr = DateTime.fromFormat(weekStartStr, 'yyyy-MM-dd').plus({ days: 6 }).toFormat('yyyy-MM-dd');
+    const monthEndStr = DateTime.fromFormat(monthStartStr, 'yyyy-MM-dd').endOf('month').toFormat('yyyy-MM-dd');
+    const { data: storedGoals, error: goalError } = locationId
+      ? await cacheSupabase.from('sales_cache').select('sale_date, override_projection, living_projection, initial_projection')
+        .eq('location_id', locationId).gte('sale_date', weekStartStr < monthStartStr ? weekStartStr : monthStartStr)
+        .lte('sale_date', weekEndStr > monthEndStr ? weekEndStr : monthEndStr)
+      : { data: [], error: null };
+    if (goalError) throw new Error(`Stored goals: ${goalError.message}`);
+    const todayGoalRow = (storedGoals ?? []).find((row: any) => row.sale_date === todayStr);
+    const preliminaryTodayProjected = resolveStoredGoal(todayGoalRow);
+
     // Generate hourly projections first (needed for pace calculation)
     const hourlyWithProjections = generateHourlyProjections(
       todayHourly,
@@ -2802,69 +2619,13 @@ serve(async (req) => {
         hourlyWithProjections,
         lastYearData,
         fourWeekAverage,
-        holidayContext
+        { ...holidayContext, dailyGoal: preliminaryTodayProjected }
       );
       
-      // === OVERRIDE CHECK ===
-      // Check if there's a manager override for today's projection
-      // Priority: override_projection > living_projection > initial_projection > calculated
-      if (locationId) {
-        const { data: todayCache } = await cacheSupabase
-          .from('sales_cache')
-          .select('override_projection, living_projection, initial_projection')
-          .eq('location_id', locationId)
-          .eq('sale_date', todayStr)
-          .maybeSingle();
-        
-        if (todayCache) {
-          // Use Source of Truth priority: override > living > initial > calculated
-          let resolvedProjection = projections.todayProjected;
-          let projectionSource = 'calculated';
-          
-          if (todayCache.override_projection && todayCache.override_projection > 0) {
-            resolvedProjection = todayCache.override_projection;
-            projectionSource = 'override';
-          } else if (todayCache.living_projection && todayCache.living_projection > 0) {
-            resolvedProjection = todayCache.living_projection;
-            projectionSource = 'living';
-          } else if (todayCache.initial_projection && todayCache.initial_projection > 0) {
-            resolvedProjection = todayCache.initial_projection;
-            projectionSource = 'initial';
-          }
-          
-          // Update source even if projection matches (to track source correctly)
-          projections.todaySource = projectionSource;
-          
-          if (resolvedProjection !== projections.todayProjected) {
-            console.log(`[PROJECTION] Using ${projectionSource} projection: $${resolvedProjection} (was $${projections.todayProjected.toFixed(0)} calculated)`);
-            projections.todayProjected = resolvedProjection;
-            
-            // Scale hourly projections IN-PLACE so the chart shows override-scaled values
-            const origTotal = hourlyWithProjections.reduce((sum, h) => sum + (h.projected || 0), 0);
-            const paceScaleFactor = origTotal > 0 ? resolvedProjection / origTotal : 1;
-            if (Math.abs(paceScaleFactor - 1) > 0.01) {
-              for (let i = 0; i < hourlyWithProjections.length; i++) {
-                hourlyWithProjections[i] = {
-                  ...hourlyWithProjections[i],
-                  projected: Math.round((hourlyWithProjections[i].projected || 0) * paceScaleFactor)
-                };
-              }
-              console.log(`[PROJECTION] Scaled hourly projections by ${paceScaleFactor.toFixed(3)}x for ${projectionSource} override`);
-            }
-            
-            // Recalculate pace using the now-scaled hourly projections
-            projections.todayPaceAdjusted = calculatePaceAdjustedProjection(
-              dailySales,
-              currentHour,
-              currentMinutes,
-              hoursOpen,
-              hoursClose,
-              hourlyWithProjections
-            );
-            console.log(`[PROJECTION] Recalculated pace with ${projectionSource}: $${projections.todayPaceAdjusted.toFixed(0)} (actual $${dailySales.toFixed(0)}, scale ${paceScaleFactor.toFixed(3)})`);
-          }
-        }
-      }
+      projections.todayProjected = preliminaryTodayProjected;
+      projections.todaySource = Number(todayGoalRow?.override_projection) > 0 ? 'override'
+        : Number(todayGoalRow?.living_projection) > 0 ? 'living'
+        : Number(todayGoalRow?.initial_projection) > 0 ? 'initial' : 'none';
       // === STORED PACE (single source) ===
       // The shared pace writer (computeAndSavePace, run by the every-minute sync)
       // saves pace on sales_cache. Read it so the tablet matches every other screen.
@@ -2890,65 +2651,24 @@ serve(async (req) => {
       // projections will remain 0, client will use cached values
     }
     
-    // === ALWAYS SCALE HOURLY PROJECTIONS FOR OVERRIDES ===
-    // This must run even when skipProjections is true, so the chart hourly data
-    // in the response (and saved to cache) reflects the override-scaled curve.
-    if (locationId) {
-      const { data: overrideCheck } = await cacheSupabase
-        .from('sales_cache')
-        .select('override_projection, living_projection, initial_projection')
-        .eq('location_id', locationId)
-        .eq('sale_date', todayStr)
-        .maybeSingle();
-      
-      if (overrideCheck) {
-        let scaleTarget = 0;
-        if (overrideCheck.override_projection && overrideCheck.override_projection > 0) {
-          scaleTarget = overrideCheck.override_projection;
-        } else if (overrideCheck.living_projection && overrideCheck.living_projection > 0) {
-          scaleTarget = overrideCheck.living_projection;
-        } else if (overrideCheck.initial_projection && overrideCheck.initial_projection > 0) {
-          scaleTarget = overrideCheck.initial_projection;
-        }
-        
-        if (scaleTarget > 0) {
-          const origTotal = hourlyWithProjections.reduce((sum, h) => sum + (h.projected || 0), 0);
-          const paceScaleFactor = origTotal > 0 ? scaleTarget / origTotal : 1;
-          if (Math.abs(paceScaleFactor - 1) > 0.01) {
-            for (let i = 0; i < hourlyWithProjections.length; i++) {
-              hourlyWithProjections[i] = {
-                ...hourlyWithProjections[i],
-                projected: Math.round((hourlyWithProjections[i].projected || 0) * paceScaleFactor)
-              };
-            }
-            console.log(`[PROJECTION-SCALE] Scaled hourly projections by ${paceScaleFactor.toFixed(3)}x to match override target $${scaleTarget}`);
-          }
-        }
+    // Preserve the existing hourly scaling and pace formula; target is stored only.
+    const origTotal = hourlyWithProjections.reduce((sum, h) => sum + (h.projected || 0), 0);
+    const paceScaleFactor = origTotal > 0 ? preliminaryTodayProjected / origTotal : 1;
+    if (Math.abs(paceScaleFactor - 1) > 0.01) {
+      for (let i = 0; i < hourlyWithProjections.length; i++) {
+        hourlyWithProjections[i] = { ...hourlyWithProjections[i],
+          projected: Math.round((hourlyWithProjections[i].projected || 0) * paceScaleFactor) };
       }
     }
-    
-    // Generate daily projections for week (uses 4-week average + YOY blend)
-    const weeklyWithProjections = generateDailyProjectionsForWeek(
-      weeklyBreakdown,
-      weekStartStr,
-      locationId || 'default',
-      fourWeekAverage,
-      lastYearData?.weeklyBreakdown
+    if (!skipProjections) projections.todayPaceAdjusted = calculatePaceAdjustedProjection(
+      dailySales, currentHour, currentMinutes, hoursOpen, hoursClose, hourlyWithProjections,
     );
-    
-    // Generate daily projections for month (uses 4-week average + YOY blend)
-    const lastYearMonthBreakdown = historicalData.lastYearData?.monthlyBreakdown;
-    const monthlyWithProjections = generateDailyProjectionsForMonth(
-      monthlyBreakdown,
-      monthStartStr,
-      locationId || 'default',
-      fourWeekAverage,
-      lastYearMonthBreakdown
-    );
-    
+    const weeklyWithProjections = storedGoalBreakdown(weekStartStr, weekEndStr, weeklyBreakdown, storedGoals ?? []);
+    const monthlyWithProjections = storedGoalBreakdown(monthStartStr, monthEndStr, monthlyBreakdown, storedGoals ?? []);
+
     // Recalculate week/month projections using pace logic:
     // Past days: actuals, Today: MAX(actual, projection), Future: projections
-    if (!skipProjections && projections.todayProjected > 0) {
+    if (!skipProjections) {
       const paceAdjusted = calculatePaceAdjustedTotals(
         weeklyWithProjections,
         monthlyWithProjections,
@@ -3069,80 +2789,10 @@ serve(async (req) => {
     const pizzaCount = todayPizzaCount;
     console.log(`Pizza count (Crusts category, 1/2 items counted as 0.5): ${pizzaCount}`);
 
-    // === BACKGROUND TASK: Save projections and today's sales to DB ===
+    // === BACKGROUND TASK: Save today's actual sales to DB (goals are engine-owned) ===
     // This runs asynchronously so response returns immediately
     const backgroundSaveTask = async () => {
       try {
-        // Store calculated projections in sales_cache for FUTURE dates only
-        if (locationId) {
-          // Collect projections for future dates only (today and beyond)
-          const futureDates = new Set<string>();
-          const allProjections: { location_id: string; sale_date: string; projected_sales: number }[] = [];
-          
-          // Add weekly projections for today and future
-          for (const day of weeklyWithProjections) {
-            if (day.projected > 0 && day.date >= todayStr) {
-              futureDates.add(day.date);
-              allProjections.push({
-                location_id: locationId,
-                sale_date: day.date,
-                projected_sales: day.projected
-              });
-            }
-          }
-          
-          // Add monthly projections for future dates not in weekly
-          for (const day of monthlyWithProjections) {
-            if (day.projected > 0 && day.date >= todayStr && !futureDates.has(day.date)) {
-              allProjections.push({
-                location_id: locationId,
-                sale_date: day.date,
-                projected_sales: day.projected
-              });
-            }
-          }
-          
-          if (allProjections.length > 0) {
-            console.log(`[BACKGROUND] Saving ${allProjections.length} projections as living_projection...`);
-            
-            for (const proj of allProjections) {
-              const { data: existing } = await cacheSupabase
-                .from('sales_cache')
-                .select('id, initial_projection')
-                .eq('location_id', proj.location_id)
-                .eq('sale_date', proj.sale_date)
-                .single();
-              
-              if (existing) {
-                // Update living_projection (recalculated daily)
-                // If no initial_projection yet, also set it
-                const updateData: Record<string, any> = { living_projection: proj.projected_sales };
-                if (!existing.initial_projection || existing.initial_projection <= 0) {
-                  updateData.initial_projection = proj.projected_sales;
-                }
-                await cacheSupabase
-                  .from('sales_cache')
-                  .update(updateData)
-                  .eq('location_id', proj.location_id)
-                  .eq('sale_date', proj.sale_date);
-              } else {
-                await cacheSupabase
-                  .from('sales_cache')
-                  .insert({
-                    location_id: proj.location_id,
-                    sale_date: proj.sale_date,
-                    initial_projection: proj.projected_sales,
-                    living_projection: proj.projected_sales,
-                    projected_sales: proj.projected_sales,
-                    net_sales: 0,
-                    guest_count: 0
-                  });
-              }
-            }
-            console.log('[BACKGROUND] Living projections stored successfully');
-          }
-        }
-        
         // Save today's actual sales to the cache
         if (locationId && dailySales > 0) {
           const { data: locSettings } = await cacheSupabase
