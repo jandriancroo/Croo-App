@@ -561,6 +561,13 @@
       "when": 1793594647403,
       "tag": "0079_daily_goal_planning_insert_once",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1793595904442,
+      "tag": "0080_daily_goal_legacy_backfill_and_resolver",
+      "breakpoints": true
     }
   ]
 }
