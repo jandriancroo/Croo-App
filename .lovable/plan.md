@@ -39,7 +39,7 @@ GROUP BY notification_type ORDER BY notification_type;
 | cash_safe_count | 38 | 18 | 20 | OFF | 18 |
 | cash_bank_deposit | 38 | 18 | 20 | OFF | 18 |
 
-**350 rows snapshotted, 187 email values changed; zero NULLs.** Back up `(id,email_enabled)` into service-only `user_notification_settings_email_backup_20261101`. Only email_enabled changes; verify push/alert/from_home and unrelated settings are identical. Platform migrations create the secured backup/necessary additive queue safeguards; the guarded data correction runs through the database tools, not as a data-only migration. Restore original email values by joining the snapshot on id.
+**350 rows snapshotted, 167 email values changed; zero NULLs.** Back up `(id,email_enabled)` into service-only `user_notification_settings_email_backup_20261101`. Only email_enabled changes; verify push/alert/from_home and unrelated settings are identical. One additive migration creates the secured backup and a service-only queue helper for conflict-safe insertion/rolling chat throttling; the guarded data correction runs through the database tools, not as a data-only migration. Restore original email values by joining the snapshot on id.
 
 ## Technical safeguards and assumptions
 - Keep `verify_jwt=true` and all Step 1 protections, including the corrected applicant/admin/crew paths.
@@ -57,4 +57,31 @@ GROUP BY notification_type ORDER BY notification_type;
 - Deploy only changed notification functions, not the app; report exact callers, test results, migration/snapshot/reset counts and any verification limits.
 
 ## Client caller audit
-The complete current caller table will be added before this plan is presented; no per-caller email changes are planned.
+**20 call sites across 16 files checked.** All retain Step 1 authorization and push behavior; email follows server settings and verified records, never caller copy.
+
+| Client caller | Type / targets | Email record/reference and result |
+|---|---|---|
+| chatMessages | chat_messages → other chat members | chat_id/chatId, optional message_id; opt-in only, verified thread, 30-minute throttle |
+| HiringChat | chat_messages → application-store admin/manager/general_manager | Verified applicant token + conversation_id; existing hiring email path retained, no duplicate hiring email |
+| HiringChatPanel | chat_messages → application-store managers | conversation_id; existing hiring email path retained |
+| feedPosts | announcements or chat_messages → channel audience | post_id + channel_id; announcement fallback/opt-in; feed chat opt-in only |
+| quickTasks | task_assigned → assigned employees and roles | task_id; stored task template, opt-in only, existing sender permissions |
+| scheduleActions | schedule_updates → affected employees | schedule_id; stored published schedule/change reference, fallback or opt-in |
+| MobileShiftDialog | shift_approvals → approved claimant | schedule_id; stored schedule approval template, fallback or opt-in |
+| useLogBookData | logbook_entry → store management roles | No data ID supplied; resolve the scoped persisted entry/version server-side, opt-in only |
+| DiagnosticMode — type loop | assorted known types → sender only | Server admin/self gate; diagnostics never queue email |
+| DiagnosticMode — delivery test | test → sender only | Push-only |
+| DiagnosticMode — chat-shaped test | chat_messages + diagnostic-test → sender only | Admin/self gate; push-only |
+| SeenByDialog | announcements → unseen audience | postId normalized; stored post, fallback or opt-in |
+| AnnouncementStats | announcements → unread members | chatId normalized; verified announcement chat, fallback or opt-in |
+| CateringOrdersSection | catering_order → store management roles | No data ID; resolve scoped persisted order/version server-side, opt-in only |
+| CateringOrderUploadInline | catering_order → store management roles | Same scoped order resolution; opt-in only |
+| ShareTaskDialog | chat_messages → other members | chatId normalized; verified thread, opt-in only |
+| LogBookNewEntrySheet — waste | waste_log → management roles | Existing standalone waste email unchanged; no duplicate email here |
+| LogBookNewEntrySheet — drawer | drawer_count → store management roles | Cash drawer Email alias; scoped persisted entry/version, opt-in only |
+| LogBookNewEntrySheet — safe | safe_count → store management roles | Cash safe Email alias; scoped persisted entry/version, opt-in only |
+| SupportChatPanel | chat_messages → verified ticket owner | ticket_id; fixed server support template only, opt-in only; support UI untouched |
+
+**Service checks:** `alert-push-sender` ordinary + alarm branches forward queue dedup refs; feed post/comment triggers and other service sends retain service authentication and use the common channel. Future NCNS is recognized as a late-alert fallback without changing its producer. Existing non-sender hiring, availability, write-up/review/waste and summary emails stay unchanged.
+
+**Compatibility limits:** Several current client store-alert callers supply no record ID. Their email must use a server-scoped persisted record/version or skip safely if none exists, without changing those callers or trusting their text. Hiring chat is intentionally excluded from the new channel to preserve the separately requested existing hiring email path. No invented event IDs or time-based unlimited duplicates.
