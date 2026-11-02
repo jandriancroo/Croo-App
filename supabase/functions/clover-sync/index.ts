@@ -1,3 +1,4 @@
+import { posExtrasPatch } from "../_shared/posExtras.ts";
 // Clover → clover_sales_cache sync (Playa Bowls scoped).
 // Mirrors the QU/Blaze sync shape: per-day rows with net_sales, guest_count,
 // avg_ticket, hourly_data, product_mix, payments_data.
@@ -389,6 +390,7 @@ function aggregateOrders(orders: any[], startMs: number) {
     discounts: Math.round(discountsCents) / 100,
     nonRevenue: Math.round(nonRevenueCents) / 100,
     guestCount,
+    checkCount,
     avgTicket: checkCount > 0 ? netSales / checkCount : 0,
     hourly,
     productMix: Array.from(mix.values()),
@@ -539,6 +541,7 @@ async function syncOneDay(
     location_id: locationId,
     sale_date: date,
     pos_source: "clover",
+    ...posExtrasPatch({ discount_amount: agg.discounts, check_count: agg.checkCount, tips_amount: paymentsData.total_tips }),
     net_sales: agg.netSales,
     guest_count: agg.guestCount,
     pizza_count: 0,

@@ -574,7 +574,6 @@ async function fetchAlohaDay(
   if (storeID > 0) {
     await augmentWithDrilldowns(session, creds.portal_url, storeID, storeName, date, payload, throttleMs);
   } else {
-    if (isPortalAccessError(e)) throw e;
     console.warn(`[aloha-sync] no storeID resolved for ${date}; skipping drill-downs`);
   }
   return payload;
@@ -595,8 +594,7 @@ async function syncOneDay(
 ) {
   const payload = await fetchAlohaDay(creds, date, tz, locationName, mode, backfill ? 2000 : 0);
 
-  // Pack Aloha-only extras into payments_data (JSONB already accepts arbitrary
-  // fields, keeps the base tender contract intact, and avoids a schema change).
+  // Keep raw portal metrics alongside the nullable POS-neutral sales columns.
   const { data: previousRaw, error: previousRawError } = await supabase.from("aloha_sales_cache").select("*").eq("location_id", locationId).eq("sale_date", date).maybeSingle();
   if (previousRawError) throw new Error(previousRawError.message);
   const previousMetrics = previousRaw?.payments_data?.metrics ?? {};

@@ -1,3 +1,4 @@
+import { knownNumber, quHourlyExtras, posExtrasPatch } from "../_shared/posExtras.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { requireCaller } from '../_shared/callerAuth.ts';
@@ -426,7 +427,7 @@ async function fetchHourlySales(
   tokenGw: string, 
   dateStr: string,
   qbLocationId: string
-): Promise<{ hour: string; sales: number; checksCount: number }[]> {
+): Promise<{ hour: string; sales: number; checksCount: number; discountAmount?: number | null }[]> {
   const requestPayload = {
     fields: [
       { fieldName: "hour" }, { fieldName: "checksCount" }, { fieldName: "netSales" },
@@ -456,7 +457,7 @@ async function fetchHourlySales(
   }
 
   const data = await response.json();
-  const hourlyData: { hour: string; sales: number; checksCount: number }[] = [];
+  const hourlyData: { hour: string; sales: number; checksCount: number; discountAmount?: number | null }[] = [];
 
   const convertTo24Hour = (time12h: string): string => {
     const match = time12h.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
@@ -475,7 +476,7 @@ async function fetchHourlySales(
       const hour24 = convertTo24Hour(rawHour);
       const sales = parseFloat(String(item.netSales || '0').replace(/[$,]/g, '')) || 0;
       const checksCount = parseInt(String(item.checksCount || '0').replace(/,/g, '')) || 0;
-      if (rawHour) hourlyData.push({ hour: hour24, sales, checksCount });
+      if (rawHour) hourlyData.push({ hour: hour24, sales, checksCount, discountAmount: knownNumber(item.discount) });
     }
   }
   return hourlyData;
@@ -2732,6 +2733,7 @@ serve(async (req) => {
             .upsert({
               location_id: locationId,
               sale_date: todayStr,
+              ...posExtrasPatch(quHourlyExtras(todayHourly)),
               net_sales: dailySales,
               guest_count: dailyGuestCount,
               pizza_count: Math.round(finalPizzaCount),
@@ -2756,6 +2758,7 @@ serve(async (req) => {
           try {
             const liveTips = await fetchTipsData(tokenGw, todayStr, qbLocationId);
             if (liveTips && (liveTips.ccTips > 0 || liveTips.cashTips > 0)) {
+              await cacheSupabase.from("sales_cache").update({ tips_amount: liveTips.ccTips + liveTips.cashTips }).eq("location_id", locationId).eq("sale_date", todayStr);
               const { error: tipsError } = await cacheSupabase
                 .from('daily_tips')
                 .upsert({
