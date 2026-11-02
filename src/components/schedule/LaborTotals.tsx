@@ -21,18 +21,14 @@ import { SalesProjectionDialog } from '@/components/schedule/SalesProjectionDial
 import { LaborGoalPopover } from '@/components/schedule/LaborGoalPopover';
 import { InsightField } from '@/components/schedule/InsightField';
 import { useLaborGoals, laborGoalTone, dowFromDate } from '@/hooks/useLaborGoals';
+import { ensureFutureWeekLiving } from '@/lib/ensureFutureWeekLiving';
+import { DateTime } from 'luxon';
 
 const toneClass = (t: 'good' | 'warn' | 'bad' | 'neutral') => (t === 'neutral' ? 'text-slate-100' : t === 'good' ? 'text-green-400' : t === 'warn' ? 'text-yellow-400' : 'text-red-400');
 
 // Get current date in the given timezone (YYYY-MM-DD format)
 function getTodayInTZ(timezone: string): string {
-  const now = new Date();
-  const localString = now.toLocaleString('en-US', { timeZone: timezone || 'America/Los_Angeles' });
-  const localDate = new Date(localString);
-  const year = localDate.getFullYear();
-  const month = String(localDate.getMonth() + 1).padStart(2, '0');
-  const day = String(localDate.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return DateTime.now().setZone(timezone || 'America/Los_Angeles').toFormat('yyyy-MM-dd');
 }
 interface Profile {
   id: string;
@@ -186,20 +182,14 @@ export function LaborTotals({
             initial_projection: row.initial_projection,
             living_projection: row.living_projection,
             override_projection: row.override_projection,
-            projected_sales: row.projected_sales
+            projected_sales: null
           }).value;
         });
         
         if (missingProjection.length > 0) {
           try {
-            const { error: seedError } = await supabase.functions.invoke('sales-week-projections', {
-              body: {
-                action: 'seed_week',
-                locationId: currentLocation.id,
-                weekStart: format(weekDays[0], 'yyyy-MM-dd')
-              }
-            });
-            if (!seedError) {
+            await ensureFutureWeekLiving(currentLocation.id, format(weekDays[0], 'yyyy-MM-dd'), todayPST, futureRows ?? []);
+            {
               const { data: refreshed } = await supabase
                 .from('sales_cache')
                 .select('sale_date, initial_projection, living_projection, override_projection, projected_sales')
@@ -449,21 +439,30 @@ export function LaborTotals({
         const goal = resolveProjection(cacheData);
         setTodayGoal({ date: dateStr, value: goal.value, source: goal.source === 'legacy' ? 'ai' : goal.source ?? undefined });
       }
-      if (cacheData) {
+      let reloadCache = cacheData;
+      if (!isPast && !isTodayDate && !resolveProjection({ ...reloadCache, projected_sales: null }).value) {
+        await ensureFutureWeekLiving(currentLocation.id, format(weekDays[0], 'yyyy-MM-dd'), todayPST,
+          [{ ...reloadCache, sale_date: dateStr }]);
+        const { data: refreshed } = await supabase.from('sales_cache')
+          .select('initial_projection, living_projection, override_projection, net_sales, projected_sales')
+          .eq('location_id', currentLocation.id).eq('sale_date', dateStr).maybeSingle();
+        reloadCache = refreshed;
+      }
+      if (reloadCache) {
         let salesValue: number;
         let source: 'historical' | 'living' | 'initial' | 'ai';
         
         if (isPast || isTodayDate) {
           // Use actual sales for past/today
-          salesValue = Math.round((cacheData.net_sales || 0) * 100) / 100;
+          salesValue = Math.round((reloadCache.net_sales || 0) * 100) / 100;
           source = 'historical';
         } else {
           // Use resolved projection for future
           const resolved = resolveProjection({
-            initial_projection: cacheData.initial_projection,
-            living_projection: cacheData.living_projection,
+            initial_projection: reloadCache.initial_projection,
+            living_projection: reloadCache.living_projection,
             override_projection: null, // We just cleared it
-            projected_sales: cacheData.projected_sales
+            projected_sales: reloadCache.projected_sales
           });
           salesValue = Math.round((resolved.value || 0) * 100) / 100;
           source = resolved.source === 'legacy' ? 'ai' : (resolved.source as 'living' | 'initial') || 'ai';
@@ -491,19 +490,6 @@ export function LaborTotals({
         }
       } else {
         // Future day with no row: use the shared projection service (any POS).
-        const { error: seedError } = await supabase.functions.invoke('sales-week-projections', {
-          body: {
-            action: 'seed_week',
-            locationId: currentLocation.id,
-            weekStart: format(weekDays[0], 'yyyy-MM-dd')
-          }
-        });
-        
-        if (seedError) {
-          toast.error('Failed to reload projection');
-          return;
-        }
-        
         const { data: seeded } = await supabase
           .from('sales_cache')
           .select('initial_projection, living_projection, projected_sales')

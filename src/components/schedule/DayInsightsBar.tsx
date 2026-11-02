@@ -15,6 +15,7 @@ import { SalesProjectionDialog } from '@/components/schedule/SalesProjectionDial
 import { useLaborGoals, laborGoalTone, dowFromDate } from '@/hooks/useLaborGoals';
 import { LaborGoalPopover } from '@/components/schedule/LaborGoalPopover';
 import { InsightField } from '@/components/schedule/InsightField';
+import { ensureFutureWeekLiving } from '@/lib/ensureFutureWeekLiving';
 
 type SalesSource = 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial';
 
@@ -188,11 +189,8 @@ export function DayInsightsBar({
 
         // Future day
         if (applyProjection(row)) return;
-        // Missing projection → shared POS-neutral projection service
-        const { error: seedError } = await supabase.functions.invoke('sales-week-projections', {
-          body: { action: 'seed_week', locationId, weekStart },
-        });
-        if (seedError) return;
+        // Only a future WEEK may request NULL-only Living from the goal engine.
+        await ensureFutureWeekLiving(locationId, weekStart, todayStr, [{ ...row, sale_date: dateStr }]);
         const { data: seeded } = await supabase
           .from('sales_cache')
           .select('initial_projection, living_projection, override_projection, projected_sales')
@@ -206,7 +204,7 @@ export function DayInsightsBar({
     };
     load();
     return () => { cancelled = true; };
-  }, [locationId, dateStr, phase, timezone, weekStart]);
+  }, [locationId, dateStr, phase, timezone, weekStart, todayStr]);
 
   const saveOverride = async (value: number, excludedDates?: string[]) => {
     if (!locationId) return;

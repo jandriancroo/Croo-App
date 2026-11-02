@@ -1,154 +1,47 @@
-// sales-week-projections — POS-neutral week projection service.
-//
-// Works for every brand and every sales system. It reads the normalized daily
-// sales history that each POS adapter already writes into sales_cache, then
-// fills forward-looking daily projections for a requested week using the
-// shared projection engine. No vendor-specific logic lives here.
-//
-// Actions:
-//   seed_week      { locationId, weekStart? }  — one location, one week
-//   seed_all_weeks { weekOffset? }             — every location with an active POS
-//
-// Guarantees: never writes actual sales, never overwrites a manager override,
-// never replaces an existing first projection, never touches labor or inventory.
+// Compatibility entrypoint: goal creation belongs only to the goal engine.
+import { createClient } from 'npm:@supabase/supabase-js@2.118.0';
+import { corsHeaders as sdkCorsHeaders } from 'npm:@supabase/supabase-js@2.118.0/cors';
+import { z } from 'npm:zod@3';
+import { authorizeCaller, requireAuthorizedCaller } from '../_shared/callerAuth.ts';
+import { ensureLivingWeek } from '../_shared/goalEngine.ts';
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { computeAndSavePace } from "../_shared/projections.ts";
-import { authorizeCaller, requireAuthorizedCaller } from "../_shared/callerAuth.ts";
-import { POS_SOURCES } from "../_shared/posSources.ts";
-import {
-  getLocationTimezone,
-  seedWeekProjections,
-  todayInTimezone,
-  weekStartFor,
-} from "../_shared/weekProjections.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-
-interface Body {
-  action: "seed_week" | "seed_all_weeks";
-  locationId?: string;
-  weekStart?: string;
-  weekOffset?: number;
-}
-
-function addWeeks(dateStr: string, weeks: number): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  dt.setUTCDate(dt.getUTCDate() + weeks * 7);
-  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
-}
-
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-
+const corsHeaders = { ...sdkCorsHeaders, 'Access-Control-Allow-Headers': `${sdkCorsHeaders['Access-Control-Allow-Headers']}, x-cron-secret` };
+const schema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('seed_week'), locationId: z.string().uuid(), weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }),
+  z.object({ action: z.literal('seed_all_weeks'), weekOffset: z.number().optional() }),
+]);
+const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+});
+Deno.serve(async req => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (req.method !== 'POST') return reply({ error: 'Method not allowed' }, 405);
   try {
-    const body = (await req.json()) as Body;
-    const action = body.action || "seed_week";
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-
-    if (action === "seed_week") {
-      // Browser-reachable action: caller must be a manager+ AND have access
-      // to the specific location being seeded. Service-role / cron callers
-      // bypass the per-location check (they have no location of their own).
-      const auth = await authorizeCaller(req, corsHeaders, { minRole: "manager" });
-      if ("response" in auth) return auth.response;
-
-      if (!body.locationId) throw new Error("locationId required");
-
-      if (auth.caller.kind === "user") {
-        const { data: hasAccess, error: accessErr } = await supabase.rpc("has_location_access", {
-          _user_id: auth.caller.userId,
-          _location_id: body.locationId,
-        });
-        if (accessErr || hasAccess !== true) {
-          return new Response(
-            JSON.stringify({ success: false, error: "Forbidden: no access to this location" }),
-            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-          );
-        }
-      }
-
-      const result = await seedWeekProjections(supabase, body.locationId, body.weekStart);
-      return new Response(JSON.stringify({ success: true, ...result }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (action === "seed_all_weeks") {
-      // Cron / service-role only — never called from the browser.
+    let input: unknown;
+    try { input = await req.json(); } catch { return reply({ error: 'Invalid JSON' }, 400); }
+    const parsed = schema.safeParse(input);
+    if (!parsed.success) return reply({ error: parsed.error.flatten() }, 400);
+    const body = parsed.data;
+    if (body.action === 'seed_all_weeks') {
       const denied = await requireAuthorizedCaller(req, corsHeaders);
-      if (denied) return denied;
-
-      const offset = Number.isFinite(body.weekOffset) ? Number(body.weekOffset) : 0;
-
-      const { data: integrations, error } = await supabase
-        .from("location_integrations")
-        .select("location_id, integration_type")
-        .in("integration_type", POS_SOURCES as unknown as string[])
-        .eq("is_active", true);
-      if (error) throw new Error(`POS location lookup failed: ${error.message}`);
-
-      const locationIds = [...new Set((integrations ?? []).map((i: any) => i.location_id as string))];
-      const results: any[] = [];
-
-      for (const locationId of locationIds) {
-        try {
-          const tz = await getLocationTimezone(supabase, locationId);
-          const weekStart = addWeeks(weekStartFor(todayInTimezone(tz)), offset);
-          const result = await seedWeekProjections(supabase, locationId, weekStart, tz);
-          results.push({
-            locationId,
-            weekStart: result.weekStart,
-            seeded: result.days.filter((d) => d.action !== "skipped").length,
-            skipped: result.days.filter((d) => d.action === "skipped").length,
-          });
-          // Pre-open pace: seed today's stored pace (= goal before open) so every
-          // screen and push has a fresh value from the first minute of the day.
-          if (offset === 0) {
-            try {
-              const { data: hrs } = await supabase
-                .from("location_settings").select("hours_open, hours_close")
-                .eq("location_id", locationId).maybeSingle();
-              const h = (v: unknown, d: number) => {
-                const n = parseInt(String(v ?? "").split(":")[0], 10);
-                return Number.isFinite(n) ? n : d;
-              };
-              await computeAndSavePace(supabase, {
-                locationId, date: todayInTimezone(tz), timezone: tz,
-                openHour: h(hrs?.hours_open, 10), closeHour: h(hrs?.hours_close, 22),
-              });
-            } catch (e) {
-              console.warn(`[sales-week-projections] pre-open pace skipped for ${locationId}:`, e);
-            }
-          }
-        } catch (e) {
-          console.error(`[sales-week-projections] ${locationId} failed:`, e);
-          results.push({ locationId, error: e instanceof Error ? e.message : String(e) });
-        }
-      }
-
-      return new Response(
-        JSON.stringify({ success: true, action, locations: results.length, results }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return denied ?? reply({ success: true, deprecated: true });
     }
-
-    throw new Error(`unknown action: ${action}`);
-  } catch (e) {
-    console.error("[sales-week-projections] error", e);
-    return new Response(
-      JSON.stringify({ success: false, error: e instanceof Error ? e.message : String(e) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    const auth = await authorizeCaller(req, corsHeaders, { minRole: 'manager' });
+    if ('response' in auth) return auth.response;
+    const url = Deno.env.get('SUPABASE_URL');
+    const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!url || !key) throw new Error('Service configuration unavailable');
+    const supabase = createClient(url, key, { auth: { persistSession: false } });
+    if (auth.caller.kind === 'user') {
+      const { data, error } = await supabase.rpc('has_location_access', {
+        _user_id: auth.caller.userId, _location_id: body.locationId,
+      });
+      if (error || data !== true) return reply({ error: 'Forbidden: no access to this location' }, 403);
+    }
+    const result = await ensureLivingWeek(supabase, body.locationId, body.weekStart);
+    return reply({ success: true, ...result });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return reply({ success: false, error: message }, /future Monday|Invalid local date/.test(message) ? 400 : 500);
   }
 });
