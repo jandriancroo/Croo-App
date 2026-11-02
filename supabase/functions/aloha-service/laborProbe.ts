@@ -16,7 +16,7 @@ const failed = (source: string, error: string, status: number | null = null): Re
 function metadata(source: string, page: Page): Result {
   if (page.status < 200 || page.status >= 300) return failed(source, `HTTP ${page.status}`, page.status);
   if (/name=["']loginForm["']|session (?:expired|invalid)|account.{0,20}locked/i.test(page.html)) return failed(source, 'Portal login/session unavailable', page.status);
-  const { document } = parseHTML(page.html);
+  const document = parseHTML(page.html).document as unknown as Document;
   let headers: string[] = [];
   let rowCount = 0;
   for (const table of Array.from(document.querySelectorAll('table'))) {
@@ -82,7 +82,7 @@ export async function probeLaborDetail(credentials: Record<string, unknown>, dat
   for (let depth = 0; depth < 2; depth++) {
     const links: string[] = [];
     for (const page of [...pages]) {
-      const { document } = parseHTML(page.html);
+      const document = parseHTML(page.html).document as unknown as Document;
       for (const el of Array.from(document.querySelectorAll('a[href],iframe[src],frame[src],script[src]'))) {
         const raw = el.getAttribute('href') ?? el.getAttribute('src') ?? '';
         if (!raw || /^(?:javascript:|#)/i.test(raw)) continue;
@@ -104,7 +104,7 @@ export async function probeLaborDetail(credentials: Record<string, unknown>, dat
   const runNamed = async (source: string, label: string, viewer: 'dynamic' | 'reports'): Promise<Result> => {
     for (const page of pages) {
       if (viewer === 'dynamic' && !/ddv|drill/i.test(page.url + page.html)) continue;
-      const { document } = parseHTML(page.html);
+      const document = parseHTML(page.html).document as unknown as Document;
       const option = Array.from(document.querySelectorAll('option')).find(el => el.textContent?.trim().toLowerCase() === label.toLowerCase());
       const anchor = Array.from(document.querySelectorAll('a[href]')).find(el => el.textContent?.trim().toLowerCase() === label.toLowerCase());
       if (anchor) {
