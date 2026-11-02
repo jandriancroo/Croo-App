@@ -65,6 +65,7 @@ function fixture(caller: Caller | null = { kind: 'user', userId: TEAM }) {
     rejectLog:line=>logs.push(line),
     deliver:async(ids,content,data)=>{sent.push({ids,content,data});return new Response(JSON.stringify({successful:ids.length}),{status:200});},
     deliverApplicant:async(thread)=>{applicantSent.push(thread);return new Response('{}',{status:200});},
+    email:async()=>({emailed:0,emailed_fallback:0}),
   });
   const request = (overrides:Row={}) => handler(new Request('http://localhost/notification',{method:'POST',headers:caller ? {} : {Authorization:'Bearer seeded-anon-gateway-key'},body:JSON.stringify({user_ids:[EMPLOYEE],location_id:A,title:'Title',body:'Body',notification_type:'chat_messages',...overrides})}));
   return {request,sent,applicantSent,writes,logs,lookups,tables,setFailRpc:()=>{failRpc=true;}};
