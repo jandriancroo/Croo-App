@@ -4,6 +4,7 @@
 (none)
 
 ## In progress
+- POS gaps follow-up 2: nullable shared POS extras; Aloha finished-day comps/voids/promos and empty-only LY; resumable throttled historical gaps; read-only Toast export check; deploy/test, no goals/UI/punch changes or publishing.
 - Shift marketplace + support chats batch (Oct 23): built, waiting for Jordan's "ship". Not published.
 - Toast Status public downloads: blocked by workspace public-bucket restriction. Owner/admin must allow public buckets under Settings → Privacy & Security, then make toast-status-releases public. Release publishing deliberately returns 503 until then.
 
