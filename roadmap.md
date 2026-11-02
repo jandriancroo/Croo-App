@@ -4,6 +4,7 @@
 (none)
 
 ## In progress
+- Daily Goal Consistency step E: atomic per-store backup and one-time two-week re-plan from today's finished history; verify goals, overrides, actuals and earlier days; no UI or publish.
 - Shift marketplace + support chats batch (Oct 23): built, waiting for Jordan's "ship". Not published.
 - Toast Status public downloads: blocked by workspace public-bucket restriction. Owner/admin must allow public buckets under Settings → Privacy & Security, then make toast-status-releases public. Release publishing deliberately returns 503 until then.
 
