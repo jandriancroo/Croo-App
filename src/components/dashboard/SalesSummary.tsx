@@ -174,14 +174,14 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       // Daily sales
       supabase
         .from('sales_cache')
-        .select('*')
+        .select('sale_date, net_sales, guest_count, pizza_count, avg_ticket, hourly_data, product_mix, payments_data, override_projection, override_at, override_by, living_projection, initial_projection, pace_adjusted_projection, pace_calculated_at')
         .eq('location_id', currentLocation.id)
         .eq('sale_date', dateStr)
         .maybeSingle(),
       // Week sales + payments (single round-trip)
       supabase
         .from('sales_cache')
-        .select('sale_date, net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection, payments_data')
+        .select('sale_date, net_sales, guest_count, initial_projection, living_projection, override_projection, payments_data')
         .eq('location_id', currentLocation.id)
         .gte('sale_date', weekStartStr)
         .lte('sale_date', weekEndStr)
@@ -189,7 +189,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       // Month sales + payments (single round-trip)
       supabase
         .from('sales_cache')
-        .select('sale_date, net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection, payments_data')
+        .select('sale_date, net_sales, guest_count, initial_projection, living_projection, override_projection, payments_data')
         .eq('location_id', currentLocation.id)
         .gte('sale_date', monthStartStr)
         .lte('sale_date', monthEndStr)
@@ -258,7 +258,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       const dayStr = weekStart.plus({ days: i }).toFormat('yyyy-MM-dd');
       const existingData = weekDataMap.get(dayStr);
       
-      // Use new projection resolution: override > living > initial > legacy
+      // Use new projection resolution: Override > Living > Planning > zero
       const resolved = resolveProjection(existingData as any);
       const actualSales = existingData ? Number(existingData.net_sales) || 0 : 0;
       
@@ -270,8 +270,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       weeklyBreakdown.push({
         date: dayStr,
         sales: actualSales,
-        // Use resolved projection if available, otherwise use actual sales as the "projection"
-        projected: resolved.value && resolved.value > 0 ? resolved.value : actualSales,
+        // Use only the stored daily goal; actual sales stay separate
+        projected: resolved.value ?? 0,
         guestCount: existingData?.guest_count || 0,
         laborPercent,
         laborCost,
@@ -319,7 +319,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       const dayStr = monthStart.plus({ days: day - 1 }).toFormat('yyyy-MM-dd');
       
       const existingData = monthDataMap.get(dayStr);
-      // Use new projection resolution: override > living > initial > legacy
+      // Use new projection resolution: Override > Living > Planning > zero
       const resolved = resolveProjection(existingData as any);
       const actualSales = existingData ? Number(existingData.net_sales) || 0 : 0;
       
@@ -331,8 +331,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       monthlyBreakdownFull.push({
         date: dayStr,
         sales: actualSales,
-        // Use resolved projection if available, otherwise use actual sales as "projection"
-        projected: resolved.value && resolved.value > 0 ? resolved.value : actualSales,
+        // Use only the stored daily goal; actual sales stay separate
+        projected: resolved.value ?? 0,
         guestCount: existingData?.guest_count || 0,
         laborPercent: mLaborPercent,
         laborCost: mLaborCost,
@@ -630,7 +630,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         const [weekSalesRes, weekLaborRes] = await Promise.all([
           supabase
             .from('sales_cache')
-            .select('sale_date, net_sales, guest_count, projected_sales')
+            .select('sale_date, net_sales, guest_count, override_projection, living_projection, initial_projection')
             .eq('location_id', currentLocation.id)
             .gte('sale_date', weekStartStr)
             .lte('sale_date', weekEndStr),
@@ -644,7 +644,8 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
               {
                 sales: Number(r.net_sales) || 0,
                 guests: Number(r.guest_count) || 0,
-                projected: Number(r.projected_sales) || 0,
+                projected: resolveProjection(r).value ?? 0,
+                projectionSource: resolveProjection(r).source,
               },
             ])
           );
@@ -658,19 +659,23 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
           // cost move together (same helper the pay period cards use).
 
 
-          const repairedWeeklyBreakdown = salesData.weeklyBreakdown.map((d) => {
+          const repairedWeeklyBreakdown = Array.from({ length: 7 }, (_, i) => {
+            const date = toBusinessDateTime(weekStartStr).plus({ days: i }).toFormat('yyyy-MM-dd');
+            const d = salesData.weeklyBreakdown?.find(day => day.date === date) ?? { date, sales: 0 };
+            const goal = salesMap.get(date);
+            const goalPatch = { projected: goal?.projected ?? 0, projectionSource: goal?.projectionSource ?? 'none' as ProjectionSource };
             // For today: only patch labor from labor_cache (keep live sales/pace intact)
             if (d.date === todayStr) {
               const labor = laborMap.get(d.date);
               if (labor) {
                 const laborCost = labor.cost;
                 const laborPercent = laborPct(laborCost, d.sales) ?? 0;
-                return { ...d, laborCost, laborPercent };
+                return { ...d, ...goalPatch, laborCost, laborPercent };
               }
-              return d;
+              return { ...d, ...goalPatch };
             }
             // Future days: no changes
-            if (d.date > todayStr) return d;
+            if (d.date > todayStr) return { ...d, ...goalPatch };
 
             // Past days: override sales + labor from cache
             const cachedSales = salesMap.get(d.date);
@@ -686,7 +691,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
               ...d,
               sales,
               guestCount,
-              projected: storedProjection > 0 ? storedProjection : sales,
+              ...goalPatch,
               laborCost,
               laborPercent,
             };
@@ -711,6 +716,32 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       } catch (e) {
         console.warn('[SalesOverview] Weekly repair failed:', e);
       }
+    }
+
+    if (currentLocation?.id && salesData) {
+      const start = targetWeekStartStr < targetDateTime.startOf('month').toFormat('yyyy-MM-dd') ? targetWeekStartStr : targetDateTime.startOf('month').toFormat('yyyy-MM-dd');
+      const monthEnd = targetDateTime.endOf('month').toFormat('yyyy-MM-dd');
+      const end = targetWeekEndStr > monthEnd ? targetWeekEndStr : monthEnd;
+      const { data: goals, error: goalError } = await supabase.from('sales_cache')
+        .select('sale_date, initial_projection, living_projection, override_projection')
+        .eq('location_id', currentLocation.id).gte('sale_date', start).lte('sale_date', end);
+      if (goalError) throw goalError;
+      const byDate = new Map((goals || []).map(r => [r.sale_date, r]));
+      const breakdown = (a: string, z: string, existing: SalesData['weeklyBreakdown']) => {
+        const days = [];
+        for (let d = toBusinessDateTime(a); d.toFormat('yyyy-MM-dd') <= z; d = d.plus({ days: 1 })) {
+          const date = d.toFormat('yyyy-MM-dd');
+          const old = existing?.find(r => r.date === date);
+          const goal = resolveProjection(byDate.get(date));
+          days.push({ ...old, date, sales: old?.sales ?? 0, projected: goal.value ?? 0, projectionSource: goal.source });
+        }
+        return days;
+      };
+      salesData.weeklyBreakdown = breakdown(targetWeekStartStr, targetWeekEndStr, salesData.weeklyBreakdown);
+      salesData.monthlyBreakdown = breakdown(targetDateTime.startOf('month').toFormat('yyyy-MM-dd'), monthEnd, salesData.monthlyBreakdown);
+      const todayGoal = resolveProjection(byDate.get(dateStr));
+      salesData.projections = { ...salesData.projections, todayProjected: todayGoal.value ?? 0, todaySource: todayGoal.source,
+        weekProjected: periodGoal(salesData.weeklyBreakdown), monthProjected: periodGoal(salesData.monthlyBreakdown) };
     }
 
     // ── LOCKED (2026-09-18): live labor is ALWAYS punch-based ──────────────
@@ -1259,6 +1290,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       weekly: salesData.weekly,
       monthly: salesData.monthly,
       todayProjected: salesData.projections?.todayProjected,
+      todaySource: salesData.projections?.todaySource,
       todayPaceAdjusted: salesData.projections?.todayPaceAdjusted,
       weekTargetEow,
       weekPace,

@@ -1,3 +1,5 @@
+import { resolveGoal } from "../_shared/cubeMetrics.ts";
+import { DateTime } from "npm:luxon@3";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getWageVisibility, getBlendedRate } from "../_shared/wageVisibility.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -616,40 +618,24 @@ async function handleOptimizeLabor(req: Request, supabase: any, blendedRate: num
   });
   console.log("Location closing times:", closingTimes);
 
-  // Template supplies projected sales; labor goal comes ONLY from labor_goal_pct (store-goal Weekly Template).
+  // Daily stored goals are shared with the dashboard; templates only supply staffing.
   const dailySettings: Record<number, { laborTarget: number; projectedSales: number }> = {};
-  for (let i = 0; i < 7; i++) dailySettings[i] = { laborTarget: 25, projectedSales: 0 };
-  if (template_id) {
-    const { data: daySettingsData, error: daySettingsError } = await supabase
-      .from("week_template_day_settings")
-      .select("day_of_week, projected_sales")
-      .eq("week_template_id", template_id);
-    if (daySettingsError) {
-      console.log("No day settings found, will use defaults:", daySettingsError.message);
-    }
-    (daySettingsData || []).forEach((ds: any) => {
-      if (dailySettings[ds.day_of_week]) dailySettings[ds.day_of_week].projectedSales = ds.projected_sales || 0;
-    });
-  }
-  await Promise.all(Array.from({ length: 7 }, async (_, i) => {
-    const d = new Date(weekStartDate.getTime() + i * 86400000);
-    const dateStr = d.toISOString().slice(0, 10);
-    const dow = (d.getUTCDay() + 6) % 7; // 0 = Monday
-    const { data: goal } = await supabase.rpc("labor_goal_pct", { _location_id: location_id, _date: dateStr });
-    if (goal != null) dailySettings[dow].laborTarget = Number(goal);
-  }));
-
-  const { data: salesData } = await supabase
-    .from("week_template_hourly_coverage")
-    .select("day_of_week, projected_sales")
-    .eq("week_template_id", template_id || '');
-
   const dailySales: Record<number, number> = {};
-  (salesData || []).forEach((s: any) => {
-    if (s.projected_sales) {
-      dailySales[s.day_of_week] = (dailySales[s.day_of_week] || 0) + (s.projected_sales || 0);
-    }
-  });
+  const start = DateTime.fromFormat(week_start, 'yyyy-MM-dd', { zone: 'America/Los_Angeles' });
+  const { data: goalRows, error: goalError } = await supabase.from('sales_cache')
+    .select('sale_date, override_projection, living_projection, initial_projection')
+    .eq('location_id', location_id).gte('sale_date', start.toFormat('yyyy-MM-dd'))
+    .lte('sale_date', start.plus({ days: 6 }).toFormat('yyyy-MM-dd'));
+  if (goalError) throw goalError;
+  await Promise.all(Array.from({ length: 7 }, async (_, i) => {
+    const date = start.plus({ days: i });
+    const dateStr = date.toFormat('yyyy-MM-dd');
+    const dow = date.weekday % 7;
+    const amount = resolveGoal((goalRows || []).find((r: any) => r.sale_date === dateStr));
+    const { data: goal } = await supabase.rpc('labor_goal_pct', { _location_id: location_id, _date: dateStr });
+    dailySettings[dow] = { laborTarget: goal == null ? 25 : Number(goal), projectedSales: amount };
+    dailySales[dow] = amount;
+  }));
 
   const shiftsWithWages: GeneratedShift[] = (generated_shifts || []).map((s: GeneratedShift) => ({
     ...s,

@@ -14,7 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { getCachedSalesData, setCachedSalesData } from '@/utils/salesCache';
 import { resolveProjection } from '@/hooks/useResolvedProjection';
-import { useAuth } from '@/lib/auth';
+import { canEditDailyGoal } from '@/lib/goalResolver';
+import { ProjectionTag } from '@/components/ui/projection-tag';
 import { refreshLiveSalesForToday } from '@/lib/pos/liveSales';
 import { fetchStoreLabor } from '@/hooks/useStoreLabor';
 import { SalesProjectionDialog } from '@/components/schedule/SalesProjectionDialog';
@@ -60,7 +61,7 @@ export function LaborTotals({
   scheduleId,
   isEditable = false
 }: LaborTotalsProps) {
-  const { canViewAllWages: canSeeWages, wageMode } = useUserRole();
+  const { canViewAllWages: canSeeWages, wageMode, role } = useUserRole();
   // Totals only: real wages for managers+, store blended rate for Scheduling Managers.
   const canViewAllWages = canSeeWages || wageMode === 'blended';
   const { canSeeSales } = useTeamSalesVisibility();
@@ -72,47 +73,16 @@ export function LaborTotals({
     length: 7
   }, (_, i) => addDays(currentWeekStart, i));
   const [projectedSales, setProjectedSales] = useState<Record<number, number>>({});
-  const [salesSource, setSalesSource] = useState<Record<number, 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial'>>({});
+  const [salesSource, setSalesSource] = useState<Record<number, 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'planning' | 'none'>>({});
   const [todayGoal, setTodayGoal] = useState<{ date: string; value: number | null; source: typeof salesSource[number] | undefined } | null>(null);
-  const [isLoadingSales, setIsLoadingSales] = useState(true);
+  const [isLoadingSales, setIsLoadingSales] = useState(false);
   const [isLoadingQuSales, setIsLoadingQuSales] = useState(false);
   const [actualLabor, setActualLabor] = useState<Record<string, { hours: number; cost: number }>>({});
   const [projectionDialogDay, setProjectionDialogDay] = useState<number | null>(null);
-  const { user } = useAuth();
+
 
   // The ONE scheduled pay read (wages on shift date + store rules -> weekLaborCost)
   const { pay: weekPay } = useWeekLaborCost(shifts, profiles, currentLocation?.id);
-
-  // Fetch saved projected sales first
-  useEffect(() => {
-    const fetchProjectedSales = async () => {
-      if (!scheduleId) {
-        setIsLoadingSales(false);
-        return;
-      }
-      setIsLoadingSales(true);
-      try {
-        const {
-          data,
-          error
-        } = await supabase.from('schedule_projected_sales').select('*').eq('schedule_id', scheduleId);
-        if (error) throw error;
-        const sales: Record<number, number> = {};
-        const sources: Record<number, 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial'> = {};
-        data?.forEach(item => {
-          sales[item.day_of_week] = Number(item.projected_sales);
-          sources[item.day_of_week] = 'manual';
-        });
-        setProjectedSales(sales);
-        setSalesSource(sources);
-      } catch (error) {
-        console.error('Error fetching projected sales:', error);
-      } finally {
-        setIsLoadingSales(false);
-      }
-    };
-    fetchProjectedSales();
-  }, [scheduleId]);
 
   // Memoize the week dates string to prevent unnecessary re-fetches
   const weekDatesKey = useMemo(() => 
@@ -123,7 +93,7 @@ export function LaborTotals({
   // Auto-fill from Qu data:
   // - Past days: use net_sales from sales_cache (fast)
   // - Today: fetch live from API (slow - done in background)
-  // - Future days: read from sales_cache.projected_sales (fast)
+  // - Future days: read from stored goal columns (fast)
   // 
   // OPTIMIZATION: Load cached data immediately, then fetch today's live data in background
   useEffect(() => {
@@ -164,11 +134,11 @@ export function LaborTotals({
             ? supabase.from('sales_cache').select('sale_date, net_sales').eq('location_id', currentLocation.id).in('sale_date', pastDates)
             : Promise.resolve({ data: null }),
           futureDates.length > 0
-            ? supabase.from('sales_cache').select('sale_date, initial_projection, living_projection, override_projection, projected_sales').eq('location_id', currentLocation.id).in('sale_date', futureDates)
+            ? supabase.from('sales_cache').select('sale_date, initial_projection, living_projection, override_projection').eq('location_id', currentLocation.id).in('sale_date', futureDates)
             : Promise.resolve({ data: null }),
           // Also try to get today's cached data for instant display
           todayIndex !== null
-            ? supabase.from('sales_cache').select('sale_date, net_sales, initial_projection, living_projection, override_projection, projected_sales').eq('location_id', currentLocation.id).eq('sale_date', todayPST).maybeSingle()
+            ? supabase.from('sales_cache').select('sale_date, net_sales, initial_projection, living_projection, override_projection').eq('location_id', currentLocation.id).eq('sale_date', todayPST).maybeSingle()
             : Promise.resolve({ data: null })
         ]);
         
@@ -182,7 +152,6 @@ export function LaborTotals({
             initial_projection: row.initial_projection,
             living_projection: row.living_projection,
             override_projection: row.override_projection,
-            projected_sales: null
           }).value;
         });
         
@@ -192,7 +161,7 @@ export function LaborTotals({
             {
               const { data: refreshed } = await supabase
                 .from('sales_cache')
-                .select('sale_date, initial_projection, living_projection, override_projection, projected_sales')
+                .select('sale_date, initial_projection, living_projection, override_projection')
                 .eq('location_id', currentLocation.id)
                 .in('sale_date', futureDates);
               if (refreshed) futureRows = refreshed;
@@ -203,8 +172,8 @@ export function LaborTotals({
         }
         
         // Process cached data immediately
-        const newSales: Record<number, number> = { ...projectedSales };
-        const newSources: Record<number, 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial'> = { ...salesSource };
+        const newSales: Record<number, number> = Object.fromEntries(weekDays.map((_, i) => [i, 0]));
+        const newSources: Record<number, 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'planning' | 'none'> = Object.fromEntries(weekDays.map((_, i) => [i, 'none']));
         
         // Past days from net_sales
         if (pastResponse.data) {
@@ -226,14 +195,13 @@ export function LaborTotals({
               initial_projection: row.initial_projection,
               living_projection: row.living_projection,
               override_projection: row.override_projection,
-              projected_sales: row.projected_sales
             });
             
-            if (resolved.value && resolved.value > 0) {
+            if (resolved.source !== 'none') {
               const dayIndex = futureDayIndexMap[row.sale_date];
-              if (dayIndex !== undefined && !projectedSales[dayIndex]) {
+              if (dayIndex !== undefined) {
                 newSales[dayIndex] = Math.round(resolved.value * 100) / 100;
-                newSources[dayIndex] = resolved.source === 'legacy' ? 'ai' : resolved.source as 'override' | 'living' | 'initial';
+                newSources[dayIndex] = resolved.source as 'override' | 'living' | 'planning' | 'none';
               }
             }
           });
@@ -243,7 +211,7 @@ export function LaborTotals({
         if (todayCacheResponse.data && todayIndex !== null) {
           const row = todayCacheResponse.data;
           const goal = resolveProjection(row);
-          setTodayGoal({ date: todayPST, value: goal.value, source: goal.source === 'legacy' ? 'ai' : goal.source ?? undefined });
+          setTodayGoal({ date: todayPST, value: goal.value, source: goal.source });
           // Use net_sales if available (from recent sync), otherwise use projection as placeholder
           if (row.net_sales && row.net_sales > 0) {
             newSales[todayIndex] = Math.round(row.net_sales * 100) / 100;
@@ -253,11 +221,10 @@ export function LaborTotals({
               initial_projection: row.initial_projection,
               living_projection: row.living_projection,
               override_projection: row.override_projection,
-              projected_sales: null
             });
-            if (resolved.value && resolved.value > 0) {
+            if (resolved.source !== 'none') {
               newSales[todayIndex] = Math.round(resolved.value * 100) / 100;
-              newSources[todayIndex] = 'initial';
+              newSources[todayIndex] = 'planning';
             }
           }
         }
@@ -350,36 +317,13 @@ export function LaborTotals({
     
     }
 
-    try {
-      // Save override to sales_cache using the new override_projection column
-      const { error } = await supabase
-        .from('sales_cache')
-        .upsert({
-          location_id: currentLocation.id,
-          sale_date: dateStr,
-          override_projection: numValue,
-          override_at: new Date().toISOString(),
-          override_by: user?.id || null,
-          override_excluded_dates: excludedDates ?? []
-        }, {
-          onConflict: 'location_id,sale_date'
-        });
-      
-      if (error) throw error;
-      
-      // Also save to schedule_projected_sales for backwards compatibility
-      if (scheduleId) {
-        await supabase.from('schedule_projected_sales').upsert({
-          schedule_id: scheduleId,
-          day_of_week: dayIndex,
-          projected_sales: numValue
-        }, {
-          onConflict: 'schedule_id,day_of_week'
-        });
-      }
-    } catch (error) {
-      console.error('Error saving override projection:', error);
-      toast.error('Failed to save override');
+    if (!canEditDailyGoal(role, dateStr, getTodayPST())) return;
+    const { error } = await supabase.rpc('set_goal_override', {
+      _location_id: currentLocation.id, _sale_date: dateStr, _value: Math.round(numValue), _excluded_dates: excludedDates ?? [], _reason: null,
+    });
+    if (error) {
+      toast.error(error.code === '42501' ? 'Only managers and above can change the daily goal.' : 'Failed to save override');
+      throw error;
     }
   };
 
@@ -394,27 +338,10 @@ export function LaborTotals({
     const isTodayDate = dateStr === todayPST;
     
     try {
-      // Clear override from sales_cache
-      await supabase
-        .from('sales_cache')
-        .update({
-          override_projection: null,
-          override_at: null,
-          override_by: null,
-          override_excluded_dates: null
-        })
-        .eq('location_id', currentLocation.id)
-        .eq('sale_date', dateStr);
-      
-      // Also delete from schedule_projected_sales for backwards compatibility
-      if (scheduleId) {
-        await supabase
-          .from('schedule_projected_sales')
-          .delete()
-          .eq('schedule_id', scheduleId)
-          .eq('day_of_week', dayIndex);
-      }
-      
+      if (!canEditDailyGoal(role, dateStr, todayPST)) return;
+      const { error } = await supabase.rpc('clear_goal_override', { _location_id: currentLocation.id, _sale_date: dateStr, _reason: null });
+      if (error) throw error;
+
       // Clear from local state
       setProjectedSales(prev => {
         const newState = { ...prev };
@@ -430,27 +357,27 @@ export function LaborTotals({
       // Fetch fresh projection from sales_cache with resolution priority
       const { data: cacheData } = await supabase
         .from('sales_cache')
-        .select('initial_projection, living_projection, override_projection, net_sales, projected_sales')
+        .select('initial_projection, living_projection, override_projection, net_sales')
         .eq('location_id', currentLocation.id)
         .eq('sale_date', dateStr)
         .maybeSingle();
       
       if (isTodayDate) {
         const goal = resolveProjection(cacheData);
-        setTodayGoal({ date: dateStr, value: goal.value, source: goal.source === 'legacy' ? 'ai' : goal.source ?? undefined });
+        setTodayGoal({ date: dateStr, value: goal.value, source: goal.source });
       }
       let reloadCache = cacheData;
-      if (!isPast && !isTodayDate && !resolveProjection({ ...reloadCache, projected_sales: null }).value) {
+      if (!isPast && !isTodayDate && !resolveProjection(reloadCache).value) {
         await ensureFutureWeekLiving(currentLocation.id, format(weekDays[0], 'yyyy-MM-dd'), todayPST,
           [{ ...reloadCache, sale_date: dateStr }]);
         const { data: refreshed } = await supabase.from('sales_cache')
-          .select('initial_projection, living_projection, override_projection, net_sales, projected_sales')
+          .select('initial_projection, living_projection, override_projection, net_sales')
           .eq('location_id', currentLocation.id).eq('sale_date', dateStr).maybeSingle();
         reloadCache = refreshed;
       }
       if (reloadCache) {
         let salesValue: number;
-        let source: 'historical' | 'living' | 'initial' | 'ai';
+        let source: 'historical' | 'living' | 'planning' | 'none' | 'ai';
         
         if (isPast || isTodayDate) {
           // Use actual sales for past/today
@@ -462,17 +389,16 @@ export function LaborTotals({
             initial_projection: reloadCache.initial_projection,
             living_projection: reloadCache.living_projection,
             override_projection: null, // We just cleared it
-            projected_sales: reloadCache.projected_sales
           });
           salesValue = Math.round((resolved.value || 0) * 100) / 100;
-          source = resolved.source === 'legacy' ? 'ai' : (resolved.source as 'living' | 'initial') || 'ai';
+          source = (resolved.source as 'living' | 'planning' | 'none') || 'ai';
         }
         
         if (salesValue > 0) {
           setProjectedSales(prev => ({ ...prev, [dayIndex]: salesValue }));
           setSalesSource(prev => ({ ...prev, [dayIndex]: source }));
           const sourceLabel = source === 'living' ? 'Live AI goal' : 
-                             source === 'initial' ? 'AI goal' : 
+                             source === 'planning' ? 'AI goal' : 
                              source === 'historical' ? 'actual sales' : 'AI goal';
           toast.success(`Reloaded ${sourceLabel} for ${format(day, 'EEE')}`);
         } else {
@@ -492,7 +418,7 @@ export function LaborTotals({
         // Future day with no row: use the shared projection service (any POS).
         const { data: seeded } = await supabase
           .from('sales_cache')
-          .select('initial_projection, living_projection, projected_sales')
+          .select('initial_projection, living_projection')
           .eq('location_id', currentLocation.id)
           .eq('sale_date', dateStr)
           .maybeSingle();
@@ -501,13 +427,12 @@ export function LaborTotals({
           initial_projection: seeded?.initial_projection,
           living_projection: seeded?.living_projection,
           override_projection: null,
-          projected_sales: seeded?.projected_sales
         });
         const salesValue = Math.round((resolved.value || 0) * 100) / 100;
         
         if (salesValue > 0) {
           setProjectedSales(prev => ({ ...prev, [dayIndex]: salesValue }));
-          setSalesSource(prev => ({ ...prev, [dayIndex]: resolved.source === 'legacy' ? 'ai' : (resolved.source as 'living' | 'initial') || 'ai' }));
+          setSalesSource(prev => ({ ...prev, [dayIndex]: (resolved.source as 'living' | 'planning' | 'none') || 'ai' }));
           toast.success(`Reloaded AI projection for ${format(day, 'EEE')}`);
         } else {
           toast.info(`No goal available for ${format(day, 'EEE')}`);
@@ -515,7 +440,8 @@ export function LaborTotals({
       }
     } catch (error) {
       console.error('Error reloading projection:', error);
-      toast.error('Failed to reload projection');
+      toast.error((error as { code?: string }).code === '42501' ? 'Only managers and above can change the daily goal.' : 'Failed to reload projection');
+      throw error;
     }
   };
   
@@ -700,7 +626,7 @@ export function LaborTotals({
               const displayValue = displayGoal ? todayGoal?.value : getDayPhase(index) === 'today' ? null : projectedSales[index];
               const source = displayGoal ? todayGoal?.source : getDayPhase(index) === 'today' ? undefined : salesSource[index];
               const isLiving = source === 'living';
-              const isInitial = source === 'initial' || source === 'ai';
+              const isInitial = source === 'planning' || source === 'ai';
               const isHistorical = source === 'historical';
               const isOverride = source === 'override' || source === 'manual';
               
@@ -710,7 +636,7 @@ export function LaborTotals({
               const isToday = dayStr === todayPST;
               const phase = getDayPhase(index);
               
-              const canReload = isOverride && !isPastDay;
+              const canReload = isOverride && canEditDailyGoal(role, dayStr, todayPST);
               
               const bgClass = isHistorical ? 'bg-green-500/10' : 
                              isOverride ? 'bg-amber-500/10' : 
@@ -719,7 +645,7 @@ export function LaborTotals({
               
               return (
                  <div key={index} className={`p-1.5 border-r border-slate-700/30 last:border-r-0 text-center relative ${bgClass}`}>
-                  {isEditable ? (
+                  {canEditDailyGoal(role, dayStr, todayPST) ? (
                     <div className="relative flex items-center justify-center gap-1">
                       <InsightField
                         onClick={() => setProjectionDialogDay(index)}
@@ -767,6 +693,7 @@ export function LaborTotals({
                       {isHistorical && <CheckCircle2 className="h-2.5 w-2.5 text-green-400" />}
                     </button>
                   )}
+                  {phase !== 'completed' && <ProjectionTag source={source === 'override' || source === 'living' || source === 'planning' ? source : 'none'} locationId={currentLocation?.id} dateStr={dayStr} timezone={timezone} />}
                 </div>
               );
             })}
@@ -783,7 +710,7 @@ export function LaborTotals({
           todayStr={getTodayPST()}
           currentValue={getDayPhase(projectionDialogDay) === 'today' ? todayGoal?.value ?? 0 : projectedSales[projectionDialogDay] || 0}
           currentSource={getDayPhase(projectionDialogDay) === 'today' ? todayGoal?.source : salesSource[projectionDialogDay]}
-          canEdit={isEditable}
+          canEdit={canEditDailyGoal(role, format(weekDays[projectionDialogDay], 'yyyy-MM-dd'), getTodayPST())}
           onSaveOverride={async (value, excludedDates) => {
             await handleSalesChange(projectionDialogDay, String(value), excludedDates);
             toast.success('Sales number saved');

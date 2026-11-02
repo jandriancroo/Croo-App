@@ -3,11 +3,11 @@
  * 
  * Resolution Priority: override_projection > living_projection > initial_projection
  * 
- * - initial_projection: Generated 8-14 days out for schedule planning
- * - living_projection: Updated daily at 2 AM for days within 7-day window
+ * - initial_projection: Insert-once Planning for next week on Monday
+ * - living_projection: Updated at 3 AM store-local time for today/future
  * - override_projection: Manager manual override (highest priority)
  */
-import { resolveGoalWithSource } from '../../supabase/functions/_shared/cubeMetrics';
+import { resolveGoalWithSource, type GoalSource } from '@/lib/goalResolver';
 
 export interface ProjectionData {
   initial_projection?: number | null;
@@ -15,11 +15,9 @@ export interface ProjectionData {
   override_projection?: number | null;
   override_at?: string | null;
   override_by?: string | null;
-  // Legacy field for backwards compatibility
-  projected_sales?: number | null;
 }
 
-export type ProjectionSource = 'override' | 'living' | 'initial' | 'legacy' | null;
+export type ProjectionSource = GoalSource;
 
 export interface ResolvedProjection {
   value: number | null;
@@ -33,7 +31,7 @@ export interface ResolvedProjection {
 
 /**
  * Resolves which projection value to use based on priority:
- * override > living > initial > legacy (projected_sales)
+ * Positive Override > Living > Planning > zero (no sales fallback)
  */
 export function resolveProjection(data: ProjectionData | null | undefined): ResolvedProjection {
   const { value, source } = resolveGoalWithSource(data);
@@ -43,7 +41,7 @@ export function resolveProjection(data: ProjectionData | null | undefined): Reso
     source,
     isOverride,
     isLiving: source === 'living',
-    isInitial: source === 'initial',
+    isInitial: source === 'planning',
     ...(isOverride ? { overrideAt: data?.override_at ? new Date(data.override_at) : null, overrideBy: data?.override_by ?? null } : {}),
   };
 }
@@ -95,5 +93,5 @@ export function projectionGoalValue(
   currentValue: number,
   currentIsActual: boolean,
 ): number | null {
-  return resolveProjection(row).value ?? (!currentIsActual && currentValue > 0 ? currentValue : null);
+  return resolveProjection(row).value;
 }

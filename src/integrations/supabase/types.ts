@@ -12625,6 +12625,36 @@ export type Database = {
           },
         ]
       }
+      sales_goal_legacy_backup_20261101: {
+        Row: {
+          backed_up_at: string
+          initial_projection: number | null
+          living_projection: number | null
+          location_id: string
+          override_projection: number | null
+          projected_sales: number | null
+          sale_date: string
+        }
+        Insert: {
+          backed_up_at?: string
+          initial_projection?: number | null
+          living_projection?: number | null
+          location_id: string
+          override_projection?: number | null
+          projected_sales?: number | null
+          sale_date: string
+        }
+        Update: {
+          backed_up_at?: string
+          initial_projection?: number | null
+          living_projection?: number | null
+          location_id?: string
+          override_projection?: number | null
+          projected_sales?: number | null
+          sale_date?: string
+        }
+        Relationships: []
+      }
       sales_goal_override_log: {
         Row: {
           action: string

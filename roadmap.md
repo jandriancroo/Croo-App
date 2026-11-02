@@ -8,6 +8,7 @@
 - Toast Status public downloads: blocked by workspace public-bucket restriction. Owner/admin must allow public buckets under Settings → Privacy & Security, then make toast-status-releases public. Release publishing deliberately returns 503 until then.
 
 ## Done (Toast Status v2)
+- Daily Goal Consistency step D: 0080 legacy backup (3,441), double-null Planning fill (15), legacy clear (3,441), zero monthly differences; 0081 past Living freeze; unified stored-goal resolver, manager override RPCs and flat version details; 15 functions deployed. 59 browser-math regressions, 7 SQL safeguards and 14 Deno tests pass; preview build OK. Signed-in save/clear restored 4,313; override and cube tags verified; live QU/SQL day 3,098, week 19,832, month 84,368 agree. No frontend publishing; no physical-device testing available.
 - Added service-only tokens/restart tables, public release metadata, atomic restart RPC, scoped native-only toast-status function and tests. Deployed; 10 tests passed and live empty 401/404/405 + no-CORS checks passed. No tokens inserted; authorized live flows wait for owner-supplied tokens. Existing Toast, punch, kiosk, payroll and frontend unchanged.
 
 ## Done (Oct 21 late)

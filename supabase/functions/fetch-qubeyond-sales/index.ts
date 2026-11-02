@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { requireCaller } from '../_shared/callerAuth.ts';
 import { fetchQuLabor } from '../_shared/quLabor.ts';
 import { DateTime } from 'npm:luxon@3.7.2';
+import { resolveGoalWithSource } from '../_shared/cubeMetrics.ts';
 import { resolveStoredGoal, storedGoalBreakdown } from '../_shared/storedGoal.ts';
 
 
@@ -1940,76 +1941,11 @@ function generateProjections(
   },
   holidayContext?: { lastYearWeight: number; reason: string; dailyGoal?: number }
 ): { todayProjected: number; todayPaceAdjusted: number; weekProjected: number; monthProjected: number } {
-  const today = new Date(todayStr + 'T12:00:00');
-  const dayOfWeek = today.getDay();
-  
-  // Get consistent random factor for this date/location combination
-  const randomFactor = getSeededRandomFactor(`${todayStr}-${locationId}`);
-  console.log(`Projection random factor for ${todayStr}/${locationId}: ${randomFactor.toFixed(4)} (${((randomFactor - 1) * 100).toFixed(2)}%)`);
-  
-  // Holiday-aware weighting (default to 50/50 if not provided)
-  const lyWeight = holidayContext?.lastYearWeight ?? 0.5;
-  const fwWeight = 1 - lyWeight;
-  
-  const todayProjected = holidayContext?.dailyGoal ?? 0;
-
-  // === PACE-ADJUSTED PROJECTION (Actual sales + remaining hourly projections) ===
-  const todayPaceAdjusted = calculatePaceAdjustedProjection(
-    dailySales,
-    currentHour,
-    currentMinutes,
-    hoursOpen,
-    hoursClose,
-    hourlyProjections
-  );
-  
-  // === WEEKLY PROJECTION (Pace-adjusted) ===
-  // Sum of: actuals for past days + MAX(actual, projection) for today + projections for future
-  // NOTE: This will be recalculated after we have daily projections, for now use estimate
-  let weekProjected = 0;
-  const fourWeekAvgWeek = fourWeekAverage?.avgWeekTotal || 0;
-  const lastYearSameWeek = lastYearData?.sameWeek || 0;
-  
-  if (fourWeekAvgWeek > 0 && lastYearSameWeek > 0) {
-    weekProjected = ((fourWeekAvgWeek + lastYearSameWeek) / 2) * randomFactor;
-  } else if (fourWeekAvgWeek > 0) {
-    weekProjected = fourWeekAvgWeek * randomFactor;
-  } else if (lastYearSameWeek > 0) {
-    weekProjected = lastYearSameWeek * randomFactor;
-  } else {
-    const daysRemainingInWeek = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
-    const avgDailySales = weeklyBreakdown.length > 0 ? weeklySales / weeklyBreakdown.length : todayProjected;
-    weekProjected = (weeklySales + (avgDailySales * daysRemainingInWeek)) * randomFactor;
-  }
-  
-  weekProjected = Math.max(weekProjected, weeklySales);
-  
-  // === MONTHLY PROJECTION (Pace-adjusted) ===
-  // Sum of: actuals for past days + MAX(actual, projection) for today + projections for future
-  // NOTE: This will be recalculated after we have daily projections, for now use estimate
-  let monthProjected = 0;
-  const lastYearSameMonth = lastYearData?.sameMonth || 0;
-  const lastMonthSales = lastYearData?.lastMonth || 0;
-  
-  if (lastMonthSales > 0 && lastYearSameMonth > 0) {
-    monthProjected = ((lastMonthSales + lastYearSameMonth) / 2) * randomFactor;
-  } else if (lastYearSameMonth > 0) {
-    monthProjected = lastYearSameMonth * randomFactor;
-  } else if (lastMonthSales > 0) {
-    monthProjected = lastMonthSales * randomFactor;
-  } else {
-    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    const daysRemainingInMonth = daysInMonth - today.getDate();
-    const daysOfData = monthlyBreakdown.length;
-    const monthAvgDaily = daysOfData > 0 ? monthlySales / daysOfData : todayProjected;
-    monthProjected = (monthlySales + (monthAvgDaily * daysRemainingInMonth)) * randomFactor;
-  }
-  
-  monthProjected = Math.max(monthProjected, monthlySales);
-  
-  console.log(`Deterministic projections: daily=${todayProjected.toFixed(2)}, pace=${todayPaceAdjusted}, weekly=${weekProjected.toFixed(2)}, monthly=${monthProjected.toFixed(2)}`);
-  
-  return { todayProjected, todayPaceAdjusted, weekProjected, monthProjected };
+  return {
+    todayProjected: holidayContext?.dailyGoal ?? 0,
+    todayPaceAdjusted: calculatePaceAdjustedProjection(dailySales, currentHour, currentMinutes, hoursOpen, hoursClose, hourlyProjections),
+    weekProjected: 0, monthProjected: 0,
+  };
 }
 
 // Calculate pace-adjusted week/month projections
@@ -2632,9 +2568,7 @@ serve(async (req) => {
       );
       
       projections.todayProjected = preliminaryTodayProjected;
-      projections.todaySource = Number(todayGoalRow?.override_projection) > 0 ? 'override'
-        : Number(todayGoalRow?.living_projection) > 0 ? 'living'
-        : Number(todayGoalRow?.initial_projection) > 0 ? 'initial' : 'none';
+      projections.todaySource = resolveGoalWithSource(todayGoalRow).source;
       // === STORED PACE (single source) ===
       // The shared pace writer (computeAndSavePace, run by the every-minute sync)
       // saves pace on sales_cache. Read it so the tablet matches every other screen.
@@ -2663,19 +2597,9 @@ serve(async (req) => {
     const weeklyWithProjections = storedGoalBreakdown(weekStartStr, weekEndStr, weeklyBreakdown, storedGoals ?? []);
     const monthlyWithProjections = storedGoalBreakdown(monthStartStr, monthEndStr, monthlyBreakdown, storedGoals ?? []);
 
-    // Recalculate week/month projections using pace logic:
-    // Past days: actuals, Today: MAX(actual, projection), Future: projections
-    if (!skipProjections) {
-      const paceAdjusted = calculatePaceAdjustedTotals(
-        weeklyWithProjections,
-        monthlyWithProjections,
-        todayStr,
-        dailySales,
-        projections.todayProjected
-      );
-      projections.weekProjected = paceAdjusted.weekProjected;
-      projections.monthProjected = paceAdjusted.monthProjected;
-    }
+    // Period goals are sums of the saved daily resolver goals, never actuals/pace.
+    projections.weekProjected = weeklyWithProjections.reduce((s, d) => s + d.projected, 0);
+    projections.monthProjected = monthlyWithProjections.reduce((s, d) => s + d.projected, 0);
     // Calculate daily labor percent now that we have sales (for punch-based labor)
     // IMPORTANT: do this BEFORE we decorate hourly data, since the UI uses hourly.laborPercent.
     if (laborSource === 'punches' && laborData && dailySales > 0) {

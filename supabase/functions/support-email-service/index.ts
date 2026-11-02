@@ -1,3 +1,4 @@
+import { resolveGoal } from "../_shared/cubeMetrics.ts";
 // @ts-nocheck
 import { aiFetchWithShadow } from "../_shared/ai-shadow.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
@@ -475,7 +476,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
     { data: locationUsers },
   ] = await Promise.all([
     supabase.from("locations").select("id, name, organization_id, store_number").eq("id", location_id).single(),
-    supabase.from("sales_cache").select("net_sales, guest_count, pizza_count, avg_ticket, projected_sales, override_projection, living_projection, initial_projection, product_mix, yoy_net_sales").eq("location_id", location_id).eq("sale_date", entry_date).maybeSingle(),
+    supabase.from("sales_cache").select("net_sales, guest_count, pizza_count, avg_ticket, override_projection, living_projection, initial_projection, product_mix, yoy_net_sales").eq("location_id", location_id).eq("sale_date", entry_date).maybeSingle(),
     supabase.from("sales_cache").select("sale_date, net_sales").eq("location_id", location_id).in("sale_date", [lwStr, lyStr]),
     supabase.from("labor_cache").select("labor_hours, labor_cost").eq("location_id", location_id).eq("labor_date", entry_date),
     supabase.rpc("labor_goal_pct", { _location_id: location_id, _date: entry_date }),
@@ -576,7 +577,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
 
   // ---- Calculations ----
   const netSales = salesData?.net_sales || 0;
-  const projection = salesData?.override_projection || salesData?.living_projection || salesData?.initial_projection || salesData?.projected_sales || 0;
+  const projection = resolveGoal(salesData);
   const projVariance = projection > 0 ? ((netSales - projection) / projection * 100) : 0;
   const projVarianceStr = projVariance.toFixed(1);
   const projColor = projVariance >= 0 ? "#22c55e" : "#ef4444";
@@ -1114,7 +1115,7 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
     { data: logbookEntries },
   ] = await Promise.all([
     supabase.from("locations").select("id, name, organization_id, store_number").eq("id", location_id).single(),
-    supabase.from("sales_cache").select("sale_date, net_sales, guest_count, pizza_count, projected_sales, override_projection, living_projection, initial_projection").eq("location_id", location_id).gte("sale_date", week_start).lte("sale_date", week_end),
+    supabase.from("sales_cache").select("sale_date, net_sales, guest_count, pizza_count, override_projection, living_projection, initial_projection").eq("location_id", location_id).gte("sale_date", week_start).lte("sale_date", week_end),
     supabase.from("labor_cache").select("labor_date, labor_hours, labor_cost").eq("location_id", location_id).gte("labor_date", week_start).lte("labor_date", week_end),
     supabase.rpc("labor_goal_pct", { _location_id: location_id, _date: null }),
     supabase.from("checklists").select("id, title, frequency, template_type, scheduled_date, visible_days_before_month_end, schedule_repeats, schedule_period, schedule_mode, schedule_weekdays, schedule_day, schedule_quarter_month, schedule_last_n, is_active, family_id, replaces_checklist_id, superseded_at, checklist_items(id, days_of_week, deleted_at)").eq("location_id", location_id),
@@ -1156,7 +1157,7 @@ async function sendWeeklySummaryEmail(payload: any): Promise<Response> {
   for (const dateStr of weekDates) {
     const row = (salesRows || []).find((r: any) => r.sale_date === dateStr);
     const sales = row?.net_sales || 0;
-    const proj = row?.override_projection || row?.living_projection || row?.initial_projection || row?.projected_sales || 0;
+    const proj = resolveGoal(row);
     totalSales += sales;
     totalGuests += row?.guest_count || 0;
     totalPizzas += row?.pizza_count || 0;

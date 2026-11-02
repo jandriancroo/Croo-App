@@ -21,13 +21,13 @@ describe('dashboard and Theo period parity', () => {
     }
     expect(periodGoal(days)).toBe(days.reduce((s, d) => s + (d.projected || 0), 0));
   });
-  it('resolves override, living, initial, legacy then actual fallback', () => {
-    const r = { sale_date: '2026-10-18', net_sales: 123, override_projection: 400, living_projection: 300, initial_projection: 200, projected_sales: 100 };
+  it('resolves stored goals only', () => {
+    const r = { sale_date: '2026-10-18', net_sales: 123, override_projection: 400, living_projection: 300, initial_projection: 200 };
     expect(dailyGoal(r)).toBe(400);
     expect(dailyGoal({ ...r, override_projection: 0 })).toBe(300);
     expect(dailyGoal({ ...r, override_projection: null, living_projection: null })).toBe(200);
-    expect(dailyGoal({ sale_date: r.sale_date, projected_sales: 100 })).toBe(100);
-    expect(dailyGoal({ sale_date: r.sale_date, net_sales: 123 })).toBe(123);
+    expect(dailyGoal({ sale_date: r.sale_date })).toBe(0);
+    expect(dailyGoal({ sale_date: r.sale_date, net_sales: 123 })).toBe(0);
   });
   it('sums every daily goal, past actual-or-goal, today pace, future goals', () => {
     const days = [{ date: '2026-10-16', sales: 150, projected: 100 }, { date: '2026-10-17', sales: 0, projected: 200 }, { date: '2026-10-18', sales: 50, projected: 300 }, { date: '2026-10-19', sales: 0, projected: 400 }];
@@ -36,7 +36,7 @@ describe('dashboard and Theo period parity', () => {
     expect(periodPace(days, '2026-10-18')).toBe(800);
     expect(periodPace(days, '2026-10-18', 0)).toBe(750);
     expect(periodPace(days, '2026-10-18', 350, false)).toBe(1050);
-    expect(periodGoal([], 123)).toBe(123);
+    expect(periodGoal([], 123)).toBe(0);
   });
   it('uses exact 100 sales, 102% ahead and 95% on-track thresholds', () => {
     expect(paceStatus(99, 1020, 1000)).toBeNull();
@@ -50,7 +50,7 @@ describe('dashboard and Theo period parity', () => {
     expect(scaleLastYear(null, 13).month).toBeNull();
   });
   it('uses only sales through today for MTD, guests, ticket, pizzas and payments', () => {
-    const m = periodMetrics([{ sale_date: '2026-10-18', net_sales: 100, guest_count: 4, pizza_count: 2, projected_sales: 200, payments_data: [{ paymentType: 'Cash', amount: 25 }] }, { sale_date: '2026-10-19', net_sales: 50, guest_count: 2, projected_sales: 300 }], ['2026-10-18', '2026-10-19'], '2026-10-18', 250);
+    const m = periodMetrics([{ sale_date: '2026-10-18', net_sales: 100, guest_count: 4, pizza_count: 2, living_projection: 200, payments_data: [{ paymentType: 'Cash', amount: 25 }] }, { sale_date: '2026-10-19', net_sales: 50, guest_count: 2, living_projection: 300 }], ['2026-10-18', '2026-10-19'], '2026-10-18', 250);
     expect(m).toMatchObject({ sales: 100, goal: 500, pace: 550, guests: 4, ticket: 25, pizzas: 2, payments: [{ paymentType: 'Cash', amount: 25 }] });
   });
   it('uses aggregate cost / aggregate sales and preserves missing labor/LY', () => {

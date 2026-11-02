@@ -1,3 +1,4 @@
+import { resolveGoal } from "../_shared/cubeMetrics.ts";
 // @ts-nocheck
 import { aiFetchWithShadow } from "../_shared/ai-shadow.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -184,7 +185,7 @@ async function generateInsight(
   // 1. Get yesterday's hourly sales
   const { data: salesData } = await supabase
     .from("sales_cache")
-    .select("net_sales, hourly_data, projected_sales, override_projection, living_projection, initial_projection")
+    .select("net_sales, hourly_data, override_projection, living_projection, initial_projection")
     .eq("location_id", locationId)
     .eq("sale_date", yesterday)
     .maybeSingle();
@@ -308,7 +309,7 @@ async function generateInsight(
 
   // 8. Build structured data for AI
   const hourlyData = (salesData.hourly_data as any[]) || [];
-  const goal = (Number(salesData.override_projection) || Number(salesData.living_projection) || Number(salesData.initial_projection) || Number(salesData.projected_sales) || 0);
+  const goal = resolveGoal(salesData);
 
   const analysisData = {
     location: locationName,
