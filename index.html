@@ -32,6 +32,18 @@
     <!-- Decorative font (Pacifico) loaded async -->
     <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
 
+    <link rel="canonical" href="https://croohq.com/" data-rh="true" />
+    <meta property="og:url" content="https://croohq.com/" data-rh="true" />
+    <script>
+      // This shell is served for every SPA route; the homepage canonical/og:url
+      // belong to "/" only (blog pages are separate static files with their own).
+      (function() {
+        if (location.pathname !== '/') {
+          var c = document.querySelector('link[rel="canonical"]'); if (c) c.remove();
+          var o = document.querySelector('meta[property="og:url"]'); if (o) o.remove();
+        }
+      })();
+    </script>
     <meta property="og:site_name" content="CrooHQ" />
     <meta property="og:title" content="CrooHQ — Restaurant Operations Software for Multi-Unit Teams" />
     <meta property="og:description" content="Restaurant operations software for multi-unit QSR and fast-casual teams. Scheduling, time clock, checklists, inventory and hiring, with POS sync." />
@@ -86,7 +98,20 @@
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root"><div id="seo-shell" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">
+      <!-- Crawler-readable homepage summary; React replaces #root on mount. Mirrors the real homepage's headline, copy and links. -->
+      <h1>Your crew’s HQ.</h1>
+      <p>The all-in-one ops platform for multi-unit fast-casual and QSR restaurants.</p>
+      <nav aria-label="Main navigation">
+        <a href="/blog/">Blog</a>
+        <a href="/jobs">Jobs</a>
+      </nav>
+      <ul>
+        <li><a href="/blog/buddy-punching/">Buddy Punching: How to Spot It and Stop It Without Treating Your Crew Like Suspects</a></li>
+        <li><a href="/blog/punches-dont-match/">When the Punches Don't Match the Paycheck</a></li>
+        <li><a href="/blog/schedule-group-text/">Your Schedule Shouldn't Live in a Group Text</a></li>
+      </ul>
+    </div></div>
     <script>
       // Catch stale chunk failures after deploys change chunk hashes.
       // Force-reload once to fetch fresh assets. Guard prevents infinite loops.
@@ -123,7 +148,7 @@
         });
         // Clear counter after app renders successfully (delayed to ensure JS modules loaded)
         setTimeout(function() {
-          if (document.getElementById('root') && document.getElementById('root').children.length > 0) {
+          if (document.getElementById('root') && document.getElementById('root').children.length > 0 && !document.getElementById('seo-shell')) {
             sessionStorage.removeItem(key);
           }
         }, 5000);
