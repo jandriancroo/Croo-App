@@ -15258,6 +15258,21 @@ export type Database = {
           },
         ]
       }
+      user_notification_settings_email_backup_20261101: {
+        Row: {
+          email_enabled: boolean | null
+          id: string
+        }
+        Insert: {
+          email_enabled?: boolean | null
+          id: string
+        }
+        Update: {
+          email_enabled?: boolean | null
+          id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -17795,6 +17810,19 @@ export type Database = {
       purge_old_client_debug_logs: { Args: never; Returns: undefined }
       queue_nightly_emails: { Args: never; Returns: undefined }
       queue_nightly_maintenance: { Args: never; Returns: undefined }
+      queue_notification_email: {
+        Args: {
+          _chat_id?: string
+          _email: string
+          _html: string
+          _location_id: string
+          _ref: string
+          _subject: string
+          _type: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {

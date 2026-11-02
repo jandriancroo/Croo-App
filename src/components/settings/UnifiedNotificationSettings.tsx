@@ -14,6 +14,7 @@ import { defaultFromHome, isLocked } from '../../../supabase/functions/_shared/n
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { getVapidPublicKey, ensureSubscriptionForKey } from '@/utils/pushVapid';
+import { defaultEmailEnabled } from '@/lib/notificationDefaults';
 
 interface NotificationSetting {
   notification_type: string;
@@ -103,18 +104,12 @@ export const UnifiedNotificationSettings = () => {
       // Build settings with defaults for this location
       const allSettings: NotificationSetting[] = NOTIFICATION_TYPES.map(nt => {
         const existing = existingSettings?.find(s => s.notification_type === nt.key);
-        const isCashNotification = nt.category === 'cash';
-        const isHiringNotification = nt.category === 'hiring';
-        const isTimeOffNotification = nt.category === 'timeoff';
-        // Hiring and time-off digests default to email ON for everyone who can see them.
-        const defaultEmailEnabled =
-          isHiringNotification || isTimeOffNotification || (isCashNotification && isManagerOrAbove);
         return {
           notification_type: nt.key,
           location_id: selectedLocationId,
           alert_enabled: existing?.alert_enabled ?? true,
           push_enabled: existing?.push_enabled ?? true,
-          email_enabled: existing?.email_enabled ?? defaultEmailEnabled,
+          email_enabled: existing?.email_enabled ?? defaultEmailEnabled(nt.key),
           from_home: (existing as any)?.from_home ?? null,
         };
       });
@@ -416,6 +411,7 @@ export const UnifiedNotificationSettings = () => {
               </div>
             </div>
 
+            <p className="px-1 text-xs text-muted-foreground">Email also goes out automatically for schedule, shift, late, announcement and certification alerts when push isn't set up on your device.</p>
             <p className="px-1 text-[11px] text-muted-foreground leading-tight inline-flex items-center gap-1 flex-wrap">
               <House className="h-3 w-3" /> From home: also send when you're not clocked in here.
               <Lock className="h-3 w-3 ml-1" /> Always on.
@@ -432,6 +428,7 @@ export const UnifiedNotificationSettings = () => {
                   >
                     <div>
                       <span className="text-sm inline-flex items-center gap-1">{nt.label}{isLocked(nt.key) && <Lock className="h-3 w-3 text-muted-foreground" aria-label="Always on" />}</span>
+                      {isLocked(nt.key) && <p className="text-[11px] text-muted-foreground">Push always on · email if push is off</p>}
                     </div>
                     <div className="w-10 flex justify-center">
                       <Checkbox
