@@ -659,14 +659,20 @@ async function syncOneDay(
 
   if (existingMailError) throw new Error(existingMailError.message);
 
+  const legacyExtras: PosExtras = {
+    comp_count: previousMetrics.comp_count, comp_amount: previousMetrics.comp_dollars,
+    promo_count: previousMetrics.promo_count, promo_amount: previousMetrics.promo_dollars,
+    void_count: previousMetrics.void_count, void_amount: previousMetrics.void_dollars,
+  };
+  const incomingExtras = { ...posExtrasPatch(legacyExtras), ...posExtrasPatch(payload.extras ?? {}, { ...legacyExtras, ...(existingMail ?? {}) }) };
   const mailRow = {
     ...(existingMail ?? {}),
     location_id: locationId,
     sale_date: date,
     pos_source: "aloha",
-    ...posExtrasPatch(payload.extras ?? {}, existingMail ?? {}),
-    net_sales: backfill && Number(existingMail?.net_sales) > 0 ? existingMail.net_sales : (payload.netSales > 0 ? payload.netSales : (existingMail?.net_sales ?? 0)),
-    guest_count: effectiveGuests > 0 ? effectiveGuests : (existingMail?.guest_count ?? 0),
+    ...posExtrasPatch(incomingExtras, existingMail ?? {}),
+    net_sales: mode !== "live" && Number(existingMail?.net_sales) > 0 ? existingMail.net_sales : (payload.netSales > 0 ? payload.netSales : (existingMail?.net_sales ?? 0)),
+    guest_count: mode !== "live" && Number(existingMail?.guest_count) > 0 ? existingMail.guest_count : (effectiveGuests > 0 ? effectiveGuests : (existingMail?.guest_count ?? 0)),
     pizza_count: 0,
     avg_ticket: payload.avgTicket > 0 ? payload.avgTicket : existingMail?.avg_ticket,
     hourly_data: payload.hourly.length ? payload.hourly : (existingMail?.hourly_data ?? []),
