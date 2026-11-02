@@ -174,7 +174,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       // Daily sales
       supabase
         .from('sales_cache')
-        .select('*')
+        .select('sale_date, net_sales, guest_count, pizza_count, avg_ticket, hourly_data, product_mix, payments_data, override_projection, override_at, override_by, living_projection, initial_projection, pace_adjusted_projection, pace_calculated_at')
         .eq('location_id', currentLocation.id)
         .eq('sale_date', dateStr)
         .maybeSingle(),
@@ -270,7 +270,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       weeklyBreakdown.push({
         date: dayStr,
         sales: actualSales,
-        // Use resolved projection if available, otherwise use actual sales as the "projection"
+        // Use only the stored daily goal; actual sales stay separate
         projected: resolved.value ?? 0,
         guestCount: existingData?.guest_count || 0,
         laborPercent,
@@ -331,7 +331,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       monthlyBreakdownFull.push({
         date: dayStr,
         sales: actualSales,
-        // Use resolved projection if available, otherwise use actual sales as "projection"
+        // Use only the stored daily goal; actual sales stay separate
         projected: resolved.value ?? 0,
         guestCount: existingData?.guest_count || 0,
         laborPercent: mLaborPercent,
