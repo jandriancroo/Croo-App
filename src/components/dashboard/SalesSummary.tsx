@@ -1290,6 +1290,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
       weekly: salesData.weekly,
       monthly: salesData.monthly,
       todayProjected: salesData.projections?.todayProjected,
+      todaySource: salesData.projections?.todaySource,
       todayPaceAdjusted: salesData.projections?.todayPaceAdjusted,
       weekTargetEow,
       weekPace,

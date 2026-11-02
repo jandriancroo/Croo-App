@@ -576,59 +576,17 @@ export function generateProjections(
   },
   holidayContext?: { lastYearWeight: number; reason: string; dailyGoal?: number },
 ): { todayProjected: number; todayPaceAdjusted: number; weekProjected: number; monthProjected: number } {
-  const today = new Date(todayStr + 'T12:00:00');
-  const dayOfWeek = today.getDay();
-  const randomFactor = getSeededRandomFactor(`${todayStr}-${locationId}`);
-  const lyWeight = holidayContext?.lastYearWeight ?? 0.5;
-  const fourWeekDayAvg = fourWeekAverage?.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek)?.avgSales || 0;
-  const lastYearSameDay = lastYearData?.sameDay || 0;
-  const todayProjected = holidayContext?.dailyGoal
-    ?? calculateDailyGoal(todayStr, locationId, fourWeekDayAvg, lastYearSameDay, lyWeight);
-
-  const todayPaceAdjusted = calculatePaceAdjustedProjection(
-    dailySales, currentHour, currentMinutes, hoursOpen, hoursClose, hourlyProjections,
-  );
-
-  let weekProjected = 0;
-  const fourWeekAvgWeek = fourWeekAverage?.avgWeekTotal || 0;
-  const lastYearSameWeek = lastYearData?.sameWeek || 0;
-  if (fourWeekAvgWeek > 0 && lastYearSameWeek > 0) {
-    weekProjected = ((fourWeekAvgWeek + lastYearSameWeek) / 2) * randomFactor;
-  } else if (fourWeekAvgWeek > 0) {
-    weekProjected = fourWeekAvgWeek * randomFactor;
-  } else if (lastYearSameWeek > 0) {
-    weekProjected = lastYearSameWeek * randomFactor;
-  } else {
-    const daysRemainingInWeek = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
-    const avgDailySales = weeklyBreakdown.length > 0 ? weeklySales / weeklyBreakdown.length : todayProjected;
-    weekProjected = (weeklySales + (avgDailySales * daysRemainingInWeek)) * randomFactor;
-  }
-  weekProjected = Math.max(weekProjected, weeklySales);
-
-  let monthProjected = 0;
-  const lastYearSameMonth = lastYearData?.sameMonth || 0;
-  const lastMonthSales = lastYearData?.lastMonth || 0;
-  if (lastMonthSales > 0 && lastYearSameMonth > 0) {
-    monthProjected = ((lastMonthSales + lastYearSameMonth) / 2) * randomFactor;
-  } else if (lastYearSameMonth > 0) {
-    monthProjected = lastYearSameMonth * randomFactor;
-  } else if (lastMonthSales > 0) {
-    monthProjected = lastMonthSales * randomFactor;
-  } else {
-    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    const daysRemainingInMonth = daysInMonth - today.getDate();
-    const daysOfData = monthlyBreakdown.length;
-    const monthAvgDaily = daysOfData > 0 ? monthlySales / daysOfData : todayProjected;
-    monthProjected = (monthlySales + (monthAvgDaily * daysRemainingInMonth)) * randomFactor;
-  }
-  monthProjected = Math.max(monthProjected, monthlySales);
-
-  return { todayProjected, todayPaceAdjusted, weekProjected, monthProjected };
+  // Retained for pace callers only. No generated goal is a reader fallback.
+  return {
+    todayProjected: holidayContext?.dailyGoal ?? 0,
+    todayPaceAdjusted: calculatePaceAdjustedProjection(dailySales, currentHour, currentMinutes, hoursOpen, hoursClose, hourlyProjections),
+    weekProjected: 0, monthProjected: 0,
+  };
 }
 
 // ── Shared pace writer (Stage 5, Pack 3) ────────────────────────────────────
 // Every POS adapter calls this after saving today's sales. It:
-//   1. reads the one goal (resolve_goal: override > living > initial > projected),
+//   1. reads the one goal (resolve_goal: positive override > living > planning > zero),
 //   2. normalizes the hourly curve so the projected hours add up to the goal,
 //   3. computes day, week and month pace with the shared shift-aware math,
 //   4. saves hourly projected values + pace_* columns + pace_calculated_at.

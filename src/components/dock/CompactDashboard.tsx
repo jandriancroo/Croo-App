@@ -740,7 +740,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
                   <span>
                     {projectedSales > 0 ? Math.round((totalSales / projectedSales) * 100) : 0}% of {formatCurrency(projectedSales)} goal
                   </span>
-                  <ProjectionIcon source={resolvedProjection.source} />
+                  <ProjectionIcon source={resolvedProjection.source} locationId={locationId} dateStr={todayStr} timezone={timezone} />
                 </div>
               </div>
               <div className="pl-4" style={{ borderLeft: '1px solid var(--cd-line)' }}>

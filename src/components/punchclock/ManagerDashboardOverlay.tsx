@@ -1145,7 +1145,7 @@ export function ManagerDashboardOverlay({
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
                         <span className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>EOD Goal</span>
-                        <ProjectionIcon source={eodGoalSource} />
+                        <ProjectionIcon source={eodGoalSource} locationId={locationId} dateStr={todayStr} timezone={timezone} />
                         <span className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-300' : 'text-slate-600'}`}>/</span>
                         <span className={`text-[11px] font-bold uppercase tracking-[0.2em] ${isDayMode ? 'text-slate-500' : 'text-slate-400'}`}>Pace</span>
                       </div>
