@@ -16,7 +16,7 @@ async function setup() {
     CREATE FUNCTION _validate_widget_authority(uuid,text,uuid,uuid,uuid,uuid) RETURNS void LANGUAGE plpgsql AS $$ BEGIN END $$;
     CREATE TABLE dashboard_widgets(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),widget_type text,config jsonb,display_order int,created_by uuid,authority_scope text,brand_id uuid,organization_id uuid,location_id uuid,audience_roles app_role[],title text,accent_color text,widget_size text,reference_id uuid);`);
   for (const [index, id] of ids.entries()) {
-    await db.query(`INSERT INTO dashboard_widgets(id,widget_type,authority_scope,audience_roles,created_by) VALUES($1,'data-3d',$2,$3,$4)`, [id,index < 4 ? 'org' : 'self',index < 4 ? ['shift_manager'] : null,user]);
+    await db.query(`INSERT INTO dashboard_widgets(id,widget_type,authority_scope,audience_roles,created_by) VALUES($1,'data-3d',$2,$3,$4)`, [id,index < 4 ? 'org' : 'self',index < 4 ? '{shift_manager}' : null,user]);
   }
   await db.exec(`INSERT INTO dashboard_widgets(id,widget_type,authority_scope,created_by) VALUES('585e5e16-0000-0000-0000-000000000000','sales-chart','org','${user}'),('1421546b-9fe1-4aff-8e91-aa275e86b965','sales-chart','org','${user}'),('00000000-0000-0000-0000-000000000002','data-3d','org','${user}')`);
   await db.exec(readFileSync('drizzle/migrations/0083_dashboard_cube_manager_add_guard.sql','utf8'));
@@ -31,7 +31,7 @@ describe('Manager-only cube creation and guarded cleanup', () => {
       for (const type of ['data','data-3d']) {
         await expect(db.query(`SELECT create_dashboard_widget('${type}','{}','self')`)).rejects.toMatchObject({code:'42501'});
       }
-      const result = await db.query(`SELECT create_dashboard_widget('sales-chart','{}','self') AS id`);
+      const result = await db.query<{id:string}>(`SELECT create_dashboard_widget('sales-chart','{}','self') AS id`);
       expect(result.rows[0].id).toEqual(expect.any(String));
     } finally { await db.close(); }
   },20000);
@@ -39,15 +39,15 @@ describe('Manager-only cube creation and guarded cleanup', () => {
     const db = await setup();
     try {
       await db.exec(`SET test.role='${role}'`);
-      for (const type of ['data','data-3d']) expect((await db.query(`SELECT create_dashboard_widget('${type}','{}','self') AS id`)).rows[0].id).toEqual(expect.any(String));
+      for (const type of ['data','data-3d']) expect((await db.query<{id:string}>(`SELECT create_dashboard_widget('${type}','{}','self') AS id`)).rows[0].id).toEqual(expect.any(String));
     } finally { await db.close(); }
   },20000);
   it('backs up and deletes exactly eight, preserves charts/other cubes, and rejects reruns', async () => {
     const db = await setup();
     try {
-      expect((await db.query(`SELECT remove_dashboard_cubes_20261101() AS result`)).rows[0].result).toEqual({backed_up:8,deleted:8});
-      expect((await db.query(`SELECT count(*)::int AS n FROM dashboard_widgets`)).rows[0].n).toBe(3);
-      expect((await db.query(`SELECT count(*)::int AS n FROM dashboard_widgets WHERE widget_type='sales-chart'`)).rows[0].n).toBe(2);
+      expect((await db.query<{result:{backed_up:number;deleted:number}}>(`SELECT remove_dashboard_cubes_20261101() AS result`)).rows[0].result).toEqual({backed_up:8,deleted:8});
+      expect((await db.query<{n:number}>(`SELECT count(*)::int AS n FROM dashboard_widgets`)).rows[0].n).toBe(3);
+      expect((await db.query<{n:number}>(`SELECT count(*)::int AS n FROM dashboard_widgets WHERE widget_type='sales-chart'`)).rows[0].n).toBe(2);
       await expect(db.query(`SELECT remove_dashboard_cubes_20261101()`)).rejects.toMatchObject({message:'Cube preview does not match exactly the 8 approved IDs'});
     } finally { await db.close(); }
   },20000);
@@ -56,7 +56,7 @@ describe('Manager-only cube creation and guarded cleanup', () => {
     try {
       await db.exec(`UPDATE dashboard_widgets SET title='changed' WHERE id='${ids[0]}'`);
       await expect(db.query(`SELECT remove_dashboard_cubes_20261101()`)).rejects.toMatchObject({message:'Expected exactly 8 unchanged backup rows'});
-      expect((await db.query(`SELECT count(*)::int AS n FROM dashboard_widgets`)).rows[0].n).toBe(11);
+      expect((await db.query<{n:number}>(`SELECT count(*)::int AS n FROM dashboard_widgets`)).rows[0].n).toBe(11);
     } finally { await db.close(); }
   },20000);
 });
