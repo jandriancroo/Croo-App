@@ -711,7 +711,7 @@ return async (req: Request): Promise<Response> => {
 
       const skipped: Record<string, number> = {};
       finalUserIds = user_ids.filter((userId: string) => {
-        const role = userRoles?.find(r => r.user_id === userId)?.role ?? null;
+        const role = userRoles?.find((r: { user_id: string; role: string }) => r.user_id === userId)?.role ?? null;
         const org = requestOrgId ?? recipientOrg.get(userId) ?? null;
         const roleRow = role
           ? (org ? pick(orgSettings, rs => rs.organization_id === org && rs.role === role) : undefined)
@@ -837,8 +837,8 @@ return async (req: Request): Promise<Response> => {
     }
 
     // Separate web and native tokens
-    const webTokens = tokens.filter(t => t.platform === 'web');
-    const nativeTokens = tokens.filter(t => t.platform === 'ios');
+    const webTokens = tokens.filter((t: { token: string; platform: string; user_id: string }) => t.platform === 'web');
+    const nativeTokens = tokens.filter((t: { token: string; platform: string; user_id: string }) => t.platform === 'ios');
 
     console.log(`Sending to ${webTokens.length} web and ${nativeTokens.length} native iOS devices`);
 
@@ -858,7 +858,7 @@ return async (req: Request): Promise<Response> => {
         });
 
         const webResults = await Promise.allSettled(
-          webTokens.map(async ({ token, user_id }) => {
+          webTokens.map(async ({ token, user_id }: { token: string; user_id: string }) => {
             const userName = userNameMap.get(user_id) || 'Unknown';
             try {
               const subscription = JSON.parse(token);
@@ -924,7 +924,7 @@ return async (req: Request): Promise<Response> => {
         console.log('Access token obtained');
 
         const fcmResults = await Promise.allSettled(
-          nativeTokens.map(async ({ token, user_id }) => {
+          nativeTokens.map(async ({ token, user_id }: { token: string; user_id: string }) => {
             const userName = userNameMap.get(user_id) || 'Unknown';
             console.log(`[${userName}] Sending native iOS push via FCM...`);
 
