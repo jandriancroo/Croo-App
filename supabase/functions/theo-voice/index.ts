@@ -51,7 +51,7 @@ async function buildOpener(admin: any, loc: { id: string; name: string }, tz: st
 
   const [briefing, sales, monthSnapshot] = await Promise.all([
     admin.from("croo_ai_briefings").select("content").eq("location_id", loc.id).eq("briefing_date", w.date).maybeSingle(),
-    admin.from("sales_cache").select("net_sales, guest_count, projected_sales, initial_projection, living_projection, override_projection, yoy_net_sales").eq("location_id", loc.id).eq("sale_date", w.date).maybeSingle(),
+    admin.from("sales_cache").select("net_sales, guest_count, initial_projection, living_projection, override_projection, yoy_net_sales").eq("location_id", loc.id).eq("sale_date", w.date).maybeSingle(),
     readSalesPeriods(admin, loc.id).catch(() => null),
   ]);
   const s = monthSnapshot?.rows.find((r: any) => r.sale_date === monthSnapshot.today) || sales.data || {};

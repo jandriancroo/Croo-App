@@ -1,3 +1,4 @@
+import { resolveGoal } from "./cubeMetrics.ts";
 // @ts-nocheck
 // ---------------------------------------------------------------------------
 // Availability Insights — next schedule week's time off + weekly availability.
@@ -294,83 +295,17 @@ export async function countNewRequestsYesterday(
   return countQualifyingNewRequests(data || [], timezone, addDays(localToday, -1), weekStart, weekEnd);
 }
 
-/** Per-day sales goal: schedule projection → sales_cache projection → DOW average. */
-async function loadDailyGoals(
-  supabase: any,
-  locationId: string,
-  weekStart: string,
-  weekEnd: string,
-): Promise<Map<string, number>> {
-  const goals = new Map<string, number>();
-
-  // 1. schedule_projected_sales for that location-week
-  const { data: sched, error: schedErr } = await supabase
-    .from("schedules")
-    .select("id")
-    .eq("location_id", locationId)
-    .eq("week_start_date", weekStart)
-    .maybeSingle();
-  if (schedErr) console.error("[insights] schedules read failed:", schedErr);
-
-  if (sched?.id) {
-    const { data: proj, error: projErr } = await supabase
-      .from("schedule_projected_sales")
-      .select("day_of_week, projected_sales")
-      .eq("schedule_id", sched.id);
-    if (projErr) console.error("[insights] schedule_projected_sales read failed:", projErr);
-    for (const row of proj || []) {
-      const amount = Number(row.projected_sales || 0);
-      if (amount <= 0) continue;
-      for (let i = 0; i < 7; i++) {
-        const date = addDays(weekStart, i);
-        if (dowOf(date) === Number(row.day_of_week)) goals.set(date, amount);
-      }
-    }
-  }
-
-  // 2. sales_cache projections already stored for those future dates
-  const { data: cacheRows, error: cacheErr } = await supabase
-    .from("sales_cache")
-    .select("sale_date, projected_sales, override_projection, living_projection, initial_projection")
-    .eq("location_id", locationId)
-    .gte("sale_date", weekStart)
-    .lte("sale_date", weekEnd);
-  if (cacheErr) console.error("[insights] sales_cache projection read failed:", cacheErr);
-  for (const row of cacheRows || []) {
-    if (goals.has(row.sale_date)) continue;
-    const amount = Number(
-      (Number(row.override_projection) || Number(row.living_projection) || Number(row.initial_projection) || Number(row.projected_sales) || 0),
-    );
-    if (amount > 0) goals.set(row.sale_date, amount);
-  }
-
-  // 3. Same-weekday average from the trailing 12 weeks
-  const histStart = addDays(weekStart, -84);
-  const { data: hist, error: histErr } = await supabase
-    .from("sales_cache")
-    .select("sale_date, net_sales")
-    .eq("location_id", locationId)
-    .gte("sale_date", histStart)
-    .lt("sale_date", weekStart);
-  if (histErr) console.error("[insights] sales_cache history read failed:", histErr);
-
-  const byDow = new Map<number, number[]>();
-  for (const row of hist || []) {
-    const net = Number(row.net_sales || 0);
-    if (net <= 0) continue;
-    const dow = dowOf(row.sale_date);
-    if (!byDow.has(dow)) byDow.set(dow, []);
-    byDow.get(dow)!.push(net);
-  }
-  for (let i = 0; i < 7; i++) {
+/** Stored daily goals only; missing dates resolve to zero. */
+async function loadDailyGoals(supabase: any, locationId: string, weekStart: string, weekEnd: string): Promise<Map<string, number>> {
+  const { data, error } = await supabase.from('sales_cache')
+    .select('sale_date, override_projection, living_projection, initial_projection')
+    .eq('location_id', locationId).gte('sale_date', weekStart).lte('sale_date', weekEnd);
+  if (error) throw new Error(`Goals: ${error.message}`);
+  const rows = new Map((data || []).map((row: any) => [row.sale_date, row]));
+  return new Map(Array.from({ length: 7 }, (_, i) => {
     const date = addDays(weekStart, i);
-    if (goals.has(date)) continue;
-    const vals = byDow.get(dowOf(date)) || [];
-    if (vals.length === 0) continue;
-    goals.set(date, vals.reduce((a, b) => a + b, 0) / vals.length);
-  }
-
-  return goals;
+    return [date, resolveGoal(rows.get(date))];
+  }));
 }
 
 /** Stars the store's historically strongest weekdays (trailing 12 weeks of net sales). */

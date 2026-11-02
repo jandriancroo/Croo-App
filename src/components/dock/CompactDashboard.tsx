@@ -228,7 +228,7 @@ export const CompactDashboard = ({ isExpanded, onClose, onDragEnd }: CompactDash
       if (!locationId) return null;
       const { data, error } = await supabase
         .from('sales_cache')
-        .select('net_sales, hourly_data, projected_sales, initial_projection, living_projection, override_projection, pace_adjusted_projection, pace_calculated_at')
+        .select('net_sales, hourly_data, initial_projection, living_projection, override_projection, pace_adjusted_projection, pace_calculated_at')
         .eq('location_id', locationId)
         .eq('sale_date', todayStr)
         .maybeSingle();

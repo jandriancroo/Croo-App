@@ -21,7 +21,7 @@ import { roleForUser } from "../_shared/theoActions.ts";
 import { getWageVisibility, getBlendedRate } from "../_shared/wageVisibility.ts";
 
 // Bump on every change so a deploy can be confirmed: POST {"action":"version"}.
-const WATCH_SERVICE_VERSION = "2026-10-30.1";
+const WATCH_SERVICE_VERSION = "2026-11-02.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -164,7 +164,7 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
   const prevMonthEnd = now.minus({ months: 1 }).endOf('month').toFormat('yyyy-MM-dd');
 
   const salesCols =
-    'sale_date, net_sales, guest_count, pizza_count, avg_ticket, projected_sales, initial_projection, living_projection, override_projection, pace_adjusted_projection, pace_calculated_at, hourly_data, yoy_net_sales, payments_data';
+    'sale_date, net_sales, guest_count, pizza_count, avg_ticket, initial_projection, living_projection, override_projection, pace_adjusted_projection, pace_calculated_at, hourly_data, yoy_net_sales, payments_data';
 
   const rangeStart = [monthStart, weekStart, prevWeekStart, prevMonthStart].sort()[0];
   const rangeEnd = [monthEnd, weekEnd, today].sort().slice(-1)[0];

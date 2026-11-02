@@ -282,7 +282,7 @@ export function ManagerDashboardOverlay({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('sales_cache')
-        .select('net_sales, hourly_data, projected_sales, pizza_count, initial_projection, living_projection, override_projection')
+        .select('net_sales, hourly_data, pizza_count, initial_projection, living_projection, override_projection')
         .eq('location_id', locationId)
         .eq('sale_date', todayStr)
         .maybeSingle();
@@ -725,32 +725,12 @@ export function ManagerDashboardOverlay({
     return Number(salesData?.pizza_count) || 0;
   }, [localStorageLiveSales, cachedSalesOverviewData, salesData?.pizza_count]);
   
-  // EOD Goal: use localStorage cache (SAME source as Dashboard SalesSummary)
-  // Falls back to resolveProjection which uses: override > living > initial > legacy
+  // Goal reads stored columns only; cached generated values are never goals.
   const { eodGoal, projectionSource: eodGoalSource } = useMemo(() => {
-    // First try localStorage cache - this is what Dashboard shows
-    if (localStorageProjections?.todayProjected && localStorageProjections.todayProjected > 0) {
-      // If localStorage has it, also check cached todaySource
-      const cachedSource = cachedSalesOverviewData?.projections?.todaySource;
-      return { 
-        eodGoal: localStorageProjections.todayProjected, 
-        projectionSource: cachedSource || null 
-      };
-    }
-    
-    // Fall back to React Query cache
-    const liveProjected = cachedSalesOverviewData?.projections?.todayProjected;
-    const liveSource = cachedSalesOverviewData?.projections?.todaySource;
-    if (liveProjected && liveProjected > 0) {
-      return { eodGoal: liveProjected, projectionSource: liveSource || null };
-    }
-    
-    // Fall back to sales_cache using proper resolution (override > living > initial > legacy)
-    // This matches how Dashboard resolves projections
     const resolved = resolveProjection(salesData);
-    return { eodGoal: resolved.value || 0, projectionSource: resolved.source };
-  }, [localStorageProjections, cachedSalesOverviewData, salesData]);
-  
+    return { eodGoal: resolved.value, projectionSource: resolved.source };
+  }, [salesData]);
+
   // Pace Adjusted: use localStorage cache (SAME source as Dashboard SalesSummary)
   // CRITICAL: This is the TRUE pace number from Dashboard
   // If no cached pace, calculate on-the-fly using: actualSales + remainingHoursProjected

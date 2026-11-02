@@ -687,7 +687,7 @@ export async function computeAndSavePace(
 
   const { data: row } = await supabase
     .from('sales_cache')
-    .select('net_sales, hourly_data, override_projection, living_projection, initial_projection, projected_sales')
+    .select('net_sales, hourly_data, override_projection, living_projection, initial_projection')
     .eq('location_id', locationId).eq('sale_date', date).maybeSingle();
   if (!row) return null;
 
@@ -722,7 +722,7 @@ export async function computeAndSavePace(
   const to = we > me ? we : me;
   const { data: rows } = await supabase
     .from('sales_cache')
-    .select('sale_date, net_sales, override_projection, living_projection, initial_projection, projected_sales')
+    .select('sale_date, net_sales, override_projection, living_projection, initial_projection')
     .eq('location_id', locationId).gte('sale_date', from).lte('sale_date', to);
   const map = new Map<string, any>((rows || []).map((r: any) => [r.sale_date, r]));
   const sumRange = (a: string, b: string) => {
