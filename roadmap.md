@@ -4,6 +4,7 @@
 (none)
 
 ## In progress
+- Daily Goal Consistency step C: retire POS/browser goal writers, preserve actuals/pace, add Planning lock after writer audit, deploy and verify; no frontend publishing.
 - Shift marketplace + support chats batch (Oct 23): built, waiting for Jordan's "ship". Not published.
 - Toast Status public downloads: blocked by workspace public-bucket restriction. Owner/admin must allow public buckets under Settings → Privacy & Security, then make toast-status-releases public. Release publishing deliberately returns 503 until then.
 
