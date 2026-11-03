@@ -14828,6 +14828,7 @@ export type Database = {
           full_logins_count: number
           full_logins_date: string | null
           heartbeat_at: string | null
+          labor_alert_stage: number
           last_alert_at: string | null
           last_dispatch_at: string | null
           location_id: string
@@ -14841,6 +14842,7 @@ export type Database = {
           full_logins_count?: number
           full_logins_date?: string | null
           heartbeat_at?: string | null
+          labor_alert_stage?: number
           last_alert_at?: string | null
           last_dispatch_at?: string | null
           location_id: string
@@ -14854,6 +14856,7 @@ export type Database = {
           full_logins_count?: number
           full_logins_date?: string | null
           heartbeat_at?: string | null
+          labor_alert_stage?: number
           last_alert_at?: string | null
           last_dispatch_at?: string | null
           location_id?: string
@@ -16660,6 +16663,10 @@ export type Database = {
       _payroll_classify: {
         Args: { _rules: Json; _shifts: Json; _wage: number }
         Returns: Json
+      }
+      _pos_clock_feed_fresh: {
+        Args: { _location_id: string }
+        Returns: boolean
       }
       _promo_json: {
         Args: {
