@@ -6,6 +6,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chasePrices, CHASE_SELECT, CHASE_SWEEP_SELECT } from "../_shared/vendorPriceChase.ts";
+import { scopeItemQuery } from "./scope.ts";
 import { requireAuthorizedCaller } from "../_shared/callerAuth.ts";
 import { isExcludedLocation } from "../_shared/inventoryGate.ts";
 
@@ -95,11 +96,11 @@ Deno.serve(async (req) => {
     const cap = activate || includeInactive ? MAX_ITEMS_SWEEP : MAX_ITEMS;
 
     const buildQuery = (from: number, to: number) => {
-      let q = supabase
-        .from("inventory_items")
-        .select(activate ? CHASE_SWEEP_SELECT : CHASE_SELECT)
-        .eq("location_id", locationId);
-      if (templateId) q = q.eq("brand_item_id", templateId);
+      let q = scopeItemQuery(
+        supabase.from("inventory_items").select(activate ? CHASE_SWEEP_SELECT : CHASE_SELECT) as any,
+        locationId,
+        templateId,
+      );
       q = q.order("id", { ascending: true }).range(from, to);
 
       // Sweep mode must see the inactive items Phase 1 just deployed.
