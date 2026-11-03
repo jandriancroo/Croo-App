@@ -324,11 +324,27 @@ const Inventory = () => {
           completedWithWindow[0].win.end,
         );
 
+        // Sales can run past the period end (sales_end_override, late/flex
+        // counts) or start before it (sales_start_override). Widen the sales
+        // fetch so the list pill sees the same days as PeriodDetailPanel.
+        let salesFetchStart = earliestStart;
+        let salesFetchEnd = latestEnd;
+        for (const { c } of completedWithWindow) {
+          const so = (c as any).sales_start_override as string | null;
+          const eo = (c as any).sales_end_override as string | null;
+          if (so && so < salesFetchStart) salesFetchStart = so;
+          if (eo && eo > salesFetchEnd) salesFetchEnd = eo;
+          if (c.counted_at) {
+            const cd = formatInTimeZone(new Date(c.counted_at), timezone, "yyyy-MM-dd");
+            if (cd > salesFetchEnd) salesFetchEnd = cd;
+          }
+        }
+
         const [pfgRes, paRes, invRes, salesRes] = await Promise.all([
           supabase.from("pfg_orders").select("delivery_date,total_amount").eq("location_id", locationId).gte("delivery_date", earliestStart).lte("delivery_date", latestEnd),
           supabase.from("pa_orders").select("delivery_date,total_amount").eq("location_id", locationId).gte("delivery_date", earliestStart).lte("delivery_date", latestEnd),
           supabase.from("vendor_invoices").select("delivery_date,total_amount").eq("location_id", locationId).gte("delivery_date", earliestStart).lte("delivery_date", latestEnd),
-          supabase.from("sales_cache").select("sale_date,net_sales").eq("location_id", locationId).gte("sale_date", earliestStart).lte("sale_date", latestEnd),
+          supabase.from("sales_cache").select("sale_date,net_sales").eq("location_id", locationId).gte("sale_date", salesFetchStart).lte("sale_date", salesFetchEnd),
         ]);
 
         const allOrders: { delivery_date: string | null; total_amount: number | null }[] = [
@@ -474,7 +490,8 @@ const Inventory = () => {
           const salesEnd = salesEndFor(c, win);
           const netSales = salesRows.reduce((s, r) => {
             if (!r.sale_date) return s;
-            if (r.sale_date < win.start || r.sale_date > salesEnd) return s;
+            const salesStart = (c as any).sales_start_override || win.start;
+            if (r.sale_date < salesStart || r.sale_date > salesEnd) return s;
             return s + (Number(r.net_sales) || 0);
           }, 0);
 
