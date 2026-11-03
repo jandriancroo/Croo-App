@@ -6,6 +6,7 @@
 //     escalates when it's still stale 20 minutes later (stage 2)
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { authorizeCaller } from "../_shared/callerAuth.ts";
+import { laborStep } from "./labor.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -92,14 +93,39 @@ Deno.serve(async (req) => {
     const capped = st.state === "login_capped" && st.full_logins_date === now.toISOString().slice(0, 10);
     const stale = staleMin >= STALE_MIN && minutesIntoWindow >= STALE_MIN;
 
+    // Labor feed (robot signed out while sales still flow).
+    const { data: lab } = await supabase.from("labor_cache").select("fetched_at")
+      .eq("location_id", id).eq("source", "toast").order("fetched_at", { ascending: false }).limit(1).maybeSingle();
+    const laborAt = lab?.fetched_at ? new Date(lab.fetched_at) : null;
+    const laborStale = laborStep({ locationId: id, storeName: name, laborAt, now, minutesIntoWindow, stage: 0, dispatchResult: null, since: "" }).stale;
+
     const patch: any = { location_id: id, updated_at: now.toISOString() };
     let action = "ok";
+    let dispatchedNow: string | null = null;
 
-    if ((handoffAsk || stale) && !capped && sinceDispatch >= (handoffAsk ? 0 : DISPATCH_COOLDOWN_MIN)) {
+    if ((handoffAsk || stale || laborStale) && !capped && sinceDispatch >= (handoffAsk ? 0 : DISPATCH_COOLDOWN_MIN)) {
       dispatchResult ??= await dispatchRobot();
+      dispatchedNow = dispatchResult;
       patch.last_dispatch_at = now.toISOString();
       action = handoffAsk ? `handoff:${dispatchResult}` : `restart:${dispatchResult}`;
     }
+
+    const ld = laborStep({
+      locationId: id, storeName: name, laborAt, now, minutesIntoWindow,
+      stage: st.labor_alert_stage ?? 0, dispatchResult: dispatchedNow,
+      since: laborAt ? fmtTime(laborAt.toISOString(), tz) : "opening",
+    });
+    if (ld.nextStage !== (st.labor_alert_stage ?? 0)) patch.labor_alert_stage = ld.nextStage;
+    if (ld.alert && adminIds.length) {
+      await supabase.from("alert_queue").upsert({
+        alert_type: "toast_robot_down",
+        dedup_key: ld.alert.dedupKey,
+        location_id: id,
+        payload: { title: ld.alert.title, body: ld.alert.body, user_ids: adminIds, notification_type: "toast_robot_down", data: { location_id: id, labor_stale_minutes: Number.isFinite(ld.staleMin) ? Math.round(ld.staleMin) : null } },
+      }, { onConflict: "dedup_key" });
+      patch.last_alert_at = now.toISOString();
+      action += "|labor_alert";
+    } else if (ld.alert) patch.labor_alert_stage = 0; // no recipients: don't mark as alerted
 
     // Alerts: only when data had been flowing today, or a restart already failed to bring it back.
     if (!stale) {
