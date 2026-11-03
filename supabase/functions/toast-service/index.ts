@@ -4,6 +4,7 @@
 //   list_active — robots (x-cron-secret) get the stores to pull
 // Toast Web / SFTP logins live in GitHub secrets, never in the database.
 
+import { heartbeatRow, MAX_FULL_LOGINS } from "./heartbeat.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "npm:zod@3.23.8";
 import { authorizeCaller } from "../_shared/callerAuth.ts";
