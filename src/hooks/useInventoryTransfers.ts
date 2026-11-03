@@ -1,6 +1,30 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { formatInTimeZone } from "date-fns-tz";
+import { transferLinesTotal } from "@/lib/transferValue";
+
+const DEFAULT_TRANSFER_TIMEZONE = "America/Los_Angeles";
+
+/** Today's date (yyyy-MM-dd) in the sending location's timezone. */
+async function getLocationLocalDate(locationId: string): Promise<string> {
+  let tz = DEFAULT_TRANSFER_TIMEZONE;
+  try {
+    const { data } = await supabase
+      .from("location_settings")
+      .select("timezone")
+      .eq("location_id", locationId)
+      .maybeSingle();
+    if (data?.timezone) tz = data.timezone;
+  } catch {
+    // fall back to default timezone
+  }
+  try {
+    return formatInTimeZone(new Date(), tz, "yyyy-MM-dd");
+  } catch {
+    return formatInTimeZone(new Date(), DEFAULT_TRANSFER_TIMEZONE, "yyyy-MM-dd");
+  }
+}
 
 export interface TransferItem {
   item_id: string;
@@ -57,19 +81,21 @@ export const useInventoryTransfers = (locationId: string | undefined) => {
         supabase.from("locations").select("id, name").in("id", locationIds),
         supabase.from("profiles").select("id, full_name").in("id", profileIds),
         itemIds.length > 0
-          ? supabase.from("inventory_items").select("id, name").in("id", itemIds)
+          ? supabase.from("inventory_items").select("id, name, pack_quantity").in("id", itemIds)
           : { data: [] },
       ]);
 
       const locMap = new Map((locResult.data || []).map(l => [l.id, l.name]));
       const profileMap = new Map((profileResult.data || []).map(p => [p.id, p.full_name]));
       const itemMap = new Map(((itemResult as any).data || []).map((i: any) => [i.id, i.name]));
+      const packMap = new Map(((itemResult as any).data || []).map((i: any) => [i.id, i.pack_quantity]));
 
       return data.map(t => ({
         ...t,
         inventory_transfer_items: (t.inventory_transfer_items || []).map((ti: any) => ({
           ...ti,
           item_name: itemMap.get(ti.item_id) || "Unknown Item",
+          pack_quantity: packMap.get(ti.item_id) ?? null,
         })),
         from_location: { name: locMap.get(t.from_location_id) || "Unknown" },
         to_location: { name: locMap.get(t.to_location_id) || "Unknown" },
@@ -99,6 +125,8 @@ export const useInventoryTransfers = (locationId: string | undefined) => {
       periodEndDate?: string;
       userId: string;
     }) => {
+      const transferDate = await getLocationLocalDate(locationId!);
+
       // Create transfer record
       const { data: transfer, error: transferErr } = await supabase
         .from("inventory_transfers")
@@ -106,7 +134,7 @@ export const useInventoryTransfers = (locationId: string | undefined) => {
           from_location_id: locationId!,
           to_location_id: toLocationId,
           transferred_by: userId,
-          transfer_date: new Date().toISOString().split("T")[0],
+          transfer_date: transferDate,
           period_end_date: periodEndDate || null,
           notes: notes || null,
           status: "pending",
@@ -215,9 +243,7 @@ export function getTransferTotalsForPeriod(
   const sumValue = (list: Transfer[]) =>
     list.reduce((total, t) => {
       const items = (t as any).inventory_transfer_items || t.items || [];
-      return total + (items as any[]).reduce((s: number, item: any) => {
-        return s + (Number(item.quantity) * Number(item.cost_per_unit || 0));
-      }, 0);
+      return total + transferLinesTotal(items as any[]);
     }, 0);
 
   return {
