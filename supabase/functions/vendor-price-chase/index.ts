@@ -5,7 +5,8 @@
 // orders → recent invoices. Never walks the whole catalog, never deactivates.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { chasePrices, CHASE_SELECT } from "../_shared/vendorPriceChase.ts";
+import { chasePrices, CHASE_SELECT, CHASE_SWEEP_SELECT } from "../_shared/vendorPriceChase.ts";
+import { scopeItemQuery } from "./scope.ts";
 import { requireAuthorizedCaller } from "../_shared/callerAuth.ts";
 import { isExcludedLocation } from "../_shared/inventoryGate.ts";
 
@@ -23,6 +24,10 @@ const PAGE_SIZE = 1000;
 // Deploy-time window, wider than the nightly 14 days: a brand-new store needs a
 // complete starting picture, not an incremental refresh.
 const SWEEP_WINDOW_DAYS = 30;
+// Single-template publish: rows newer than this may be switched on; retry the load briefly.
+const NEW_ROW_WINDOW_MS = 30 * 60 * 1000;
+const TEMPLATE_RETRIES = 3;
+const TEMPLATE_RETRY_MS = 4000;
 
 
 Deno.serve(async (req) => {
@@ -49,6 +54,9 @@ Deno.serve(async (req) => {
     // fires both phases independently, so we fall back to the newest open run.
     const deployRunId: string | null = body?.deployRunId ?? null;
     const deploySource: string = body?.source ?? "unknown";
+    // Single-template publish (DB trigger Phase 2): scope the sweep to that item's rows.
+    const templateId: string | null =
+      activate && typeof body?.templateId === "string" && body.templateId ? body.templateId : null;
 
 
     if (!locationId) {
@@ -88,12 +96,12 @@ Deno.serve(async (req) => {
     const cap = activate || includeInactive ? MAX_ITEMS_SWEEP : MAX_ITEMS;
 
     const buildQuery = (from: number, to: number) => {
-      let q = supabase
-        .from("inventory_items")
-        .select(CHASE_SELECT)
-        .eq("location_id", locationId)
-        .order("id", { ascending: true })
-        .range(from, to);
+      let q = scopeItemQuery(
+        supabase.from("inventory_items").select(activate ? CHASE_SWEEP_SELECT : CHASE_SELECT) as any,
+        locationId,
+        templateId,
+      );
+      q = q.order("id", { ascending: true }).range(from, to);
 
       // Sweep mode must see the inactive items Phase 1 just deployed.
       if (!includeInactive) q = q.eq("is_active", true);
@@ -110,29 +118,46 @@ Deno.serve(async (req) => {
 
     // FAIL-SOFT paging: a failed page is logged and we chase what we already
     // have, instead of throwing away the pages that loaded fine.
-    const items: any[] = [];
-    const pageErrors: string[] = [];
-    for (let from = 0; from < cap; from += PAGE_SIZE) {
-      const to = Math.min(from + PAGE_SIZE, cap) - 1;
-      try {
-        const { data, error } = await buildQuery(from, to);
-        if (error) {
-          pageErrors.push(`rows ${from}-${to}: ${error.message}`);
+    let items: any[] = [];
+    let pageErrors: string[] = [];
+    const loadItems = async () => {
+      items = [];
+      pageErrors = [];
+      for (let from = 0; from < cap; from += PAGE_SIZE) {
+        const to = Math.min(from + PAGE_SIZE, cap) - 1;
+        try {
+          const { data, error } = await buildQuery(from, to);
+          if (error) {
+            pageErrors.push(`rows ${from}-${to}: ${error.message}`);
+            break;
+          }
+          items.push(...(data || []));
+          if (!data || data.length < to - from + 1) break;
+        } catch (e) {
+          pageErrors.push(`rows ${from}-${to}: ${e instanceof Error ? e.message : String(e)}`);
           break;
         }
-        items.push(...(data || []));
-        if (!data || data.length < to - from + 1) break;
-      } catch (e) {
-        pageErrors.push(`rows ${from}-${to}: ${e instanceof Error ? e.message : String(e)}`);
-        break;
       }
+    };
+    await loadItems();
+    // Race: Phase 1 (deploy) and Phase 2 fire independently; give the fresh row a moment.
+    for (let t = 0; templateId && items.length === 0 && t < TEMPLATE_RETRIES; t++) {
+      await new Promise((r) => setTimeout(r, TEMPLATE_RETRY_MS));
+      await loadItems();
     }
     if (pageErrors.length > 0) {
       console.warn("[vendor-price-chase] partial item load:", pageErrors.join(" | "));
     }
 
     const summary = await chasePrices(supabase, locationId, items as any[], {
-      ...(activate ? { activateOnHit: true, windowDays: SWEEP_WINDOW_DAYS } : {}),
+      ...(activate
+        ? {
+          activateOnHit: true,
+          windowDays: SWEEP_WINDOW_DAYS,
+          // Publish only switches on rows this deploy just created.
+          ...(templateId ? { newRowSince: new Date(Date.now() - NEW_ROW_WINDOW_MS).toISOString() } : {}),
+        }
+        : {}),
     });
 
     // After an activation sweep, re-check every recipe at this store: a dish that
