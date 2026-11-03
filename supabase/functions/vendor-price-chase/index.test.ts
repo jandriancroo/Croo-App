@@ -38,16 +38,17 @@ Deno.test("block reasons", () => {
   assertEquals(activationDecision({ ...base, is_active: false, created_at: now, brand_item_id: "x" }, live, since), "template_not_live");
 });
 
-// Stub client: every read returns [], writes are recorded.
-function stubClient(writes: any[]) {
+// Stub client: reads return rows[table] ?? [], writes are recorded.
+function stubClient(writes: any[], rows: Record<string, any[]> = {}) {
   const chain = (table: string): any => {
-    const c: any = {
-      select: () => c, eq: () => c, in: () => c, gte: () => c, not: () => c, or: () => c,
-      is: () => c, order: () => c, range: () => c, limit: () => c,
-      update: (patch: any) => { writes.push({ table, patch }); return c; },
-      then: (r: any) => Promise.resolve({ data: [], error: null }).then(r),
-    };
-    return c;
+    const p: any = new Proxy({}, {
+      get(_t, k) {
+        if (k === "then") return (r: any) => Promise.resolve({ data: rows[table] ?? [], error: null }).then(r);
+        if (k === "update") return (patch: any) => { writes.push({ table, patch }); return p; };
+        return () => p;
+      },
+    });
+    return p;
   };
   return { from: chain };
 }
@@ -68,4 +69,28 @@ Deno.test("house-made: manager-deactivated / already-active get no update", asyn
   ], { activateOnHit: true, newRowSince: since });
   assertEquals(writes.length, 0);
   assertEquals(s.skips.map((k) => k.reason), ["manager_deactivated"]); // already_active not listed
+});
+
+const pfgItem = (extra: any) => ({ ...base, item_number: "123", vendor_source: "pfg", ...extra });
+const bid = { pfg_bid_items: [{ item_number: "123", unit_price: 9.5, last_seen_at: now }],
+  brand_inventory_templates: [{ id: "tpl", status: "live" }] };
+
+Deno.test("price hit: new row switches on; old/manager/active rows keep is_active", async () => {
+  const writes: any[] = [];
+  const old = new Date(Date.now() - 2 * 3600_000).toISOString();
+  await chasePrices(stubClient(writes, bid), "loc", [
+    pfgItem({ id: "new", is_active: false, created_at: now }),
+    pfgItem({ id: "old", is_active: false, created_at: old }),
+    pfgItem({ id: "mgr", is_active: false, deactivated_by: "manager", created_at: now }),
+    pfgItem({ id: "on", is_active: true, created_at: now }),
+  ], { activateOnHit: true, newRowSince: since });
+  const inv = writes.filter((w) => w.table === "inventory_items");
+  assertEquals(inv.length, 4); // price refresh still happens for all
+  assertEquals(inv.filter((w) => w.patch.is_active === true).length, 1);
+});
+
+Deno.test("nightly price hit never writes is_active", async () => {
+  const writes: any[] = [];
+  await chasePrices(stubClient(writes, bid), "loc", [pfgItem({ is_active: false, created_at: now })]);
+  assertEquals(writes.filter((w) => "is_active" in w.patch).length, 0);
 });
