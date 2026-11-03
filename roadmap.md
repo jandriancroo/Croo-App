@@ -50,4 +50,3 @@
 - [x] Dock dashboard gradient cap (presentation only)
 - [x] Duo phase 1: useDuo hook, duo CSS contract, open/folded headers, Dash+Schedule split, round Update, popup fixes, 5 named dialogs
 - [ ] Duo later phases: Chat, Tasks, Logs, Users/Settings tabs (wait for Jordan's go)
-- [ ] Brand publish scoped activation: trigger must send templateId (migration blocked — needs secrets-read approval); price-check robot side shipped
