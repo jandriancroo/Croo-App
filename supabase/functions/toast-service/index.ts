@@ -65,7 +65,6 @@ Deno.serve(async (req) => {
 
   if (body.action === "heartbeat") {
     if (auth.caller.kind !== "service") return json({ error: "Forbidden" }, 403);
-    const MAX_FULL_LOGINS = 4;
     const today = new Date().toISOString().slice(0, 10);
     const { data: rows } = await supabase.from("toast_robot_status").select("*").in("location_id", body.locationIds);
     const byId = new Map((rows ?? []).map((r: any) => [r.location_id, r]));
@@ -73,23 +72,10 @@ Deno.serve(async (req) => {
     let used = 0;
     const now = new Date().toISOString();
     const upserts = body.locationIds.map((id) => {
-      const prev: any = byId.get(id) ?? {};
-      const count = prev.full_logins_date === today ? (prev.full_logins_count ?? 0) : 0;
-      used = Math.max(used, count);
-      if (body.fullLogin && count >= MAX_FULL_LOGINS) allowed = false;
-      const good = body.state === "polling" || body.state === "signed_in";
-      return {
-        location_id: id,
-        state: body.fullLogin && count >= MAX_FULL_LOGINS ? "login_capped" : body.state,
-        message: body.message ?? null,
-        run_id: body.runId ?? prev.run_id ?? null,
-        heartbeat_at: now,
-        full_logins_date: today,
-        full_logins_count: body.fullLogin && count < MAX_FULL_LOGINS ? count + 1 : count,
-        // A healthy check-in resets the watchdog's alert ladder.
-        ...(good ? { alert_stage: 0 } : {}),
-        updated_at: now,
-      };
+      const hb = heartbeatRow(id, byId.get(id) ?? {}, body, today, now);
+      used = Math.max(used, hb.count);
+      if (hb.capped) allowed = false;
+      return hb.row;
     });
     const { error } = await supabase.from("toast_robot_status").upsert(upserts, { onConflict: "location_id" });
     if (error) return json({ error: error.message }, 500);
