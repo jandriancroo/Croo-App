@@ -1,134 +1,76 @@
-# Fix: publishing one brand item only switches on that item's rows
+# Fix false late / no-call-no-show alerts at Toast stores + robot sign-out alert
 
-Inventory is a locked feature. This plan treats Jordan naming this ship tonight as the unlock for these files only. Please confirm.
+## What was confirmed before writing this
+- **Late block** (current `check_alerts_sql`, from migration 0086): only checks `time_punches` for a `clock_in`. The NCNS block already also accepts `toast_shifts` (`croo_user_id`, `location_id`, `shift_date`, `in_time IS NOT NULL`).
+- **Which stores clock in on a POS:** `public.labor_source_for(_location_id)` already exists and returns `'toast'` for Toast-clock stores (used by `_shared/onClock.ts`). We use that, so Aloha can join later by returning its own value.
+- **Labor last-refresh timestamp:** `toast-sync` upserts `labor_cache` (`source='toast'`, one row per store per day) with `fetched_at = now()` on every labor read. Right now Hayward shows labor `fetched_at` 17:36 UTC and live sales 17:35 UTC, so it moves with each poll. Confirmed: this is the per-store labor last-refresh time.
+- **Not verifiable after the fact:** `labor_cache.fetched_at` and `toast_shifts.updated_at` are overwritten on each poll, so the 8:03 AM freeze on 11/2 can't be seen in the data now. Ryan's reading matches the code, though.
+- **Watchdog:** `toast-watchdog` decides "stale" only from `toast_sales_cache` live `fetched_at`. **toast-service heartbeat:** sets `alert_stage = 0` on every `polling` / `signed_in`. Both confirmed in code. So while sales keep flowing, a labor sign-out never alerts.
 
-## Callers that send `activate: true` (checked in the code and database)
+## 1. Migration `0088_toast_clock_alert_guards.sql`
+All in one migration. `check_alerts_sql` is changed **in place** with the same text-splice method 0086 used (read `pg_get_functiondef`, replace exact snippets, `EXECUTE` the result as CREATE OR REPLACE). It is never dropped, so its revoked grants stay as they are. The migration fails (RAISE) if any snippet isn't found exactly once.
 
-| # | Caller | Sends itemIds? | Whole-store? | Breaks with the new 400? |
-|---|---|---|---|---|
-| 1 | DB trigger `auto_deploy_brand_template()` Phase 2 (live definition) | No | **Yes** (the bug) | Fixed by adding `templateId` |
-| 2 | `src/components/settings/DeployLocationWizard.tsx` L291 (new-store wizard, Phase 2) | No | **Yes** | **Yes** |
-| 3 | `src/components/brand/LocationActivationList.tsx` L118 ("deploy to store" list) | No | **Yes** | **Yes** |
-| 4 | `supabase/functions/vendor-sync-nightly/index.ts` L472 (parity auto-deploy) | Yes (`deployedItemIds`) | No | No |
-| 5 | `supabase/functions/parse-vendor-invoice/index.ts` L576 (invoice match) | Yes (`matchedItemIds`) | No | No |
+a) **New helper** `public._pos_clock_feed_fresh(_location_id uuid) returns boolean`. STABLE, SECURITY DEFINER, `search_path = public, pg_temp`, execute revoked from public/anon/authenticated:
+- `labor_source_for(_location_id)` is not a POS source (anything except `'toast'` today) → `true`, so behaviour stays the same as today.
+- Toast → `true` only when `max(labor_cache.fetched_at)` for that store with `source='toast'` is within the last **30 minutes**. Otherwise `false`.
 
-Older migration files (Sept 2026) hold earlier versions of the same trigger; only the live one matters. `deploy-location-inventory` makes no call, it just returns `deployedItemIds` (L720).
-
-**Callers 2 and 3 would break.** Both already get the deploy response from `deploy-location-inventory`, which includes `deployedItemIds`. Proposed fix: pass `itemIds: deployedItemIds` in both calls. That's a one-line change each, with no change to the screens. If the list comes back empty, skip the sweep and show the existing "0 live" message. `deploy-location-inventory` itself is not touched.
-
-## One decision needed: the "newly created in 30 minutes" rule
-
-If the 30-minute new-row rule applies to every `activate: true` call, caller 5 (invoice match) can never switch on an existing inactive item again, and invoice matches always land on older rows. That would break invoice activation as it works today.
-
-**Default, unless you say otherwise:**
-- The 30-minute new-row rule (`already_exists`) applies only when `templateId` is sent, meaning a publish.
-- These apply to every activation: the `manager_deactivated` block (any non-null `deactivated_by`) and "skip if already active".
-
-Tell me if you want the 30-minute rule on every activation anyway.
-
-## Files to change
-1. New migration `0087_scope_brand_publish_activation.sql`
-2. `supabase/functions/vendor-price-chase/index.ts`
-3. `supabase/functions/_shared/vendorPriceChase.ts`
-4. `src/components/settings/DeployLocationWizard.tsx` (pass itemIds only)
-5. `src/components/brand/LocationActivationList.tsx` (pass itemIds only)
-6. Tests: extend `_shared` chase tests (block reasons, nightly path unchanged) and add a request test for the 400 guard.
-
-No data rows changed, nothing published, no template published or test-published.
-
-## Migration SQL
-
-This is the live definition copied exactly, with two changes: the Phase 2 body gets `'templateId', NEW.id`, and the search path becomes `public, pg_temp`.
-
+b) **Late block change.** The `has_punch` check becomes:
 ```sql
-CREATE OR REPLACE FUNCTION public.auto_deploy_brand_template()
- RETURNS trigger
- LANGUAGE plpgsql
- SECURITY DEFINER
- SET search_path TO public, pg_temp
-AS $function$
--- ...identical body to live definition, except Phase 2 body:
-        body := jsonb_build_object(
-          'locationId', v_loc.location_id,
-          'activate', true,
-          'includeInactive', true,
-          'templateId', NEW.id
-        )
--- ...Case 2 recipe cascade unchanged...
-$function$;
+SELECT EXISTS (SELECT 1 FROM time_punches tp WHERE <unchanged>)
+    OR EXISTS (SELECT 1 FROM toast_shifts ts WHERE ts.croo_user_id = shift.user_id
+               AND ts.location_id = loc.id AND ts.shift_date = local_date::DATE
+               AND ts.in_time IS NOT NULL)
+INTO has_punch;
+```
+This one check covers both the manager row and the `late_arrival_self` row. Text, dedup keys and timing windows don't change.
 
-alter function public.auto_deploy_brand_template() set search_path = public, pg_temp;
-alter function public.cascade_brand_template_name() set search_path = public, pg_temp;
-revoke execute on function public.auto_deploy_brand_template() from public, anon, authenticated;
-revoke execute on function public.cascade_brand_template_name() from public, anon, authenticated;
+c) **Stale-feed guard.** At the start of the late section and the NCNS section, each store gets:
+`v_feed_ok := public._pos_clock_feed_fresh(loc.id);` and the store is skipped when the result is false. Stores that use the CrooHQ clock always pass.
+
+d) **Robot status bookkeeping:** `ALTER TABLE toast_robot_status ADD COLUMN IF NOT EXISTS labor_alert_stage int NOT NULL DEFAULT 0`. This is an additive column. Sales and labor get separate ladders so neither one resets the other.
+
+e) **Andy's security piggyback:**
+```sql
+alter function public.check_weekly_checklist_alerts_sql() set search_path = public, pg_temp;
+revoke execute on function public.check_weekly_checklist_alerts_sql() from public, anon, authenticated;
 ```
 
-The full migration will contain the complete function text, copied from the live definition I read.
+## 2. Watchdog change (`toast-watchdog/index.ts`)
+- The existing sales-stale check, restart dispatch and stage 1/2 ladder on `alert_stage` stay unchanged.
+- **New labor check** for each store, inside the same store-hours window: read the latest `labor_cache.fetched_at` (`source='toast'`) for the store. If it is at least 30 min old and the window is at least 30 min in:
+  - when `labor_alert_stage = 0`, queue one `toast_robot_down` row to super admins through the existing `alert_queue` path. Title: "Toast labor stopped — <store>". Body: "Clock-ins haven't updated since <time>. Sales may still be flowing. Restarting the robot." Dedup key: `toast-labor:<store>:<labor fetched_at>`, so each separate sign-out alerts once. Then set `labor_alert_stage = 1`.
+  - Also request a robot restart, using the same dispatch and cooldown as today.
+- When labor is fresh again (under 30 min old), set `labor_alert_stage = 0`, so the next sign-out alerts again.
+- The sales ladder resets only when sales are fresh, exactly as today.
 
-## Code diff
+## 3. Heartbeat change (`toast-service/index.ts`)
+- Remove `...(good ? { alert_stage: 0 } : {})` from the heartbeat. Resets now come only from the watchdog, which checks the actual data. A `polling` heartbeat while labor reads fail will no longer clear the alert. Nothing else in the heartbeat changes (state, login cap, run id).
+- The runner and Toast parsing are not touched.
 
-### `_shared/vendorPriceChase.ts`
-```ts
-// ChaseItem: add optional fields (sweep only)
-  is_active?: boolean | null;
-  deactivated_by?: string | null;
-  created_at?: string | null;
+## 4. Tests
+**SQL (seeded in a rolled-back transaction, with no real alerts sent):** fixture stores for a Toast store and a CrooHQ-clock store, run `check_alerts_sql()`, then inspect the `alert_queue` rows inside the transaction and roll back.
+- Toast store, shift started 16 min ago, Toast `in_time` present, no punch → no `late_arrival` or `late_arrival_self` row.
+- Same but no `in_time` and labor fetched 2 min ago → exactly one manager row and one self row. A rerun adds none.
+- Labor fetched 2 h ago → no late rows and no NCNS rows for that store.
+- CrooHQ-clock store → the same rows as the current definition. Checked with a before/after comparison on the same fixture.
 
-// SkipReason: add
-  | "manager_deactivated" | "already_exists" | "already_active"
+**Deno (watchdog, stubbed client):**
+- Labor stale while sales are fresh, during hours → one `toast_robot_down` row to super admins, and `labor_alert_stage = 1`. A second run adds no new row.
+- Labor fresh again → `labor_alert_stage = 0`. A later stale labor time → a new alert with a new dedup key.
+- Existing sales-stale ladder tests still pass.
 
-// chasePrices opts: add
-  opts: { windowDays?: number; activateOnHit?: boolean; newRowSince?: string } = {}
+**Deno (toast-service):** a `polling` heartbeat no longer changes `alert_stage`.
 
-// activationBlock
-const activationBlock = (item: ChaseItem): SkipReason | null => {
-  if (!activateOnHit) return null;
-  if (item.is_active === true) return "already_active";      // no write to is_active
-  if (item.deactivated_by != null) return "manager_deactivated";
-  if (opts.newRowSince && (!item.created_at || item.created_at < opts.newRowSince))
-    return "already_exists";
-  if (!item.brand_item_id) return "no_brand_link";
-  if (!liveTemplates.has(item.brand_item_id)) return "template_not_live";
-  return null;
-};
+## 5. Deploy
+Apply migration 0088, then deploy `toast-watchdog` and `toast-service` only. No real Toast calls, no live alerts and nothing published.
 
-export const CHASE_SWEEP_SELECT = CHASE_SELECT + ", is_active, deactivated_by, created_at";
-```
-`already_active` is not added to the skip list. It just leaves `is_active` alone, and the price refresh still happens. The block already covers both the price-hit path (L543) and the house-made path (L444). Without `activateOnHit` the function returns null first, so the nightly run and the other price-only callers behave exactly as before. `CHASE_SELECT` itself is unchanged.
+## Rollback
+- Revert `check_alerts_sql` to the 0087-era definition (saved in the migration as a comment, and re-applied in place the same way). `location_settings.ncns_alert_minutes = 0` still turns NCNS off per store.
+- `grant execute on function public.check_weekly_checklist_alerts_sql() to authenticated; alter function public.check_weekly_checklist_alerts_sql() set search_path = public;`
+- Revert `toast-watchdog` and `toast-service` to the previous commit. The extra `labor_alert_stage` column can be left in place unused.
 
-### `vendor-price-chase/index.ts`
-```ts
-const templateId: string | null = typeof body?.templateId === "string" ? body.templateId : null;
-if (activate && !templateId && itemIds.length === 0)
-  return json400({ error: "activate requires templateId or itemIds" });
+## Untouched
+Punch, kiosk and time-clock code; Toast parsing and the runner; the `shift_offer_claims` policy; goal code; `time_punches` and `toast_shifts` (read only).
 
-// buildQuery
-.select(activate ? CHASE_SWEEP_SELECT : CHASE_SELECT)
-if (activate && templateId) q = q.eq("brand_item_id", templateId);
-
-// race retry: templateId mode only
-if (activate && templateId && items.length === 0) {
-  for (let t = 0; t < 3 && items.length === 0; t++) {
-    await new Promise(r => setTimeout(r, 4000));
-    reload();  // same paged loader
-  }
-}
-
-const newRowSince = templateId ? new Date(Date.now() - 30 * 60_000).toISOString() : undefined;
-chasePrices(..., activate ? { activateOnHit: true, windowDays: SWEEP_WINDOW_DAYS, newRowSince } : {});
-```
-The recipe integrity scan stays as it is (flag only).
-
-### Callers 2 and 3
-```ts
-// DeployLocationWizard.tsx: thread deployed ids alongside deployRunId
-body: { locationId, itemIds: deployedItemIds, activate: true, includeInactive: true, source, deployRunId }
-// LocationActivationList.tsx
-body: { locationId, itemIds: deployData?.deployedItemIds ?? [], activate: true, ... }
-```
-
-## Deploy and verify
-- Deploy `vendor-price-chase` only. The four `_shared` callers pick up the shared file on their next deploy, and their behavior doesn't change without `activateOnHit`.
-- Tests to run: the block reasons; the nightly path never writes `is_active`; the 400 guard; the `templateId` filter.
-- Read-only check: the function definition after the migration shows the new body, the new search path, and the removed EXECUTE grants.
-- Not touched: punch/kiosk code, the shift_offer_claims policy, `deploy-location-inventory`, and any data rows.
+## Open assumption
+The robot writes `labor_cache` on every poll, even before anyone clocks in. Hayward's current timestamps support this. If labor rows only appear after the first clock-in, the 30-minute window offset prevents a false "labor stopped" alert right at open.
