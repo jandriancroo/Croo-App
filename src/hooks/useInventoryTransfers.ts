@@ -188,6 +188,8 @@ export const useInventoryTransfers = (locationId: string | undefined) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-transfers", locationId] });
+      // List-row COGS pills include received transfers
+      queryClient.invalidateQueries({ queryKey: ["inventory-counts"] });
       toast.success("Transfer received");
     },
     onError: () => {
