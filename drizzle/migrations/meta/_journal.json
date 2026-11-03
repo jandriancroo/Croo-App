@@ -610,6 +610,13 @@
       "when": 1793603808752,
       "tag": "0086_employee_job_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1793685202981,
+      "tag": "0087_scope_brand_publish_activation",
+      "breakpoints": true
     }
   ]
 }
