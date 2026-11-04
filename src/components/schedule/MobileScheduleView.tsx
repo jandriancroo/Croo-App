@@ -662,6 +662,7 @@ export function MobileScheduleView({
       hoursWorked,
       createdByName: null,
       scheduledShift: null,
+      shiftId: null,
       isToast: true,
       isLinked: !!s.croo_user_id,
     };
