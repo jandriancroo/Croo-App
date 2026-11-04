@@ -1,76 +1,55 @@
-# Fix false late / no-call-no-show alerts at Toast stores + robot sign-out alert
+# Mobile schedule fix: one card per shift, not per person
 
-## What was confirmed before writing this
-- **Late block** (current `check_alerts_sql`, from migration 0086): only checks `time_punches` for a `clock_in`. The NCNS block already also accepts `toast_shifts` (`croo_user_id`, `location_id`, `shift_date`, `in_time IS NOT NULL`).
-- **Which stores clock in on a POS:** `public.labor_source_for(_location_id)` already exists and returns `'toast'` for Toast-clock stores (used by `_shared/onClock.ts`). We use that, so Aloha can join later by returning its own value.
-- **Labor last-refresh timestamp:** `toast-sync` upserts `labor_cache` (`source='toast'`, one row per store per day) with `fetched_at = now()` on every labor read. Right now Hayward shows labor `fetched_at` 17:36 UTC and live sales 17:35 UTC, so it moves with each poll. Confirmed: this is the per-store labor last-refresh time.
-- **Not verifiable after the fact:** `labor_cache.fetched_at` and `toast_shifts.updated_at` are overwritten on each poll, so the 8:03 AM freeze on 11/2 can't be seen in the data now. Ryan's reading matches the code, though.
-- **Watchdog:** `toast-watchdog` decides "stale" only from `toast_sales_cache` live `fetched_at`. **toast-service heartbeat:** sets `alert_stage = 0` on every `polling` / `signed_in`. Both confirmed in code. So while sales keep flowing, a labor sign-out never alerts.
+Only `src/components/schedule/MobileScheduleView.tsx` changes. No other files, no database changes, and `time_punches` stays read-only.
 
-## 1. Migration `0088_toast_clock_alert_guards.sql`
-All in one migration. `check_alerts_sql` is changed **in place** with the same text-splice method 0086 used (read `pg_get_functiondef`, replace exact snippets, `EXECUTE` the result as CREATE OR REPLACE). It is never dropped, so its revoked grants stay as they are. The migration fails (RAISE) if any snippet isn't found exactly once.
+## What changes for managers
+- If someone works two shifts in one day, the Now and Completed lists show two cards. Each card has its own times, breaks and hours.
+- Their 2nd scheduled shift stays in **Later** until they clock in for it.
+- With station grouping on, each card sits under the station of its own shift.
+- Tapping a card opens only that shift.
 
-a) **New helper** `public._pos_clock_feed_fresh(_location_id uuid) returns boolean`. STABLE, SECURITY DEFINER, `search_path = public, pg_temp`, execute revoked from public/anon/authenticated:
-- `labor_source_for(_location_id)` is not a POS source (anything except `'toast'` today) → `true`, so behaviour stays the same as today.
-- Toast → `true` only when `max(labor_cache.fetched_at)` for that store with `source='toast'` is within the last **30 minutes**. Otherwise `false`.
+## Blocks that change (and only these)
 
-b) **Late block change.** The `has_punch` check becomes:
-```sql
-SELECT EXISTS (SELECT 1 FROM time_punches tp WHERE <unchanged>)
-    OR EXISTS (SELECT 1 FROM toast_shifts ts WHERE ts.croo_user_id = shift.user_id
-               AND ts.location_id = loc.id AND ts.shift_date = local_date::DATE
-               AND ts.in_time IS NOT NULL)
-INTO has_punch;
-```
-This one check covers both the manager row and the `late_arrival_self` row. Text, dedup keys and timing windows don't change.
+1. **`DayPunch` interface (~L121):** add optional `shiftId?: string | null`.
 
-c) **Stale-feed guard.** At the start of the late section and the NCNS section, each store gets:
-`v_feed_ok := public._pos_clock_feed_fresh(loc.id);` and the store is skipped when the result is false. Stores that use the CrooHQ clock always pass.
+2. **`dayPunches` query, STEP 2 + STEP 3 (~L475–555):**
+   - Keep STEP 1 grouping as it is. Keep the `matchesDate(clockIn)` filter for candidates.
+   - Mark which groups are orphaned. A group is orphaned when it has no clock_out and is not the user's last group overall. Only the last open group can be active.
+   - **Orphan choice: keep hiding orphaned groups, as today.** They have no clock-out, so their hours mean nothing, and showing them would add a new "missing clock-out" card state. Today these groups are already invisible unless one happens to be the only candidate. Managers still fix them in Payroll Review / Edit Shift. (If you'd rather see them, the alternative is a non-active card with no clock-out and 0 hours, placed in Completed. Say "show orphans" and I'll build that instead.)
+   - Loop over every remaining candidate group and run the existing hours, unpaid-break and createdByName code on each one. Apply the >16h stale-active guard per group, which only affects the active (last open) group.
+   - Scheduled-shift match for each group, worked out per user:
+     a. use the group's `shiftId` if it is in `todayScheduledShifts`;
+     b. otherwise use that user's scheduled shift on the date whose start is closest to the group's clock-in, skipping shifts already matched to another of that user's groups while an unused one is left. If none is left, reuse the closest one.
+     Groups with a direct `shiftId` match are assigned first, then the rest go in clock-in order.
+   - Push one DayPunch per group with `id` = that group's clock_in id, and `shiftId: scheduledShift?.id ?? group.shiftId ?? null`.
+   - The business-date `filteredPunches` filter and the sort stay as they are.
 
-d) **Robot status bookkeeping:** `ALTER TABLE toast_robot_status ADD COLUMN IF NOT EXISTS labor_alert_stage int NOT NULL DEFAULT 0`. This is an additive column. Sales and labor get separate ladders so neither one resets the other.
+3. **`toastPunches` map (~L607):** add `shiftId: null` only. Nothing else changes.
 
-e) **Andy's security piggyback:**
-```sql
-alter function public.check_weekly_checklist_alerts_sql() set search_path = public, pg_temp;
-revoke execute on function public.check_weekly_checklist_alerts_sql() from public, anon, authenticated;
-```
+4. **`shiftForPunch` (~L243):** no code change needed. It already reads `punch.shiftId` first, and the user fallback now only applies to Toast and unmatched cards (same as today).
 
-## 2. Watchdog change (`toast-watchdog/index.ts`)
-- The existing sales-stale check, restart dispatch and stage 1/2 ladder on `alert_stage` stay unchanged.
-- **New labor check** for each store, inside the same store-hours window: read the latest `labor_cache.fetched_at` (`source='toast'`) for the store. If it is at least 30 min old and the window is at least 30 min in:
-  - when `labor_alert_stage = 0`, queue one `toast_robot_down` row to super admins through the existing `alert_queue` path. Title: "Toast labor stopped — <store>". Body: "Clock-ins haven't updated since <time>. Sales may still be flowing. Restarting the robot." Dedup key: `toast-labor:<store>:<labor fetched_at>`, so each separate sign-out alerts once. Then set `labor_alert_stage = 1`.
-  - Also request a robot restart, using the same dispatch and cooldown as today.
-- When labor is fresh again (under 30 min old), set `labor_alert_stage = 0`, so the next sign-out alerts again.
-- The sales ladder resets only when sales are fresh, exactly as today.
+5. **LATER filter (~L1163–1168):** build a `coveredShiftIds` set before filtering.
+   - Add every card's `scheduledShift.id` / `shiftId` that matches a shift in `dayShifts`.
+   - For each card with no matched shift (Toast or unmatched punches), add that user's not-yet-covered shift in `dayShifts` whose start is closest to the card's clock-in.
+   - Later shows `dayShifts` whose id is not in `coveredShiftIds`.
+   - The future/past "Scheduled" list is not touched.
 
-## 3. Heartbeat change (`toast-service/index.ts`)
-- Remove `...(good ? { alert_stage: 0 } : {})` from the heartbeat. Resets now come only from the watchdog, which checks the actual data. A `polling` heartbeat while labor reads fail will no longer clear the alert. Nothing else in the heartbeat changes (state, login cap, run id).
-- The runner and Toast parsing are not touched.
+## Unchanged, confirmed by reading the code
+- **EditPunchDialog: no change.** It loads the user's day and keeps only the punches from `clockInId` up to the next clock_in (~L111–127). All three tap handlers (~L1153, 1255, 1309) already pass `clockInId: punch.id`, which is now each group's own clock-in.
+- **Counts:** "N ON THE CLOCK" (~L987) counts `isActive` cards. Only one open group per user can be active, so it still equals the number of people clocked in. Now/break/total and Completed (n) count cards.
+- React keys stay `punch.id`, which is unique per clock-in.
+- Payroll Review / Edit Shift, punch/kiosk/time-clock/Quick Punch logic, Toast mapping (except the null field), schema, RLS and edge functions are not touched.
 
-## 4. Tests
-**SQL (seeded in a rolled-back transaction, with no real alerts sent):** fixture stores for a Toast store and a CrooHQ-clock store, run `check_alerts_sql()`, then inspect the `alert_queue` rows inside the transaction and roll back.
-- Toast store, shift started 16 min ago, Toast `in_time` present, no punch → no `late_arrival` or `late_arrival_self` row.
-- Same but no `in_time` and labor fetched 2 min ago → exactly one manager row and one self row. A rerun adds none.
-- Labor fetched 2 h ago → no late rows and no NCNS rows for that store.
-- CrooHQ-clock store → the same rows as the current definition. Checked with a before/after comparison on the same fixture.
-
-**Deno (watchdog, stubbed client):**
-- Labor stale while sales are fresh, during hours → one `toast_robot_down` row to super admins, and `labor_alert_stage = 1`. A second run adds no new row.
-- Labor fresh again → `labor_alert_stage = 0`. A later stale labor time → a new alert with a new dedup key.
-- Existing sales-stale ladder tests still pass.
-
-**Deno (toast-service):** a `polling` heartbeat no longer changes `alert_stage`.
-
-## 5. Deploy
-Apply migration 0088, then deploy `toast-watchdog` and `toast-service` only. No real Toast calls, no live alerts and nothing published.
+## Verification
+- Typecheck/build.
+- Browser check on the mobile viewport, signed in as Jordan, viewing real store data read-only. No punches are created. Then a code walk-through of the cases below, since I won't add test punches to real stores:
+  - two closed shifts → two cards whose hours add up to the day's total;
+  - 2nd shift still open → one card in Now, one in Completed, the person counted once;
+  - 2nd scheduled shift stays in Later after the 1st clock-in and leaves Later once they clock in for it;
+  - single-shift people look exactly as before;
+  - Hayward Toast cards are unchanged and read-only;
+  - tapping each card opens only that shift.
+- If you want an automated check, I can add a small test file for the grouping and matching. That would mean moving the logic into a helper, which adds a second file, so I'll only do it if you approve.
 
 ## Rollback
-- Revert `check_alerts_sql` to the 0087-era definition (saved in the migration as a comment, and re-applied in place the same way). `location_settings.ncns_alert_minutes = 0` still turns NCNS off per store.
-- `grant execute on function public.check_weekly_checklist_alerts_sql() to authenticated; alter function public.check_weekly_checklist_alerts_sql() set search_path = public;`
-- Revert `toast-watchdog` and `toast-service` to the previous commit. The extra `labor_alert_stage` column can be left in place unused.
-
-## Untouched
-Punch, kiosk and time-clock code; Toast parsing and the runner; the `shift_offer_claims` policy; goal code; `time_punches` and `toast_shifts` (read only).
-
-## Open assumption
-The robot writes `labor_cache` on every poll, even before anyone clocks in. Hayward's current timestamps support this. If labor rows only appear after the first clock-in, the 30-minute window offset prevents a false "labor stopped" alert right at open.
+Revert the single-file change to `MobileScheduleView.tsx`.
