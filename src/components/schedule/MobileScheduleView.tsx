@@ -477,10 +477,39 @@ export function MobileScheduleView({
         const candidates = shiftGroups.filter((s) => matchesDate(s.clockIn.punch_time));
         if (candidates.length === 0) return;
 
-        // Prefer an active (still-open) shift, otherwise the latest one that started today.
-        const activeShift = candidates.find((s) => !s.clockOut);
-        const chosen = activeShift || candidates[candidates.length - 1];
-        if (!chosen) return;
+        // One card per shift group. Orphaned groups (open, but followed by another
+        // clock_in) stay hidden; only the user's last open group can be active.
+        const lastGroup = shiftGroups[shiftGroups.length - 1];
+        const visibleGroups = candidates.filter((g) => !!g.clockOut || g === lastGroup);
+        if (visibleGroups.length === 0) return;
+
+        // Match each group to a scheduled shift: own shiftId first, else the user's
+        // closest-start shift on the date, avoiding reuse while an unused one remains.
+        const userSched = todayScheduledShifts.filter((s) => s.user_id === userId);
+        const minsOfDay = (iso: string) => {
+          const [h, m] = new Date(iso)
+            .toLocaleTimeString('en-GB', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false })
+            .split(':').map(Number);
+          return (h % 24) * 60 + m;
+        };
+        const startMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
+        const matchedShift = new Map<ShiftGroup, typeof todayScheduledShifts[number]>();
+        const usedIds = new Set<string>();
+        visibleGroups.forEach((g) => {
+          const direct = g.shiftId ? todayScheduledShifts.find((s) => s.id === g.shiftId) : undefined;
+          if (direct) { matchedShift.set(g, direct); usedIds.add(direct.id); }
+        });
+        visibleGroups.forEach((g) => {
+          if (matchedShift.has(g) || userSched.length === 0) return;
+          const inMins = minsOfDay(g.clockIn.punch_time);
+          const pool = userSched.some((s) => !usedIds.has(s.id)) ? userSched.filter((s) => !usedIds.has(s.id)) : userSched;
+          const best = pool.reduce((a, b) =>
+            Math.abs(startMins(b.start_time) - inMins) < Math.abs(startMins(a.start_time) - inMins) ? b : a);
+          matchedShift.set(g, best);
+          usedIds.add(best.id);
+        });
+
+        visibleGroups.forEach((chosen) => {
 
         // STEP 3: Compute hours, with sanity cap on stale "active" shifts.
         const profile = profileMap.get(userId) || profiles.find((p) => p.id === userId);
@@ -518,9 +547,7 @@ export function MobileScheduleView({
         }
         const hoursWorked = rawHours;
 
-        const scheduledShift = chosen.shiftId
-          ? todayScheduledShifts.find((s) => s.id === chosen.shiftId)
-          : todayScheduledShifts.find((s) => s.user_id === userId);
+        const scheduledShift = matchedShift.get(chosen) ?? null;
         const createdByOther = chosen.clockIn.created_by && chosen.clockIn.created_by !== userId;
         const createdByName = createdByOther
           ? creatorMap.get(chosen.clockIn.created_by!) || null
@@ -539,6 +566,7 @@ export function MobileScheduleView({
           profile: profile || { id: userId, full_name: 'Unknown', nickname: null, profile_photo_url: null },
           hoursWorked,
           createdByName,
+          shiftId: scheduledShift?.id ?? chosen.shiftId ?? null,
           scheduledShift: scheduledShift
             ? {
                 id: scheduledShift.id,
@@ -549,6 +577,7 @@ export function MobileScheduleView({
                 is_phantom: scheduledShift.is_phantom,
               }
             : null,
+        });
         });
       });
 
