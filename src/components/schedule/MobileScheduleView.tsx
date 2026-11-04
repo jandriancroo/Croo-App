@@ -141,6 +141,7 @@ interface DayPunch {
     shift_date: string;
     is_phantom?: boolean;
   } | null;
+  shiftId?: string | null; // Matched scheduled shift for this card (null for Toast/unmatched)
 }
 
 export function MobileScheduleView({
