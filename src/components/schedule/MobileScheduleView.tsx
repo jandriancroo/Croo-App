@@ -1191,11 +1191,30 @@ export function MobileScheduleView({
 
                     {/* LATER section — upcoming scheduled shifts not yet punched in */}
                     {(() => {
+                      // Hide a scheduled shift only when a card covers that specific shift.
+                      const coveredShiftIds = new Set<string>();
+                      const dayShiftIds = new Set(dayShifts.map(s => s.id));
+                      const unmatched: DayPunch[] = [];
+                      allDayPunches.forEach(p => {
+                        const sid = p.scheduledShift?.id ?? p.shiftId ?? null;
+                        if (sid && dayShiftIds.has(sid)) coveredShiftIds.add(sid);
+                        else unmatched.push(p);
+                      });
+                      unmatched.forEach(p => {
+                        const open = dayShifts.filter(s => s.user_id === p.user_id && !coveredShiftIds.has(s.id));
+                        if (open.length === 0) return;
+                        const d = new Date(p.clockInTime);
+                        const [ih, im] = d.toLocaleTimeString('en-GB', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false }).split(':').map(Number);
+                        const inMins = (ih % 24) * 60 + im;
+                        const sm = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
+                        const best = open.reduce((a, b) => Math.abs(sm(b.start_time) - inMins) < Math.abs(sm(a.start_time) - inMins) ? b : a);
+                        coveredShiftIds.add(best.id);
+                      });
                       const laterShifts = dayShifts
                         .filter(shift => {
                           const profile = getProfileForShift(shift);
                           if (!profile) return false;
-                          return !allDayPunches.some(p => p.user_id === shift.user_id);
+                          return !coveredShiftIds.has(shift.id);
                         })
                         .sort((a, b) => a.start_time.localeCompare(b.start_time));
 
