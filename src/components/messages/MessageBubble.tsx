@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { getDisplayName, getInitials } from '@/utils/displayName';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { MessageSquare, File, Clock, Trash2, ImageIcon, Loader2 } from 'lucide-react';
+import { MessageSquare, File, Clock, CircleDot, ImageIcon, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { MessageContent } from './MessageContent';
 import { ReactionPicker } from './ReactionPicker';
@@ -54,7 +54,11 @@ interface MessageBubbleProps {
   onReaction: (messageId: string, reaction: string) => void;
   onReply: (message: Message) => void;
   onImageClick: (url: string) => void;
-  onUnsend?: (messageId: string) => void;
+  /** Multi-select delete mode (admins, own messages only). */
+  selectMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (message: Message) => void;
+  onStartSelect?: (message: Message) => void;
   sending: boolean;
 }
 
@@ -74,7 +78,10 @@ export function MessageBubble({
   onReaction,
   onReply,
   onImageClick,
-  onUnsend,
+  selectMode = false,
+  isSelected = false,
+  onToggleSelect,
+  onStartSelect,
   sending,
 }: MessageBubbleProps) {
   const isPending = message.isPending;
@@ -86,17 +93,28 @@ export function MessageBubble({
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchMovedRef = useRef(false);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  // Ignore taps on the sheet right after it opens, so the long-press finger can't hit a row.
+  const sheetOpenedAtRef = useRef(0);
+  const canSelect = !!(canUnsend && isOwnMessage && !isPending && !isDeleted && !isAnnouncement && onStartSelect);
+  const openMobileActions = useCallback(() => {
+    sheetOpenedAtRef.current = Date.now();
+    setShowMobileActions(true);
+  }, []);
+  const sheetGuard = useCallback((fn: () => void) => () => {
+    if (Date.now() - sheetOpenedAtRef.current < 300) return;
+    fn();
+  }, []);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (isPending || isDeleted || isAnnouncement) return;
+    if (isPending || isDeleted || isAnnouncement || selectMode) return;
     touchMovedRef.current = false;
     touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     longPressTimer.current = setTimeout(() => {
       if (!touchMovedRef.current) {
-        setShowMobileActions(true);
+        openMobileActions();
       }
     }, 500);
-  }, [isPending, isDeleted, isAnnouncement]);
+  }, [isPending, isDeleted, isAnnouncement, selectMode, openMobileActions]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!touchStartRef.current) return;
@@ -183,7 +201,28 @@ export function MessageBubble({
   const isShiftOffer = !!message.content?.startsWith('SHIFT_OFFER:');
 
   return (
-    <div className={`flex gap-2 ${isOwnMessage ? 'flex-row-reverse' : ''} ${clusterSpacing}`}>
+    <div
+      className={`flex gap-2 items-center ${isOwnMessage ? 'flex-row-reverse' : ''} ${clusterSpacing} ${selectMode && canSelect ? 'cursor-pointer' : ''}`}
+      onClickCapture={selectMode ? (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (canSelect) onToggleSelect?.(message);
+      } : undefined}
+    >
+      {selectMode && (
+        <div className="w-6 flex-shrink-0 flex items-center justify-center" aria-hidden={!canSelect}>
+          {canSelect && (
+            <span
+              role="checkbox"
+              aria-checked={isSelected}
+              aria-label={isSelected ? 'Selected' : 'Not selected'}
+              className={`h-5 w-5 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-primary' : 'border-muted-foreground/50'}`}
+            >
+              {isSelected && <span className="h-3 w-3 rounded-full bg-primary" />}
+            </span>
+          )}
+        </div>
+      )}
       <div className="w-8 flex-shrink-0">
         {showAvatar && !isOwnMessage && (
           <Avatar className="h-8 w-8">
@@ -200,6 +239,9 @@ export function MessageBubble({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        onContextMenu={(e) => { if (!isAnnouncement && !isPending && !isDeleted) e.preventDefault(); }}
+        style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none', userSelect: 'none', touchAction: 'manipulation' }}
       >
         {showName && isFirstInCluster && (
           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -320,7 +362,7 @@ export function MessageBubble({
         </div>
 
         {/* Desktop hover actions */}
-        {!isAnnouncement && !isPending && isLastInCluster && (
+        {!isAnnouncement && !isPending && isLastInCluster && !selectMode && (
           <>
             <div className="hidden sm:flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <ReactionPicker onSelect={(reaction) => onReaction(message.id, reaction)} />
@@ -331,14 +373,14 @@ export function MessageBubble({
               >
                 <MessageSquare className="h-3.5 w-3.5" />
               </Button>
-              {canUnsend && onUnsend && (
+              {canSelect && (
                 <Button size="icon-sm"
                   variant="ghost"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => onUnsend(message.id)}
-                  title="Delete for everyone"
+                  onClick={() => onStartSelect?.(message)}
+                  title="Select messages to delete"
+                  aria-label="Select messages to delete"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <CircleDot className="h-3.5 w-3.5" />
                 </Button>
               )}
             </div>
@@ -347,8 +389,8 @@ export function MessageBubble({
         )}
 
         {/* Mobile long-press actions overlay */}
-        {showMobileActions && !isAnnouncement && !isPending && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowMobileActions(false)}>
+        {showMobileActions && !isAnnouncement && !isPending && !selectMode && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={sheetGuard(() => setShowMobileActions(false))}>
             <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
             <div
               className="relative w-full max-w-sm mx-4 mb-8 bg-popover rounded-2xl shadow-xl border border-border overflow-hidden animate-in slide-in-from-bottom-4 duration-200"
@@ -360,10 +402,10 @@ export function MessageBubble({
                   <button
                     key={emoji}
                     className="text-2xl hover:scale-125 active:scale-110 transition-transform"
-                    onClick={() => {
+                    onClick={sheetGuard(() => {
                       onReaction(message.id, emoji);
                       setShowMobileActions(false);
-                    }}
+                    })}
                   >
                     {emoji}
                   </button>
@@ -373,31 +415,31 @@ export function MessageBubble({
               {/* Action buttons */}
               <button
                 className="w-full px-4 py-3.5 text-left text-sm font-medium flex items-center gap-3 hover:bg-accent active:bg-accent transition-colors"
-                onClick={() => {
+                onClick={sheetGuard(() => {
                   onReply(message);
                   setShowMobileActions(false);
-                }}
+                })}
               >
                 <MessageSquare className="h-4 w-4 text-muted-foreground" />
                 Reply
               </button>
               
-              {canUnsend && onUnsend && (
+              {canSelect && (
                 <button
-                  className="w-full px-4 py-3.5 text-left text-sm font-medium flex items-center gap-3 text-destructive hover:bg-destructive/10 active:bg-destructive/10 transition-colors"
-                  onClick={() => {
-                    onUnsend(message.id);
+                  className="w-full px-4 py-3.5 text-left text-sm font-medium flex items-center gap-3 hover:bg-accent active:bg-accent transition-colors"
+                  onClick={sheetGuard(() => {
                     setShowMobileActions(false);
-                  }}
+                    onStartSelect?.(message);
+                  })}
                 >
-                  <Trash2 className="h-4 w-4" />
-                  Delete for everyone
+                  <CircleDot className="h-4 w-4 text-muted-foreground" />
+                  Select to delete
                 </button>
               )}
 
               <button
                 className="w-full px-4 py-3.5 text-left text-sm text-muted-foreground font-medium border-t border-border hover:bg-accent active:bg-accent transition-colors"
-                onClick={() => setShowMobileActions(false)}
+                onClick={sheetGuard(() => setShowMobileActions(false))}
               >
                 Cancel
               </button>
