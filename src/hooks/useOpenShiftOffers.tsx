@@ -22,6 +22,28 @@ export function shiftNotStarted(shiftDate: string, startTime: string | null, now
   return `${shiftDate} ${(startTime || '00:00').slice(0, 5)}` > nowKey;
 }
 
+/** "YYYY-MM-DD HH:MM" store-local moment the shift ends; overnight (end <= start) rolls to the next day. */
+export function shiftEndKey(shiftDate: string, startTime: string | null, endTime: string | null): string | null {
+  if (!endTime) return null;
+  const end = endTime.slice(0, 5);
+  const start = (startTime || '00:00').slice(0, 5);
+  let date = shiftDate;
+  if (end <= start) {
+    const [y, m, d] = shiftDate.split('-').map(Number);
+    const next = new Date(Date.UTC(y, m - 1, d + 1));
+    date = next.toISOString().slice(0, 10);
+  }
+  return `${date} ${end}`;
+}
+/** Feed rule: open (available / claimed-awaiting-approval) offers stay until the shift ends. Approved offers are hidden. */
+export function offerVisibleInFeed(status: string, shiftDate: string | null, startTime: string | null, endTime: string | null, nowKey: string): boolean {
+  if (status !== 'available' && status !== 'claimed') return false;
+  if (!shiftDate) return true;
+  const endKey = shiftEndKey(shiftDate, startTime, endTime);
+  if (!endKey) return shiftNotStarted(shiftDate, startTime, nowKey); // no end time: old start-time behavior
+  return endKey > nowKey;
+}
+
 const KEY = (locationId: string | null) => ['open-shift-offers', locationId];
 
 /**
@@ -42,7 +64,7 @@ export function useOpenShiftOffers() {
       const { data: offers, error } = await supabase
         .from('shift_offers')
         .select('id, shift_id, status, created_at')
-        .in('status', ['available', 'claimed', 'approved', 'open', 'pending'])
+        .in('status', ['available', 'claimed'])
         .order('created_at', { ascending: false })
         .limit(50);
       if (error) throw error;
@@ -53,7 +75,7 @@ export function useOpenShiftOffers() {
 
       const { data: shifts } = await supabase
         .from('scheduled_shifts')
-        .select('id, schedule_id, shift_date, start_time')
+        .select('id, schedule_id, shift_date, start_time, end_time')
         .in('id', shiftIds);
       if (!shifts?.length) return [];
 
@@ -66,8 +88,8 @@ export function useOpenShiftOffers() {
       const scheduleLocMap = new Map<string, string>();
       (schedules ?? []).forEach((s: any) => scheduleLocMap.set(s.id, s.location_id));
 
-      const shiftMap = new Map<string, { schedule_id: string; shift_date: string | null; start_time: string | null }>();
-      shifts.forEach((s: any) => shiftMap.set(s.id, { schedule_id: s.schedule_id, shift_date: s.shift_date, start_time: s.start_time }));
+      const shiftMap = new Map<string, { schedule_id: string; shift_date: string | null; start_time: string | null; end_time: string | null }>();
+      shifts.forEach((s: any) => shiftMap.set(s.id, { schedule_id: s.schedule_id, shift_date: s.shift_date, start_time: s.start_time, end_time: s.end_time }));
 
       // Store-local "now" (YYYY-MM-DD HH:MM). Past offers stay in the table as history; the feed just hides them.
       const { data: ls } = await supabase.from('location_settings').select('timezone').eq('location_id', locationId!).maybeSingle();
@@ -79,8 +101,8 @@ export function useOpenShiftOffers() {
           if (!shift) return null;
           const locId = scheduleLocMap.get(shift.schedule_id);
           if (locId !== locationId) return null;
-          // Only shifts that haven't started yet (store time).
-          if (shift.shift_date && !shiftNotStarted(shift.shift_date, shift.start_time, nowLocal)) return null;
+          // Visible until claimed+approved or the shift END passes (store time). Starting doesn't hide it.
+          if (!offerVisibleInFeed(o.status, shift.shift_date, shift.start_time, shift.end_time, nowLocal)) return null;
           return { id: o.id, shift_id: o.shift_id, status: o.status, created_at: o.created_at, shift_date: shift.shift_date };
         })
         .filter(Boolean) as OpenShiftOffer[];
