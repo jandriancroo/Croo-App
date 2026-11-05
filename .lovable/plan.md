@@ -1,28 +1,35 @@
-# Fix: chat "Read" receipts list can't scroll on phone
+# Lock down the internal widget-permission helper
 
 ## What changes for Jordan
-Tapping **Read / Sent** under your own message opens a list that scrolls all the way through every Read and Unread name, on phone and desktop.
+Nothing you can see. Signed-in users lose the ability to call a behind-the-scenes permission checker directly. Adding, editing, removing and hiding dashboard cubes keep working the same.
 
-## Approach
-One file only: `src/components/messages/ReadReceipts.tsx`.
+## What I checked (before planning)
+- The app code never calls the checker. It only shows up in the auto-generated database types and in a test that builds a fake copy of it on its own. No direct calls from the app.
+- In the live database, only three functions call it: add, edit and delete widget. All three run with full rights, so they keep working after the lock-down. Hiding a widget (`toggle_widget_hidden_for_self`) never calls it.
+- Right now the checker's search path is `public`, and signed-in users and the service role can both call it.
+- Current commit: 99e5864e6.
 
-- Swap the small pop-up for the same kind of window the announcement "Seen by" list uses (the existing Dialog), on all screen sizes, so phone and desktop behave the same.
-- Title: "Read receipts". Body keeps the exact same two sections, counts ("Read · 3", "Unread · 11"), avatars, check icons, faded unread rows and "No recipients yet" text.
-- List area: bounded height (`max-h-[60vh]`), `overflow-y-auto`, `overscroll-contain`, `touch-pan-y`, iOS momentum scrolling — so the finger scroll moves the list, not the chat behind it.
-- Trigger button (Read / Sent with checks) stays identical.
+## Change
+One new migration (the next file number in drizzle/migrations), with Andy's exact SQL:
 
-## Not changing
-- Sender-only visibility (`senderId !== currentUserId` → nothing shown).
-- Fetch/query code, the is_active / appears_on_schedule filter, sender exclusion.
-- No schema, RLS, migrations, other chat features, punch/kiosk, shift offers, native/iOS/TestFlight files.
+```sql
+alter function public._validate_widget_authority set search_path = public, pg_temp;
+revoke execute on function public._validate_widget_authority from public, anon, authenticated;
+```
+
+The service role keeps its access. Nothing else changes: no other schema, RLS, ReadReceipts, punch/kiosk, shift offers or native files.
 
 ## Verify
-- Phone-size browser test (390×844) in a big chat: open receipts, scroll Unread to the last name, close; chat behind didn't scroll.
-- Desktop check: same window opens and scrolls.
-- Build passes. Then publish to croohq.com — only if the security-findings blocker from earlier is cleared by Jordan; otherwise I'll stop and report it.
+- Read back the checker's settings: search path is `public, pg_temp`, and no grant exists for `authenticated` or `anon`.
+- As a real signed-in manager in the preview: add a cube, edit it, hide it, unhide it and delete it. All five should succeed.
+- As the same user, call the checker directly. It should be refused with "permission denied".
+- Run the existing dashboard cube test file (`dashboardCubeAccess.test.ts`), and check the build passes.
+- Do not publish. Ryan publishes.
 
 ## Report
-Files changed, build result, commit SHA. Current commit before change: see readback at implementation.
+The search result, the migration file name, the test results and the commit.
 
 ## Rollback
-Revert the one file.
+```sql
+grant execute on function public._validate_widget_authority to authenticated;
+```
