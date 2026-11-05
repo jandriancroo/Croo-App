@@ -1,3 +1,5 @@
+> **Status: this plan was already approved and built earlier today (Nov 5), and was published to croohq.com.** The 0089 database change is applied: both message rules now require the sender to still be in the chat. Approving again changes nothing; there is no remaining work. Tell me if anything in the live version needs changing.
+
 # Chat message multi-select delete with confirm
 
 ## What changes for people
