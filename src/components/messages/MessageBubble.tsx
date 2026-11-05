@@ -202,7 +202,7 @@ export function MessageBubble({
 
   return (
     <div
-      className={`flex gap-2 items-center ${isOwnMessage ? 'flex-row-reverse' : ''} ${clusterSpacing} ${selectMode && canSelect ? 'cursor-pointer' : ''}`}
+      className={`flex gap-2 ${selectMode ? 'items-center' : ''} ${isOwnMessage ? 'flex-row-reverse' : ''} ${clusterSpacing} ${selectMode && canSelect ? 'cursor-pointer' : ''}`}
       onClickCapture={selectMode ? (e) => {
         e.preventDefault();
         e.stopPropagation();
