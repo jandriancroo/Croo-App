@@ -42,8 +42,8 @@ export function offerVisibleInFeed(status: string, shiftDate: string | null, sta
   if (status !== 'available' && status !== 'claimed') return false;
   if (!shiftDate) return true;
   const endKey = shiftEndKey(shiftDate, startTime, endTime);
-  if (!endKey) return shiftNotStarted(shiftDate, startTime, nowKey); // no end time: old start-time behavior
-  return endKey > nowKey;
+  // No end time: visible through 23:59:59 on the shift date (store time), never cut at start.
+  return (endKey ?? `${shiftDate} 24:00`) > nowKey;
 }
 
 const KEY = (locationId: string | null) => ['open-shift-offers', locationId];

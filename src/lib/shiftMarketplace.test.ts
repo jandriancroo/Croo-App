@@ -46,6 +46,14 @@ describe('feed keeps open offers until the shift ends (Nov 5 2026 rule)', () => 
     expect(v('available', '2026-11-05 20:31')).toBe(false);
     expect(v('available', '2026-11-05 20:29')).toBe(true);
   });
+  it('missing end time: visible after start through end of day, hidden next day', () => {
+    const n = (status: string, now: string) => offerVisibleInFeed(status, '2026-11-05', '14:00:00', null, now);
+    expect(n('available', '2026-11-05 15:00')).toBe(true);
+    expect(n('available', '2026-11-05 23:59')).toBe(true);
+    expect(n('available', '2026-11-06 00:00')).toBe(false);
+    expect(n('claimed', '2026-11-05 15:00')).toBe(true);
+    expect(n('approved', '2026-11-05 15:00')).toBe(false);
+  });
   it('overnight 10 PM-2 AM rolls to next day', () => {
     expect(shiftEndKey('2026-11-30', '22:00:00', '02:00:00')).toBe('2026-12-01 02:00');
     expect(offerVisibleInFeed('available', '2026-11-30', '22:00:00', '02:00:00', '2026-12-01 01:00')).toBe(true);
