@@ -1,0 +1,1 @@
+- Feed shift offers come only from useOpenShiftOffers' offerVisibleInFeed: available/claimed until the shift's store-local end (overnight rolls to next day); approved hides. Why: starting a shift must not hide its offer.
