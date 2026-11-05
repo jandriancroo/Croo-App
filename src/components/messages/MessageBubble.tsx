@@ -96,7 +96,9 @@ export function MessageBubble({
   // Ignore taps on the sheet right after it opens, so the long-press finger can't hit a row.
   const sheetOpenedAtRef = useRef(0);
   const canSelect = !!(canUnsend && isOwnMessage && !isPending && !isDeleted && !isAnnouncement && onStartSelect);
+  const longPressFiredRef = useRef(false);
   const openMobileActions = useCallback(() => {
+    longPressFiredRef.current = true;
     sheetOpenedAtRef.current = Date.now();
     setShowMobileActions(true);
   }, []);
@@ -108,6 +110,7 @@ export function MessageBubble({
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (isPending || isDeleted || isAnnouncement || selectMode) return;
     touchMovedRef.current = false;
+    longPressFiredRef.current = false;
     touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     longPressTimer.current = setTimeout(() => {
       if (!touchMovedRef.current) {
@@ -129,7 +132,12 @@ export function MessageBubble({
     }
   }, []);
 
-  const handleTouchEnd = useCallback(() => {
+  const handleTouchEnd = useCallback((e?: React.TouchEvent) => {
+    // The finger that opened the menu must not also tap it (stops the browser's follow-up click).
+    if (longPressFiredRef.current) {
+      longPressFiredRef.current = false;
+      if (e?.cancelable) e.preventDefault();
+    }
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
