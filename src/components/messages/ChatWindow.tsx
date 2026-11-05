@@ -396,7 +396,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated, 
                 <p>Everyone in this chat will see "message removed". This can't be undone.</p>
                 <ul className="space-y-1 text-xs">
                   {selectedMessages.map(m => (
-                    <li key={m.id} className="line-clamp-1 rounded bg-muted px-2 py-1">
+                    <li key={m.id} className="truncate rounded bg-muted px-2 py-1">
                       {m.content || (m.attachment_url ? 'Attachment' : 'Message')}
                     </li>
                   ))}
