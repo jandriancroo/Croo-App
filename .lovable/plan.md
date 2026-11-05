@@ -22,12 +22,21 @@
    - Clear the selection when switching chats.
 4. `src/hooks/useChatActions.tsx`: add `handleUnsendMessages(ids)`. It loops the existing `unsendMessage` for each id, updates the screen right away, and shows one toast ("3 messages removed for everyone", or a partial-failure count). The single-message `handleUnsendMessage` stays but no button uses it any more.
 
-No changes to `src/lib/chatMessages.ts`, the database, security rules, migrations, backend functions, native/iOS files, announcements feed, hiring chat (it doesn't use these components), Theo, punch/kiosk or shift offers.
+5. `drizzle/migrations/0089_messages_member_only_edit_delete.sql` (new, applied in this ship): Andy's SQL exactly as given. It drops and recreates the two policies "Users can delete their own messages" and "Users can update their own messages". Both still require the sender, and now also require the user to still be in that chat. No other policies, columns or tables change.
+
+### Important finding (checked on the live database)
+The current update rule already lets people change only messages they sent themselves, and "unsend" works by updating the message. So today an admin who taps Delete on someone else's message gets a "removed" toast, but nothing actually changes. To keep the new screens honest:
+- In select mode, only the user's **own** messages can be selected. Other people's messages show no marker and can't be tapped into the selection.
+- The "Select to delete" row and the desktop Select button only appear on the user's own messages.
+- `canUnsend={isAdmin}` is unchanged, so admins are still the only people who see these controls at all.
+
+No changes to `src/lib/chatMessages.ts`, other security rules, columns, backend functions, native/iOS files, announcements feed, hiring chat (it doesn't use these components), Theo, punch/kiosk or shift offers.
 
 ## Confirmations
 - No delete-for-me path is added.
 - Nothing deletes without the confirm box being accepted. Both direct one-tap delete calls are removed.
-- Who can delete is unchanged (admins via `canUnsend={isAdmin}`).
+- Who can delete is unchanged (admins via `canUnsend={isAdmin}`). Delete stays limited to your own messages, in chats you're still a member of.
+- No punch or kiosk changes.
 
 ## Verify
 - Browser checks on phone and desktop sizes, signed in as an admin in a test chat:
@@ -39,4 +48,8 @@ No changes to `src/lib/chatMessages.ts`, the database, security rules, migration
 - Build passes. Then publish to croohq.com.
 
 ## Rollback
-Revert the four files above.
+- Revert the four screen files above.
+- Recreate the two policies with the old check only (`auth.uid() = sender_id`) for delete and update. The new migration file is kept, as earlier ones are.
+
+## Database check after the migration
+Read back both policies to confirm the chat-member check is there and the select and insert policies are unchanged. Then, in the browser, an admin unsends their own message in a test chat to confirm unsend still works.
