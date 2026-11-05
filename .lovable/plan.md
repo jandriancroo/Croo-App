@@ -1,37 +1,57 @@
-# Offered shifts stay in the feed until approved or the shift ends
+> **Status: this plan was already approved and built earlier today (Nov 5), and was published to croohq.com.** The 0089 database change is applied: both message rules now require the sender to still be in the chat. Approving again changes nothing; there is no remaining work. Tell me if anything in the live version needs changing.
 
-## What I found (checked in code and the live database)
-- **Why started shifts vanish:** the feed's offer list (useOpenShiftOffers) drops any offer whose shift has already **started**, using store-local time.
-- **Other screens:** the Shift Swaps bar and the feed card don't filter by time on their own. The offer dialog only creates offers and does no time filtering.
-- **Approved offers are not hidden today.** The list includes `approved` offers and shows them as "Covered by …" until the shift starts. That breaks rule (1). Live there are 12 approved and 31 available offers.
-- **Overnight shifts exist:** 713 scheduled shifts end after midnight (end time earlier than start time), so the end-time check must roll those over to the next day.
-- **Michelle's offer (71342a1c…):** available, Nov 5, 2:00–8:30 PM, store time zone America/Chicago. Today it disappears at 2 PM.
-- **Important side effect:** after a shift starts, the database already refuses a claim, a manager approval or an Assign (`_shift_has_started` is checked in the claim trigger, `approve_shift_offer` and `assign_shift_offer`). Rule changes are out of scope, so after start the offer will be **visible, but nobody can claim, approve or assign it**.
+# Chat message multi-select delete with confirm
 
-## The change
-1. **useOpenShiftOffers.tsx**
-   - Show an offer while its status is still open: `available` (nobody has claimed it) or `claimed` (claim waiting for approval).
-   - Hide `approved` offers. That is rule (1): claimed and manager-approved.
-   - Replace the "not started" check with "not ended". The shift ends at its date plus end time in the store's time zone, rolled to the next day when the end is at or before the start (overnight). The offer stays visible until that moment passes.
-   - Fetch `end_time` along with the start time. If a shift has no end time, keep the current start-time behavior.
-   - Starting the shift no longer hides it, and a claim without approval doesn't hide it either.
-2. **OpenShiftCard.tsx** (screen text only)
-   - Once the shift has started, replace the Claim and Assign buttons with a small "Shift started" label, because the database would reject those taps anyway.
-   - If you'd rather keep the buttons, say so; tapping them after start would then show an error.
-3. **src/lib/shiftMarketplace.test.ts:** replace the not-started tests with tests for the new rule. Times use Michelle's shift in Chicago time:
-   - Before start (1:30 PM): visible.
-   - After start, before end (3 PM): visible.
-   - Claimed and waiting for approval (3 PM): visible.
-   - Claimed and approved: hidden.
-   - After end (8:31 PM): hidden.
-   - Overnight shift 10 PM–2 AM: visible at 1 AM the next day, hidden at 2:01 AM.
+## What changes for people
+- Long-press a message: opens reactions and Reply, and a **Select to delete** row (admins only, same as today's delete rights). That row deletes nothing. It only turns on select mode with that message already selected.
+- In select mode, tapping or clicking a message toggles a round marker beside it: an empty circle when not selected, a **filled dot** when selected. You can select up to **5**. Trying a 6th shows the toast "You can delete up to 5 messages at a time" and nothing is added.
+- A bar sits at the bottom of the chat (it replaces the typing box while select mode is on): "N selected", **Cancel** and **Delete**. Delete only shows once at least 1 message is selected. Cancel, or selecting nothing, leaves select mode.
+- Delete opens a confirm box: "Delete N messages for everyone?" with a short preview of each one. Nothing is deleted unless the user presses **Delete for everyone**. Cancel keeps the messages.
+- Desktop: the hover trash no longer deletes. It becomes a "Select" button (admins only) that enters the same select mode. After that, the steps and confirm box are the same as on mobile.
+- No delete-for-me anywhere. The only delete is the existing delete-for-everyone.
+- Long-press tap area: the message no longer moves when the menu opens. Text selection and the phone's own callout are turned off for the message area. After the menu opens, the finger has to lift and tap again, so the same touch can't land on a menu row. The menu also ignores taps for its first ~300 ms.
 
-No other files change. No database, schema, data, approval-flow, punch, kiosk or native/iOS changes. Old offers stay stored as history; the feed simply stops showing them.
+## Files touched (only these)
+1. `src/components/messages/MessageBubble.tsx`
+   - Remove both direct `onUnsend(message.id)` calls (desktop hover trash and the mobile "Delete for everyone" row).
+   - New props: `selectMode`, `isSelected`, `onToggleSelect`, `onStartSelect`. Remove the `onUnsend` prop.
+   - Selection marker (filled dot or empty circle) next to the bubble in select mode. In select mode a tap toggles selection, and reactions, reply and long-press are off.
+   - Long-press stability: `select-none`, `-webkit-touch-callout: none`, `touch-action: manipulation` on the bubble column. No transform or scale changes on press. The menu ignores taps until ~300 ms after opening.
+2. `src/components/messages/MemoizedMessageBubble.tsx`: pass the new props through, and add `selectMode` and `isSelected` to the memo comparison so the dots update.
+3. `src/components/messages/ChatWindow.tsx`
+   - Selection state (a list of ids, max 5, with the toast), the bottom bar, and a confirm box using the same AlertDialog pattern as Delete Chat.
+   - `canUnsend={isAdmin}` stays. Select controls only show when `canUnsend` is true.
+   - Clear the selection when switching chats.
+4. `src/hooks/useChatActions.tsx`: add `handleUnsendMessages(ids)`. It loops the existing `unsendMessage` for each id, updates the screen right away, and shows one toast ("3 messages removed for everyone", or a partial-failure count). The single-message `handleUnsendMessage` stays but no button uses it any more.
+
+5. `drizzle/migrations/0089_messages_member_only_edit_delete.sql` (new, applied in this ship): Andy's SQL exactly as given. It drops and recreates the two policies "Users can delete their own messages" and "Users can update their own messages". Both still require the sender, and now also require the user to still be in that chat. No other policies, columns or tables change.
+
+### Important finding (checked on the live database)
+The current update rule already lets people change only messages they sent themselves, and "unsend" works by updating the message. So today an admin who taps Delete on someone else's message gets a "removed" toast, but nothing actually changes. To keep the new screens honest:
+- In select mode, only the user's **own** messages can be selected. Other people's messages show no marker and can't be tapped into the selection.
+- The "Select to delete" row and the desktop Select button only appear on the user's own messages.
+- `canUnsend={isAdmin}` is unchanged, so admins are still the only people who see these controls at all.
+
+No changes to `src/lib/chatMessages.ts`, other security rules, columns, backend functions, native/iOS files, announcements feed, hiring chat (it doesn't use these components), Theo, punch/kiosk or shift offers.
+
+## Confirmations
+- No delete-for-me path is added.
+- Nothing deletes without the confirm box being accepted. Both direct one-tap delete calls are removed.
+- Who can delete is unchanged (admins via `canUnsend={isAdmin}`). Delete stays limited to your own messages, in chats you're still a member of.
+- No punch or kiosk changes.
 
 ## Verify
-- Run the tests above and the build.
-- In the preview, signed in, open Georgetown's feed and confirm Michelle's offer shows during its window (it's after 2 PM Chicago time now). No real claims or approvals will be made.
-- After that, publish to croohq.com. I can't make commits myself; I'll report the last commit before this work.
+- Browser checks on phone and desktop sizes, signed in as an admin in a test chat:
+  - Long-press shows the menu, and the select row deletes nothing.
+  - Selecting 1–5 shows filled dots. A 6th is blocked with the toast.
+  - Pressing Cancel in the confirm box leaves the messages unchanged.
+  - Desktop hover has no one-click delete.
+- Confirm Delete is checked only on a message I send to a test chat myself. It is not used on real staff messages.
+- Build passes. Then publish to croohq.com.
 
 ## Rollback
-Revert the three files.
+- Revert the four screen files above.
+- Recreate the two policies with the old check only (`auth.uid() = sender_id`) for delete and update. The new migration file is kept, as earlier ones are.
+
+## Database check after the migration
+Read back both policies to confirm the chat-member check is there and the select and insert policies are unchanged. Then, in the browser, an admin unsends their own message in a test chat to confirm unsend still works.
