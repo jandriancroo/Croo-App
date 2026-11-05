@@ -32,8 +32,27 @@ describe('roles', () => {
   });
 });
 
-import { storeNowKey, shiftNotStarted } from '@/hooks/useOpenShiftOffers';
-describe('feed hides started shifts', () => {
+import { storeNowKey, shiftNotStarted, offerVisibleInFeed, shiftEndKey } from '@/hooks/useOpenShiftOffers';
+describe('feed keeps open offers until the shift ends (Nov 5 2026 rule)', () => {
+  // Michelle's Georgetown offer: Nov 5, 2:00-8:30 PM America/Chicago.
+  const v = (status: string, now: string) => offerVisibleInFeed(status, '2026-11-05', '14:00:00', '20:30:00', now);
+  it('Chicago now key', () => expect(storeNowKey('America/Chicago', new Date('2026-11-05T21:00:00Z'))).toBe('2026-11-05 15:00'));
+  it('before start: visible', () => expect(v('available', '2026-11-05 13:30')).toBe(true));
+  it('after start, before end: visible', () => expect(v('available', '2026-11-05 15:00')).toBe(true));
+  it('claim waiting for approval: visible', () => expect(v('claimed', '2026-11-05 15:00')).toBe(true));
+  it('claimed and approved: hidden', () => expect(v('approved', '2026-11-05 13:30')).toBe(false));
+  it('after end: hidden', () => {
+    expect(v('available', '2026-11-05 20:30')).toBe(false);
+    expect(v('available', '2026-11-05 20:31')).toBe(false);
+    expect(v('available', '2026-11-05 20:29')).toBe(true);
+  });
+  it('overnight 10 PM-2 AM rolls to next day', () => {
+    expect(shiftEndKey('2026-11-30', '22:00:00', '02:00:00')).toBe('2026-12-01 02:00');
+    expect(offerVisibleInFeed('available', '2026-11-30', '22:00:00', '02:00:00', '2026-12-01 01:00')).toBe(true);
+    expect(offerVisibleInFeed('available', '2026-11-30', '22:00:00', '02:00:00', '2026-12-01 02:01')).toBe(false);
+  });
+});
+describe('shift started check (used for the Shift started label)', () => {
   it('store-local now key', () => expect(storeNowKey('America/Los_Angeles', new Date('2026-10-23T03:30:00Z'))).toBe('2026-10-22 20:30'));
   it('later today shows, earlier today hides', () => {
     expect(shiftNotStarted('2026-10-22', '21:00:00', '2026-10-22 20:30')).toBe(true);

@@ -9,6 +9,8 @@ export interface OpenShiftOffer {
   status: string;
   created_at: string;
   shift_date: string | null;
+  /** Shift has begun (store time); the server refuses claim/approve/assign after start. */
+  started: boolean;
 }
 
 /** "YYYY-MM-DD HH:MM" for now in the store's timezone. */
@@ -103,7 +105,7 @@ export function useOpenShiftOffers() {
           if (locId !== locationId) return null;
           // Visible until claimed+approved or the shift END passes (store time). Starting doesn't hide it.
           if (!offerVisibleInFeed(o.status, shift.shift_date, shift.start_time, shift.end_time, nowLocal)) return null;
-          return { id: o.id, shift_id: o.shift_id, status: o.status, created_at: o.created_at, shift_date: shift.shift_date };
+          return { id: o.id, shift_id: o.shift_id, status: o.status, created_at: o.created_at, shift_date: shift.shift_date, started: !!shift.shift_date && !shiftNotStarted(shift.shift_date, shift.start_time, nowLocal) };
         })
         .filter(Boolean) as OpenShiftOffer[];
     },

@@ -11,6 +11,8 @@ import { approveShiftOffer, assignShiftOffer, undoShiftOffer, UNDO_MS } from "@/
 
 interface OpenShiftCardProps {
   offerId: string;
+  /** Shift already began: still listed until it ends, but claim/assign are closed. */
+  started?: boolean;
   /** Kept for callers; the card is always the slim feed row now. */
   compact?: boolean;
 }
@@ -251,8 +253,8 @@ export function OpenShiftCard({ offerId }: OpenShiftCardProps) {
   const isMine = currentUserId === offer.offered_by?.id;
   const open = offer.status === 'available' || offer.status === 'claimed';
   const alreadyClaimed = claims.some((c) => c.user_id === currentUserId);
-  const canClaim = open && (isManagerPlus || (!isMine && !alreadyClaimed));
-  const canAssign = open && isManagerPlus;
+  const canClaim = open && !started && (isManagerPlus || (!isMine && !alreadyClaimed));
+  const canAssign = open && !started && isManagerPlus;
 
   // Slim row: date, time, role, who posted, existing status text, then Claim (everyone) and Assign (manager+).
   return (
@@ -266,6 +268,9 @@ export function OpenShiftCard({ offerId }: OpenShiftCardProps) {
         </div>
         {status && <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${status.c}`}>{status.t}</span>}
       </div>
+      {open && started && (
+        <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[10px] font-semibold text-muted-foreground">Shift started</span>
+      )}
       {canClaim && (
         <Button size="xs" className="shrink-0 rounded-full px-4" onClick={handleClaim} disabled={processing}>Claim</Button>
       )}
