@@ -1,34 +1,28 @@
-# Fix: offers with no end time must last until the end of the shift's day
+# Fix: chat "Read" receipts list can't scroll on phone
 
-## What's wrong now (checked in the code)
-When a shift has no end time, the feed still falls back to the old rule and hides the offer as soon as the shift **starts**. Jordan's tweak says it should stay until the end of that calendar day in the store's time zone.
+## What changes for Jordan
+Tapping **Read / Sent** under your own message opens a list that scrolls all the way through every Read and Unread name, on phone and desktop.
 
-Current commit: 08eafcf41.
+## Approach
+One file only: `src/components/messages/ReadReceipts.tsx`.
 
-## The change
-1. **`src/hooks/useOpenShiftOffers.tsx`**: one line in `offerVisibleInFeed`.
-   - When there's no end time, the offer stays until 11:59:59 PM on the shift date in store time, and hides once the next day begins.
-   - In code terms, the end becomes `"<shift_date> 24:00"`, which sorts after `23:59` and before the next day's `00:00` in the existing store-time comparison. It never falls back to the start time.
-   - Everything else stays as approved:
-     - available and claimed offers stay visible until the shift ends; approved offers are hidden
-     - shifts that end after midnight roll over to the next day
-     - the "Shift started" label still replaces Claim and Assign after start
-2. **`src/lib/shiftMarketplace.test.ts`**: new tests for a shift with no end time on Nov 5, starting at 2 PM:
-   - 3 PM, after start: visible.
-   - 11:59 PM: visible.
-   - Nov 6 at 12:00 AM: hidden.
-   - A claim waiting for approval with no end time, after start: visible.
-   - Approved with no end time: hidden.
-   - The existing tests for Michelle's 2:00–8:30 PM Chicago shift stay as they are (visible through 8:29, hidden at 8:30).
+- Swap the small pop-up for the same kind of window the announcement "Seen by" list uses (the existing Dialog), on all screen sizes, so phone and desktop behave the same.
+- Title: "Read receipts". Body keeps the exact same two sections, counts ("Read · 3", "Unread · 11"), avatars, check icons, faded unread rows and "No recipients yet" text.
+- List area: bounded height (`max-h-[60vh]`), `overflow-y-auto`, `overscroll-contain`, `touch-pan-y`, iOS momentum scrolling — so the finger scroll moves the list, not the chat behind it.
+- Trigger button (Read / Sent with checks) stays identical.
 
-No other files. No data updates, schedule reassignments, database, punch, kiosk or native/iOS changes.
-
-## Publishing (blocker)
-The last two publishes went out because this workspace doesn't require security findings to be fixed first. The 26 critical findings are still open; they're older and unrelated to this fix. As you asked, I'll treat them as a deployment blocker: after the fix and tests pass, I will **not** publish. Jordan decides whether to publish once he has reviewed them in the Security view.
+## Not changing
+- Sender-only visibility (`senderId !== currentUserId` → nothing shown).
+- Fetch/query code, the is_active / appears_on_schedule filter, sender exclusion.
+- No schema, RLS, migrations, other chat features, punch/kiosk, shift offers, native/iOS/TestFlight files.
 
 ## Verify
-- Run the tests and the build.
-- In the preview, Georgetown's feed: Michelle's offer still shows (before 8:30 PM Chicago).
+- Phone-size browser test (390×844) in a big chat: open receipts, scroll Unread to the last name, close; chat behind didn't scroll.
+- Desktop check: same window opens and scrolls.
+- Build passes. Then publish to croohq.com — only if the security-findings blocker from earlier is cleared by Jordan; otherwise I'll stop and report it.
+
+## Report
+Files changed, build result, commit SHA. Current commit before change: see readback at implementation.
 
 ## Rollback
-Revert the two files.
+Revert the one file.
