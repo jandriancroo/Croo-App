@@ -30,7 +30,7 @@ interface ShiftClaim {
 }
 
 /** Open shift slim row in the feed's Open Shifts card: Claim (everyone), Assign (manager+), Undo via toast. */
-export function OpenShiftCard({ offerId }: OpenShiftCardProps) {
+export function OpenShiftCard({ offerId, started = false }: OpenShiftCardProps) {
   const [offer, setOffer] = useState<any>(null);
   const [claims, setClaims] = useState<ShiftClaim[]>([]);
   const [loading, setLoading] = useState(true);
