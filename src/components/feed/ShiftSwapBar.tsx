@@ -25,7 +25,7 @@ export function ShiftSwapBar({ offers }: { offers: OpenShiftOffer[] }) {
       </div>
       <div className="divide-y divide-border border-t border-border">
         {sorted.map((o) => (
-          <OpenShiftCard key={o.id} offerId={o.id} compact />
+          <OpenShiftCard key={o.id} offerId={o.id} compact started={o.started} />
         ))}
       </div>
     </div>
