@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Settings, Trash2, Megaphone, Users, Loader2, ChevronDown, CheckCheck } from 'lucide-react';
@@ -86,6 +86,49 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated, 
   });
 
   const displayMessages = messages;
+
+  // Multi-select delete-for-everyone (admins, own messages only, max 5, always confirmed).
+  const MAX_SELECT = 5;
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deletingSelected, setDeletingSelected] = useState(false);
+
+  const exitSelect = useCallback(() => {
+    setSelectMode(false);
+    setSelectedIds([]);
+    setConfirmDeleteOpen(false);
+  }, []);
+
+  useEffect(() => { exitSelect(); }, [chatId, exitSelect]);
+
+  const toggleSelect = useCallback((m: { id: string }) => {
+    setSelectedIds(prev => {
+      if (prev.includes(m.id)) return prev.filter(id => id !== m.id);
+      if (prev.length >= MAX_SELECT) {
+        toast.error(`You can delete up to ${MAX_SELECT} messages at a time`);
+        return prev;
+      }
+      return [...prev, m.id];
+    });
+  }, []);
+
+  const startSelect = useCallback((m: { id: string }) => {
+    setSelectMode(true);
+    setSelectedIds([m.id]);
+  }, []);
+
+  const selectedMessages = displayMessages.filter(m => selectedIds.includes(m.id));
+
+  const confirmDeleteSelected = useCallback(async () => {
+    setDeletingSelected(true);
+    try {
+      await actions.handleUnsendMessages(selectedIds);
+    } finally {
+      setDeletingSelected(false);
+      exitSelect();
+    }
+  }, [actions, selectedIds, exitSelect]);
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -272,7 +315,10 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated, 
                     onReaction={actions.handleReaction}
                     onReply={setReplyToMessage}
                     onImageClick={setViewingImage}
-                    onUnsend={actions.handleUnsendMessage}
+                    selectMode={selectMode}
+                    isSelected={selectedIds.includes(message.id)}
+                    onToggleSelect={toggleSelect}
+                    onStartSelect={startSelect}
                     sending={sending}
                   />
                 </div>
@@ -291,8 +337,21 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated, 
         </div>
       )}
 
+      {/* Multi-select delete bar */}
+      {selectMode && (
+        <div className="border-t border-border px-4 py-3 flex items-center gap-3 bg-background" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+          <span className="text-sm font-medium flex-1">{selectedIds.length} of {MAX_SELECT} selected</span>
+          <Button variant="ghost" onClick={exitSelect}>Cancel</Button>
+          {selectedIds.length > 0 && (
+            <Button variant="destructive" onClick={() => setConfirmDeleteOpen(true)}>
+              <Trash2 className="h-4 w-4 mr-1.5" /> Delete
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Input */}
-      {!chatDetails?.is_announcement && (
+      {!chatDetails?.is_announcement && !selectMode && (
         <IMessageInput
           value={newMessage}
           onChange={setNewMessage}
@@ -320,6 +379,39 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated, 
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={actions.handleDeleteChat} className="bg-destructive text-destructive-foreground">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete selected messages confirmation */}
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={(o) => { if (!deletingSelected) setConfirmDeleteOpen(o); }}>
+        <AlertDialogContent className="duo-popup">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {selectedIds.length} {selectedIds.length === 1 ? 'message' : 'messages'} for everyone?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>Everyone in this chat will see "message removed". This can't be undone.</p>
+                <ul className="space-y-1 text-xs">
+                  {selectedMessages.map(m => (
+                    <li key={m.id} className="line-clamp-1 rounded bg-muted px-2 py-1">
+                      {m.content || (m.attachment_url ? 'Attachment' : 'Message')}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingSelected}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deletingSelected}
+              onClick={(e) => { e.preventDefault(); void confirmDeleteSelected(); }}
+              className="bg-destructive text-destructive-foreground"
+            >
+              {deletingSelected ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete for everyone'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
