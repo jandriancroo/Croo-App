@@ -756,7 +756,7 @@ async function notifyEmployeeJoined(payload: any): Promise<Response> {
         </table>
       </div>
       <p style="color:#666;font-size:13px;">They're ready to be added to schedules and assigned tasks.</p>
-      ${getCTAButton("https://croohq.com/user-management", "View Team")}
+      ${getCTAButton("https://croohq.com/users", "View Team")}
     </td></tr>
     ${getEmailFooter()}
   `);
