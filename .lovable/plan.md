@@ -1,35 +1,42 @@
-# Lock down the internal widget-permission helper
+# Fix: weekly "Schedule Published" emails never reach the email queue
 
-## What changes for Jordan
-Nothing you can see. Signed-in users lose the ability to call a behind-the-scenes permission checker directly. Adding, editing, removing and hiding dashboard cubes keep working the same.
+Current commit: `5afaa33d8`
 
-## What I checked (before planning)
-- The app code never calls the checker. It only shows up in the auto-generated database types and in a test that builds a fake copy of it on its own. No direct calls from the app.
-- In the live database, only three functions call it: add, edit and delete widget. All three run with full rights, so they keep working after the lock-down. Hiding a widget (`toggle_widget_hidden_for_self`) never calls it.
-- Right now the checker's search path is `public`, and signed-in users and the service role can both call it.
-- Current commit: 99e5864e6.
+## What's wrong (confirmed in code)
+- The email-queue step tries to save each email with a "skip if it's already there" method. That method needs a database rule the queue table doesn't have, so every save fails.
+- The failure is caught and ignored for each person, and the function still reports success with 0 sent. That's why Hemet (Nov 9–15) and Georgetown (Nov 16) got 0 emails.
 
-## Change
-One new migration (the next file number in drizzle/migrations), with Andy's exact SQL:
+## Fix (one function)
+`supabase/functions/send-weekly-schedule-email/index.ts`
+1. The queue step does a plain save with the same fields as today: from, to, subject, html, `source: "schedule_published"`, dedup key `schedule_{schedule_id}_{user_id}`, metadata `{}`.
+2. If the database says "this email is already queued" (code `23505`, from the existing duplicate guard), treat it as already queued. No error. It counts as skipped, not as sent.
+3. Any other error counts as a failure and gets logged.
+4. Count sent, skipped and failed separately:
+   - If anything failed and nothing was sent, return an error (HTTP 500 with `{ success:false, sentCount, skippedCount, failCount }`).
+   - If some sent and some failed, return success with all three counts.
+   - It never returns `{ success:true, sentCount:0 }` after a failure.
+5. Unchanged: who gets the email (`deliverableEmail` + bounced/suppressed/inactive/@example.com list), the weekly email always goes out (no settings check), the template and subject, the source and dedup key, and the sign-in and preview paths.
 
-```sql
-alter function public._validate_widget_authority set search_path = public, pg_temp;
-revoke execute on function public._validate_widget_authority from public, anon, authenticated;
-```
+## Tests
+`supabase/functions/send-weekly-schedule-email/index.test.ts` gets new cases alongside the 6 existing ones. The real save step is tested with a fake queue that:
+- saves fine → 1 sent, 200
+- returns `23505` → no error, 1 skipped, 0 sent, not counted as a failure
+- returns another error → 500, `success:false`, failCount 1
+- is a mix → 200 with both counts
 
-The service role keeps its access. Nothing else changes: no other schema, RLS, ReadReceipts, punch/kiosk, shift offers or native files.
+The existing recipient and policy tests must still pass. To test the save step directly, a small optional database-client hook goes into the queue step. It is used only by tests and doesn't change live behavior.
 
-## Verify
-- Read back the checker's settings: search path is `public, pg_temp`, and no grant exists for `authenticated` or `anon`.
-- As a real signed-in manager in the preview: add a cube, edit it, hide it, unhide it and delete it. All five should succeed.
-- As the same user, call the checker directly. It should be refused with "permission denied".
-- Run the existing dashboard cube test file (`dashboardCubeAccess.test.ts`), and check the build passes.
-- Do not publish. Ryan publishes.
+## After approval
+- Build the change and run the function's tests.
+- Do NOT deploy, publish, re-send or add anything to the queue until Ryan says so.
+- When Ryan clears the deploy, the check is one service run on a known schedule. Then read back `email_queue` rows with `source=schedule_published`. Replaying past publishes is separate and waits for Jordan.
 
-## Report
-The search result, the migration file name, the test results and the commit.
+## Out of scope
+No schema/RLS/migrations, no changes to notifyEmail or queue_notification_email, no other notification types, punch/kiosk, security piggybacks or native/iOS.
+
+## Files
+- `supabase/functions/send-weekly-schedule-email/index.ts`
+- `supabase/functions/send-weekly-schedule-email/index.test.ts` (tests only)
 
 ## Rollback
-```sql
-grant execute on function public._validate_widget_authority to authenticated;
-```
+Revert both files.
