@@ -65,7 +65,7 @@ function formatTime12h(time24: string): string {
   return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
 }
 
-export function createHandler(deps: { client?: () => any; authenticate?: typeof requireCaller; queue?: typeof queueEmail } = {}) {
+export function createHandler(deps: { client?: () => any; authenticate?: typeof requireCaller; queue?: (opts: any) => Promise<any> } = {}) {
 return async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
