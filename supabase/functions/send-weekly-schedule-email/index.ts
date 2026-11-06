@@ -8,9 +8,14 @@ import { deliverableEmail, suppressedEmailSet } from '../_shared/emailRecipients
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-async function queueEmail(opts: { from: string; to: string[]; subject: string; html: string; source: string; dedupKey?: string }) {
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const { error } = await supabase.from('email_queue').upsert({
+// Plain insert: email_queue only has a PARTIAL unique index on dedup_key, which
+// PostgREST's onConflict cannot target. A 23505 from that index = already queued.
+export async function queueEmail(
+  opts: { from: string; to: string[]; subject: string; html: string; source: string; dedupKey?: string },
+  client?: any,
+): Promise<'queued' | 'duplicate'> {
+  const supabase = client ?? createClient(supabaseUrl, supabaseServiceKey);
+  const { error } = await supabase.from('email_queue').insert({
     from_address: opts.from,
     to_addresses: opts.to,
     subject: opts.subject,
@@ -18,12 +23,17 @@ async function queueEmail(opts: { from: string; to: string[]; subject: string; h
     source: opts.source,
     dedup_key: opts.dedupKey || null,
     metadata: {},
-  }, { onConflict: 'dedup_key', ignoreDuplicates: true });
+  });
   if (error) {
+    if (error.code === '23505') {
+      console.log('[schedule-email] Already queued (dedup)');
+      return 'duplicate';
+    }
     console.error(`[schedule-email] Queue insert failed:`, error);
     throw error;
   }
   console.log('[schedule-email] Queued');
+  return 'queued';
 }
 
 const corsHeaders = {
@@ -55,7 +65,7 @@ function formatTime12h(time24: string): string {
   return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
 }
 
-export function createHandler(deps: { client?: () => any; authenticate?: typeof requireCaller; queue?: typeof queueEmail } = {}) {
+export function createHandler(deps: { client?: () => any; authenticate?: typeof requireCaller; queue?: (opts: any) => Promise<any> } = {}) {
 return async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -222,6 +232,8 @@ return async (req: Request) => {
     const weekLabel = `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 
     let sentCount = 0;
+    let skippedCount = 0;
+    let failCount = 0;
 
     for (const profile of profiles) {
       const email = deliverableEmail(profile, blockedEmails);
@@ -272,7 +284,7 @@ return async (req: Request) => {
       `);
 
       try {
-        await (deps.queue ?? queueEmail)({
+        const result = await (deps.queue ?? queueEmail)({
           from: "CrooHQ <hello@croohq.email>",
           to: [email],
           subject: `Schedule Published: ${weekLabel} - ${locationName}`,
@@ -280,14 +292,18 @@ return async (req: Request) => {
           source: "schedule_published",
           dedupKey: `schedule_${schedule_id}_${profile.id}`,
         });
-        sentCount++;
+        if (result === 'duplicate') skippedCount++; else sentCount++;
       } catch (e) {
-        console.error('[schedule-email] Queue failed');
+        failCount++;
+        console.error('[schedule-email] Queue failed', e?.code ?? '', e?.message ?? '');
       }
     }
 
-    console.log(`[schedule-email] Sent ${sentCount} schedule emails for ${locationName}`);
-    return new Response(JSON.stringify({ success: true, sentCount }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    console.log(`[schedule-email] ${locationName}: sent ${sentCount}, skipped ${skippedCount}, failed ${failCount}`);
+    if (failCount > 0 && sentCount === 0) {
+      return new Response(JSON.stringify({ success: false, sentCount, skippedCount, failCount }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    return new Response(JSON.stringify({ success: true, sentCount, skippedCount, failCount }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("[send-weekly-schedule-email] Error:", error);
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
