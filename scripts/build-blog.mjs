@@ -5,7 +5,7 @@
 import fs from "node:fs"; import path from "node:path";
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const SRC = path.join(ROOT, "blog-src"), OUT = path.join(ROOT, "public/blog"), A = path.join(OUT, "assets");
-const SITE = "https://croohq.com", DEMO = "https://croohq.com/#see-it";
+const SITE = "https://croohq.com", DEMO = "https://supaclose.lovable.app/demo";
 const BIO = "Ran four restaurant locations over 12 years before building CrooHQ.";
 const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 const inl = s => esc(s).replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2">$1</a>').replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
