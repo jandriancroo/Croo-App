@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -61,6 +61,23 @@ describe("homepage demo request links", () => {
     expect(hero?.textContent).not.toContain("Photo proof");
     expect(container.querySelectorAll(".pm-step")).toHaveLength(3);
     expect(Array.from(container.querySelectorAll(".pm-label")).map(node => node.textContent)).toEqual(["Checklists", "Punch clock", "Scheduling"]);
+  });
+
+  it("counts cash by denomination and opens a store rollup", async () => {
+    const { default: HomeDemos } = await vi.importActual<typeof import("@/components/home/HomeDemos")>("@/components/home/HomeDemos");
+    render(<HomeDemos />);
+    fireEvent.click(screen.getByRole("tab", { name: "Cash logs" }));
+    expect(screen.getByText("Short $12.00")).toBeTruthy();
+    expect(screen.getByText("Expected bank")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^Add one \$1$/ }));
+    expect(screen.getByText("Short $11.00")).toBeTruthy();
+    expect(screen.getByText("$189.00")).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "Every location" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open checklists" }));
+    expect(screen.queryByRole("button", { name: /Oak Plaza/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Westfield/ }));
+    expect(screen.getByText("Not Started")).toBeTruthy();
+    expect(screen.getByText("Labor 31.2% · budget 26%")).toBeTruthy();
   });
 
   it("keeps the interactive product preview anchor", async () => {
