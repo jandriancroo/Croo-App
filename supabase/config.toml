@@ -173,5 +173,8 @@ verify_jwt = true
 [functions.toast-status]
 verify_jwt = false
 
+[functions.toast-match-digest]
+verify_jwt = true
+
 [functions.overdue-checklist-digest]
 verify_jwt = true

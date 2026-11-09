@@ -15,6 +15,7 @@ import {
   getVersionDisplay,
   getRoleDisplayName,
 } from '@/hooks/useUserManagementData';
+import { ToastLinkPlus, ToastLinkedBadge } from '@/components/users/ToastUserMarks';
 
 interface UserManagementTableProps {
   users: UserProfile[];
@@ -31,6 +32,9 @@ interface UserManagementTableProps {
   isSuperAdmin: boolean;
   currentVersion: string;
   onViewUser: (user: UserProfile) => void;
+  toastLinking?: boolean;
+  linkedUserIds?: string[];
+  onLinkToast?: (user: UserProfile) => void;
 }
 
 const getRoleIcon = (role: AppRole) => {
@@ -66,8 +70,10 @@ export const UserManagementTable = ({
   users, loading, activeTab, setActiveTab, bulkMode, setBulkMode,
   selectedUsers, setSelectedUsers, toggleUserSelection, toggleSelectAll,
   isAdmin, isSuperAdmin, currentVersion, onViewUser,
+  toastLinking = false, linkedUserIds = [], onLinkToast,
 }: UserManagementTableProps) => {
   const { toast } = useToast();
+  const linked = new Set(linkedUserIds);
 
   return (
     <>
@@ -115,7 +121,10 @@ export const UserManagementTable = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.filter(u => u.is_active === (activeTab === 'active')).map((u) => (
+            {users.filter(u => u.is_active === (activeTab === 'active')).map((u) => {
+              const toastLinked = toastLinking && linked.has(u.id);
+              const toastUnlinked = toastLinking && !linked.has(u.id);
+              return (
               <TableRow key={u.id} className="hover:bg-muted/50">
                 {isAdmin && bulkMode && (
                   <TableCell onClick={(e) => e.stopPropagation()}>
@@ -123,18 +132,25 @@ export const UserManagementTable = ({
                   </TableCell>
                 )}
                 <TableCell className="cursor-pointer w-full" onClick={() => onViewUser(u)}>
-                  <div className="flex items-center gap-3 w-full">
+                  <div className="flex items-center gap-2 w-full">
+                    <div className={`flex items-center gap-3 min-w-0 flex-1 ${toastUnlinked ? 'opacity-50' : ''}`}>
                     <Avatar className="h-10 w-10 flex-shrink-0">
                       <AvatarImage src={u.profile_photo_url || undefined} />
                       <AvatarFallback>{getInitials(getDisplayName(u.full_name, u.nickname))}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0 overflow-hidden">
                       <div className="hidden md:block">
-                        <div className="font-medium truncate">{getDisplayName(u.full_name, u.nickname) || 'No name'}</div>
+                        <div className="font-medium truncate flex items-center gap-1.5">
+                          <span className="truncate">{getDisplayName(u.full_name, u.nickname) || 'No name'}</span>
+                          {toastLinked && <ToastLinkedBadge />}
+                        </div>
                         <div className="text-sm text-muted-foreground truncate">{u.email}</div>
                       </div>
                       <div className="md:hidden">
-                        <div className="font-medium truncate">{getDisplayName(u.full_name, u.nickname) || 'No name'}</div>
+                        <div className="font-medium truncate flex items-center gap-1.5">
+                          <span className="truncate">{getDisplayName(u.full_name, u.nickname) || 'No name'}</span>
+                          {toastLinked && <ToastLinkedBadge />}
+                        </div>
                         <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
                           <Badge variant={getUserStatusDisplay(u).variant} className="text-xs px-1.5 py-0">
                             {getUserStatusDisplay(u).label}
@@ -166,19 +182,21 @@ export const UserManagementTable = ({
                         </div>
                       </div>
                     </div>
+                    </div>
+                    {toastUnlinked && <ToastLinkPlus onClick={() => onLinkToast?.(u)} />}
                   </div>
                 </TableCell>
-                <TableCell className="hidden md:table-cell whitespace-nowrap">
+                <TableCell className={`hidden md:table-cell whitespace-nowrap ${toastUnlinked ? 'opacity-50' : ''}`}>
                   <Badge variant={getUserStatusDisplay(u).variant} className="whitespace-nowrap">{getUserStatusDisplay(u).label}</Badge>
                 </TableCell>
-                <TableCell className="hidden md:table-cell whitespace-nowrap">
+                <TableCell className={`hidden md:table-cell whitespace-nowrap ${toastUnlinked ? 'opacity-50' : ''}`}>
                   <Badge variant={getRoleBadgeVariant(u.role!) as any} className="gap-1 whitespace-nowrap">
                     {getRoleIcon(u.role!)}
                     {getRoleDisplayName(u.role!)}
                   </Badge>
                 </TableCell>
                 {isSuperAdmin && (
-                  <TableCell className="hidden md:table-cell">
+                  <TableCell className={`hidden md:table-cell ${toastUnlinked ? 'opacity-50' : ''}`}>
                     {(() => {
                       const versionInfo = getVersionDisplay(u.app_version, currentVersion);
                       const isOutdated = !versionInfo.isCurrent && u.app_version;
@@ -201,7 +219,7 @@ export const UserManagementTable = ({
                     })()}
                   </TableCell>
                 )}
-                <TableCell className="hidden md:table-cell whitespace-nowrap">
+                <TableCell className={`hidden md:table-cell whitespace-nowrap ${toastUnlinked ? 'opacity-50' : ''}`}>
                   {u.last_login_at ? (
                     <span className="text-xs text-muted-foreground">
                       {new Date(u.last_login_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -210,13 +228,13 @@ export const UserManagementTable = ({
                     <span className="text-xs text-muted-foreground">Never</span>
                   )}
                 </TableCell>
-                <TableCell className="hidden md:table-cell">
+                <TableCell className={`hidden md:table-cell ${toastUnlinked ? 'opacity-50' : ''}`}>
                   <div className="flex items-center justify-center">
                     {u.has_certification ? <Check className="h-5 w-5 text-green-500" /> : <span className="text-red-500 text-lg">×</span>}
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+            );})}
           </TableBody>
         </Table>
       )}

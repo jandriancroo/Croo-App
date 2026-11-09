@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
 import { EmployeeProfileDialog } from '@/components/users/EmployeeProfileDialog';
+import { ToastLinkField } from '@/components/users/ToastLinkField';
 import { BulkActionsBar } from '@/components/users/BulkActionsBar';
 import { BulkWageUpdateDialog } from '@/components/users/BulkWageUpdateDialog';
 import { I9RequestDialog } from '@/components/users/I9RequestDialog';
@@ -306,6 +307,26 @@ export const UserManagementDialogs = ({ data, duoDock = false }: UserManagementD
             </Button>
 
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!data.toastLinkUser} onOpenChange={(open) => { if (!open) data.setToastLinkUser(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Link to Toast</DialogTitle>
+            <DialogDescription>
+              {data.toastLinkUser?.full_name || data.toastLinkUser?.email || 'This person'} is not linked to a Toast employee at this store.
+            </DialogDescription>
+          </DialogHeader>
+          {data.toastLinkUser && data.currentLocation?.id && (
+            <ToastLinkField
+              key={data.toastLinkUser.id}
+              userId={data.toastLinkUser.id}
+              currentLocationId={data.currentLocation.id}
+              startOpen
+              onLinked={data.fetchUsers}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
