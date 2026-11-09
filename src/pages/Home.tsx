@@ -74,6 +74,167 @@ const CHIPS = [
 
 const FEATURES = ["Punch clock", "Checklists", "Scheduling", "Team chat", "Hiring", "Inventory", "Dashboard", "POS sync"];
 
+const STACK_CSS = `
+.hme .stack-map{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,320px);gap:88px;align-items:center;margin-top:56px}
+.hme .stack-old{list-style:none;display:flex;flex-direction:column;gap:22px}
+.hme .stack-old li{min-height:52px;display:flex;align-items:center;font-size:26px;font-weight:700;line-height:1.25}
+.hme .stack-old s{position:relative;text-decoration:none;color:var(--ink);transition:color .45s cubic-bezier(.16,.84,.24,1)}
+.hme .stack-old s::after{content:"";position:absolute;left:0;right:0;top:50%;height:2px;background:#6f6a63;transform:scaleX(0);transform-origin:left center;transition:transform .45s cubic-bezier(.16,.84,.24,1)}
+.hme .stack-down{display:none}
+.hme .stack-old li.is-struck s{color:var(--home-tone-9);text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:#6f6a63}
+.hme .stack-old li.is-struck s::after{transform:scaleX(1)}
+.hme .stack-arrows{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.hme .stack-arrows path{fill:none;stroke:var(--orange);stroke-width:2.5;stroke-linecap:round}
+.hme .stack-solution{position:relative;z-index:1}
+.hme .stack-kicker{margin:0 0 12px;text-align:center;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+.hme .stack-phone{opacity:.42;filter:saturate(.2);transition:opacity .6s cubic-bezier(.16,.84,.24,1),filter .6s cubic-bezier(.16,.84,.24,1)}
+.hme .stack-map.is-lit .stack-phone{opacity:1;filter:none}
+.hme .stack-mods{list-style:none;display:flex;flex-direction:column;gap:8px;padding:14px 12px 6px}
+.hme .stack-mod{border-radius:12px;padding:10px 12px;font-size:14px;font-weight:800;line-height:1.3;color:var(--teal-d);background:transparent;border:1px solid transparent;opacity:.4;transition:opacity .45s cubic-bezier(.16,.84,.24,1),background .45s cubic-bezier(.16,.84,.24,1),border-color .45s cubic-bezier(.16,.84,.24,1)}
+.hme .stack-map.is-lit .stack-mod{opacity:1;background:var(--art-1);border-color:var(--art-3)}
+@media(max-width:760px){
+  .hme .stack-map{grid-template-columns:1fr;gap:36px;margin-top:28px}
+  .hme .stack-old li{font-size:17px;min-height:44px}
+  .hme .stack-solution{width:min(100%,320px);justify-self:center}
+  .hme .stack-mod{font-size:13px}
+  .hme .stack-arrows{display:none}
+  .hme .stack-old li{flex-direction:column;align-items:flex-start;gap:0}
+  .hme .stack-down{display:block;position:relative;width:2px;height:0;margin:8px 0 2px 18px;background:var(--orange);transition:height .4s cubic-bezier(.16,.84,.24,1)}
+  .hme .stack-down::before{content:"";position:absolute;left:-4px;bottom:-1px;border:5px solid transparent;border-top:6px solid var(--orange);border-bottom:0;opacity:0}
+  .hme .stack-old li.is-struck .stack-down{height:18px}
+  .hme .stack-old li.is-struck .stack-down::before{opacity:1}
+}
+@media(prefers-reduced-motion:reduce){
+  .hme .stack-old s,.hme .stack-old s::after,.hme .stack-phone,.hme .stack-mod{transition:none!important}
+  .hme .stack-old s{color:var(--home-tone-9);text-decoration:line-through;text-decoration-thickness:2px}
+  .hme .stack-old s::after{transform:scaleX(1)}
+  .hme .stack-down{height:18px;transition:none}
+  .hme .stack-down::before{opacity:1}
+  .hme .stack-phone,.hme .stack-mod{opacity:1;filter:none}
+  .hme .stack-mod{background:var(--art-1);border-color:var(--art-3)}
+}
+`;
+
+function StackMap() {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const leftRefs = useRef<(HTMLLIElement | null)[]>([]);
+  const rightRefs = useRef<(HTMLLIElement | null)[]>([]);
+  const paths = useRef<(SVGPathElement | null)[]>([]);
+  const heads = useRef<(SVGPolygonElement | null)[]>([]);
+  useLayoutEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const mobileQuery = window.matchMedia("(max-width: 760px)");
+    let frame = 0;
+    const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+    const lengthOf = (path: SVGPathElement) => {
+      try { return typeof path.getTotalLength === "function" ? path.getTotalLength() : 0; }
+      catch { return 0; }
+    };
+    const layout = () => {
+      const box = map.getBoundingClientRect();
+      const mobile = mobileQuery.matches;
+      paths.current.forEach((path, index) => {
+        const from = leftRefs.current[index];
+        const to = rightRefs.current[index];
+        const head = heads.current[index];
+        if (!path || !from || !to) return;
+        const start = from.getBoundingClientRect();
+        const end = to.getBoundingClientRect();
+        const x1 = (mobile ? start.left + start.width / 2 : start.right) - box.left;
+        const y1 = (mobile ? start.bottom : start.top + start.height / 2) - box.top;
+        const x2 = (mobile ? end.left + end.width / 2 : end.left) - box.left;
+        const y2 = (mobile ? end.top : end.top + end.height / 2) - box.top;
+        const midX = (x1 + x2) / 2;
+        const midY = (y1 + y2) / 2;
+        path.setAttribute("d", mobile
+          ? `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`
+          : `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`);
+        const len = lengthOf(path);
+        path.style.strokeDasharray = `${len}`;
+        path.dataset.len = String(len);
+        if (head) {
+          const angle = Math.atan2(y2 - (mobile ? midY : y2), x2 - (mobile ? x2 : midX));
+          const size = 7;
+          const tipX = x2;
+          const tipY = y2;
+          const p1x = tipX - Math.cos(angle) * size - Math.sin(angle) * size * 0.7;
+          const p1y = tipY - Math.sin(angle) * size + Math.cos(angle) * size * 0.7;
+          const p2x = tipX - Math.cos(angle) * size + Math.sin(angle) * size * 0.7;
+          const p2y = tipY - Math.sin(angle) * size - Math.cos(angle) * size * 0.7;
+          head.setAttribute("points", `${tipX},${tipY} ${p1x},${p1y} ${p2x},${p2y}`);
+        }
+      });
+    };
+    const paint = () => {
+      const reduced = media.matches;
+      const rect = map.getBoundingClientRect();
+      const raw = clamp((window.innerHeight * 0.9 - rect.top) / (window.innerHeight * 0.4), 0, 1);
+      const progress = reduced ? 1 : raw;
+      const steps = STACK_ROWS.length;
+      leftRefs.current.forEach((item, index) => item?.classList.toggle("is-struck", progress >= index / (steps + 1)));
+      paths.current.forEach((path, index) => {
+        if (!path) return;
+        const len = Number(path.dataset.len || 0);
+        const start = index / (steps + 1);
+        const span = 1 / (steps + 1);
+        const t = reduced ? 1 : clamp((progress - start) / span, 0, 1);
+        const eased = t * t * (3 - 2 * t);
+        path.style.strokeDashoffset = String(len * (1 - eased));
+        const head = heads.current[index];
+        if (head) head.style.opacity = String(eased > 0.82 ? clamp((eased - 0.82) / 0.18, 0, 1) : 0);
+      });
+      map.classList.toggle("is-lit", progress >= (steps - 0.2) / (steps + 1));
+    };
+    const update = () => { frame = 0; layout(); paint(); };
+    const queue = () => { if (!frame) frame = requestAnimationFrame(update); };
+    update();
+    window.addEventListener("scroll", queue, { passive: true });
+    window.addEventListener("resize", queue);
+    media.addEventListener("change", queue);
+    mobileQuery.addEventListener("change", queue);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", queue);
+      window.removeEventListener("resize", queue);
+      media.removeEventListener("change", queue);
+      mobileQuery.removeEventListener("change", queue);
+    };
+  }, []);
+  return (
+    <div className="stack-map" ref={mapRef}>
+      <ul className="stack-old">
+        {STACK_ROWS.map(([before], index) => (
+          <li key={before} ref={node => { leftRefs.current[index] = node; }}><s>{before}</s><span className="stack-down" aria-hidden="true" /></li>
+        ))}
+      </ul>
+      <svg className="stack-arrows" aria-hidden="true">
+        {STACK_ROWS.map(([before], index) => (
+          <g key={before}>
+            <path ref={node => { paths.current[index] = node; }} d="M0 0" />
+            <polygon ref={node => { heads.current[index] = node; }} points="0,0 0,0 0,0" fill="var(--orange)" />
+          </g>
+        ))}
+      </svg>
+      <div className="stack-solution">
+        <p className="stack-kicker">One solution</p>
+        <div className="pm-device stack-phone">
+          <div className="pm-hardware">
+            <div className="pm-bar"><span className="pm-cam" /><span>CrooHQ</span></div>
+            <ul className="stack-mods">
+              {STACK_ROWS.map(([, after], index) => (
+                <li key={after} className="stack-mod" ref={node => { rightRefs.current[index] = node; }}>{after}</li>
+              ))}
+            </ul>
+            <div className="pm-home" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const Home = () => {
 
   const rootRef = useRef<HTMLDivElement>(null);
@@ -97,11 +258,44 @@ const Home = () => {
     let primed = false;
     const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
     const ease = (value: number) => 1 - Math.pow(1 - value, 3);
+    let fittedW = -1;
+    let fittedH = -1;
     const fit = () => {
-      if (heroArt && stage) stage.style.setProperty('--s', String(Math.min(heroArt.clientWidth / 600, heroArt.clientHeight / 700, 1.15)));
+      if (!heroArt || !stage) return;
+      const width = heroArt.clientWidth;
+      const height = heroArt.clientHeight;
+      if (!width || !height) return;
+      const pad = 14;
+      const saved = layers.map(layer => layer.style.getPropertyValue('--py'));
+      const inners = layers.map(layer => layer.querySelector<HTMLElement>(':scope > .in'));
+      stage.style.setProperty('--s', '1');
+      layers.forEach(layer => layer.style.setProperty('--py', '0'));
+      inners.forEach(inner => { if (inner) inner.style.animation = 'none'; });
+      const stageRect = stage.getBoundingClientRect();
+      const centerX = stageRect.left + stageRect.width / 2;
+      const centerY = stageRect.top + stageRect.height / 2;
+      let halfW = stageRect.width / 2;
+      let halfH = stageRect.height / 2;
+      layers.forEach(layer => {
+        const rect = layer.getBoundingClientRect();
+        const depth = Number(layer.dataset.z || 0);
+        const shift = height * depth * 0.55;
+        halfW = Math.max(halfW, centerX - rect.left, rect.right - centerX);
+        halfH = Math.max(halfH, centerY - (rect.top - shift), rect.bottom - centerY);
+      });
+      const scale = Math.min((width - pad * 2) / (halfW * 2), (height - pad * 2) / (halfH * 2), 1.05);
+      stage.style.setProperty('--s', String(Math.max(0.3, Number.isFinite(scale) ? scale : 1)));
+      layers.forEach((layer, index) => {
+        if (saved[index]) layer.style.setProperty('--py', saved[index]);
+        else layer.style.removeProperty('--py');
+      });
+      inners.forEach(inner => { if (inner) inner.style.animation = ''; });
+      fittedW = width;
+      fittedH = height;
     };
     const update = () => {
       frame = 0;
+      if (heroArt && (heroArt.clientWidth !== fittedW || heroArt.clientHeight !== fittedH)) fit();
       const reduced = media.matches;
       const mobile = mobileQuery.matches;
       const narrow = narrowQuery.matches;
@@ -180,6 +374,7 @@ const Home = () => {
         });
       } else primed = true;
     };
+    document.fonts?.ready.then(() => { fittedW = -1; queue(); });
     setup();
     window.addEventListener('scroll', queue, { passive: true });
     window.addEventListener('resize', queue);
@@ -221,7 +416,7 @@ const Home = () => {
           href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Manrope:wght@500;600;700;800&display=swap"
           rel="stylesheet"
         />
-        <style type="text/css">{CSS}</style>
+        <style type="text/css">{CSS + STACK_CSS}</style>
       </Helmet>
       <div className="wrap"><header className="hd">
         <div className="lgc"><img className="logo" src="/croohq-wordmark.png" alt="CrooHQ" width={136} height={32} /><a className="nvm" href="/blog/">Blog</a></div>
@@ -244,7 +439,7 @@ const Home = () => {
             {/* TODO: add more client logos/testimonials when real assets exist */}
           </section>
           <Suspense fallback={null}><HomeDemos /></Suspense>
-          <section className="sec" id="stack"><h2 className="rv">The whole stack out.<br />One system in.</h2><div className="rows">{STACK_ROWS.map(([before, after], i) => <div className="r rv" key={before} style={{ '--d': `${i * .08}s` } as CSSProperties}><s>{before}</s><i aria-hidden="true">→</i><b>{after}</b></div>)}</div>
+          <section className="sec" id="stack"><h2 className="rv">The whole stack out.<br />One system in.</h2><StackMap />
             <div className="price rv"><div><p className="price-label">Starting at</p><div className="n">$199<small>/month.</small></div><p className="price-note">Less than half your current stack. One bill, one system.</p></div><div><a className="btn bp lg" href={DEMO_REQUEST}>Book a walkthrough</a><p className="price-fine">Try it for 14 days for free.</p></div></div>
           </section>
         </div>
