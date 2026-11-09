@@ -18,6 +18,7 @@ import { useUserManagementData } from '@/hooks/useUserManagementData';
 import { UserManagementTable } from '@/components/users/UserManagementTable';
 import { UserManagementDialogs } from '@/components/users/UserManagementDialogs';
 import { ToastLinkPlus, ToastLinkedBadge } from '@/components/users/ToastUserMarks';
+import { toastLinkView } from '@/lib/toastUserLinks';
 
 export default function UserManagement() {
   const data = useUserManagementData();
@@ -26,10 +27,9 @@ export default function UserManagement() {
   const activeUsers = (data.users || []).filter((u: any) => u.is_active === (data.activeTab === 'active'));
   const activeCount = (data.users || []).filter((u: any) => u.is_active).length;
   const toastLinking = data.toastLinks?.enabled === true;
-  const linkedIds = new Set(data.toastLinks?.linkedUserIds || []);
-  const linkedActive = toastLinking ? (data.users || []).filter((u: any) => u.is_active && linkedIds.has(u.id)).length : 0;
+  const linkView = toastLinkView(data.users || [], data.toastLinks?.linkedUserIds || []);
   const statusText = toastLinking
-    ? `${linkedActive} of ${activeCount} linked to Toast`
+    ? linkView.statusText
     : (activeCount ? `${activeCount} ACTIVE` : 'NO ACTIVE USERS');
 
   // Duo: orb actions, page status, default docked profile.
@@ -87,8 +87,8 @@ export default function UserManagement() {
               )}
               {activeUsers.map((u: any) => {
                 const st = getUserStatusDisplay(u);
-                const toastLinked = toastLinking && linkedIds.has(u.id);
-                const toastUnlinked = toastLinking && !linkedIds.has(u.id);
+                const toastLinked = toastLinking && linkView.isLinked(u.id);
+                const toastUnlinked = toastLinking && !linkView.isLinked(u.id);
                 return (
                   <button
                     key={u.id}
@@ -190,7 +190,7 @@ export default function UserManagement() {
               currentVersion={data.currentVersion}
               onViewUser={(u) => { data.setViewingUser(u); data.setIsProfileDialogOpen(true); }}
               toastLinking={toastLinking}
-              linkedUserIds={data.toastLinks?.linkedUserIds || []}
+              isToastLinked={linkView.isLinked}
               onLinkToast={(u) => data.setToastLinkUser(u)}
             />
           </CardContent>

@@ -33,7 +33,7 @@ interface UserManagementTableProps {
   currentVersion: string;
   onViewUser: (user: UserProfile) => void;
   toastLinking?: boolean;
-  linkedUserIds?: string[];
+  isToastLinked?: (userId: string) => boolean;
   onLinkToast?: (user: UserProfile) => void;
 }
 
@@ -70,10 +70,9 @@ export const UserManagementTable = ({
   users, loading, activeTab, setActiveTab, bulkMode, setBulkMode,
   selectedUsers, setSelectedUsers, toggleUserSelection, toggleSelectAll,
   isAdmin, isSuperAdmin, currentVersion, onViewUser,
-  toastLinking = false, linkedUserIds = [], onLinkToast,
+  toastLinking = false, isToastLinked = () => false, onLinkToast,
 }: UserManagementTableProps) => {
   const { toast } = useToast();
-  const linked = new Set(linkedUserIds);
 
   return (
     <>
@@ -122,8 +121,8 @@ export const UserManagementTable = ({
           </TableHeader>
           <TableBody>
             {users.filter(u => u.is_active === (activeTab === 'active')).map((u) => {
-              const toastLinked = toastLinking && linked.has(u.id);
-              const toastUnlinked = toastLinking && !linked.has(u.id);
+              const toastLinked = toastLinking && isToastLinked(u.id);
+              const toastUnlinked = toastLinking && !isToastLinked(u.id);
               return (
               <TableRow key={u.id} className="hover:bg-muted/50">
                 {isAdmin && bulkMode && (
