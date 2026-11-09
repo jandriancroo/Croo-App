@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { useState } from 'react';
 import crooLogo from '@/assets/croo-logo-square.png';
 import { Helmet } from 'react-helmet-async';
-import { safeJsonLd } from '@/lib/jobSeo';
+import { safeJsonLd, buildJobSlug, buildJobsIndexStructuredData, parseJobAddress, JOBS_INDEX_TITLE, JOBS_INDEX_DESCRIPTION } from '@/lib/jobSeo';
 
 interface JobListing {
   id: string;
@@ -19,7 +19,7 @@ interface JobListing {
   posted_at: string;
   expires_at: string | null;
   location: { id: string; name: string; address: string } | null;
-  organization: { id: string; name: string; slug: string; brand_name: string | null } | null;
+  organization: { id: string; name: string; slug: string; brand_name: string | null; logo_url?: string | null } | null;
 }
 
 const EMPLOYMENT_LABELS: Record<string, string> = {
@@ -31,76 +31,13 @@ const EMPLOYMENT_LABELS: Record<string, string> = {
   intern: 'Intern',
 };
 
-const EMPLOYMENT_MAP: Record<string, string> = {
-  full_time: 'FULL_TIME',
-  part_time: 'PART_TIME',
-  contract: 'CONTRACTOR',
-  temporary: 'TEMPORARY',
-  intern: 'INTERN',
-  seasonal: 'TEMPORARY',
-};
-
-function parseAddress(address: string | null) {
-  if (!address) return { street: '', city: '', state: '', zip: '' };
-  const parts = address.split(',').map(s => s.trim());
-  if (parts.length >= 2) {
-    const lastPart = parts[parts.length - 1];
-    const match = lastPart.match(/^([A-Za-z\s]+?)\s+(\d{5}(?:-\d{4})?)$/);
-    if (match) {
-      const city = parts.length >= 3 ? parts[parts.length - 2] : '';
-      return { street: parts[0], city, state: match[1].trim(), zip: match[2] };
-    }
-    return { street: parts[0], city: parts.length >= 3 ? parts[1] : '', state: lastPart, zip: '' };
-  }
-  return { street: address, city: '', state: '', zip: '' };
-}
-
 function parseCity(address: string | null): string {
-  return parseAddress(address).city;
+  return parseJobAddress(address).city;
 }
 
 function parseStateZip(address: string | null): string {
-  if (!address) return '';
-  const parts = address.split(',').map(s => s.trim());
-  return parts[parts.length - 1] || '';
-}
-
-function mapOccupationalCategory(titleLower: string): string {
-  if (titleLower.includes('manager') || titleLower.includes('supervisor') || titleLower.includes('lead')) return '11-9051.00';
-  if (titleLower.includes('cook') || titleLower.includes('chef')) return '35-2014.00';
-  if (titleLower.includes('cashier')) return '41-2011.00';
-  return '35-3023.00';
-}
-
-function buildSyndicationTitle(title: string, company: string, city: string): string {
-  const lower = title.toLowerCase();
-  if (lower === 'team member' || lower === 'crew member') return `Pizza Team Member – ${company}${city ? `, ${city}` : ''}`;
-  if (lower === 'shift manager' || lower === 'shift lead') return `Shift Manager – ${company} Restaurant${city ? `, ${city}` : ''}`;
-  if (!lower.includes(company.toLowerCase())) return `${title} – ${company}`;
-  return title;
-}
-
-function slugifyPart(s: string): string {
-  return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
-
-function buildJobSlug(job: JobListing): string {
-  const city = parseCity(job.location?.address || null) || job.location?.name || '';
-  return [slugifyPart(city), slugifyPart(job.title), (job.id || '').slice(0, 8)].filter(Boolean).join('-');
-}
-
-function buildItemListJsonLd(jobs: JobListing[]) {
-  // Per Google for Jobs guidance: JobPosting JSON-LD belongs on individual
-  // detail pages, not the index. The index uses an ItemList of detail URLs.
-  return {
-    '@context': 'https://schema.org/',
-    '@type': 'ItemList',
-    itemListElement: jobs.map((job, i) => ({
-      '@type': 'ListItem',
-      position: i + 1,
-      url: `https://croohq.com/jobs/${buildJobSlug(job)}`,
-    })),
-  };
+  const { state, zip } = parseJobAddress(address);
+  return [state, zip].filter(Boolean).join(' ');
 }
 
 export default function PublicJobs() {
@@ -114,7 +51,7 @@ export default function PublicJobs() {
         .select(`
           id, title, description, employment_type, pay_min, pay_max, pay_type, posted_at, expires_at,
           location:locations(id, name, address),
-          organization:organizations(id, name, slug, brand_name)
+          organization:organizations(id, name, slug, brand_name, logo_url)
         `)
         .eq('status', 'active')
         .eq('syndication_enabled', true)
@@ -139,13 +76,13 @@ export default function PublicJobs() {
     );
   });
 
-  const itemListJsonLd = buildItemListJsonLd(listings || []);
+  const itemListJsonLd = buildJobsIndexStructuredData(listings || []);
 
   return (
     <>
       <Helmet>
-        <title>Restaurant Jobs Near You | CrooHQ — Pizza, Fast Food & Food Service Careers</title>
-        <meta name="description" content="Find restaurant and fast food jobs at Blaze Pizza and other brands. Apply for pizza maker, team member, shift manager, cook, and kitchen crew positions near you — no account needed." />
+        <title>{JOBS_INDEX_TITLE}</title>
+        <meta name="description" content={JOBS_INDEX_DESCRIPTION} />
         <meta name="keywords" content="pizza jobs, fast food jobs, restaurant jobs, team member jobs, shift manager jobs, kitchen crew, food service careers, Blaze Pizza hiring, cook jobs near me, cashier restaurant jobs" />
         <link rel="canonical" href="https://croohq.com/jobs" />
         <meta property="og:url" content="https://croohq.com/jobs" />

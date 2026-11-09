@@ -1,6 +1,11 @@
 /**
  * CrooHQ jobs SSR router (Cloudflare Worker)
  *
+ * Not on the request path. croohq.com is published by Lovable; DNS at Wix only
+ * points the domain there, and Lovable's Cloudflare CDN is not a Worker we can
+ * bind. Googlebot therefore receives the static files from scripts/build-jobs.mjs.
+ * This router stays as the crawler-only fallback if a Worker is ever attached.
+ *
  * Bind to routes:  croohq.com/jobs   and   croohq.com/jobs/*
  *
  * Crawlers get fully rendered HTML from the Supabase SSR edge functions:
