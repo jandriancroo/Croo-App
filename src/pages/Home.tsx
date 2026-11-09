@@ -76,7 +76,7 @@ const FEATURES = ["Punch clock", "Checklists", "Scheduling", "Team chat", "Hirin
 
 const STACK_CSS = `
 .hme .stack-map{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,320px);gap:88px;align-items:center;margin-top:56px}
-.hme .stack-old{list-style:none;display:flex;flex-direction:column;gap:22px}
+.hme .stack-old{list-style:none;display:flex;flex-direction:column;gap:22px;align-items:flex-end}
 .hme .stack-old li{min-height:52px;display:flex;align-items:center;font-size:26px;font-weight:700;line-height:1.25}
 .hme .stack-old s{position:relative;text-decoration:none;color:var(--ink);transition:color .45s cubic-bezier(.16,.84,.24,1)}
 .hme .stack-old s::after{content:"";position:absolute;left:0;right:0;top:50%;height:2px;background:#6f6a63;transform:scaleX(0);transform-origin:left center;transition:transform .45s cubic-bezier(.16,.84,.24,1)}
@@ -89,11 +89,15 @@ const STACK_CSS = `
 .hme .stack-kicker{margin:0 0 12px;text-align:center;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
 .hme .stack-phone{opacity:.42;filter:saturate(.2);transition:opacity .6s cubic-bezier(.16,.84,.24,1),filter .6s cubic-bezier(.16,.84,.24,1)}
 .hme .stack-map.is-lit .stack-phone{opacity:1;filter:none}
-.hme .stack-mods{list-style:none;display:flex;flex-direction:column;gap:8px;padding:14px 12px 6px}
-.hme .stack-mod{border-radius:12px;padding:10px 12px;font-size:14px;font-weight:800;line-height:1.3;color:var(--teal-d);background:transparent;border:1px solid transparent;opacity:.4;transition:opacity .45s cubic-bezier(.16,.84,.24,1),background .45s cubic-bezier(.16,.84,.24,1),border-color .45s cubic-bezier(.16,.84,.24,1)}
+.hme .stack-phone .pm-hardware{height:100%}
+.hme .stack-mods{list-style:none;flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;padding:4px 12px 2px}
+.hme .stack-mod{flex:1;display:flex;align-items:center;gap:10px;border-radius:14px;padding:10px 12px;font-size:14px;font-weight:800;line-height:1.25;color:var(--teal-d);background:transparent;border:1px solid transparent;opacity:.45;transition:opacity .45s cubic-bezier(.16,.84,.24,1),background .45s cubic-bezier(.16,.84,.24,1),border-color .45s cubic-bezier(.16,.84,.24,1)}
+.hme .stack-ico{width:32px;height:32px;flex:none;display:grid;place-items:center;border-radius:10px;background:#fff;color:var(--teal-d)}
+.hme .stack-ico svg{width:18px;height:18px}
 .hme .stack-map.is-lit .stack-mod{opacity:1;background:var(--art-1);border-color:var(--art-3)}
 @media(max-width:760px){
   .hme .stack-map{grid-template-columns:1fr;gap:36px;margin-top:28px}
+  .hme .stack-old{align-items:flex-start}
   .hme .stack-old li{font-size:17px;min-height:44px}
   .hme .stack-solution{width:min(100%,320px);justify-self:center}
   .hme .stack-mod{font-size:13px}
@@ -115,9 +119,19 @@ const STACK_CSS = `
 }
 `;
 
+const STACK_ICONS = [
+  <svg key="cal" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16" /></svg>,
+  <svg key="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 7h11M8 12h11M8 17h11" /><path d="M4 7h.01M4 12h.01M4 17h.01" /></svg>,
+  <svg key="hire" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="3" /><path d="M5 19c1.5-3 4-4.5 7-4.5S17.5 16 19 19" /></svg>,
+  <svg key="box" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8l9-4 9 4-9 4-9-4z" /><path d="M3 8v8l9 4 9-4V8" /><path d="M12 12v8" /></svg>,
+  <svg key="clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="8" /><path d="M12 8v5l3 2" /></svg>,
+];
+
 function StackMap() {
   const mapRef = useRef<HTMLDivElement>(null);
   const leftRefs = useRef<(HTMLLIElement | null)[]>([]);
+  const textRefs = useRef<(HTMLElement | null)[]>([]);
+  const phoneRef = useRef<HTMLDivElement>(null);
   const rightRefs = useRef<(HTMLLIElement | null)[]>([]);
   const paths = useRef<(SVGPathElement | null)[]>([]);
   const heads = useRef<(SVGPolygonElement | null)[]>([]);
@@ -136,16 +150,18 @@ function StackMap() {
       const box = map.getBoundingClientRect();
       const mobile = mobileQuery.matches;
       paths.current.forEach((path, index) => {
-        const from = leftRefs.current[index];
+        const from = textRefs.current[index];
         const to = rightRefs.current[index];
+        const phone = phoneRef.current;
         const head = heads.current[index];
-        if (!path || !from || !to) return;
+        if (!path || !from || !to || !phone) return;
         const start = from.getBoundingClientRect();
         const end = to.getBoundingClientRect();
-        const x1 = (mobile ? start.left + start.width / 2 : start.right) - box.left;
-        const y1 = (mobile ? start.bottom : start.top + start.height / 2) - box.top;
-        const x2 = (mobile ? end.left + end.width / 2 : end.left) - box.left;
-        const y2 = (mobile ? end.top : end.top + end.height / 2) - box.top;
+        const shell = phone.getBoundingClientRect();
+        const x1 = start.right - box.left + 2;
+        const y1 = start.top + start.height / 2 - box.top;
+        const x2 = shell.left - box.left;
+        const y2 = end.top + end.height / 2 - box.top;
         const midX = (x1 + x2) / 2;
         const midY = (y1 + y2) / 2;
         path.setAttribute("d", mobile
@@ -206,7 +222,7 @@ function StackMap() {
     <div className="stack-map" ref={mapRef}>
       <ul className="stack-old">
         {STACK_ROWS.map(([before], index) => (
-          <li key={before} ref={node => { leftRefs.current[index] = node; }}><s>{before}</s><span className="stack-down" aria-hidden="true" /></li>
+          <li key={before} ref={node => { leftRefs.current[index] = node; }}><s ref={node => { textRefs.current[index] = node; }}>{before}</s><span className="stack-down" aria-hidden="true" /></li>
         ))}
       </ul>
       <svg className="stack-arrows" aria-hidden="true">
@@ -219,12 +235,16 @@ function StackMap() {
       </svg>
       <div className="stack-solution">
         <p className="stack-kicker">One solution</p>
-        <div className="pm-device stack-phone">
+        <div className="pm-device pm-phone stack-phone" ref={phoneRef}>
           <div className="pm-hardware">
+            <span className="pm-island" aria-hidden="true" />
             <div className="pm-bar"><span className="pm-cam" /><span>CrooHQ</span></div>
             <ul className="stack-mods">
               {STACK_ROWS.map(([, after], index) => (
-                <li key={after} className="stack-mod" ref={node => { rightRefs.current[index] = node; }}>{after}</li>
+                <li key={after} className="stack-mod" ref={node => { rightRefs.current[index] = node; }}>
+                  <span className="stack-ico" aria-hidden="true">{STACK_ICONS[index]}</span>
+                  <span>{after}</span>
+                </li>
               ))}
             </ul>
             <div className="pm-home" />
