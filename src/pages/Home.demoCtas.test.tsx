@@ -51,6 +51,18 @@ describe("homepage demo request links", () => {
     expect(screen.queryAllByRole("link", { name: /walkthrough/i }).every(link => link.getAttribute("href") !== "mailto:jordan@croohq.com")).toBe(true);
   });
 
+  it("replaces the hero clipart with product screens", async () => {
+    const { container } = await renderHome();
+    const hero = container.querySelector(".hr");
+    expect(hero?.querySelector("ellipse")).toBeNull();
+    expect(hero?.textContent).toContain("Morning Line Check");
+    expect(hero?.textContent).toContain("Enter Your PIN");
+    expect(hero?.textContent).toContain("Opener");
+    expect(hero?.textContent).not.toContain("Photo proof");
+    expect(container.querySelectorAll(".pm-step")).toHaveLength(3);
+    expect(Array.from(container.querySelectorAll(".pm-label")).map(node => node.textContent)).toEqual(["Checklists", "Punch clock", "Scheduling"]);
+  });
+
   it("keeps the interactive product preview anchor", async () => {
     const { default: HomeDemos } = await vi.importActual<typeof import("@/components/home/HomeDemos")>("@/components/home/HomeDemos");
     const { container } = render(<HomeDemos />);
