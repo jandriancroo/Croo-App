@@ -31,6 +31,29 @@ export const PRODUCT_CSS = `
 .hme .pm-bar{position:relative;display:flex;align-items:center;justify-content:center;height:26px;background:var(--home-tone-3);color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
 .hme .pm-cam{position:absolute;left:12px;top:9px;width:8px;height:8px;border-radius:99px;background:#1a1a1a;box-shadow:0 0 0 3px rgba(26,26,26,.06)}
 .hme .pm-home{height:4px;width:64px;border-radius:99px;background:rgba(26,26,26,.16);margin:6px auto 8px}
+.hme .pm-phone,.hme .pm-tablet{display:flex;flex-direction:column;margin-inline:auto;min-height:0;overflow:hidden}
+.hme .pm-phone .hd-count-cols{grid-template-columns:1fr}
+.hme .pm-phone .hd-count-summary{align-items:flex-start}
+.hme .pm-phone .hd-count-summary strong{font-size:22px}
+.hme .pm-phone{width:min(300px,100%);aspect-ratio:9/19.5;border-radius:42px;padding:11px}
+.hme .pm-tablet{width:min(640px,100%);aspect-ratio:4/3;border-radius:28px;padding:14px}
+.hme .pm-phone .pm-hardware,.hme .pm-tablet .pm-hardware{flex:1;min-height:0;height:100%;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.hme .pm-phone .pm-hardware{border-radius:32px}
+.hme .pm-tablet .pm-hardware{border-radius:16px}
+.hme .pm-island{position:absolute;z-index:3;top:12px;left:50%;width:84px;height:22px;transform:translateX(-50%);background:#111;border-radius:99px}
+.hme .pm-phone .pm-bar{height:40px;padding-top:6px;flex:none}
+.hme .pm-scroll{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.hme .pm-phone .pm-home{width:104px;margin:8px auto 12px;flex:none}
+.hme .pm-tablet .pm-home{width:120px}
+.hme .pm-scroll>.hd-card,.hme .pm-scroll>.hd-chat{border:0;border-radius:0;background:transparent;box-shadow:none}
+.hme .pm-phone .hd-count-scroll{max-height:none}
+.hme .pm-phone .hd-chat{display:flex;flex-direction:column;min-height:100%}
+.hme .pm-phone .hd-messages{flex:1;height:auto;min-height:180px}
+@media(max-width:760px){
+  .hme .pm-phone{width:min(280px,100%)}
+  .hme .pm-tablet{width:min(320px,100%);aspect-ratio:9/16;border-radius:36px;padding:10px}
+  .hme .pm-tablet .pm-hardware{border-radius:28px}
+}
 .hme .pm-check{padding:12px 12px 2px}
 .hme .pm-check-top{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
 .hme .pm-check h3{font-family:Manrope,sans-serif;font-weight:800;font-size:20px;line-height:1.15;letter-spacing:0}
