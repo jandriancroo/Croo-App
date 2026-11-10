@@ -87,6 +87,6 @@ More operator notes live on the [CrooHQ blog](https://croohq.com/blog/). If your
 
 Built for operators, by operators.
 
-**If your open and close still depend on a binder nobody opens, [book a demo with CrooHQ](https://supaclose.lovable.app/demo).**
+**If your open and close still depend on a binder nobody opens, [book a demo with CrooHQ](/demo).**
 
 **[See how CrooHQ runs daily checklists](https://croohq.com/).**

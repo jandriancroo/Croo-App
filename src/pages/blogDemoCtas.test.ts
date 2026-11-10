@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const DEMO_REQUEST = "https://supaclose.lovable.app/demo";
+const DEMO_REQUEST = "/demo";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 const htmlFiles = () => {
@@ -32,7 +32,7 @@ describe("blog demo request links", () => {
       expect(demo.length, file).toBeGreaterThan(0);
       for (const link of demo) expect(link.href, `${file} ${link.text}`).toBe(DEMO_REQUEST);
       for (const link of found.filter(item => item.text.startsWith("See how"))) {
-        expect(link.href, file).toBe("https://croohq.com");
+        expect(["https://croohq.com", "https://croohq.com/"], file).toContain(link.href);
       }
       expect(found.some(link => link.href.includes("#see-it")), file).toBe(false);
     }
@@ -50,7 +50,7 @@ describe("blog demo request links", () => {
       const body = fs.readFileSync(path.join(ROOT, "blog-src/posts", post), "utf8");
       expect(body, post).toContain(`](${DEMO_REQUEST})`);
       expect(body, post).not.toContain("#see-it");
-      expect(body, post).toMatch(/\]\(https:\/\/croohq\.com\)/);
+      expect(body, post).toMatch(/\]\(https:\/\/croohq\.com\/?\)/);
     }
   });
 });

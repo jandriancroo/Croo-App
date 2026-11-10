@@ -3,7 +3,7 @@ title: "Shift Handoff Notes: What the Closing Manager Must Pass On"
 seo_title: "Restaurant Shift Handoff Notes for Managers | CrooHQ"
 meta_description: "A closing manager's handoff should take two minutes and save the opener an hour. Here's the note format that actually gets read."
 slug: shift-handoff-notes-restaurant-managers
-date: 2026-11-13
+date: 2026-11-09
 author: Jordan Andrian, Founder, CrooHQ
 hero: hero11
 hero_alt: "Closing manager in a teal apron writing a shift handoff note on a tablet after close"
@@ -62,6 +62,6 @@ More floor notes live on the [CrooHQ blog](https://croohq.com/blog/). If your op
 
 Built for operators, by operators.
 
-**If your openers are still guessing what happened last night, [book a demo with CrooHQ](https://supaclose.lovable.app/demo).**
+**If your openers are still guessing what happened last night, [book a demo with CrooHQ](/demo).**
 
 **[See how CrooHQ supports daily operations](https://croohq.com/).**

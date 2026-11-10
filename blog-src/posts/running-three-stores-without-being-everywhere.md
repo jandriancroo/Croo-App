@@ -3,7 +3,7 @@ title: "How to Run Three Stores Without Living in Your Car"
 seo_title: "Multi-Location Restaurant Operations Without Being Everywhere | CrooHQ"
 meta_description: "Multi-unit fast-casual owners can't be in every store. Here's how to keep schedules, punches, and checklists honest when you're across town."
 slug: running-three-stores-without-being-everywhere
-date: 2026-11-11
+date: 2026-11-09
 author: Jordan Andrian, Founder, CrooHQ
 hero: hero9
 hero_alt: "Multi-unit restaurant owner beside his car at golden hour checking multi-location schedules on a tablet"
@@ -73,6 +73,6 @@ If you're the person every GM calls at 9:40 PM, bring that pattern to a walkthro
 
 Built for operators, by operators.
 
-**If every GM still calls you before they solve a shift, [book a demo with CrooHQ](https://supaclose.lovable.app/demo).**
+**If every GM still calls you before they solve a shift, [book a demo with CrooHQ](/demo).**
 
 **[See CrooHQ for multi-location teams](https://croohq.com/).**
