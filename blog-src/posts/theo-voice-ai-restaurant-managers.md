@@ -3,7 +3,7 @@ title: "Theo Isn't a Chatbot. He's the Manager's Shift Partner."
 seo_title: "Voice AI for Restaurant Managers: What Theo Actually Does | CrooHQ"
 meta_description: "Theo is CrooHQ's voice AI agent inside the app. Here's what he can do on a real shift — coverage, punches, sales projections — and what he won't pretend to do."
 slug: theo-voice-ai-restaurant-managers
-date: 2026-11-12
+date: 2026-11-09
 author: Jordan Andrian, Founder, CrooHQ
 hero: hero10
 hero_alt: "Restaurant manager in a teal apron talking on a phone in a commercial kitchen during service"
@@ -63,6 +63,6 @@ More operator writing lives on the [CrooHQ blog](https://croohq.com/blog/). If y
 
 Built for operators, by operators.
 
-**If you want to see Theo on a real coverage ask, [book a demo with CrooHQ](https://supaclose.lovable.app/demo).**
+**If you want to see Theo on a real coverage ask, [book a demo with CrooHQ](/demo).**
 
 **[See Theo inside CrooHQ](https://croohq.com/).**

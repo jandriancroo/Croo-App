@@ -59,6 +59,6 @@ That's why the [CrooHQ time clock](https://croohq.com) is a simple PIN pad that 
 
 Built for operators, by operators.
 
-**If the clock and the floor don't agree in your store, [book a demo with CrooHQ](https://supaclose.lovable.app/demo).**
+**If the clock and the floor don't agree in your store, [book a demo with CrooHQ](/demo).**
 
 **[See how CrooHQ keeps every punch honest](https://croohq.com).**

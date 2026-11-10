@@ -5,7 +5,7 @@
 import fs from "node:fs"; import path from "node:path";
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const SRC = path.join(ROOT, "blog-src"), OUT = path.join(ROOT, "public/blog"), A = path.join(OUT, "assets");
-const SITE = "https://croohq.com", DEMO = "https://supaclose.lovable.app/demo";
+const SITE = "https://croohq.com", DEMO = "/demo";
 const BIO = "Ran four restaurant locations over 12 years before building CrooHQ.";
 const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 const inl = s => esc(s).replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2">$1</a>').replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
@@ -24,13 +24,13 @@ h1{font-size:46px;line-height:1.15;margin:12px 0 22px;letter-spacing:-.02em;font
 h2{font-size:27px;margin:42px 0 8px;color:#2e6270;font-weight:800}article a{color:#417f8e;font-weight:600;text-decoration:underline;text-underline-offset:3px}li{margin:8px 0}
 .cta{background:#417f8e;color:#fff;border-radius:16px;padding:36px 40px;margin-top:48px}.cta h3{margin:0;font-size:28px}.cta p{margin:6px 0 22px;opacity:.9}
 .btns{display:flex;flex-direction:column;gap:12px}.btn{background:#fff;color:#2e6270;text-decoration:none;font-weight:700;padding:14px 20px;border-radius:10px;font-size:17px}.btn.alt{background:transparent;color:#fff;border:2px solid #fff}
-.by.sm{margin-top:24px}.by.sm img{width:44px;height:44px;border-color:#fff}.cta .by span{color:#e6f2f4}footer{border-top:1px solid #e8e2d6;padding:26px 0;color:#5c5852;font-size:14px}footer a{color:#417f8e;font-weight:700}
+.by.sm{margin-top:24px}.by.sm img{width:44px;height:44px;border-color:#fff}.cta .by span{color:#e6f2f4}footer{border-top:1px solid #e8e2d6;padding:26px 0;color:#5c5852;font-size:14px}footer .ft{display:flex;align-items:center;justify-content:flex-start;gap:16px 28px;flex-wrap:wrap}footer a{color:#417f8e;font-weight:700}footer a.ft-contact{display:inline-flex;align-items:center;background:#417f8e;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:999px}
 .list{padding-top:48px;padding-bottom:60px}.list h1{margin-bottom:8px}.lede{color:#5c5852;margin:0 0 36px}.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:24px}
 .card{background:#fff;border:1px solid rgba(65,127,142,.28);border-radius:18px;overflow:hidden;text-decoration:none;display:flex;flex-direction:column}.card img{width:100%;height:auto;aspect-ratio:1200/627;object-fit:cover;display:block}.card div{padding:20px 24px 24px}.card h2{margin:4px 0 8px;font-size:22px;line-height:1.3}.card time{color:#417f8e;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.06em}.card p{margin:0;color:#5c5852;font-size:16px;line-height:1.55}
-@media(max-width:760px){nav a:not(.nb){display:none}h1{font-size:34px}.cta{padding:28px 22px}.wrap{padding:0 20px}}`;
+@media(max-width:760px){nav a:not(.nb){display:none}h1{font-size:34px}.cta{padding:28px 22px}.wrap{padding:0 20px}footer .ft{flex-direction:column;align-items:flex-start}}`;
 const FONT = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">`;
 const HEADER = `<header><div class="wrap hd"><a href="/"><img src="/croohq-wordmark.png" alt="CrooHQ" class="logo" width="136" height="32"></a><a class="sep" href="/blog/">Blog</a><nav><a href="/">Product</a><a href="/blog/">Operator notes</a><a class="nb" href="${DEMO}">Book a demo</a></nav></div></header>`;
-const FOOTER = `<footer><div class="wrap">© ${new Date().getFullYear()} CrooHQ · Your crew's HQ · <a href="/">Visit croohq.com</a> · <a href="/blog/">All posts</a></div></footer>`;
+const FOOTER = `<footer><div class="wrap ft"><a class="ft-contact" href="mailto:jordan@croohq.com">Contact Us</a><div>© ${new Date().getFullYear()} CrooHQ · Your crew's HQ · <a href="/">Visit croohq.com</a> · <a href="/blog/">All posts</a></div></div></footer>`;
 const head = (o) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(o.title)}</title><meta name="description" content="${esc(o.desc)}"><link rel="canonical" href="${o.url}"><link rel="icon" href="/favicon.png">
 <meta property="og:type" content="${o.type}"><meta property="og:site_name" content="CrooHQ"><meta property="og:title" content="${esc(o.title)}"><meta property="og:description" content="${esc(o.desc)}"><meta property="og:url" content="${o.url}"><meta property="og:image" content="${o.img}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="627">

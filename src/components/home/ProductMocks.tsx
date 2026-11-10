@@ -246,55 +246,6 @@ function Device({ children }: { children: ReactNode }) {
   );
 }
 
-export function HeroStage() {
-  return (
-    <div className="stage">
-      <div className="L" data-z="0.07" style={{ left: "0px", top: "28px", width: "334px", "--r": "-2.5deg", zIndex: 2 } as CSSProperties}>
-        <div className="in" style={{ "--d": "0.12s" } as CSSProperties}>
-          <Device><ChecklistMock /></Device>
-        </div>
-      </div>
-      <div className="L" data-z="0.16" style={{ left: "286px", top: "0px", width: "auto", "--r": "6deg", zIndex: 4 } as CSSProperties}>
-        <div className="in" style={{ "--d": "0.42s" } as CSSProperties}>
-          <div className="card" style={{ padding: "12px", borderRadius: "999px" }}>
-            <svg viewBox="0 0 120 120" width="108" height="108" aria-hidden="true">
-              <circle cx="60" cy="60" r="50" fill="none" stroke="var(--art-11)" strokeWidth="12" />
-              <circle className="ringp" cx="60" cy="60" r="50" fill="none" stroke="var(--art-5)" strokeWidth="12" strokeLinecap="round" transform="rotate(-90 60 60)" strokeDasharray="314" strokeDashoffset="52" style={{ animation: "hme-rg 1.6s cubic-bezier(.3,.7,.2,1) both .9s" }} />
-              <text x="60" y="58" textAnchor="middle" fontFamily="Fraunces, Georgia, serif" fontWeight="600" fontSize="30" fill="var(--art-12)">5/6</text>
-              <text x="60" y="78" textAnchor="middle" fontFamily="Manrope, sans-serif" fontWeight="800" fontSize="11" fill="var(--art-6)">DONE</text>
-            </svg>
-          </div>
-        </div>
-      </div>
-      <div className="L" data-z="0.26" style={{ left: "348px", top: "148px", width: "196px", "--r": "7deg", zIndex: 5 } as CSSProperties}>
-        <div className="in" style={{ "--d": "0.62s" } as CSSProperties}>
-          <Device><PunchMock /></Device>
-        </div>
-      </div>
-      <div className="L" data-z="0.34" style={{ left: "300px", top: "392px", width: "246px", "--r": "-5deg", zIndex: 6 } as CSSProperties}>
-        <div className="in" style={{ "--d": "0.82s" } as CSSProperties}>
-          <Device><ScheduleMock /></Device>
-        </div>
-      </div>
-      <div className="L" data-z="0.42" style={{ left: "6px", top: "548px", width: "auto", "--r": "-2deg", zIndex: 7 } as CSSProperties}>
-        <div className="in" style={{ "--d": "1.05s" } as CSSProperties}>
-          <div className="card" style={{ padding: "12px 16px", display: "flex", gap: "10px", alignItems: "center", borderRadius: "16px" }}>
-            <div className="ck" style={{ background: "var(--art-5)", "--cd": "1.6s" } as CSSProperties}>
-              <svg viewBox="0 0 24 24" className="draw" aria-hidden="true">
-                <path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="var(--art-4)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: "13px" }}>Walk-in temp logged</div>
-              <div style={{ fontSize: "11px", color: "var(--art-6)", fontWeight: 700 }}>JM · just now</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 const SCREENS: { id: string; label: string; node: ReactNode }[] = [
   { id: "checklists", label: "Checklists", node: <ChecklistMock detailed /> },
   { id: "punch", label: "Punch clock", node: <PunchMock detailed /> },

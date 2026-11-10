@@ -57,10 +57,10 @@ const TEMPLATES = [
   { name: 'Mid', time: '11:00a–7:00p', hours: 8 },
   { name: 'Closer', time: '3:30p–11:00p', hours: 7.5 },
 ];
-const TABS = ['Smart Tap scheduling', 'Live data cube', 'Cash logs', 'Every location'];
+const TABS = ['Scheduling that does the thinking.', 'Data cubes', 'Cash logs', 'Multi-location visibility'];
 const COPY = [
-  'Tap an empty shift. CrooHQ suggests what that person worked last week, plus your store templates. One tap and the shift is filled.',
-  'Pin the numbers you care about. The cube turns every 10 seconds. Tap it to turn it yourself.',
+  'SmartTap is an intelligent feature that helps you land shifts quicker and build a schedule in minutes. It suggests what each person worked last week plus your store templates.',
+  'Your numbers, your call. Pick the data points each cube shows, so every manager sees what matters to you. The cube turns every 10 seconds; tap it to turn it yourself.',
   'Count each bill and coin. The running total and over or short update as you tap. Calculator only, same as in the app.',
   'One login for every store. Filter the rollup, then tap a store for sales, labor, and checklists.',
 ];
@@ -205,7 +205,7 @@ function LocationDemo({ shown, reduced }: { shown: boolean; reduced: boolean }) 
   useEffect(() => { if (shown) setRise(count => count + 1); }, [shown, filter]);
   const shownStores = STORES.filter(store => filter === 'all' || (filter === 'labor' ? store.labor > store.budget : store.done < store.total));
   const sales = (amount: number) => amount.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
-  return <div className="hd-card hd-locs"><h3>Every location</h3><div className="hd-filters" role="group" aria-label="Filter stores">{STORE_FILTERS.map(item => <button type="button" className="hd-filter" key={item.id} aria-pressed={filter === item.id} onClick={() => { setFilter(item.id); setOpen(null); }}>{item.label}</button>)}</div><div className="hd-loc-list">{shownStores.length === 0 && <p className="hd-loc-empty">No stores match.</p>}{shownStores.map((store, index) => {
+  return <div className="hd-card hd-locs"><h3>Multi-location visibility</h3><div className="hd-filters" role="group" aria-label="Filter stores">{STORE_FILTERS.map(item => <button type="button" className="hd-filter" key={item.id} aria-pressed={filter === item.id} onClick={() => { setFilter(item.id); setOpen(null); }}>{item.label}</button>)}</div><div className="hd-loc-list">{shownStores.length === 0 && <p className="hd-loc-empty">No stores match.</p>}{shownStores.map((store, index) => {
     const selected = open === store.name;
     const checkPct = Math.round((store.done / store.total) * 100);
     const laborPct = Math.min(100, Math.round((store.labor / store.budget) * 100));

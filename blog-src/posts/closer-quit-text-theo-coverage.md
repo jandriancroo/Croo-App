@@ -60,6 +60,6 @@ If you want the full picture of how shift coverage, the time clock, and daily ch
 
 Built for operators, by operators.
 
-**If late-night quits keep landing on your phone, [book a demo with CrooHQ](https://supaclose.lovable.app/demo).**
+**If late-night quits keep landing on your phone, [book a demo with CrooHQ](/demo).**
 
 **[See how CrooHQ handles shift coverage](https://croohq.com/).**

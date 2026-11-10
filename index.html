@@ -41,7 +41,16 @@
       // points at the current page in place.
       (function() {
         var path = location.pathname || '/';
-        if (path === '/' || path === '') return;
+        if (path === '/' || path === '') {
+          var mobile = window.matchMedia && window.matchMedia('(max-width: 760px)').matches;
+          var preload = document.createElement('link');
+          preload.rel = 'preload';
+          preload.as = 'image';
+          preload.href = mobile ? '/hero/kitchen-line-800.webp' : '/hero/kitchen-line.webp';
+          preload.setAttribute('fetchpriority', 'high');
+          document.head.appendChild(preload);
+          return;
+        }
         function isHome(v) {
           return v === 'https://croohq.com/' || v === 'https://croohq.com';
         }
@@ -81,23 +90,8 @@
           "url": "https://croohq.com/",
           "applicationCategory": "BusinessApplication",
           "operatingSystem": "Web, iOS, Android",
-          "description": "CrooHQ is the restaurant operations platform for multi-unit QSR and fast-casual groups: scheduling, time clock, checklists, inventory, and hiring, with POS sync for Toast, Qu, Aloha, and Clover.",
-          "publisher": { "@id": "https://croohq.com/#organization" },
-          "offers": {
-            "@type": "Offer",
-            "url": "https://croohq.com/",
-            "price": "199",
-            "priceCurrency": "USD",
-            "description": "Starting at $199/month",
-            "priceSpecification": {
-              "@type": "UnitPriceSpecification",
-              "price": "199",
-              "priceCurrency": "USD",
-              "unitText": "MONTH",
-              "unitCode": "MON",
-              "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "MON" }
-            }
-          }
+          "description": "CrooHQ is the restaurant operations platform for multi-unit QSR and fast-casual groups: scheduling, time clock, checklists, inventory, and hiring, syncing with the data you already have, like your POS.",
+          "publisher": { "@id": "https://croohq.com/#organization" }
         }
       ]
     }
@@ -109,6 +103,8 @@
       <!-- Crawler-readable homepage summary; React replaces #root on mount. Mirrors the real homepage's headline, copy and links. -->
       <h1>Your crew’s HQ.</h1>
       <p>The all-in-one ops platform for multi-unit fast-casual and QSR restaurants.</p>
+      <h2>Every store runs like you're standing in it.</h2>
+      <p>Openings, closings, and coverage handled, even when you're three stores away.</p>
       <nav aria-label="Main navigation">
         <a href="/blog/">Blog</a>
         <a href="/jobs">Jobs</a>

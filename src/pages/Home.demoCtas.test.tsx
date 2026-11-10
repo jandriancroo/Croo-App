@@ -6,7 +6,7 @@ import Home from "./Home";
 
 vi.mock("@/components/home/HomeDemos", () => ({ default: () => null }));
 
-const DEMO_REQUEST = "https://supaclose.lovable.app/demo";
+const DEMO_REQUEST = "/demo";
 
 beforeAll(() => {
   class Observer {
@@ -38,27 +38,37 @@ describe("homepage demo request links", () => {
     expect(walkthroughs.map(link => link.textContent)).toEqual([
       "Book a walkthrough",
       "Book a 20-minute walkthrough",
-      "Book a walkthrough",
       "Book a 20-minute walkthrough",
     ]);
     for (const link of walkthroughs) expect(link).toHaveAttribute("href", DEMO_REQUEST);
+    const pricing = screen.getAllByRole("link", { name: "Get Pricing" });
+    expect(pricing).toHaveLength(2);
+    for (const link of pricing) expect(link).toHaveAttribute("href", DEMO_REQUEST);
+    expect(screen.queryByText(/\$199/)).toBeNull();
+    expect(screen.queryByText(/14 days/i)).toBeNull();
+    expect(screen.queryByText(/Toast|Clover|Aloha/)).toBeNull();
   });
 
-  it("keeps the footer contact email and the in-page price jump", async () => {
+  it("keeps the footer contact email and adds Contact Us", async () => {
     await renderHome();
     expect(screen.getByRole("link", { name: "Contact: jordan@croohq.com" })).toHaveAttribute("href", "mailto:jordan@croohq.com");
-    expect(screen.getByRole("link", { name: "Starting at $199/month" })).toHaveAttribute("href", "#stack");
+    expect(screen.getByRole("link", { name: "Contact Us" })).toHaveAttribute("href", "mailto:jordan@croohq.com");
     expect(screen.queryAllByRole("link", { name: /walkthrough/i }).every(link => link.getAttribute("href") !== "mailto:jordan@croohq.com")).toBe(true);
   });
 
-  it("replaces the hero clipart with product screens", async () => {
+  it("uses restaurant photos in the hero and keeps the product sequence", async () => {
     const { container } = await renderHome();
-    const hero = container.querySelector(".hr");
-    expect(hero?.querySelector("ellipse")).toBeNull();
-    expect(hero?.textContent).toContain("Morning Line Check");
-    expect(hero?.textContent).toContain("Enter Your PIN");
-    expect(hero?.textContent).toContain("Opener");
-    expect(hero?.textContent).not.toContain("Photo proof");
+    const hero = container.querySelector(".hero");
+    const photos = hero?.querySelectorAll(".hero-bg img");
+    expect(photos).toHaveLength(3);
+    expect(photos?.[0]).toHaveAttribute("src", "/hero/kitchen-line.webp");
+    expect(photos?.[0]).toHaveAttribute("alt", "");
+    expect(photos?.[0]).toHaveAttribute("loading", "eager");
+    expect(photos?.[1]).toHaveAttribute("src", "/hero/manager-opening.webp");
+    expect(photos?.[1]).toHaveAttribute("loading", "lazy");
+    expect(photos?.[2]).toHaveAttribute("alt", "");
+    expect(hero?.querySelector(".stage")).toBeNull();
+    expect(hero?.textContent).not.toContain("Morning Line Check");
     expect(container.querySelectorAll(".pm-step")).toHaveLength(3);
     expect(Array.from(container.querySelectorAll(".pm-label")).map(node => node.textContent)).toEqual(["Checklists", "Punch clock", "Scheduling"]);
   });
@@ -72,7 +82,7 @@ describe("homepage demo request links", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Add one \$1$/ }));
     expect(screen.getByText("Short $11.00")).toBeTruthy();
     expect(screen.getByText("$189.00")).toBeTruthy();
-    fireEvent.click(screen.getByRole("tab", { name: "Every location" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Multi-location visibility" }));
     fireEvent.click(screen.getByRole("button", { name: "Open checklists" }));
     expect(screen.queryByRole("button", { name: /Oak Plaza/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Westfield/ }));

@@ -117,6 +117,7 @@ const BrandAutoDeployLog = lazyWithRetry(() => import("./pages/BrandAutoDeployLo
 const EmailPreview = lazyWithRetry(() => import("./pages/EmailPreview"));
 const KDSBoard = lazyWithRetry(() => import("./pages/KDSBoard"));
 const DemoGate = lazyWithRetry(() => import("./pages/DemoGate"));
+const BookDemo = lazyWithRetry(() => import("./pages/BookDemo"));
 
 const queryClient = new QueryClient();
 
@@ -212,7 +213,8 @@ const AppContent = () => {
 
         {/* Unlisted review page — noindex, not linked from anywhere, not in sitemap */}
         <Route path="/r/satnight-8f3k" element={<ReviewLanding />} />
-        <Route path="/demo" element={<DemoGate />} />
+        <Route path="/demo" element={<BookDemo />} />
+        <Route path="/demo-preview" element={<DemoGate />} />
 
         
         <Route path="/install" element={<InstallGuide />} />
