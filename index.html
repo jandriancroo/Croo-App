@@ -35,13 +35,20 @@
     <link rel="canonical" href="https://croohq.com/" data-rh="true" />
     <meta property="og:url" content="https://croohq.com/" data-rh="true" />
     <script>
-      // This shell is served for every SPA route; the homepage canonical/og:url
-      // belong to "/" only (blog pages are separate static files with their own).
+      // Homepage only. /jobs and /jobs/<slug> are static files with their own
+      // canonical (scripts/build-jobs.mjs). On any other path, drop this
+      // homepage canonical and og:url, and leave a canonical that already
+      // points at the current page in place.
       (function() {
-        if (location.pathname !== '/') {
-          var c = document.querySelector('link[rel="canonical"]'); if (c) c.remove();
-          var o = document.querySelector('meta[property="og:url"]'); if (o) o.remove();
+        var path = location.pathname || '/';
+        if (path === '/' || path === '') return;
+        function isHome(v) {
+          return v === 'https://croohq.com/' || v === 'https://croohq.com';
         }
+        var c = document.querySelector('link[rel="canonical"]');
+        if (c && isHome(c.getAttribute('href'))) c.remove();
+        var o = document.querySelector('meta[property="og:url"]');
+        if (o && isHome(o.getAttribute('content'))) o.remove();
       })();
     </script>
     <meta property="og:site_name" content="CrooHQ" />
