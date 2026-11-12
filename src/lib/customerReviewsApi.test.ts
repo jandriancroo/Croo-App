@@ -27,7 +27,7 @@ describe("customerReviewsApi uses the global fetch safely", () => {
     globalThis.fetch = stub as unknown as typeof fetch;
     await expect(submitReview(row, deps)).resolves.toBeUndefined();
     expect(stub).toHaveBeenCalledTimes(1);
-    expect(String(stub.mock.calls[0][0])).toBe("https://example.supabase.co/rest/v1/customer_reviews");
+    expect(String((stub.mock.calls[0] as unknown[])[0])).toBe("https://example.supabase.co/rest/v1/customer_reviews");
   });
 
   it("drafts through the global fetch", async () => {
