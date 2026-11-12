@@ -59,7 +59,10 @@ Deno.serve(async (req) => {
       signal: AbortSignal.timeout(20000),
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        max_tokens: 220,
+        // gemini-2.5-flash counts its thinking tokens against this cap, so a
+        // small cap leaves an empty or cut-off paragraph. The output is still
+        // trimmed to 4 sentences and 1200 characters by acceptDraft.
+        max_tokens: 2048,
         temperature: 0.3,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
@@ -67,10 +70,17 @@ Deno.serve(async (req) => {
         ],
       }),
     });
-    if (!response.ok) return json({ ok: false, fallback: true, text: fallback.text }, 200);
+    if (!response.ok) {
+      console.warn(`[write-customer-review] gateway status ${response.status}`);
+      return json({ ok: false, fallback: true, text: fallback.text }, 200);
+    }
     const data = await response.json();
     const content = String(data?.choices?.[0]?.message?.content ?? "");
     const draft = acceptDraft(content, answers);
+    if (!draft.drafted) {
+      // Reason only, never customer text.
+      console.warn(`[write-customer-review] draft rejected: finish=${data?.choices?.[0]?.finish_reason ?? "?"} chars=${content.length}`);
+    }
     return json({ ok: draft.drafted, fallback: !draft.drafted, text: draft.text }, 200);
   } catch {
     return json({ ok: false, fallback: true, text: fallback.text }, 200);
