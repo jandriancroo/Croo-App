@@ -178,3 +178,6 @@ verify_jwt = true
 
 [functions.write-customer-review]
 verify_jwt = true
+
+[functions.google-reviews-service]
+verify_jwt = false
