@@ -110,9 +110,8 @@ export function sourceText(answers: ReviewAnswers): string {
 }
 
 export function inventedNumbers(output: string, source: string): boolean {
-  const hay = source.replace(/,/g, "");
-  const nums = output.match(/\d+(?:\.\d+)?/g) ?? [];
-  return nums.some(num => !hay.includes(num));
+  const sourceNums = new Set((source.replace(/,/g, "").match(/\d+(?:\.\d+)?/g) ?? []));
+  return (output.match(/\d+(?:\.\d+)?/g) ?? []).some(num => !sourceNums.has(num));
 }
 
 function asSentence(text: string): string {
