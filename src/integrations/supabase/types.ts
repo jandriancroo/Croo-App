@@ -8320,6 +8320,59 @@ export type Database = {
           },
         ]
       }
+      location_google_reviews: {
+        Row: {
+          active: boolean
+          created_at: string
+          fetched_at: string | null
+          google_maps_uri: string | null
+          last_error: string | null
+          last_full_fetch_at: string | null
+          location_id: string
+          place_id: string
+          rating: number | null
+          reviews: Json
+          updated_at: string
+          user_rating_count: number | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          fetched_at?: string | null
+          google_maps_uri?: string | null
+          last_error?: string | null
+          last_full_fetch_at?: string | null
+          location_id: string
+          place_id: string
+          rating?: number | null
+          reviews?: Json
+          updated_at?: string
+          user_rating_count?: number | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          fetched_at?: string | null
+          google_maps_uri?: string | null
+          last_error?: string | null
+          last_full_fetch_at?: string | null
+          location_id?: string
+          place_id?: string
+          rating?: number | null
+          reviews?: Json
+          updated_at?: string
+          user_rating_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_google_reviews_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: true
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       location_hours: {
         Row: {
           close_time: string | null
@@ -16414,6 +16467,11 @@ export type Database = {
         Returns: boolean
       }
       _can_override_goal: { Args: { _user_id: string }; Returns: boolean }
+      _checklist_response_has_photo: {
+        Args: { _image_url: string; _text: string }
+        Returns: boolean
+      }
+      _google_reviews_refresh_due: { Args: { _now?: string }; Returns: boolean }
       _invert_log_rows: {
         Args: {
           _rows: Database["public"]["Tables"]["schedule_change_log"]["Row"][]
@@ -17406,6 +17464,17 @@ export type Database = {
         Returns: {
           cost: number
           hours: number
+        }[]
+      }
+      get_location_google_reviews: {
+        Args: { _location_id: string }
+        Returns: {
+          fetched_at: string
+          google_maps_uri: string
+          location_id: string
+          rating: number
+          reviews: Json
+          user_rating_count: number
         }[]
       }
       get_next_system_alert: {
