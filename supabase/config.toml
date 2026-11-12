@@ -175,3 +175,6 @@ verify_jwt = false
 
 [functions.overdue-checklist-digest]
 verify_jwt = true
+
+[functions.write-customer-review]
+verify_jwt = true
