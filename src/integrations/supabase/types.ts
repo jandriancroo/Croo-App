@@ -16414,6 +16414,10 @@ export type Database = {
         Returns: boolean
       }
       _can_override_goal: { Args: { _user_id: string }; Returns: boolean }
+      _checklist_response_has_photo: {
+        Args: { _image_url: string; _text: string }
+        Returns: boolean
+      }
       _invert_log_rows: {
         Args: {
           _rows: Database["public"]["Tables"]["schedule_change_log"]["Row"][]
