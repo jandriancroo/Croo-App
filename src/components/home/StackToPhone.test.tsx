@@ -1,14 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import StackToPhone from "./StackToPhone";
+import StackToPhone, { STACK_SCROLL_CSS } from "./StackToPhone";
 import { STACK_TOOLS, stackFrame } from "./stackFrames";
 
 describe("stack to phone", () => {
   it("renders the seven tools, the phone brand, and a sample dashboard", () => {
     const { container } = render(<StackToPhone />);
-    expect(screen.getByRole("heading", { name: /The whole stack out/i })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Seven apps out/i })).toBeTruthy();
     for (const tool of STACK_TOOLS) expect(screen.getByText(tool)).toBeTruthy();
-    expect(screen.getByText("All in one place.")).toBeTruthy();
+    expect(screen.getByText("One app. Every store.")).toBeTruthy();
     expect(screen.getByAltText("CrooHQ")).toHaveAttribute("src", "/croohq-wordmark.png");
     expect(screen.getByText("Quick Tasks")).toBeTruthy();
     expect(screen.getByText("Restock the line")).toBeTruthy();
@@ -16,8 +16,13 @@ describe("stack to phone", () => {
     expect(screen.getByText("Opening")).toBeTruthy();
     expect(screen.getByText("Mid-shift")).toBeTruthy();
     expect(screen.getByText("Closing")).toBeTruthy();
-    expect(screen.getAllByText("Sample data").length).toBeGreaterThan(0);
-    expect(container.textContent).not.toMatch(/\$|Toast|Clover|Aloha|rip and replace|rip-and-replace/i);
+    expect(screen.getByText("$4,812")).toBeTruthy();
+    expect(screen.getByText("$4,390")).toBeTruthy();
+    expect(screen.getByText("$5,000")).toBeTruthy();
+    expect(screen.getByText("$5,240")).toBeTruthy();
+    expect(screen.getAllByText("Example")).toHaveLength(1);
+    expect(screen.queryByText(/sample data/i)).toBeNull();
+    expect(container.textContent).not.toMatch(/Toast|Clover|Aloha|rip and replace|rip-and-replace/i);
   });
 
   it("walks the five scroll frames on desktop and stacks the phone on a narrow screen", () => {
@@ -43,8 +48,9 @@ describe("stack to phone", () => {
     expect(dash.all).toBeGreaterThan(0.8);
 
     const zoom = stackFrame(1, false);
-    expect(zoom.zoom).toBeGreaterThan(1.4);
-    expect(zoom.x).toBeLessThan(-100);
+    expect(zoom.zoom).toBe(1);
+    expect(zoom.y).toBe(0);
+    expect(zoom.x).toBe(0);
     expect(zoom.dash).toBe(1);
 
     const mobileStart = stackFrame(0, true);
@@ -54,5 +60,7 @@ describe("stack to phone", () => {
     expect(mobilePhone.phone).toBe(1);
     expect(mobilePhone.list).toBe(0);
     expect(stackFrame(0.7, true).dash).toBe(1);
+    expect(STACK_SCROLL_CSS).toContain("margin-top:64px");
+    expect(STACK_SCROLL_CSS).not.toContain("margin-top:-");
   });
 });
