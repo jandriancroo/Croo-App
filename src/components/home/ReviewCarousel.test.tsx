@@ -27,7 +27,7 @@ describe("homepage review carousel", () => {
     expect(await screen.findByText(JOHNNY_QUOTE)).toBeTruthy();
     expect(screen.getByText("Johnny Tellez")).toBeTruthy();
     expect(screen.queryByText(newer.text)).toBeNull();
-    expect(screen.getByRole("tab", { name: /1 of 1/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab")).toBeNull();
   });
 
   it("puts Johnny first and approved reviews after that, newest first", async () => {

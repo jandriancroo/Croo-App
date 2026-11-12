@@ -92,7 +92,9 @@ export default function CustomerReview() {
   const [rewriting, setRewriting] = useState(false);
   const [trap, setTrap] = useState("");
   const formRef = useRef(form);
+  const trapRef = useRef("");
   formRef.current = form;
+  trapRef.current = trap;
   const headingRef = useRef<HTMLHeadingElement>(null);
   const steps = interviewSteps(form.locationCount);
   const interviewIndex = steps.indexOf(step);
@@ -104,7 +106,7 @@ export default function CustomerReview() {
   useEffect(() => {
     if (step !== "writing") return;
     let cancel = false;
-    draftReview(toReviewAnswers(formRef.current)).then(result => {
+    draftReview(toReviewAnswers(formRef.current), undefined, trapRef.current).then(result => {
       if (cancel) return;
       setForm(current => ({ ...current, finalText: result.text }));
       setDraftNote(result.drafted ? "" : "We couldn't draft this one. Your answers are below. Edit them, or write the review yourself.");
@@ -161,7 +163,7 @@ export default function CustomerReview() {
   const rewrite = async () => {
     setRewriting(true);
     setError("");
-    const result = await draftReview(toReviewAnswers(form));
+    const result = await draftReview(toReviewAnswers(form), undefined, trapRef.current);
     setRewriting(false);
     if (!result.text) {
       setError("We couldn't rewrite it just now. You can edit the words yourself.");
@@ -312,7 +314,6 @@ export default function CustomerReview() {
     onNext = null;
     body = (
       <>
-        <p className="rv-help">We'll use the words you approved. To take it down later, email jordan@croohq.com.</p>
         <div className="rv-actions"><Link className="rv-next" to="/" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>Back to CrooHQ</Link></div>
       </>
     );
@@ -330,7 +331,7 @@ export default function CustomerReview() {
     : step === "writing" ? "Writing your review"
     : step === "edit" ? "Does this sound like you?"
     : step === "approve" ? "Approve your words"
-    : "Thank you";
+    : "Thanks! We'll review it before it goes up.";
 
   if (step === "else") nextLabel = "Write my review";
 

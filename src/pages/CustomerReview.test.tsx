@@ -83,7 +83,7 @@ describe("customer review builder", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: CONSENT }));
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
 
-    expect(await screen.findByRole("heading", { name: "Thank you" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Thanks! We'll review it before it goes up." })).toBeTruthy();
     expect(submitReview).toHaveBeenCalledTimes(1);
     const row = vi.mocked(submitReview).mock.calls[0][0];
     expect(row).toMatchObject({
@@ -172,7 +172,7 @@ describe("customer review builder", () => {
     fireEvent.change(trap!, { target: { value: "https://spam.example" } });
     fireEvent.click(screen.getByRole("checkbox", { name: CONSENT }));
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
-    expect(await screen.findByRole("heading", { name: "Thank you" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Thanks! We'll review it before it goes up." })).toBeTruthy();
     expect(submitReview).not.toHaveBeenCalled();
   });
 });

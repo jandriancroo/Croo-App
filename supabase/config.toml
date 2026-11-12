@@ -177,4 +177,4 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.write-customer-review]
-verify_jwt = false
+verify_jwt = true

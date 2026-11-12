@@ -70,7 +70,7 @@ export function reviewRow(form: ReviewForm): ReviewInsert {
 }
 
 /** Draft a paragraph. A failed or missing AI call returns their own words, or an empty string. */
-export async function draftReview(answers: ReviewAnswers, deps?: Deps): Promise<{ text: string; drafted: boolean }> {
+export async function draftReview(answers: ReviewAnswers, deps?: Deps, companyWebsite = ""): Promise<{ text: string; drafted: boolean }> {
   const clipped = clipAnswers(answers);
   const fallback = { text: stitchFallback(clipped), drafted: false };
   if (!deps && import.meta.env.MODE === "test") return fallback;
@@ -80,7 +80,7 @@ export async function draftReview(answers: ReviewAnswers, deps?: Deps): Promise<
     const response = await live.fetch(`${live.url}/functions/v1/write-customer-review`, {
       method: "POST",
       headers: headers(live.key),
-      body: JSON.stringify({ answers: clipped }),
+      body: JSON.stringify({ answers: clipped, company_website: companyWebsite }),
       signal: AbortSignal.timeout(20000),
     });
     const data = await response.json().catch(() => null) as { text?: string } | null;
@@ -91,7 +91,7 @@ export async function draftReview(answers: ReviewAnswers, deps?: Deps): Promise<
 }
 
 /**
- * Save an approved review. The /demo form emails Jordan from a function that
+ * Save a consented review. The trigger stores it as pending. The /demo form emails Jordan from a function that
  * lives on a different Supabase project and is not in this repo, so this
  * insert does not send mail.
  */

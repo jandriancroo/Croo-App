@@ -3,7 +3,10 @@
 -- They cannot SELECT, UPDATE, or DELETE the table, so raw answers and the
 -- names of anonymous reviewers never come back through the API.
 -- Public display goes through list_public_customer_reviews (text + attribution
--- of status = 'approved' only). Hide a row later as the table owner:
+-- of status = 'approved' only). New rows stay pending until the table owner
+-- approves one:
+--   update public.customer_reviews set status = 'approved' where id = '...';
+-- Hide one later the same way:
 --   update public.customer_reviews set status = 'hidden' where id = '...';
 
 create table public.customer_reviews (
@@ -18,20 +21,20 @@ create table public.customer_reviews (
   final_text text not null,
   consent boolean not null,
   consent_at timestamptz,
-  status text not null default 'approved',
+  status text not null default 'pending',
   constraint customer_reviews_name_len check (char_length(btrim(name)) between 1 and 120),
   constraint customer_reviews_role_len check (char_length(btrim(role)) between 1 and 80),
   constraint customer_reviews_restaurant_len check (char_length(btrim(restaurant)) between 1 and 160),
   constraint customer_reviews_attribution_len check (char_length(display_attribution) between 1 and 240),
   constraint customer_reviews_text_len check (char_length(btrim(final_text)) between 1 and 1200),
   constraint customer_reviews_consent_true check (consent is true),
-  constraint customer_reviews_status check (status in ('approved', 'hidden')),
+  constraint customer_reviews_status check (status in ('pending', 'approved', 'hidden')),
   constraint customer_reviews_answers_object check (jsonb_typeof(raw_answers) = 'object'),
   constraint customer_reviews_answers_size check (octet_length(raw_answers::text) <= 8000)
 );
 
 comment on table public.customer_reviews is
-  'Customer testimonials from /review. Insert-only for anon. Read the public columns through list_public_customer_reviews. Set status to hidden to take one down.';
+  'Customer testimonials from /review. Insert-only for anon; new rows stay pending. Read approved quotes through list_public_customer_reviews. Approve with update public.customer_reviews set status = ''approved'' where id = ''...''; hide with status = ''hidden''.';
 
 create index customer_reviews_approved_created_at
   on public.customer_reviews (created_at desc)
@@ -55,7 +58,7 @@ as $$
             'CrooHQ',
             'gi'
           ),
-          '\m(toast|clover|aloha|revel|qubeyond|heartland|spoton|touchbistro|lightspeed|micros|brink|square)\M',
+          '\m(toast|clover|aloha|revel|qubeyond|heartland|spoton|touchbistro|touch\s+bistro|lightspeed|micros|brink)\M',
           'our old system',
           'gi'
         ),
@@ -115,6 +118,15 @@ begin
   if new.consent is not true then
     raise exception 'consent required';
   end if;
+  if (
+    select count(*)
+    from public.customer_reviews
+    where created_at > now() - interval '1 hour'
+  ) >= 50 then
+    raise exception 'too many reviews this hour';
+  end if;
+  new.id := gen_random_uuid();
+  new.created_at := now();
   new.name := btrim(new.name);
   new.role := btrim(new.role);
   new.restaurant := btrim(new.restaurant);
@@ -124,7 +136,7 @@ begin
   if new.final_text is null or new.final_text = '' then
     raise exception 'review text required';
   end if;
-  new.status := 'approved';
+  new.status := 'pending';
   new.consent_at := now();
   new.display_attribution := public.customer_review_attribution(
     new.anonymous, new.name, new.role, new.restaurant, new.raw_answers
@@ -152,7 +164,8 @@ as $$
   select r.id, r.created_at, r.final_text, r.display_attribution
   from public.customer_reviews r
   where r.status = 'approved'
-  order by r.created_at desc;
+  order by r.created_at desc
+  limit 12;
 $$;
 
 comment on function public.list_public_customer_reviews() is

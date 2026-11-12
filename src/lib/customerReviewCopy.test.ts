@@ -1,3 +1,4 @@
+import { readFileSync } from "fs";
 import { describe, expect, it } from "vitest";
 import {
   acceptDraft,
@@ -9,7 +10,7 @@ import {
   type ReviewAnswers,
 } from "../../supabase/functions/write-customer-review/combine.ts";
 import { HEADACHE, HELPED, interviewSteps, reviewRateLimited, reviewSubmitTimes } from "./customerReviewFlow";
-import { reviewRow, submitReview, type ReviewInsert } from "./customerReviewsApi";
+import { draftReview, reviewRow, submitReview, type ReviewInsert } from "./customerReviewsApi";
 import { EMPTY_REVIEW_FORM } from "./customerReviewFlow";
 
 const answers: ReviewAnswers = {
@@ -40,6 +41,9 @@ describe("customer review copy", () => {
     expect(text).not.toMatch(/rip and replace/i);
     expect(text).toContain("CrooHQ");
     expect(text).not.toContain("!");
+    const kept = scrubPublicText("We gained square footage after leaving Touch Bistro.");
+    expect(kept).toContain("square footage");
+    expect(kept).not.toMatch(/touch bistro/i);
   });
 
   it("keeps the draft only when every number came from the customer", () => {
@@ -99,5 +103,32 @@ describe("customer review copy", () => {
       consent: true,
     });
     await submitReview(row, { fetch: fetchMock as typeof fetch, url: "https://example.test", key: "anon" });
+  });
+
+  it("sends the honeypot and the anon bearer to the draft function", async () => {
+    let seen: { url: string; authorization: string | null; company: string } | undefined;
+    const fetchMock = async (url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      seen = { url, authorization: new Headers(init.headers).get("Authorization"), company: body.company_website };
+      return new Response(JSON.stringify({ ok: false, text: "" }), { status: 200 });
+    };
+    await draftReview(answers, { fetch: fetchMock as typeof fetch, url: "https://example.test", key: "anon-key" }, "https://spam.example");
+    expect(seen?.url).toBe("https://example.test/functions/v1/write-customer-review");
+    expect(seen?.authorization).toBe("Bearer anon-key");
+    expect(seen?.company).toBe("https://spam.example");
+  });
+
+  it("stores new reviews as pending and lists at most 12 approved quotes", () => {
+    const sql = readFileSync("supabase/migrations/20261112120000_customer_reviews.sql", "utf8");
+    expect(sql).toContain("default 'pending'");
+    expect(sql).toContain("status in ('pending', 'approved', 'hidden')");
+    expect(sql).toContain("new.status := 'pending'");
+    expect(sql).toContain("new.id := gen_random_uuid()");
+    expect(sql).toContain("new.created_at := now()");
+    expect(sql).toContain("limit 12");
+    expect(sql).toContain("interval '1 hour'");
+    expect(sql).toContain("set status = 'approved'");
+    expect(sql).toContain("touch\\s+bistro");
+    expect(sql).not.toContain("|square)");
   });
 });

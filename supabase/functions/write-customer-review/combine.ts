@@ -38,7 +38,7 @@ const BRAND = [
   /\bcroohq\b/gi,
 ];
 
-const POS_VENDOR = /\b(?:toast|clover|aloha|revel|qubeyond|heartland|spoton|touchbistro|touch\s+bistro|lightspeed|micros|brink|square)\b/gi;
+const POS_VENDOR = /\b(?:toast|clover|aloha|revel|qubeyond|heartland|spoton|touchbistro|touch\s+bistro|lightspeed|micros|brink)\b/gi;
 const RIP = /\brip[\s-]+and[\s-]+replace\b/gi;
 
 export function clip(value: unknown, max = MAX_FIELD): string {

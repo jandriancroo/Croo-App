@@ -122,20 +122,22 @@ export default function ReviewCarousel({ load = fetchPublicReviews }: { load?: (
           );
         })}
       </div>
-      <div className="review-dots" role="tablist" aria-label="Reviews">
-        {slides.map((slide, slideIndex) => (
-          <button
-            key={slide.id}
-            type="button"
-            role="tab"
-            aria-selected={slideIndex === active}
-            aria-label={`Show review ${slideIndex + 1} of ${slides.length}, ${slide.name}`}
-            onClick={() => setIndex(slideIndex)}
-          >
-            <i />
-          </button>
-        ))}
-      </div>
+      {slides.length > 1 && (
+        <div className="review-dots" role="tablist" aria-label="Reviews">
+          {slides.map((slide, slideIndex) => (
+            <button
+              key={slide.id}
+              type="button"
+              role="tab"
+              aria-selected={slideIndex === active}
+              aria-label={`Show review ${slideIndex + 1} of ${slides.length}, ${slide.name}`}
+              onClick={() => setIndex(slideIndex)}
+            >
+              <i />
+            </button>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
