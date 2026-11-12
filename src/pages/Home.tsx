@@ -8,6 +8,7 @@ import TheoHeroPhones from "@/components/home/TheoHeroPhones";
 import { THEO_HEADLINE, THEO_HERO_CSS } from "@/components/home/theoHeroMotion";
 import StackToPhone, { STACK_SCROLL_CSS } from "@/components/home/StackToPhone";
 import { SiteFooter } from "@/components/marketing/SiteFooter";
+import ReviewCarousel from "@/components/home/ReviewCarousel";
 
 const HomeDemos = lazy(() => import('@/components/home/HomeDemos'));
 
@@ -290,7 +291,7 @@ const Home = () => {
         <div className="marq rv" aria-label={FEATURES.join(', ')}><div className="track" aria-hidden="true">{[0, 1].map(copy => <div className="marq-group" key={copy}>{FEATURES.map(word => <span key={word}>{word}</span>)}</div>)}</div></div>
         <div className="wrap">
           <section className="sec why-sec" id="why"><h2 className="rv">Every store runs like you're standing in it.</h2><p className="big rv">Openings, closings, and coverage handled, even when you're three stores away.</p>
-            <div className="split"><a className="tile t1 rv" href="https://eljefe-enterprises.com" target="_blank" rel="noopener noreferrer"><p className="quote">“I have seen a lot of restaurant software. Some of it is useful. None of it combined ease of use with an operations perspective the way CrooHQ does.”</p><div className="testimonial-foot"><div className="by"><img className="ph" src="/johnny-headshot.jpg" alt="Johnny Tellez" width={48} height={48} loading="lazy" /><div><b>Johnny Tellez</b><small>20+ Year Restaurant Exec · El Jefe Enterprises</small></div></div><p className="ask">Ask me how I can help your business through <img src="/eljefe-stamp.png" alt="El Jefe Enterprises" loading="lazy" /></p></div></a>
+            <div className="split"><ReviewCarousel />
               <div className="tile t2 rv"><div><p className="eyebrow">Why CrooHQ</p><h3>Built by a real multi-unit restaurant owner.</h3></div><div><p className="pos-copy">Syncs with the data you already have, like your POS. Sales, labor, and shift info in one place, no retyping.</p><span className="chip">Encrypted in transit (HTTPS)</span><span className="chip">Role-based access for owners, managers, and crew</span></div></div>
             </div>
             {/* TODO: add more client logos/testimonials when real assets exist */}

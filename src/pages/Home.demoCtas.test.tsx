@@ -49,6 +49,13 @@ describe("homepage demo request links", () => {
     expect(screen.queryByText(/Toast|Clover|Aloha/)).toBeNull();
   });
 
+  it("keeps Johnny's quote in the review carousel", async () => {
+    await renderHome();
+    expect(screen.getByRole("region", { name: "What operators say" })).toBeTruthy();
+    expect(screen.getByText(/I have seen a lot of restaurant software/)).toBeTruthy();
+    expect(screen.getByText("Johnny Tellez")).toBeTruthy();
+  });
+
   it("keeps the footer contact email and adds Contact Us", async () => {
     await renderHome();
     expect(screen.getByRole("link", { name: "Contact: jordan@croohq.com" })).toHaveAttribute("href", "mailto:jordan@croohq.com");
