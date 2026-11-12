@@ -67,7 +67,7 @@ export const THEO_HERO_CSS = `
 .hme .hero-theo-title{max-width:9ch;font-size:clamp(48px,5.2vw,84px);line-height:.96;font-weight:800;color:#fff}
 .hme .theo-phones{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;perspective:1400px;opacity:0;pointer-events:none;animation:theo-beat ${LOOP_MS}ms linear infinite}
 .hme .theo-phone{position:relative;filter:drop-shadow(-18px 28px 16px rgba(0,0,0,.42));transform-style:preserve-3d}
-.hme .theo-phone .pm-phone{width:100%;aspect-ratio:9/17.6}
+.hme .theo-phone .pm-phone{width:100%;aspect-ratio:9/19.4}
 .hme .hero .hr{overflow:visible}
 .hme .theo-tag{display:block;margin:10px auto 0;width:fit-content;text-align:center;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:rgba(8,24,30,.62);border-radius:999px;padding:5px 10px}
 .hme .theo-chat{height:100%;min-height:0;display:flex;flex-direction:column;background:hsl(38 38% 93%);color:hsl(220 25% 5%);font-family:Manrope,sans-serif;font-weight:600;line-height:1.35}
@@ -124,26 +124,26 @@ ${reply("theo-sales-reply-m", salesMobileStart)}
   100%{opacity:0;transform:translate(-20%, -32%) rotateZ(6deg) scale(.8);z-index:1}
 }
 @media(min-width:768px){
-  .hme .theo-phones{align-items:center;justify-content:flex-end;padding:24px 18px 24px 0}
-  .hme .theo-phone-shift{width:min(236px,40%);margin-right:-22px;z-index:1;transform:translateY(46px) rotateY(12deg) rotateZ(-8deg)}
-  .hme .theo-phone-sales{width:min(292px,48%);z-index:2;transform:translateY(-18px) rotateY(8deg) rotateZ(6deg)}
+  .hme .theo-phones{align-items:flex-end;justify-content:center;gap:clamp(16px,2.4vw,36px);padding:16px 12px 20px}
+  .hme .theo-phone-shift{width:clamp(188px,34%,228px);margin:0;z-index:1;transform:translateY(8px) rotate(-6deg)}
+  .hme .theo-phone-sales{width:clamp(220px,40%,276px);z-index:2;transform:translateY(-16px) rotate(5deg)}
 }
 @media(max-width:767px){
   .hme .hero{grid-template-columns:1fr}
-  .hme .hero .hr{height:590px;overflow:hidden}
-  .hme .theo-phones{display:block}
-  .hme .theo-phone{position:absolute;left:50%;top:48%;width:min(236px,68vw)}
-  .hme .theo-phone .pm-phone{aspect-ratio:9/19.4}
-  .hme .theo-head{padding:36px 10px 8px}
+  .hme .hero .hr{height:auto;min-height:0;overflow:visible}
+  .hme .theo-phones{position:relative;inset:auto;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:18px;height:auto;padding:12px 8px 16px}
+  .hme .theo-phone{position:relative;left:auto;top:auto;width:min(280px,88vw)}
+  .hme .theo-phone-shift{width:min(260px,82vw);transform:none;animation:none}
+  .hme .theo-phone-sales{width:min(280px,88vw);transform:none;animation:none}
+  .hme .theo-phone .pm-phone{aspect-ratio:9/18.4}
+  .hme .theo-head{padding:32px 8px 8px}
   .hme .theo-thread{padding:8px;gap:6px}
   .hme .theo-compose{padding:6px}
-  .hme .theo-phone-shift{animation:theo-m-shift ${LOOP_MS}ms linear infinite}
-  .hme .theo-phone-sales{animation:theo-m-sales ${LOOP_MS}ms linear infinite}
   .hme .theo-phone-sales .theo-user{animation-name:theo-sales-ask-m}
   .hme .theo-phone-sales .theo-dots{animation-name:theo-sales-dots-m}
   .hme .theo-phone-sales .theo-reply{animation-name:theo-sales-reply-m}
-  .hme .theo-phone-sales .theo-chat{font-size:13px}
-  .hme .theo-phone-shift .theo-chat{font-size:14.5px}
+  .hme .theo-phone-sales .theo-chat{font-size:12px}
+  .hme .theo-phone-shift .theo-chat{font-size:13px}
 }
 @media(prefers-reduced-motion:reduce){
   .hme .hero-beat-platform,.hme .hero-beat-theo,.hme .theo-phones,.hme .theo-user,.hme .theo-dots,.hme .theo-reply,.hme .theo-phone-shift,.hme .theo-phone-sales,.hme .theo-dots b{animation:none!important}

@@ -28,17 +28,16 @@ function Ring({ done, total }: { done: number; total: number }) {
 function DashboardScreen() {
   return (
     <div className="stack-screen stack-screen-dash">
-      <p className="stack-sample">Sample data</p>
       <div className="stack-sales">
         <div className="stack-sales-nav"><span>Today</span></div>
         <div className="stack-sales-hero">
           <p>Today's sales</p>
-          <strong>Sample</strong>
-          <em>Sample data</em>
+          <strong>$4,812</strong>
+          <em className="stack-example">Example</em>
           <div className="stack-sales-grid">
-            <span><small>Last year</small>Sample</span>
-            <span><small>Goal</small>Sample</span>
-            <span><small>Pace</small>Sample</span>
+            <span><small>Last year</small>$4,390</span>
+            <span><small>Goal</small>$5,000</span>
+            <span><small>Pace</small>$5,240</span>
           </div>
         </div>
       </div>
@@ -85,9 +84,9 @@ function Phone() {
 }
 
 export const STACK_SCROLL_CSS = `
-.hme .stack-scroll{position:relative;z-index:1;height:480vh}
-.hme .stack-sticky{position:sticky;top:0;height:100vh;display:flex;align-items:center;overflow:hidden}
-.hme .stack-stage{position:relative;width:100%;height:min(860px,100%);display:grid;grid-template-columns:minmax(260px,480px) 1fr minmax(260px,320px);grid-template-rows:auto 1fr;align-items:center}
+.hme .stack-scroll{position:relative;z-index:auto;height:420vh}
+.hme .stack-sticky{position:sticky;top:0;height:100vh;display:flex;align-items:flex-end;padding-bottom:16px;overflow:hidden}
+.hme .stack-stage{position:relative;width:100%;height:auto;max-height:calc(100vh - 32px);display:grid;grid-template-columns:minmax(260px,480px) 1fr minmax(260px,320px);grid-template-rows:auto auto;align-items:end}
 .hme .stack-copy{grid-column:1;grid-row:2;position:relative}
 .hme .stack-head{grid-column:1 / -1;opacity:var(--head,1);max-height:calc(var(--head,1) * 190px);overflow:hidden;margin:0 0 calc(var(--head,1) * 18px);font-size:clamp(40px,5vw,68px)}
 .hme .stack-swap{position:relative;min-height:240px}
@@ -95,14 +94,14 @@ export const STACK_SCROLL_CSS = `
 .hme .stack-tools li{font-size:clamp(22px,2.6vw,34px);font-weight:800;line-height:1.2;padding:11px 0;border-bottom:1px solid var(--line)}
 .hme .stack-allin{position:absolute;left:0;right:0;top:0;margin:0;opacity:var(--all,0);font-size:clamp(40px,5vw,72px);font-weight:800;line-height:.96;letter-spacing:0}
 .hme .stack-phone-slot{grid-column:3;grid-row:2;opacity:var(--phone,1);z-index:2}
-.hme .stack-phone-motion{transform:translate3d(calc(var(--x,0) * 1%), var(--y, 0px), 0) scale(var(--zoom,1));transform-origin:50% 34%;will-change:transform}
+.hme .stack-phone-motion{transform:translate3d(calc(var(--x,0) * 1%), 0, 0) scale(1);transform-origin:center center}
 .hme .stack-device{width:min(300px,100%);height:min(640px,74vh);aspect-ratio:auto}
 .hme .stack-screens{position:relative;flex:1;min-height:0;background:#fbf8f3}
 .hme .stack-screen{position:absolute;inset:0}
 .hme .stack-screen-brand{display:flex;align-items:center;justify-content:center;padding:36px 18px 18px;background:#fbf8f3;opacity:calc(1 - var(--dash,0))}
 .hme .stack-screen-brand img{width:min(168px,78%);height:auto}
 .hme .stack-screen-dash{display:flex;flex-direction:column;gap:8px;padding:28px 8px 8px;overflow:hidden;background:hsl(38 38% 93%);opacity:var(--dash,0)}
-.hme .stack-sample{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:hsl(220 20% 35%)}
+.hme .stack-example{display:block;margin-top:5px;font-style:normal;font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:none;color:rgba(255,255,255,.78)}
 .hme .stack-sales{border-radius:14px;overflow:hidden}
 .hme .stack-sales-nav{background:hsl(190 54% 40%);color:#fff;text-align:center;font-weight:800;font-size:13px;padding:6px 8px}
 .hme .stack-sales-hero{background:hsl(22 80% 56%);color:#fff;text-align:center;padding:8px 8px 10px}
@@ -110,7 +109,7 @@ export const STACK_SCROLL_CSS = `
 .hme .stack-sales-hero strong{display:block;margin-top:2px;font-size:28px;font-weight:800;letter-spacing:-.03em;line-height:1}
 .hme .stack-sales-hero em{display:inline-block;margin-top:6px;font-style:normal;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:rgba(255,255,255,.2);border-radius:99px;padding:3px 8px}
 .hme .stack-sales-grid{display:grid;grid-template-columns:1fr 1fr 1fr;margin-top:8px;background:rgba(0,0,0,.12);border-radius:10px;padding:6px 0}
-.hme .stack-sales-grid span{display:flex;flex-direction:column;gap:2px;font-size:12px;font-weight:800}
+.hme .stack-sales-grid span{display:flex;flex-direction:column;gap:2px;font-size:11px;font-weight:800;font-variant-numeric:tabular-nums}
 .hme .stack-sales-grid span + span{border-left:1px solid rgba(255,255,255,.22)}
 .hme .stack-sales-grid small{font-size:9px;font-weight:700}
 .hme .stack-block{background:#fff;border-radius:12px;padding:6px 8px 4px}
@@ -122,17 +121,17 @@ export const STACK_SCROLL_CSS = `
 .hme .stack-ring{position:relative;width:28px;height:28px;flex:none}
 .hme .stack-ring svg{width:28px;height:28px;display:block}
 .hme .stack-ring b{position:absolute;inset:0;display:grid;place-items:center;font-size:7px;color:hsl(190 54% 40%)}
-.hme .stack-scroll + .price{position:relative;z-index:2;margin-top:-38vh;box-shadow:0 -18px 40px rgba(26,26,26,.08)}
+.hme .stack-scroll + .price{position:relative;z-index:auto;margin-top:64px;box-shadow:none}
 @media(max-width:767px){
   .hme .stack-scroll{height:380vh}
-  .hme .stack-stage{display:flex;flex-direction:column;justify-content:center;gap:18px;height:100%}
+  .hme .stack-stage{display:flex;flex-direction:column;justify-content:flex-end;gap:18px;height:auto;max-height:none}
   .hme .stack-copy{min-height:0;width:100%}
   .hme .stack-swap{min-height:0}
   .hme .stack-tools{overflow:hidden;max-height:calc(var(--list,1) * 460px)}
   .hme .stack-allin{position:relative;opacity:var(--all,0);margin-top:8px}
   .hme .stack-phone-slot{width:min(280px,86vw);opacity:var(--phone,0);align-self:center}
   .hme .stack-device{height:min(540px,62vh)}
-  .hme .stack-scroll + .price{margin-top:-34vh}
+  .hme .stack-scroll + .price{margin-top:40px}
 }
 @media(prefers-reduced-motion:reduce){
   .hme .stack-scroll{height:auto!important}
@@ -146,7 +145,7 @@ export const STACK_SCROLL_CSS = `
   .hme .stack-phone-motion{transform:none!important}
   .hme .stack-screen-brand{display:none!important}
   .hme .stack-screen-dash{position:relative!important}
-  .hme .stack-scroll + .price{margin-top:40px!important;box-shadow:none}
+  .hme .stack-scroll + .price{margin-top:64px!important;box-shadow:none}
 }
 `;
 
