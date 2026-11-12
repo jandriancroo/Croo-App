@@ -8,6 +8,16 @@ import { Star, MessageSquare, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import ovationLogo from '@/assets/ovation-logo.png';
+import { GoogleGLogo } from '@/components/dashboard/GoogleGLogo';
+import {
+  googleDisplayReviews,
+  googleScore,
+  safeMapsUri,
+  selectReviewsSource,
+  type DisplayReview,
+  type GoogleReviewsRow,
+  type ReviewsSource,
+} from '@/lib/reviewsSource';
 
 interface OvationReview {
   id: string;
@@ -173,9 +183,89 @@ export function useOvationData() {
   };
 }
 
+/** Google reviews for this store, or null. The RPC hides the row for Ovation stores. */
+export function useGoogleReviewsRow() {
+  const { currentLocation } = useAppLocation();
+  const { user, session } = useAuth();
+  const locationId = currentLocation?.id;
+  const authReady = !!user && !!session;
+  const query = useQuery<GoogleReviewsRow | null>({
+    queryKey: ['google-reviews', locationId, user?.id],
+    queryFn: async () => {
+      if (!locationId) return null;
+      // Not in the generated types yet; keep the client as `this` for rpc().
+      const client = supabase as unknown as { rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message: string } | null }> };
+      const { data, error } = await client.rpc('get_location_google_reviews', { _location_id: locationId });
+      if (error) {
+        console.warn('[GoogleReviews] read failed', error.message);
+        return null;
+      }
+      const row = Array.isArray(data) ? data[0] : data;
+      return (row ?? null) as GoogleReviewsRow | null;
+    },
+    enabled: !!locationId && authReady,
+    staleTime: 30 * 60 * 1000,
+  });
+  return { row: query.data ?? null, isLoading: !locationId || !authReady || query.isLoading };
+}
+
+export interface ReviewsView {
+  source: ReviewsSource;
+  reviews: DisplayReview[];
+  isLoading: boolean;
+  displayScore: number | null | undefined;
+  displayCount: number | null | undefined;
+  /** Ovation: 14-day window. Google: all-time rating and total review count. */
+  periodLabel: string;
+  brandName: string;
+  mapsUri: string | null;
+}
+
+/**
+ * One hook for the review pill: Ovation where the store uses Ovation, else
+ * Google when the store has an active Google row. Nothing shows when neither
+ * has data, so stores without a Google row look exactly as before.
+ */
+export function useReviewsData(): ReviewsView {
+  const ovation = useOvationData();
+  const google = useGoogleReviewsRow();
+  const source = selectReviewsSource({ ovationHasScore: !!ovation.displayScore, google: google.row });
+  if (source === 'google') {
+    const count = google.row?.user_rating_count ?? 0;
+    return {
+      source,
+      reviews: googleDisplayReviews(google.row),
+      isLoading: false,
+      displayScore: googleScore(google.row),
+      displayCount: count,
+      periodLabel: `${count.toLocaleString()} Google reviews`,
+      brandName: 'Google',
+      mapsUri: safeMapsUri(google.row?.google_maps_uri),
+    };
+  }
+  return {
+    source,
+    reviews: ovation.reviewsData?.reviews ?? [],
+    // Keep the skeleton until both feeds have answered, so a Google store doesn't flash empty.
+    isLoading: ovation.isLoading || (!ovation.displayScore && google.isLoading),
+    displayScore: ovation.displayScore,
+    displayCount: ovation.displayCount,
+    periodLabel: `Last 14 days · ${ovation.displayCount ?? 0} reviews`,
+    brandName: 'OvationUp',
+    mapsUri: null,
+  };
+}
+
+/** Logo for the active review feed. */
+export function ReviewsLogo({ source, className }: { source: ReviewsSource; className?: string }) {
+  return source === 'google'
+    ? <GoogleGLogo className={cn('object-contain', className)} />
+    : <img src={ovationLogo} alt="OvationUp" className={cn('object-contain', className)} />;
+}
+
 /** The small fixed tab trigger */
 export function OvationScoreTab({ expanded, onToggle, desktop, bare, className }: { expanded: boolean; onToggle: () => void; desktop?: boolean; bare?: boolean; className?: string }) {
-  const { isLoading, displayScore } = useOvationData();
+  const { isLoading, displayScore, source } = useReviewsData();
 
   // Nothing to show and not loading — hide completely
   if (!displayScore && !isLoading) return null;
@@ -218,11 +308,13 @@ export function OvationScoreTab({ expanded, onToggle, desktop, bare, className }
         className
       )}
     >
-      <img src={ovationLogo} alt="OvationUp" className="h-4 w-4 sm:h-4 sm:w-4 object-contain" />
+      <ReviewsLogo source={source} className="h-4 w-4 sm:h-4 sm:w-4" />
       <span className={cn('text-base sm:text-sm font-bold', (desktop || bare) ? 'text-white' : scoreColor)}>
         {displayScore!.toFixed(1)}
       </span>
-      <span className={cn('hidden md:inline text-[11px] sm:text-[9px] font-medium', (desktop || bare) ? 'text-white/60' : 'text-muted-foreground')}>14d</span>
+      {source === 'ovation' && (
+        <span className={cn('hidden md:inline text-[11px] sm:text-[9px] font-medium', (desktop || bare) ? 'text-white/60' : 'text-muted-foreground')}>14d</span>
+      )}
       <ChevronDown className={cn(
         'h-3.5 w-3.5 transition-transform duration-300',
         (desktop || bare) ? 'text-white/60' : 'text-muted-foreground/60',
@@ -234,12 +326,12 @@ export function OvationScoreTab({ expanded, onToggle, desktop, bare, className }
 
 /** The expandable panel that goes in document flow */
 export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boolean; triggerRef?: RefObject<HTMLElement> }) {
-  const { reviewsData, isLoading, displayScore, displayCount } = useOvationData();
+  const { reviews, isLoading, displayScore, displayCount, source, brandName, periodLabel, mapsUri } = useReviewsData();
   const [reviewIndex, setReviewIndex] = useState(0);
   const panelRef = useRef<HTMLDivElement>(null);
   const [tailLeftPct, setTailLeftPct] = useState<number | null>(null);
 
-  const reviewsWithFeedback = reviewsData?.reviews?.filter(r => r.feedback) || [];
+  const reviewsWithFeedback = reviews.filter(r => r.feedback);
 
   const advanceReview = useCallback(() => {
     if (reviewsWithFeedback.length > 1) {
@@ -295,11 +387,12 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
             {/* Header */}
             <div className="px-4 sm:px-3 pt-3 sm:pt-2.5 pb-3 sm:pb-2 flex items-center justify-between gap-3 border-b ovation-panel-border">
               <div className="flex items-center gap-2.5 min-w-0">
-                <img src={ovationLogo} alt="OvationUp" className="h-7 w-7 sm:h-6 sm:w-6 object-contain shrink-0" />
+                <ReviewsLogo source={source} className="h-7 w-7 sm:h-6 sm:w-6 shrink-0" />
                 <div>
-                  <p className="text-base sm:text-xs font-semibold ovation-panel-ink leading-tight">OvationUp</p>
+                  <p className="text-base sm:text-xs font-semibold ovation-panel-ink leading-tight">{brandName}</p>
+                  {source === 'google' && <div className="mt-0.5"><StarRating rating={Math.round(scoreValue)} /></div>}
                   <p className="text-xs sm:text-[10px] ovation-panel-muted leading-tight">
-                    Last 14 days · {countValue} reviews
+                    {periodLabel}
                   </p>
                 </div>
               </div>
@@ -351,6 +444,9 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
                       {reviewsWithFeedback[reviewIndex]?.hasResponse && (
                         <span className="text-xs sm:text-[9px] ovation-status-good font-medium">✓ replied</span>
                       )}
+                      {reviewsWithFeedback[reviewIndex]?.relativeTime && (
+                        <span className="text-xs sm:text-[9px] ovation-panel-muted">{reviewsWithFeedback[reviewIndex]?.relativeTime}</span>
+                      )}
                     </div>
                      <p className="text-base sm:text-[11px] font-medium ovation-panel-ink leading-relaxed sm:leading-snug line-clamp-4 sm:line-clamp-3">
                       {reviewsWithFeedback[reviewIndex]?.feedback}
@@ -386,8 +482,20 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
             ) : (
               <div className="px-4 sm:px-3 py-4 sm:py-3">
                  <p className="text-base sm:text-[11px] ovation-panel-muted italic">
-                  {reviewsData?.reviews?.length ?? 0} ratings (no written feedback)
+                  {reviews.length} ratings (no written feedback)
                 </p>
+              </div>
+            )}
+            {source === 'google' && (
+              <div className="px-4 sm:px-3 pb-3 sm:pb-2 flex items-center gap-1.5 text-xs sm:text-[10px] ovation-panel-muted">
+                <GoogleGLogo className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
+                {mapsUri ? (
+                  <a href={mapsUri} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline" onClick={(e) => e.stopPropagation()}>
+                    Reviews from Google
+                  </a>
+                ) : (
+                  <span>Reviews from Google</span>
+                )}
               </div>
             )}
           </div>

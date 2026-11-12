@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { Star, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useOvationData } from '@/components/dashboard/OvationScorePopover';
-import ovationLogo from '@/assets/ovation-logo.png';
+import { ReviewsLogo, useReviewsData } from '@/components/dashboard/OvationScorePopover';
+import { GoogleGLogo } from '@/components/dashboard/GoogleGLogo';
 
-/** Duo-only Ovation bubble: pops out of the Ovation row in the menu (tail points at the row). Tap a review to advance; tap outside to close. */
+/** Duo-only reviews bubble (Ovation, or Google for non-Ovation stores): pops out of the reviews row in the menu (tail points at the row). Tap a review to advance; tap outside to close. */
 export function DuoOvation({ open, onOpenChange, anchorTop }: { open: boolean; onOpenChange: (o: boolean) => void; anchorTop?: number }) {
-  const { reviewsData, isLoading, displayScore, displayCount } = useOvationData();
+  const { reviews: all, isLoading, displayScore, source, brandName, periodLabel, mapsUri } = useReviewsData();
   const [i, setI] = useState(0);
-  const reviews = reviewsData?.reviews?.filter(r => r.feedback) ?? [];
+  const reviews = all.filter(r => r.feedback);
   const n = Math.max(reviews.length, 1);
   const r = reviews[i % n];
   const step = (d: number) => setI(x => (x + d + n) % n);
@@ -15,11 +15,11 @@ export function DuoOvation({ open, onOpenChange, anchorTop }: { open: boolean; o
   return (
     <>
       <div className="duo-ovb-scrim" onClick={() => onOpenChange(false)} />
-      <div className="duo-ovb duo-glass" style={{ top: (anchorTop ?? 120) + 8 }} role="dialog" aria-label="Ovation reviews">
+      <div className="duo-ovb duo-glass" style={{ top: (anchorTop ?? 120) + 8 }} role="dialog" aria-label={`${brandName} reviews`}>
         <i className="duo-ovb-tail" aria-hidden />
         <div className="duo-ovb-head">
-          <img src={ovationLogo} alt="" />
-          <div><b>OvationUp</b><small>Last 14 days · {displayCount ?? 0} reviews</small></div>
+          <ReviewsLogo source={source} className="h-[26px] w-[26px] shrink-0" />
+          <div><b>{brandName}</b><small>{periodLabel}</small></div>
           <span className="duo-ovation-score">{displayScore ? displayScore.toFixed(1) : isLoading ? '…' : '–'}</span>
         </div>
         <div className="duo-ovb-body" onClick={() => reviews.length > 1 && step(1)}>
@@ -29,11 +29,12 @@ export function DuoOvation({ open, onOpenChange, anchorTop }: { open: boolean; o
                 <span className="flex">{[1, 2, 3, 4, 5].map(k => <Star key={k} className="h-3.5 w-3.5" fill={k <= (r.rating || 0) ? 'currentColor' : 'none'} />)}</span>
                 <span className="truncate">{r.customerName}</span>
                 {r.hasResponse && <small>✓ replied</small>}
+                {r.relativeTime && <small>{r.relativeTime}</small>}
               </div>
               <p>{r.feedback}</p>
             </>
           ) : (
-            <p className="duo-ovb-empty">{isLoading ? 'Loading reviews…' : `${reviewsData?.reviews?.length ?? 0} ratings (no written feedback)`}</p>
+            <p className="duo-ovb-empty">{isLoading ? 'Loading reviews…' : `${all.length} ratings (no written feedback)`}</p>
           )}
         </div>
         {reviews.length > 1 && (
@@ -41,6 +42,12 @@ export function DuoOvation({ open, onOpenChange, anchorTop }: { open: boolean; o
             <button type="button" aria-label="Previous review" className="duo-ovation-arrow" onClick={() => step(-1)}><ChevronLeft size={20} /></button>
             <span>{(i % reviews.length) + 1} / {reviews.length}</span>
             <button type="button" aria-label="Next review" className="duo-ovation-arrow" onClick={() => step(1)}><ChevronRight size={20} /></button>
+          </div>
+        )}
+        {source === 'google' && (
+          <div className="duo-ovb-nav">
+            <GoogleGLogo className="h-3.5 w-3.5" />
+            {mapsUri ? <a href={mapsUri} target="_blank" rel="noopener noreferrer">Reviews from Google</a> : <span>Reviews from Google</span>}
           </div>
         )}
       </div>

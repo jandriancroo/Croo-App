@@ -1,6 +1,7 @@
 import { placeSectionHeaders } from '@/lib/checklistSectionGroups';
 import { referencePhotoFields, getPrimaryReferencePhoto } from '@/lib/checklistReferencePhotos';
-import { canUndoChecklistItem } from '@/lib/checklistUndo';
+import { canUndoChecklistItem, CHECKLIST_UNDO_ANY_ROLES } from '@/lib/checklistUndo';
+import { planManualTemperature, isTempPhotoRequiredError, TEMP_PHOTO_FIRST_MESSAGE } from '@/lib/checklistTemperature';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -711,7 +712,7 @@ export default function CompleteChecklist() {
           isImage,
         },
       });
-      toast.error('Could not save your entry — check your connection and try again.');
+      toast.error(isTempPhotoRequiredError(error) ? TEMP_PHOTO_FIRST_MESSAGE : 'Could not save your entry — check your connection and try again.');
     }
   }, [submissionId, user, assignmentId]);
   const handleResponseChange = (itemId: string, value: any, isImage: boolean = false) => {
@@ -817,11 +818,6 @@ export default function CompleteChecklist() {
     return response ? [response] : [];
   };
 
-  const getTemperatureValidity = (tempF: number): boolean => {
-    // Food safety guidelines: cold holding ≤ 41°F, hot holding ≥ 135°F
-    return tempF <= 41 || tempF >= 135;
-  };
-
   // Same manager alert for scans and hand-typed readings.
   const alertUnsafeTemperature = async (item: ChecklistItem, extractedTemp: number, tempUnconfirmed: boolean) => {
     const taskLocationId = currentLocation?.id || checklist?.location_id;
@@ -855,112 +851,51 @@ export default function CompleteChecklist() {
   };
 
   const saveManualTemperature = async (itemId: string, tempText: string) => {
-    const trimmed = tempText?.trim();
-    if (!trimmed || trimmed === '') {
-      toast.error('Please enter a temperature');
-      return;
-    }
-    const tempF = Number(trimmed);
-    if (!Number.isFinite(tempF)) {
-      toast.error('Enter a valid temperature');
-      return;
-    }
     if (!submissionId || !user?.id) return;
-
-    const tempValid = getTemperatureValidity(tempF);
-    // Photo tasks keep their photo; typing only sets the reading (no completion change).
     const manualItem = items.find(i => i.id === itemId);
-    const isPhotoTask = manualItem?.item_type !== 'temperature';
 
     try {
       const { data: existing, error: existingError } = await supabase
         .from('checklist_responses')
-        .select('id')
+        .select('id, response_image_url, response_text')
         .eq('submission_id', submissionId)
         .eq('item_id', itemId)
         .maybeSingle();
-
       if (existingError) throw existingError;
 
-      const tempFields = {
-        extracted_temperature: tempF,
-        temperature_valid: tempValid,
-        temperature_unconfirmed: false,
-        temperature_validated_at: new Date().toISOString(),
-        temperature_edited_at: new Date().toISOString(), // server stamps who/when/replaced value
-      };
-      const responseData = isPhotoTask
-        ? tempFields
-        : { response_image_url: null, response_text: String(tempF), completed_by: user.id, ...tempFields };
-
-      if (isPhotoTask && !existing?.id) {
-        toast.error('Take the photo first, then type the temperature');
+      // Typing only fixes the reading on a saved photo; the photo always stays.
+      const plan = planManualTemperature({
+        tempText,
+        existing,
+        canFixLegacy: !!role && (CHECKLIST_UNDO_ANY_ROLES as readonly string[]).includes(role),
+      });
+      if (plan.kind !== 'update') {
+        toast.error(plan.message);
         return;
       }
 
-      let responseId: string | undefined;
-      if (existing?.id) {
-        const { error: updateError } = await supabase
-          .from('checklist_responses')
-          .update(responseData)
-          .eq('id', existing.id);
-        if (updateError) throw updateError;
-        responseId = existing.id;
-      } else {
-        const { data: newResponse, error: insertError } = await supabase
-          .from('checklist_responses')
-          .insert({ submission_id: submissionId, assignment_id: assignmentId, item_id: itemId, ...responseData })
-          .select('id')
-          .single();
-        if (insertError) throw insertError;
-        responseId = newResponse?.id;
-      }
+      const { error: updateError } = await supabase
+        .from('checklist_responses')
+        .update(plan.fields)
+        .eq('id', plan.responseId);
+      if (updateError) throw updateError;
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, profile_photo_url')
+        .select('full_name')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (isPhotoTask) {
-        setResponsesWithCompleters(prev => ({
-          ...prev,
-          [itemId]: { ...prev[itemId], extractedTemperature: tempF, temperatureValid: tempValid, temperatureUnconfirmed: false, tempEditedBy: shortName(profile?.full_name) },
-        }));
-        setManualTempOpen(prev => ({ ...prev, [itemId]: false }));
-        toast.success(`Saved ${tempF}°F`);
-        if (!tempValid && manualItem) await alertUnsafeTemperature(manualItem, tempF, false);
-        return;
-      }
-
-      setResponses(prev => ({ ...prev, [itemId]: String(tempF) }));
       setResponsesWithCompleters(prev => ({
         ...prev,
-        [itemId]: {
-          responseId: responseId || '',
-          value: String(tempF),
-          isImage: false,
-          extractedTemperature: tempF,
-          temperatureValid: tempValid,
-          temperatureUnconfirmed: false,
-          tempEditedBy: shortName(profile?.full_name),
-          completedBy: profile
-            ? {
-                userId: user.id,
-                fullName: profile.full_name || 'Unknown',
-                profilePhoto: profile.profile_photo_url,
-                completedAt: new Date().toISOString(),
-              }
-            : undefined,
-        },
+        [itemId]: { ...prev[itemId], extractedTemperature: plan.tempF, temperatureValid: plan.valid, temperatureUnconfirmed: false, tempEditedBy: shortName(profile?.full_name) },
       }));
-
       setManualTempOpen(prev => ({ ...prev, [itemId]: false }));
-      toast.success('Temperature saved');
-      if (!tempValid && manualItem) await alertUnsafeTemperature(manualItem, tempF, false);
+      toast.success(`Saved ${plan.tempF}°F`);
+      if (!plan.valid && manualItem) await alertUnsafeTemperature(manualItem, plan.tempF, false);
     } catch (error: any) {
       console.error('Error saving manual temperature:', error);
-      toast.error('Failed to save temperature');
+      toast.error(isTempPhotoRequiredError(error) ? TEMP_PHOTO_FIRST_MESSAGE : 'Failed to save temperature');
     }
   };
 
@@ -1250,7 +1185,9 @@ export default function CompleteChecklist() {
       revokeBlob();
 
       const msg = String(error?.message || '').toLowerCase();
-      if (msg.includes('memory') || msg.includes('out of memory') || msg.includes('low memory')) {
+      if (isTempPhotoRequiredError(error)) {
+        toast.error(TEMP_PHOTO_FIRST_MESSAGE);
+      } else if (msg.includes('memory') || msg.includes('out of memory') || msg.includes('low memory')) {
         toast.error('Low memory: try choosing an existing photo instead');
       } else {
         toast.error('Photo upload failed — please retry');
@@ -1468,6 +1405,7 @@ export default function CompleteChecklist() {
     tempValue: (id) => manualTempValue[id] ?? '',
     setTempValue: (id, v) => setManualTempValue(prev => ({ ...prev, [id]: v })),
     saveTemp: (id) => saveManualTemperature(id, manualTempValue[id] ?? ''),
+    canFixLegacyTemp: !!role && (CHECKLIST_UNDO_ANY_ROLES as readonly string[]).includes(role),
     completer: (id) => responsesWithCompleters[id]?.completedBy,
     canUndo: (id) => !!responsesWithCompleters[id]?.responseId && canUndoItem(id),
     undo: (id) => handleUndoClick(id),
