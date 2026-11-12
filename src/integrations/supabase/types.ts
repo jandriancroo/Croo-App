@@ -17193,6 +17193,7 @@ export type Database = {
         }
         Returns: string
       }
+      customer_review_html_escape: { Args: { _text: string }; Returns: string }
       customer_review_public_text: { Args: { _text: string }; Returns: string }
       decline_labor_rule_proposal: {
         Args: { _note?: string; _proposal_id: string }
