@@ -3174,6 +3174,51 @@ export type Database = {
           },
         ]
       }
+      customer_reviews: {
+        Row: {
+          anonymous: boolean
+          consent: boolean
+          consent_at: string | null
+          created_at: string
+          display_attribution: string
+          final_text: string
+          id: string
+          name: string
+          raw_answers: Json
+          restaurant: string
+          role: string
+          status: string
+        }
+        Insert: {
+          anonymous?: boolean
+          consent: boolean
+          consent_at?: string | null
+          created_at?: string
+          display_attribution: string
+          final_text: string
+          id?: string
+          name: string
+          raw_answers: Json
+          restaurant: string
+          role: string
+          status?: string
+        }
+        Update: {
+          anonymous?: boolean
+          consent?: boolean
+          consent_at?: string | null
+          created_at?: string
+          display_attribution?: string
+          final_text?: string
+          id?: string
+          name?: string
+          raw_answers?: Json
+          restaurant?: string
+          role?: string
+          status?: string
+        }
+        Relationships: []
+      }
       daily_spot_count_items: {
         Row: {
           created_at: string
@@ -17138,6 +17183,18 @@ export type Database = {
         }
       }
       cron_edge_headers: { Args: never; Returns: Json }
+      customer_review_attribution: {
+        Args: {
+          _anonymous: boolean
+          _answers: Json
+          _name: string
+          _restaurant: string
+          _role: string
+        }
+        Returns: string
+      }
+      customer_review_html_escape: { Args: { _text: string }; Returns: string }
+      customer_review_public_text: { Args: { _text: string }; Returns: string }
       decline_labor_rule_proposal: {
         Args: { _note?: string; _proposal_id: string }
         Returns: {
@@ -17683,6 +17740,15 @@ export type Database = {
       labor_source_for: { Args: { _location_id: string }; Returns: string }
       labor_week_pay: { Args: { _rules: Json; _shifts: Json }; Returns: Json }
       list_promo_trackers: { Args: { _location_id: string }; Returns: Json }
+      list_public_customer_reviews: {
+        Args: never
+        Returns: {
+          attribution: string
+          created_at: string
+          id: string
+          quote: string
+        }[]
+      }
       location_pos_source: { Args: { _location_id: string }; Returns: string }
       log_pin_nudge: { Args: { p_target_user_id: string }; Returns: Json }
       mark_theo_read: {
