@@ -25,13 +25,17 @@ export type ReviewInsert = {
   consent: true;
 };
 
-type Deps = { fetch: typeof fetch; url: string; key: string };
+type Deps = { fetch?: typeof fetch; url: string; key: string };
+type LiveDeps = { fetch: typeof fetch; url: string; key: string };
 
-function liveDeps(deps?: Deps): Deps | null {
+function liveDeps(deps?: Deps): LiveDeps | null {
   const url = deps?.url ?? import.meta.env.VITE_SUPABASE_URL;
   const key = deps?.key ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) return null;
-  return { fetch: deps?.fetch ?? globalThis.fetch, url, key };
+  // Never store the bare global fetch on an object: calling it as obj.fetch()
+  // throws "Illegal invocation" in browsers (Node does not care).
+  const doFetch: typeof fetch = deps?.fetch ?? ((input, init) => globalThis.fetch(input, init));
+  return { fetch: doFetch, url, key };
 }
 
 function headers(key: string, prefer?: string): HeadersInit {
