@@ -638,6 +638,13 @@
       "when": 1793918607652,
       "tag": "0090_lock_validate_widget_authority",
       "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1794471994786,
+      "tag": "0091_customer_reviews",
+      "breakpoints": true
     }
   ]
 }
