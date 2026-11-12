@@ -659,6 +659,13 @@
       "when": 1794513349105,
       "tag": "0093_temperature_photo_required",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1794513377509,
+      "tag": "0094_location_google_reviews",
+      "breakpoints": true
     }
   ]
 }
