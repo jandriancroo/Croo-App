@@ -26,7 +26,7 @@ import { isToastRunner, TOAST_RUNNER_HEADER } from "../_shared/toastRunnerKey.ts
 import { computeAndSavePace } from "../_shared/projections.ts";
 import { formatHourlyTo24 } from "../_shared/hourly.ts";
 import { pizzaCountFromMix } from "../_shared/productMix.ts";
-import { normToastName } from "../_shared/toastNames.ts";
+import { applyToastMatches } from "../_shared/toastMatchApply.ts";
 import { lateMinutes as lateMinutesFor, openShiftEndMs, regularHours } from "../_shared/toastLabor.ts";
 
 const corsHeaders = {
@@ -101,6 +101,8 @@ const ShiftSchema = z.object({
   missedBreaks: z.array(z.unknown()).default([]),
   anomalyCount: z.number().int().min(0).default(0),
   hourlyWage: z.number().finite().min(0).max(500).nullable().optional(),
+  email: z.string().max(200).nullable().optional(),
+  phone: z.string().max(40).nullable().optional(),
 });
 
 const BodySchema = z.object({
@@ -115,7 +117,8 @@ const LaborBodySchema = z.object({
   shifts: z.array(ShiftSchema).max(400),
 });
 
-// Full Toast roster for the pairing screens (names only — no wages).
+// Full Toast roster for the pairing screens. Email and phone are optional:
+// the runner only forwards them when Toast actually includes them.
 const EmployeeBodySchema = z.object({
   action: z.literal("ingest-employees"),
   locationId: z.string().uuid(),
@@ -125,6 +128,8 @@ const EmployeeBodySchema = z.object({
     toastName: z.string().min(1).max(160),
     jobTitle: z.string().max(120).nullable().optional(),
     hourlyWage: z.number().finite().min(0).max(500).nullable().optional(),
+    email: z.string().max(200).nullable().optional(),
+    phone: z.string().max(40).nullable().optional(),
   })).max(400),
 });
 
@@ -325,8 +330,8 @@ function minutesBetween(isoA: string, isoB: string): number {
 async function ingestEmployees(supabase: any, body: z.infer<typeof EmployeeBodySchema>) {
   const { locationId, employees } = body;
   await assertToastLocation(supabase, locationId);
-  const dedup = new Map<string, { toast_name: string; job_title: string | null }>();
-  for (const e of employees) dedup.set(e.toastUserId, { toast_name: e.toastName, job_title: e.jobTitle ?? null });
+  const dedup = new Map<string, { toast_name: string; job_title: string | null; email: string | null; phone: string | null }>();
+  for (const e of employees) dedup.set(e.toastUserId, { toast_name: e.toastName, job_title: e.jobTitle ?? null, email: e.email ?? null, phone: e.phone ?? null });
   if (dedup.size > 0) {
     const rows = [...dedup.entries()].map(([toastUserId, v]) => ({
       location_id: locationId,
@@ -350,7 +355,13 @@ async function ingestEmployees(supabase: any, body: z.infer<typeof EmployeeBodyS
       { onConflict: "location_id,toast_user_id" },
     );
   }
-  return { ok: true, employees: dedup.size, wages: wages.size };
+  const matched = await applyToastMatches(supabase, locationId, [...dedup.entries()].map(([toastUserId, v]) => ({
+    toastUserId,
+    toastName: v.toast_name,
+    email: v.email,
+    phone: v.phone,
+  })));
+  return { ok: true, employees: dedup.size, wages: wages.size, matched };
 }
 
 async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>) {
@@ -370,48 +381,21 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
     .eq("location_id", locationId).maybeSingle();
   const tz = settings?.timezone || DEFAULT_TZ;
 
-  // ── Employee matching: saved mappings first, then auto-match by name ──
-  // Runs before the breakdown is built so a re-post always carries current mappings.
-  // 'manual' rows are never touched; 'unmatched' rows get a fresh try every ingest.
+  // Auto-match before the breakdown is built so this post uses the new links.
+  // user_locations has no FK to profiles, so the old embedded select never saw names.
+  // Manual rows are left alone inside applyToastMatches.
+  const people = [...new Map(shifts.map((s) => [s.toastUserId, s])).values()].map((s) => ({
+    toastUserId: s.toastUserId,
+    toastName: s.employeeName,
+    restaurantUserId: s.restaurantUserId ?? null,
+    email: s.email ?? null,
+    phone: s.phone ?? null,
+  }));
+  await applyToastMatches(supabase, locationId, people);
   const { data: mappings } = await supabase
     .from("toast_employee_mappings").select("*")
     .eq("location_id", locationId);
   const byToastUser = new Map<string, any>((mappings || []).map((m: any) => [m.toast_user_id, m]));
-
-  const needsMatch = [...new Map(shifts.map((s) => [s.toastUserId, s])).values()].filter((s) => {
-    const m = byToastUser.get(s.toastUserId);
-    return !m || (m.match_method === "unmatched" && !m.croo_user_id);
-  });
-  if (needsMatch.length > 0) {
-    const { data: roster } = await supabase
-      .from("user_locations")
-      .select("user_id, profiles(full_name)")
-      .eq("location_id", locationId);
-    const byName = new Map<string, string>();
-    for (const r of roster || []) {
-      const full = normToastName((r as any)?.profiles?.full_name);
-      if (full) byName.set(full, (r as any).user_id);
-    }
-    const taken = new Set([...byToastUser.values()].map((m: any) => m.croo_user_id).filter(Boolean));
-    for (const shift of needsMatch) {
-      const hit = byName.get(normToastName(shift.employeeName)) ?? null;
-      const crooId = hit && !taken.has(hit) ? hit : null;
-      if (crooId) taken.add(crooId);
-      const { data: saved, error: insErr } = await supabase
-        .from("toast_employee_mappings")
-        .upsert({
-          location_id: locationId,
-          toast_user_id: shift.toastUserId,
-          toast_restaurant_user_id: shift.restaurantUserId ?? null,
-          toast_name: shift.employeeName,
-          croo_user_id: crooId,
-          match_method: crooId ? "auto" : "unmatched",
-        }, { onConflict: "location_id,toast_user_id" })
-        .select("id, croo_user_id, match_method")
-        .maybeSingle();
-      if (!insErr) byToastUser.set(shift.toastUserId, { toast_name: shift.employeeName, croo_user_id: saved?.croo_user_id ?? crooId, match_method: saved?.match_method });
-    }
-  }
 
   // Toast pay rates (Toast always wins). Private table; trigger pushes to paired profiles.
   const toastWage = new Map<string, number>();

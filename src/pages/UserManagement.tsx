@@ -17,6 +17,8 @@ import { getUserStatusDisplay, getRoleDisplayName } from '@/hooks/useUserManagem
 import { useUserManagementData } from '@/hooks/useUserManagementData';
 import { UserManagementTable } from '@/components/users/UserManagementTable';
 import { UserManagementDialogs } from '@/components/users/UserManagementDialogs';
+import { ToastLinkPlus, ToastLinkedBadge } from '@/components/users/ToastUserMarks';
+import { toastLinkView } from '@/lib/toastUserLinks';
 
 export default function UserManagement() {
   const data = useUserManagementData();
@@ -24,13 +26,18 @@ export default function UserManagement() {
   const duo = useDuo();
   const activeUsers = (data.users || []).filter((u: any) => u.is_active === (data.activeTab === 'active'));
   const activeCount = (data.users || []).filter((u: any) => u.is_active).length;
+  const toastLinking = data.toastLinks?.enabled === true;
+  const linkView = toastLinkView(data.users || [], data.toastLinks?.linkedUserIds || []);
+  const statusText = toastLinking
+    ? linkView.statusText
+    : (activeCount ? `${activeCount} ACTIVE` : 'NO ACTIVE USERS');
 
   // Duo: orb actions, page status, default docked profile.
   useEffect(() => {
     if (!duo.isDuo) return;
-    document.documentElement.dataset.duoStatus = activeCount ? `${activeCount} ACTIVE` : 'NO ACTIVE USERS';
+    document.documentElement.dataset.duoStatus = statusText;
     return () => { delete document.documentElement.dataset.duoStatus; };
-  }, [duo.isDuo, activeCount]);
+  }, [duo.isDuo, statusText]);
   useEffect(() => {
     if (!duo.isDuo) return;
     const on = (n: string, fn: () => void) => { window.addEventListener(n, fn); return () => window.removeEventListener(n, fn); };
@@ -60,7 +67,7 @@ export default function UserManagement() {
     return (
       <Layout>
         <div className={duo.isOpen ? 'duo-tasks-page duo-tasks-left' : 'duo-tasks-page'}>
-          <PageTitle color="cyan" status={{ text: activeCount ? `${activeCount} ACTIVE` : 'NO ACTIVE USERS' }}>User Management</PageTitle>
+          <PageTitle color="cyan" status={{ text: statusText }}>User Management</PageTitle>
           <div className="duo-tasks-ctl duo-ctl mb-2">
             <Tabs value={data.activeTab} onValueChange={(v) => { data.setActiveTab(v as 'active' | 'inactive'); data.setSelectedUsers(new Set()); data.setBulkMode(false); }}>
               <TabsList>
@@ -80,6 +87,8 @@ export default function UserManagement() {
               )}
               {activeUsers.map((u: any) => {
                 const st = getUserStatusDisplay(u);
+                const toastLinked = toastLinking && linkView.isLinked(u.id);
+                const toastUnlinked = toastLinking && !linkView.isLinked(u.id);
                 return (
                   <button
                     key={u.id}
@@ -92,14 +101,19 @@ export default function UserManagement() {
                     }}
                   >
                     {data.isAdmin && data.bulkMode && <Checkbox checked={data.selectedUsers.has(u.id)} className="mt-2" />}
-                    <Avatar className="h-10 w-10 shrink-0">
+                    <Avatar className={`h-10 w-10 shrink-0 ${toastUnlinked ? 'opacity-50' : ''}`}>
                       <AvatarImage src={u.profile_photo_url || undefined} />
                       <AvatarFallback>{getInitials(getDisplayName(u.full_name, u.nickname))}</AvatarFallback>
                     </Avatar>
                     <span className="min-w-0 flex-1">
-                      <span className="duo-log-top"><b>{getDisplayName(u.full_name, u.nickname) || 'No name'}</b><small>{u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Never'}</small></span>
-                      <span className="duo-log-cat">{getRoleDisplayName(u.role!)}</span>
-                      <span className="duo-log-tags" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <span className="duo-log-top">
+                        <b className={toastUnlinked ? 'opacity-50' : ''}>{getDisplayName(u.full_name, u.nickname) || 'No name'}</b>
+                        {toastLinked && <ToastLinkedBadge />}
+                        {toastUnlinked && <ToastLinkPlus nested onClick={() => data.setToastLinkUser(u)} />}
+                        <small>{u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Never'}</small>
+                      </span>
+                      <span className={`duo-log-cat ${toastUnlinked ? 'opacity-50' : ''}`}>{getRoleDisplayName(u.role!)}</span>
+                      <span className={`duo-log-tags ${toastUnlinked ? 'opacity-50' : ''}`} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                         <Badge variant={st.variant} className="text-xs px-1.5 py-0">{st.label}</Badge>
                         {u.has_certification ? <Check className="h-4 w-4 text-green-500" /> : <span className="text-red-500 text-sm">no cert</span>}
                       </span>
@@ -118,7 +132,7 @@ export default function UserManagement() {
   return (
     <Layout>
       <div>
-        <PageTitle color="cyan" status={{ text: (() => { const n = (data.users || []).filter((u: any) => u.is_active).length; return n ? `${n} ACTIVE` : 'NO ACTIVE USERS'; })() }}>User Management</PageTitle>
+        <PageTitle color="cyan" status={{ text: statusText }}>User Management</PageTitle>
 
         <Card>
           <CardHeader>
@@ -175,6 +189,9 @@ export default function UserManagement() {
               isSuperAdmin={data.isSuperAdmin}
               currentVersion={data.currentVersion}
               onViewUser={(u) => { data.setViewingUser(u); data.setIsProfileDialogOpen(true); }}
+              toastLinking={toastLinking}
+              isToastLinked={linkView.isLinked}
+              onLinkToast={(u) => data.setToastLinkUser(u)}
             />
           </CardContent>
         </Card>

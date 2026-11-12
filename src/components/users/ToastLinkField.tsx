@@ -15,11 +15,13 @@ interface ToastLinkFieldProps {
   userId: string;
   currentLocationId: string;
   onLinked?: () => void;
+  /** Open the Toast staff picker immediately. The team-page plus button uses this. */
+  startOpen?: boolean;
 }
 
-export function ToastLinkField({ userId, currentLocationId, onLinked }: ToastLinkFieldProps) {
+export function ToastLinkField({ userId, currentLocationId, onLinked, startOpen = false }: ToastLinkFieldProps) {
   const qc = useQueryClient();
-  const [picking, setPicking] = useState(false);
+  const [picking, setPicking] = useState(startOpen);
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -70,6 +72,7 @@ export function ToastLinkField({ userId, currentLocationId, onLinked }: ToastLin
     qc.invalidateQueries({ queryKey: ['toast-mappings'] });
     qc.invalidateQueries({ queryKey: ['toast-shifts'] });
     qc.invalidateQueries({ queryKey: ['user-management-users'] });
+    qc.invalidateQueries({ queryKey: ['user-management-toast-links'] });
     onLinked?.();
   };
 
@@ -84,6 +87,7 @@ export function ToastLinkField({ userId, currentLocationId, onLinked }: ToastLin
     qc.invalidateQueries({ queryKey: ['toast-roster-unlinked', currentLocationId] });
     qc.invalidateQueries({ queryKey: ['toast-mappings'] });
     qc.invalidateQueries({ queryKey: ['toast-shifts'] });
+    qc.invalidateQueries({ queryKey: ['user-management-toast-links'] });
     onLinked?.();
   };
 

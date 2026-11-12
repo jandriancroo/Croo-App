@@ -121,6 +121,7 @@ export const useUserManagementData = () => {
   const [updatingOutdated, setUpdatingOutdated] = useState(false);
   const [creatingTestUser, setCreatingTestUser] = useState(false);
   const [testUserCounter, setTestUserCounter] = useState(1);
+  const [toastLinkUser, setToastLinkUser] = useState<UserProfile | null>(null);
 
   // ── Access control redirect ──
   useEffect(() => {
@@ -192,6 +193,27 @@ export const useUserManagementData = () => {
     enabled: canAccessPage && !!currentLocation?.id,
   });
 
+  const { data: toastLinks = { enabled: false, linkedUserIds: [] as string[] } } = useQuery({
+    queryKey: ['user-management-toast-links', currentLocation?.id],
+    enabled: canAccessPage && !!currentLocation?.id,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const locationId = currentLocation!.id;
+      const { data: source, error } = await supabase.rpc('labor_source_for', { _location_id: locationId });
+      if (error || source !== 'toast') return { enabled: false, linkedUserIds: [] as string[] };
+      const { data, error: mapError } = await supabase
+        .from('toast_employee_mappings')
+        .select('croo_user_id')
+        .eq('location_id', locationId)
+        .not('croo_user_id', 'is', null);
+      if (mapError) throw mapError;
+      return {
+        enabled: true,
+        linkedUserIds: [...new Set((data || []).map((row) => row.croo_user_id).filter((id): id is string => !!id))],
+      };
+    },
+  });
+
   const { data: availableLocations = [] } = useQuery({
     queryKey: ['user-management-locations', user?.id, isSuperAdmin],
     staleTime: 10 * 60 * 1000,
@@ -236,7 +258,10 @@ export const useUserManagementData = () => {
   const canEditUser = (userId: string) => isAdmin ? true : user?.id === userId;
 
   // ── Handlers ──
-  const fetchUsers = () => queryClient.invalidateQueries({ queryKey: ['user-management-users'] });
+  const fetchUsers = () => {
+    queryClient.invalidateQueries({ queryKey: ['user-management-users'] });
+    queryClient.invalidateQueries({ queryKey: ['user-management-toast-links'] });
+  };
 
   const fetchWageHistory = async (userId: string) => {
     try {
@@ -690,6 +715,7 @@ export const useUserManagementData = () => {
     canEditUser,
     // Queries
     users, loading, availableLocations, currentVersion, outdatedUsers,
+    toastLinks, toastLinkUser, setToastLinkUser,
     // Tab / bulk
     activeTab, setActiveTab, bulkMode, setBulkMode, selectedUsers, setSelectedUsers,
     toggleUserSelection, toggleSelectAll,

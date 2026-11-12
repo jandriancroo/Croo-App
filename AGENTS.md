@@ -5,6 +5,7 @@
 - Auto clock-out is decided only by public.run_auto_clock_out() (pg_cron, SQL, no HTTP) and the auto_clock_out_settings.mode switch, changed by migration only. Why: one writer, no request-supplied stores or dates.
 - Toast sales arrive only through toast-sync day payloads (export > live; api = export rank); fetchers are swappable, never write sales_cache directly. Why: homemade today, official API later without touching readers.
 - Toast employee mappings immediately sync matching toast_shifts rows by location + Toast user ID. Why: badges and schedule pairing update without waiting for the robot.
+- Toast employee auto-match lives only in _shared/toastMatch.ts, called from toast-sync on labor and roster ingest. Manual mapping rows are never overwritten. Attempts and first-seen timestamps feed toast-match-digest (store-local 2 AM and noon, one email per store). Why: one matcher, no guessed links.
 - Interview calendar files expose only signed CrooHQ join URLs; the raw video-call URL stays server-side. Why: Google Calendar rewrites raw Meet links during import.
 - Store counting pack comes only from get_store_pack_lens / v_store_pack_lens; inventory_items.pack_quantity_override is retired, never read. Why: per-store pack matches what the store buys.
 - Shift-swap phone alerts (offered / claim / approved) are queued only by the shift_offers + shift_offer_claims triggers into alert_queue; clients never send them. Why: alerts fire no matter which screen made the change.

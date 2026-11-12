@@ -14696,6 +14696,7 @@ export type Database = {
         Row: {
           created_at: string
           croo_user_id: string | null
+          first_seen_at: string
           id: string
           location_id: string
           match_method: string
@@ -14707,6 +14708,7 @@ export type Database = {
         Insert: {
           created_at?: string
           croo_user_id?: string | null
+          first_seen_at?: string
           id?: string
           location_id: string
           match_method?: string
@@ -14718,6 +14720,7 @@ export type Database = {
         Update: {
           created_at?: string
           croo_user_id?: string | null
+          first_seen_at?: string
           id?: string
           location_id?: string
           match_method?: string
@@ -14736,6 +14739,60 @@ export type Database = {
           },
           {
             foreignKeyName: "toast_employee_mappings_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      toast_match_attempts: {
+        Row: {
+          candidates: Json
+          created_at: string
+          croo_user_id: string | null
+          id: string
+          location_id: string
+          method: string | null
+          outcome: string
+          score: number | null
+          toast_name: string | null
+          toast_user_id: string
+        }
+        Insert: {
+          candidates?: Json
+          created_at?: string
+          croo_user_id?: string | null
+          id?: string
+          location_id: string
+          method?: string | null
+          outcome: string
+          score?: number | null
+          toast_name?: string | null
+          toast_user_id: string
+        }
+        Update: {
+          candidates?: Json
+          created_at?: string
+          croo_user_id?: string | null
+          id?: string
+          location_id?: string
+          method?: string | null
+          outcome?: string
+          score?: number | null
+          toast_name?: string | null
+          toast_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "toast_match_attempts_croo_user_id_fkey"
+            columns: ["croo_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "toast_match_attempts_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
@@ -14781,6 +14838,7 @@ export type Database = {
       toast_employees: {
         Row: {
           created_at: string
+          first_seen_at: string
           id: string
           is_active: boolean
           job_title: string | null
@@ -14792,6 +14850,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          first_seen_at?: string
           id?: string
           is_active?: boolean
           job_title?: string | null
@@ -14803,6 +14862,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          first_seen_at?: string
           id?: string
           is_active?: boolean
           job_title?: string | null

@@ -354,7 +354,27 @@ function normalizeShift(shift, employees /* Map<string, name> */) {
     takenBreaks: breaks,
     missedBreaks: Array.isArray(shift.missedBreaks) ? shift.missedBreaks : [],
     anomalyCount: Array.isArray(shift.shiftAnomalies) ? shift.shiftAnomalies.length : 0,
+    email: typeof emp.email === 'string' ? emp.email : null,
+    phone: typeof emp.phoneNumber === 'string' ? emp.phoneNumber : (typeof emp.phone === 'string' ? emp.phone : null),
   };
+}
+
+// Time Entries and the employees/users payload we read today have names, ids,
+// jobs, and wages — not email or phone (see docs/toast-recon-2026-09-28.md).
+// If a later Toast response includes them, pass them through so the matcher
+// can use tier 2. Missing fields stay null and that tier is skipped.
+function contactFromRow(row) {
+  const emailKey = Object.keys(row).find((k) => /^(email|e-mail|email address)$/.test(k));
+  const phoneKey = Object.keys(row).find((k) => /^(phone|phone number|mobile|cell|cell phone)$/.test(k));
+  return {
+    email: emailKey && row[emailKey] ? String(row[emailKey]).slice(0, 200) : null,
+    phone: phoneKey && row[phoneKey] ? String(row[phoneKey]).slice(0, 40) : null,
+  };
+}
+function contactFromUser(user) {
+  const email = typeof user?.email === 'string' ? user.email : (typeof user?.emailAddress === 'string' ? user.emailAddress : null);
+  const phone = typeof user?.phoneNumber === 'string' ? user.phoneNumber : (typeof user?.phone === 'string' ? user.phone : null);
+  return { email: email ? email.slice(0, 200) : null, phone: phone ? phone.slice(0, 40) : null };
 }
 
 async function fetchShifts(page, restaurantGuid, date) {
@@ -425,12 +445,15 @@ async function fetchWageMap(page, locationId) {
       const lastFirst = ln && (fn || cn) ? `${ln}, ${fn || cn}` : (fn || cn || ln);
       const first = (fn || cn).trim();
       const single = (u.jobs || []).length === 1 ? (u.jobs[0].wageOverride?.fAmount ?? u.jobs[0].wage?.fAmount) : null;
+      const contact = contactFromUser(u);
       roster.push({
         toastUserId: `name:${lastFirst}`.slice(0, 80),
         toastGuid: String(u.guid || '').slice(0, 80) || null,
         toastName: (first && ln ? `${first} ${ln}` : lastFirst).slice(0, 160),
         jobTitle: String(u.jobs?.[0]?.name || '').slice(0, 120) || null,
         hourlyWage: single && single / 100 > 0 && single / 100 <= 500 ? Math.round((single / 100) * 100) / 100 : null,
+        email: contact.email,
+        phone: contact.phone,
       });
     }
     console.log(`💵 wages loaded for ${map.size} names (${roster.length} roster)`);
@@ -482,6 +505,8 @@ async function fetchShiftsTable(ctx, tz, locationId) {
         status: outTime ? 'FINISHED' : 'IN_PROGRESS', inTime, outTime,
         jobTitle: r['job title'] || null, payableSeconds: Math.round(payH * 3600), unpaidBreakSeconds: Math.round(unpaidH * 3600),
         hourlyWage: hourlyWage && hourlyWage > 0 ? hourlyWage : null,
+        email: contactFromRow(r).email,
+        phone: contactFromRow(r).phone,
       };
     }).filter((x) => x.inTime);
   } finally { await p.close().catch(() => {}); }
