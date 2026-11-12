@@ -180,13 +180,13 @@ export default function StackToPhone() {
     <div className="stack-scroll" ref={scrollRef} data-stack-scroll="" data-reduced={reduced ? "true" : "false"} style={{ position: "relative" }}>
       <div className="stack-sticky">
         <div className="stack-stage" ref={stageRef}>
-          <h2 className="rv stack-head">The whole stack out.<br />One system in.</h2>
+          <h2 className="rv stack-head">Seven apps out.<br />One app in.</h2>
           <div className="stack-copy">
             <div className="stack-swap">
               <ul className="stack-tools">
                 {STACK_TOOLS.map(tool => <li key={tool}>{tool}</li>)}
               </ul>
-              <p className="stack-allin">All in one place.</p>
+              <p className="stack-allin">One app. Every store.</p>
             </div>
           </div>
           <Phone />

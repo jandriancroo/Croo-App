@@ -5,12 +5,12 @@ export const THEO_MS = 16_000;
 export const CHAT_MS = 8_000;
 export const SALES_LAG_MS = 1_500;
 
-export const THEO_HEADLINE = "Theo, a manager's best friend";
+export const THEO_HEADLINE = "Meet Theo. A manager's best friend.";
 
 export const SHIFT_ASK = "Hey, can you get this shift covered for me?";
 export const SHIFT_REPLY = "On it. I sent the open shift to available crew. Alex picked it up, so you're covered.";
 export const SALES_ASK = "Where are sales gonna land by the end of the night?";
-export const SALES_REPLY = "You're looking really strong. Keep up the momentum, and make sure we're keeping customer service great.";
+export const SALES_REPLY = "Pacing to about $5,240, roughly $240 over goal. Keep the line moving through close and you'll clear it.";
 
 const TYPE_MS = 2_400;
 const DOTS_MS = 2_200;

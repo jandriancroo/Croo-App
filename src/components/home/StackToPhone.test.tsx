@@ -6,9 +6,9 @@ import { STACK_TOOLS, stackFrame } from "./stackFrames";
 describe("stack to phone", () => {
   it("renders the seven tools, the phone brand, and a sample dashboard", () => {
     const { container } = render(<StackToPhone />);
-    expect(screen.getByRole("heading", { name: /The whole stack out/i })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Seven apps out/i })).toBeTruthy();
     for (const tool of STACK_TOOLS) expect(screen.getByText(tool)).toBeTruthy();
-    expect(screen.getByText("All in one place.")).toBeTruthy();
+    expect(screen.getByText("One app. Every store.")).toBeTruthy();
     expect(screen.getByAltText("CrooHQ")).toHaveAttribute("src", "/croohq-wordmark.png");
     expect(screen.getByText("Quick Tasks")).toBeTruthy();
     expect(screen.getByText("Restock the line")).toBeTruthy();
