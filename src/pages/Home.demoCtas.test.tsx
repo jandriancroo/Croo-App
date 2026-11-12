@@ -56,6 +56,13 @@ describe("homepage demo request links", () => {
     expect(screen.queryAllByRole("link", { name: /walkthrough/i }).every(link => link.getAttribute("href") !== "mailto:jordan@croohq.com")).toBe(true);
   });
 
+  it("keeps wide screens from stretching the hero and support band", async () => {
+    await renderHome();
+    const css = Array.from(document.querySelectorAll("style")).map(node => node.textContent || "").join("\n");
+    expect(css).toContain("@media(min-width:1481px)");
+    expect(css).toContain(".hme .hero,.hme .how{width:1440px;margin-left:auto;margin-right:auto}");
+  });
+
   it("uses restaurant photos in the hero and keeps the product sequence", async () => {
     const { container } = await renderHome();
     const hero = container.querySelector(".hero");

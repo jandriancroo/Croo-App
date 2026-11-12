@@ -85,6 +85,11 @@ footer.croo-site-footer a.croo-site-footer-contact{color:#fff}
 @media(prefers-reduced-motion:reduce){
   .hme .hero-bg img{transition:none!important}
 }
+/* Wider than a 1440 layout plus the 20px page gutters. Below this, hero and the
+   dark support band keep their existing inset size. */
+@media(min-width:1481px){
+  .hme .hero,.hme .how{width:1440px;margin-left:auto;margin-right:auto}
+}
 `;
 
 const Home = () => {
