@@ -41,7 +41,7 @@ describe("homepage demo request links", () => {
       "Book a 20-minute walkthrough",
     ]);
     for (const link of walkthroughs) expect(link).toHaveAttribute("href", DEMO_REQUEST);
-    const pricing = screen.getAllByRole("link", { name: "Get Pricing" });
+    const pricing = screen.getAllByRole("link", { name: "See plans and pricing" });
     expect(pricing).toHaveLength(2);
     for (const link of pricing) expect(link).toHaveAttribute("href", DEMO_REQUEST);
     expect(screen.queryByText(/\$199/)).toBeNull();
@@ -58,9 +58,16 @@ describe("homepage demo request links", () => {
 
   it("keeps the footer contact email and adds Contact Us", async () => {
     await renderHome();
-    expect(screen.getByRole("link", { name: "Contact: jordan@croohq.com" })).toHaveAttribute("href", "mailto:jordan@croohq.com");
+    expect(screen.queryByRole("link", { name: "Contact: jordan@croohq.com" })).toBeNull();
     expect(screen.getByRole("link", { name: "Contact Us" })).toHaveAttribute("href", "mailto:jordan@croohq.com");
     expect(screen.queryAllByRole("link", { name: /walkthrough/i }).every(link => link.getAttribute("href") !== "mailto:jordan@croohq.com")).toBe(true);
+  });
+
+  it("keeps wide screens from stretching the hero and support band", async () => {
+    await renderHome();
+    const css = Array.from(document.querySelectorAll("style")).map(node => node.textContent || "").join("\n");
+    expect(css).toContain("@media(min-width:1481px)");
+    expect(css).toContain(".hme .hero,.hme .how{width:1440px;margin-left:auto;margin-right:auto}");
   });
 
   it("uses restaurant photos in the hero and keeps the product sequence", async () => {

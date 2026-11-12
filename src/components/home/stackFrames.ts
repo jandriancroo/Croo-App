@@ -28,13 +28,11 @@ export function stackFrame(progress: number, compact: boolean): StackFrame {
   const v = clamp01(progress);
   const cover = span(v, 0.1, 0.28);
   const settle = span(v, 0.28, 0.42);
-  const zoomT = span(v, 0.74, 0.98);
-  // Cover slides the phone left over the list, then back to the right column.
-  // The last beat recenters it so the zoom stays on the sales summary.
+  // The phone slides over the list, then settles back. It stays full size so the
+  // Plans card can follow the whole phone instead of covering a zoomed frame.
   let x = 0;
   if (!compact) {
     x = settle > 0 ? -190 * (1 - settle) : -190 * cover;
-    x += zoomT * -150;
     if (!x) x = 0;
   }
   return {
@@ -42,8 +40,8 @@ export function stackFrame(progress: number, compact: boolean): StackFrame {
     list: 1 - span(v, 0.16, 0.34),
     all: span(v, 0.34, 0.46) * (1 - span(v, 0.72, 0.86)),
     dash: span(v, 0.5, 0.64),
-    zoom: 1 + zoomT * (compact ? 0.18 : 0.48),
-    y: zoomT * (compact ? 8 : 28),
+    zoom: 1,
+    y: 0,
     phone: compact ? span(v, 0.12, 0.34) : 1,
     head: 1 - span(v, 0.06, 0.2),
   };

@@ -12,7 +12,6 @@ import ReviewCarousel from "@/components/home/ReviewCarousel";
 
 const HomeDemos = lazy(() => import('@/components/home/HomeDemos'));
 
-const MAILTO = "mailto:jordan@croohq.com";
 const DEMO_REQUEST = "/demo";
 const CSS = `.hme *{box-sizing:border-box;margin:0;padding:0}.hme a{color:inherit;text-decoration:none}.hme{--paper:#f3eee6;--ink:#1a1a1a;--muted:#5c5852;--teal:#417f8e;--teal-d:#2e6270;--white:#fffcf7;--line:rgba(26,26,26,.12);--orange:#eb7d3c}.hme{background:var(--paper);color:var(--ink);font-family:Manrope,sans-serif;font-weight:500;line-height:1.45;-webkit-font-smoothing:antialiased}.hme .serif{font-family:Fraunces,Georgia,serif;letter-spacing:0;font-weight:500}.hme .wrap{width:min(1200px,calc(100% - 40px));margin:0 auto}.hme .btn{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:12px 20px;font-weight:700;font-size:14px;border:1.5px solid transparent;white-space:nowrap}.hme .bp{background:var(--teal);color:var(--home-tone-1)}.hme .bo{background:var(--orange);color:var(--home-tone-1)}.hme .bg{border-color:var(--line)}.hme .lg{padding:16px 26px;font-size:16px}.hme .eyebrow{color:var(--teal);font-weight:800;font-size:12px;letter-spacing:.12em;text-transform:uppercase}.hme .chip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;color:var(--muted);background:var(--white);margin:0 6px 8px 0}.hme .quote{font-family:Fraunces,Georgia,serif;font-style:italic}.hme .by{display:flex;align-items:center;gap:12px}.hme .by img.ph{width:48px;height:48px;border-radius:99px;object-fit:cover}.hme .by small{display:block;color:var(--muted);font-size:12px}.hme footer{border-top:1px solid var(--line);padding:28px 0 40px;font-size:14px;color:var(--muted);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}.hme footer nav{display:flex;gap:20px;flex-wrap:wrap}.hme .hd{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 0}.hme .logo{height:32px}.hme .nv{display:flex;gap:26px;font-size:14px;font-weight:700;color:var(--muted)}.hme .act{display:flex;gap:10px}.hme .tcard{display:block;background:var(--white);border:1px solid var(--home-tone-2);border-radius:20px;padding:26px}.hme .tcard .quote{font-size:19px;line-height:1.4}.hme .tfoot{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:18px;flex-wrap:wrap}.hme .ask{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--teal-d)}.hme .ask img{height:44px}
 @media(max-width:760px){.hme .nv{display:none}.hme .act .bo{display:none}.hme .logo{height:26px}.hme footer{flex-direction:column}}.hme{background:var(--home-tone-3)}.hme h1,.hme h2{font-family:Manrope;font-weight:800;letter-spacing:0;line-height:.92}.hme .hero{display:grid;grid-template-columns:1.1fr .9fr;min-height:780px;margin:0 20px;border-radius:36px;overflow:hidden;background:var(--teal);color:var(--home-tone-1)}.hme .hl{padding:70px 64px;display:flex;flex-direction:column;justify-content:space-between}.hme .hl h1{font-size:150px}.hme .hl .s1{font-size:24px;font-weight:700;max-width:24ch;line-height:1.25;margin-top:24px;color:var(--home-tone-4)}.hme .hr{position:relative}.hme .hr img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.hme .tag{position:absolute;left:28px;bottom:28px;background:var(--home-tone-3);color:var(--ink);border-radius:18px;padding:16px 20px;font-weight:800}.hme .tag small{display:block;font-weight:600;color:var(--muted)}.hme .wh{background:var(--home-tone-1);color:var(--teal-d)}.hme .fine{font-size:14px;color:var(--home-tone-5);margin-top:12px}.hme .marq{display:flex;gap:44px;padding:34px 0;font-size:34px;font-weight:800;letter-spacing:0;white-space:nowrap;overflow:hidden;color:var(--ink)}.hme .marq span:nth-child(even){color:var(--orange)}.hme .sec{padding:110px 0}.hme h2{font-size:84px}.hme .big{font-size:22px;color:var(--muted);max-width:44ch;margin-top:20px;line-height:1.4}.hme .split{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:56px}.hme .tile{border-radius:30px;padding:44px;min-height:420px;display:flex;flex-direction:column;justify-content:space-between}.hme .t1{background:var(--ink);color:var(--home-tone-3)}.hme .t2{background:var(--orange);color:var(--home-tone-1)}.hme .t1 .quote{font-size:34px;line-height:1.2}.hme .t1 .by small{color:var(--home-tone-6)}.hme .t1 .stamp{height:70px;background:var(--home-tone-3);border-radius:99px;padding:3px}.hme .t2 h3{font-size:56px;letter-spacing:0;line-height:.95;font-weight:800}.hme .t2 .chip{background:var(--home-tone-7);color:var(--home-tone-1);border-color:var(--home-tone-8)}.hme .rows{margin-top:50px;border-top:2px solid var(--ink)}.hme .r{display:grid;grid-template-columns:1fr 60px 1fr;padding:26px 0;border-bottom:1px solid var(--line);font-size:26px;font-weight:700;letter-spacing:0;align-items:center}.hme .r s{color:var(--home-tone-9)}.hme .r i{font-style:normal;color:var(--orange)}.hme .r b{color:var(--teal-d)}.hme .price{display:grid;grid-template-columns:1fr auto;align-items:center;margin-top:40px;background:var(--home-tone-10);border-radius:30px;padding:44px}.hme .price .n{font-size:140px;font-weight:800;letter-spacing:0;line-height:.9}.hme .price .n small{font-size:28px;letter-spacing:0;color:var(--muted)}.hme .how{background:var(--ink);color:var(--home-tone-3);margin:0 20px;border-radius:36px;padding:100px 0}.hme .how h2{color:var(--home-tone-1)}.hme .st{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:56px}.hme .st div{background:var(--home-tone-11);border-radius:24px;padding:28px;font-size:18px;min-height:220px;display:flex;flex-direction:column;justify-content:space-between}.hme .st b{font-size:64px;letter-spacing:0;color:var(--orange);line-height:1}.hme .how .chip{background:transparent;color:var(--home-tone-12);border-color:var(--home-tone-13)}.hme .end{padding:130px 0;text-align:center}.hme .end h2{font-size:110px}.hme .end p{font-size:22px;color:var(--muted);margin:20px auto 34px;max-width:40ch}.hme .jb{display:flex;justify-content:space-between;align-items:center;background:var(--home-tone-14);border-radius:24px;padding:26px 32px;font-size:18px;font-weight:700;gap:16px;flex-wrap:wrap}
@@ -53,16 +52,6 @@ const CSS = `.hme *{box-sizing:border-box;margin:0;padding:0}.hme a{color:inheri
 .hme .tile:nth-child(2){--d:.15s}
 ${PRODUCT_CSS}`;
 
-const CHIPS = [
-  "Checklists, recipes, manager logs",
-  "Scheduling and labor %",
-  "Punch clock (PIN, tablet, PWA)",
-  "Team chat",
-  "Hiring / jobs board",
-  "Sales / labor dashboard",
-  "Inventory and COGS",
-];
-
 const FEATURES = ["Punch clock", "Checklists", "Scheduling", "Team chat", "Hiring", "Inventory", "Dashboard", "POS sync"];
 
 const HERO_CSS = `
@@ -85,6 +74,11 @@ footer.croo-site-footer a.croo-site-footer-contact{color:#fff}
 }
 @media(prefers-reduced-motion:reduce){
   .hme .hero-bg img{transition:none!important}
+}
+/* Wider than a 1440 layout plus the 20px page gutters. Below this, hero and the
+   dark support band keep their existing inset size. */
+@media(min-width:1481px){
+  .hme .hero,.hme .how{width:1440px;margin-left:auto;margin-right:auto}
 }
 `;
 
@@ -250,20 +244,20 @@ const Home = () => {
         <title>CrooHQ — Restaurant Operations Software for Multi-Unit Teams</title>
         <meta
           name="description"
-          content="Restaurant operations software for multi-unit QSR and fast-casual teams. Scheduling, time clock, checklists, inventory and hiring, with POS sync."
+          content="Restaurant operations software for multi-unit QSR and fast-casual teams. Scheduling, punch clock, checklists, inventory and hiring, with POS sync."
         />
         <link rel="canonical" href="https://croohq.com/" />
         <meta property="og:title" content="CrooHQ — Restaurant Operations Software for Multi-Unit Teams" />
         <meta
           property="og:description"
-          content="Restaurant operations software for multi-unit QSR and fast-casual teams. Scheduling, time clock, checklists, inventory and hiring, with POS sync."
+          content="Restaurant operations software for multi-unit QSR and fast-casual teams. Scheduling, punch clock, checklists, inventory and hiring, with POS sync."
         />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://croohq.com/" />
         <meta property="og:image" content="https://croohq.com/croohq-ipad-punch.png" />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="CrooHQ — Restaurant Operations Software for Multi-Unit Teams" />
-        <meta name="twitter:description" content="Restaurant operations software for multi-unit QSR and fast-casual teams. Scheduling, time clock, checklists, inventory and hiring, with POS sync." />
+        <meta name="twitter:description" content="Restaurant operations software for multi-unit QSR and fast-casual teams. Scheduling, punch clock, checklists, inventory and hiring, with POS sync." />
         <meta name="twitter:image" content="https://croohq.com/croohq-ipad-punch.png" />
         <link
           href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Manrope:wght@500;600;700;800&display=swap"
@@ -273,7 +267,7 @@ const Home = () => {
       </Helmet>
       <div className="wrap"><header className="hd">
         <div className="lgc"><img className="logo" src="/croohq-wordmark.png" alt="CrooHQ" width={136} height={32} /><a className="nvm" href="/blog/">Blog</a></div>
-        <nav className="nv" aria-label="Main navigation"><a href="#how">How it works</a><a href="#stack">Replace the stack</a><Link to="/jobs">Jobs</Link><a href="/blog/">Blog</a></nav>
+        <nav className="nv" aria-label="Main navigation"><a href="#see-it">How it works</a><a href="#stack">Seven apps out</a><Link to="/jobs">Jobs</Link><a href="/blog/">Blog</a></nav>
         <div className="act"><Link className="btn bo" to="/auth">App Login</Link><a className="btn bp" href={DEMO_REQUEST}>Book a walkthrough</a></div>
       </header></div>
       <main>
@@ -284,7 +278,7 @@ const Home = () => {
               <div className="hero-beat hero-beat-platform theo-anim"><h1><span className="w">Your</span>{' '}<span className="w">crew’s</span>{' '}<span className="w">HQ.</span></h1><p className="s1 rv">The all-in-one ops platform for multi-unit fast-casual and QSR restaurants.</p></div>
               <h2 className="hero-beat hero-beat-theo hero-theo-title theo-anim">{THEO_HEADLINE}</h2>
             </div>
-            <div><div className="cta-row"><a className="btn lg wh rv" href={DEMO_REQUEST}>Book a 20-minute walkthrough</a><a className="btn lg bo rv" href={DEMO_REQUEST}>Get Pricing</a></div></div>
+            <div><div className="cta-row"><a className="btn lg wh rv" href={DEMO_REQUEST}>Book a 20-minute walkthrough</a><a className="btn lg bo rv" href={DEMO_REQUEST}>See plans and pricing</a></div></div>
           </div>
           <div className="hr"><TheoHeroPhones /></div>
         </section>
@@ -292,19 +286,19 @@ const Home = () => {
         <div className="wrap">
           <section className="sec why-sec" id="why"><h2 className="rv">Every store runs like you're standing in it.</h2><p className="big rv">Openings, closings, and coverage handled, even when you're three stores away.</p>
             <div className="split"><ReviewCarousel />
-              <div className="tile t2 rv"><div><p className="eyebrow">Why CrooHQ</p><h3>Built by a real multi-unit restaurant owner.</h3></div><div><p className="pos-copy">Syncs with the data you already have, like your POS. Sales, labor, and shift info in one place, no retyping.</p><span className="chip">Encrypted in transit (HTTPS)</span><span className="chip">Role-based access for owners, managers, and crew</span></div></div>
+              <div className="tile t2 rv"><div><p className="eyebrow">Why CrooHQ</p><h3>Built by a multi-unit restaurant owner.</h3></div><div><p className="pos-copy">Connects to your POS, so sales and labor flow in on their own. No retyping.</p><span className="chip">Role-based access for owners, managers, and crew</span></div></div>
             </div>
             {/* TODO: add more client logos/testimonials when real assets exist */}
           </section>
           <Suspense fallback={null}><HomeDemos /></Suspense>
           <section className="sec" id="stack"><StackToPhone />
-            <div className="price rv"><div><p className="price-label">Plans</p><p className="price-note">Scheduling, time clock, checklists, hiring, inventory, and labor in one system. Plans for one store or many.</p></div><div><a className="btn bp lg" href={DEMO_REQUEST}>Get Pricing</a></div></div>
+            <div className="price rv"><div><p className="price-label">Plans</p><p className="price-note">One plan covers every tool. Add stores as you grow.</p></div><div><a className="btn bp lg" href={DEMO_REQUEST}>See plans and pricing</a></div></div>
           </section>
         </div>
-        <section className="how" id="how"><div className="pin"><div className="wrap how-grid"><h2 className="rv">Personal setup and support.</h2><ProductSequence /><div className="how-rest"><p className="how-lead rv">Easy enough for your crew to pick up on day one, with workshops and training included at no extra cost.</p><p className="how-lead rv">You get help from a real human and a real restaurant operator.</p><div className="prog" aria-hidden="true"><i /></div><div className="feature-chips">{CHIPS.map(chip => <span className="chip" key={chip}>{chip}</span>)}</div></div></div></div></section>
-        <div className="wrap"><LatestPosts /><section className="end"><h2 className="rv">Terms built for one store or fifty.</h2><p className="rv">Talk to an operator, not a sales pod.</p><a className="btn bo lg rv" href={DEMO_REQUEST}>Book a 20-minute walkthrough</a></section><div className="jb rv"><span>Looking for a job? Open crew and manager roles in Southern California.</span><Link className="btn bp" to="/jobs">See open jobs</Link></div></div>
+        <section className="how" id="how"><div className="pin"><div className="wrap how-grid"><h2 className="rv">Personal setup and support.</h2><ProductSequence /><div className="how-rest"><p className="how-lead rv">Easy enough for your crew to pick up on day one, with workshops and training included at no extra cost.</p><p className="how-lead rv">Setup and support come from someone who's run stores, not a call center.</p><div className="prog" aria-hidden="true"><i /></div></div></div></div></section>
+        <div className="wrap"><LatestPosts /><section className="end"><h2 className="rv">Built for one store or fifty.</h2><p className="rv">Talk to an owner, not a sales team.</p><a className="btn bo lg rv" href={DEMO_REQUEST}>Book a 20-minute walkthrough</a></section><div className="jb rv"><span>Looking for a job? Open crew and manager roles in Southern California.</span><Link className="btn bp" to="/jobs">See open jobs</Link></div></div>
       </main>
-      <div className="wrap"><SiteFooter><span>croohq.com · Built for operators, by operators. · Proudly made in America.</span><nav aria-label="Footer navigation"><Link to="/jobs">Jobs</Link><a href="/blog/">Blog</a><Link to="/privacy">Privacy Policy</Link><a href={MAILTO}>Contact: jordan@croohq.com</a><Link to="/terms">Terms</Link><Link to="/auth">Log in</Link></nav></SiteFooter></div>
+      <div className="wrap"><SiteFooter><span>croohq.com · Built for operators, by operators. · Proudly made in America.</span><nav aria-label="Footer navigation"><Link to="/jobs">Jobs</Link><a href="/blog/">Blog</a><Link to="/privacy">Privacy Policy</Link><Link to="/terms">Terms</Link><Link to="/auth">Log in</Link></nav></SiteFooter></div>
     </div>
   );
 };

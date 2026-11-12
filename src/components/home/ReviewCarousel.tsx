@@ -18,10 +18,10 @@ const JOHNNY: Slide = {
   id: "johnny",
   text: JOHNNY_QUOTE,
   name: "Johnny Tellez",
-  detail: "20+ Year Restaurant Exec · El Jefe Enterprises",
+  detail: "Restaurant executive, 20+ years · El Jefe Enterprises",
   photo: "/johnny-headshot.jpg",
   href: "https://eljefe-enterprises.com",
-  ask: true,
+  ask: false,
 };
 
 const CSS = `

@@ -10,8 +10,8 @@ describe("Theo hero phones", () => {
     expect(screen.getByText("Hey, can you get this shift covered for me?")).toBeTruthy();
     expect(screen.getByText("On it. I sent the open shift to available crew. Alex picked it up, so you're covered.")).toBeTruthy();
     expect(screen.getByText("Where are sales gonna land by the end of the night?")).toBeTruthy();
-    expect(screen.getByText("You're looking really strong. Keep up the momentum, and make sure we're keeping customer service great.")).toBeTruthy();
-    expect(container.textContent).not.toMatch(/\$|Toast|Clover|Aloha|rip and replace|rip-and-replace/i);
+    expect(screen.getByText("Pacing to about $5,240, roughly $240 over goal. Keep the line moving through close and you'll clear it.")).toBeTruthy();
+    expect(container.textContent).not.toMatch(/Toast|Clover|Aloha|rip and replace|rip-and-replace/i);
   });
 
   it("keeps the 31s loop, with the sales chat 1.5s behind on desktop and sequential on mobile", () => {
@@ -20,8 +20,10 @@ describe("Theo hero phones", () => {
     expect(chatStartMs("shift", false)).toBe(15_000);
     expect(chatStartMs("sales", false) - chatStartMs("shift", false)).toBe(SALES_LAG_MS);
     expect(chatStartMs("sales", true) - chatStartMs("shift", true)).toBe(CHAT_MS);
-    expect(THEO_HEADLINE).toBe("Theo, a manager's best friend");
+    expect(THEO_HEADLINE).toBe("Meet Theo. A manager's best friend.");
     expect(THEO_HERO_CSS).toContain("theo-sales-ask-m");
+    expect(THEO_HERO_CSS).toContain("gap:clamp(16px,2.4vw,36px)");
+    expect(THEO_HERO_CSS).not.toContain("margin-right:-");
     expect(THEO_HERO_CSS).toContain("prefers-reduced-motion");
   });
 });

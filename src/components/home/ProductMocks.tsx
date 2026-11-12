@@ -207,7 +207,7 @@ export function PunchMock({ detailed = false }: { detailed?: boolean }) {
           <span key={key} className={key === "Clear" || key === "⌫" ? "ghost" : undefined}>{key}</span>
         ))}
       </div>
-      {detailed && <div className="pm-powered">Powered by <b>CROO</b></div>}
+      {detailed && <div className="pm-powered">Powered by <b>CrooHQ</b></div>}
     </div>
   );
 }
