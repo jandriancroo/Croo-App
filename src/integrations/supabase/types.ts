@@ -17854,7 +17854,6 @@ export type Database = {
           quote: string
         }[]
       }
-      next_customer_review_question_set: { Args: never; Returns: string }
       location_is_live: { Args: { _location_id: string }; Returns: boolean }
       location_pos_source: { Args: { _location_id: string }; Returns: string }
       log_pin_nudge: { Args: { p_target_user_id: string }; Returns: Json }
@@ -17882,6 +17881,7 @@ export type Database = {
         Returns: number
       }
       my_labor_rules_access: { Args: { _location_id: string }; Returns: Json }
+      next_customer_review_question_set: { Args: never; Returns: string }
       normalize_vendor_name: { Args: { _name: string }; Returns: string }
       oneshot_backfill_qu_pmix: { Args: never; Returns: undefined }
       original_shift_changes: {
