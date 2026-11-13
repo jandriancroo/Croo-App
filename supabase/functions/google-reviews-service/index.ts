@@ -16,6 +16,7 @@
 // { skipped: "no_key" } so the cron job does not fill the logs.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { authorizeCaller, requireInternalCaller } from "../_shared/callerAuth.ts";
+import { keepLiveLocationIds } from "../_shared/locationLive.ts";
 import {
   DETAILS_FIELD_MASK,
   LIGHT_FIELD_MASK,
@@ -72,11 +73,14 @@ async function refresh(body: Body, key: string) {
     if (!UUID.test(String(body.locationId))) return json({ error: "Bad locationId" }, 400);
     q = q.eq("location_id", body.locationId);
   }
-  const { data: rows, error } = await q;
+  const { data: allRows, error } = await q;
   if (error) {
     console.error("[google-reviews] list failed", error.code ?? "");
     return json({ error: "list_failed" }, 500);
   }
+  // Skip switched-off (inactive) locations.
+  const liveIds = new Set(await keepLiveLocationIds(admin, ((allRows ?? []) as Row[]).map((r) => r.location_id)));
+  const rows = ((allRows ?? []) as Row[]).filter((r) => liveIds.has(r.location_id));
 
   let light = 0;
   let full = 0;

@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { MapPin, Trash2, Edit, Rocket } from 'lucide-react';
 import { useLocation } from '@/hooks/useLocation';
+import { useUserRole } from '@/hooks/useUserRole';
 import { LocationMap } from './LocationMap';
 import { DeployLocationWizard } from './DeployLocationWizard';
 
@@ -19,6 +20,7 @@ export const LocationsSection = () => {
   const [selectedLocation, setSelectedLocation] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const { refetchLocations } = useLocation();
+  const { isSuperAdmin } = useUserRole();
 
   useEffect(() => {
     fetchLocations();
@@ -69,7 +71,7 @@ export const LocationsSection = () => {
   };
 
   const handleDeleteLocation = async (locationId: string) => {
-    if (!confirm('Are you sure you want to delete this location? This will remove all associated data.')) return;
+    if (!confirm('PERMANENTLY delete this location? This erases ALL of its data and cannot be undone. To keep the data, leave it inactive instead.')) return;
     try {
       const { error } = await supabase.from('locations').delete().eq('id', locationId);
       if (error) throw error;
@@ -113,9 +115,12 @@ export const LocationsSection = () => {
                       <Button variant="ghost" size="sm" onClick={() => { setSelectedLocation(location); setEditDialogOpen(true); }}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDeleteLocation(location.id)} className="text-destructive hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {/* Permanent delete: super admin only, and only after the Location is made inactive */}
+                      {isSuperAdmin && location.is_active === false && (
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteLocation(location.id)} className="text-destructive hover:text-destructive" aria-label="Permanently delete location">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                   {location.address && (

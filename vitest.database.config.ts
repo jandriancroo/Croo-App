@@ -2,5 +2,5 @@ import { defineConfig } from 'vitest/config';
 
 // SQL regression tests use PostgreSQL in memory, without browser setup or live data.
 export default defineConfig({
-  test: { environment: 'node', include: ['src/lib/shiftMarketplacePublication.test.ts', 'src/lib/salesGoalPlanningLock.test.ts', 'src/lib/dashboardCubeAccess.test.ts', 'src/lib/employeeJobAlerts.test.ts', 'src/lib/temperaturePhotoGuard.test.ts', 'src/lib/locationGoogleReviews.test.ts'] },
+  test: { environment: 'node', include: ['src/lib/shiftMarketplacePublication.test.ts', 'src/lib/salesGoalPlanningLock.test.ts', 'src/lib/dashboardCubeAccess.test.ts', 'src/lib/employeeJobAlerts.test.ts', 'src/lib/temperaturePhotoGuard.test.ts', 'src/lib/locationGoogleReviews.test.ts', 'src/lib/activeSwitch.test.ts'] },
 });

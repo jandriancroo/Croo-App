@@ -7,6 +7,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { authorizeCaller } from "../_shared/callerAuth.ts";
 import { laborStep } from "./labor.ts";
+import { keepLiveLocationIds } from "../_shared/locationLive.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -54,7 +55,7 @@ Deno.serve(async (req) => {
 
   const { data: ints } = await supabase.from("location_integrations")
     .select("location_id, credentials").eq("integration_type", "toast").eq("is_active", true);
-  const ids = (ints ?? []).filter((r: any) => r.credentials?.restaurant_guid).map((r: any) => r.location_id);
+  const ids = await keepLiveLocationIds(supabase, (ints ?? []).filter((r: any) => r.credentials?.restaurant_guid).map((r: any) => r.location_id));
   if (!ids.length) return json({ ok: true, stores: 0 });
 
   const [{ data: settings }, { data: hours }, { data: statuses }, { data: locs }, { data: admins }] = await Promise.all([

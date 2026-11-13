@@ -1,12 +1,14 @@
 # Roadmap
 
 ## Held
-- Org/Location Active-Inactive switch (archive): plan pending Jordan approval; live test on Blaze Pizza Anaheim (HH Blaze Inc). Badges in Super Admin All Organizations list; super-admin-only Inactive button on Location Settings and Org Settings pages with cool-off countdown + type-the-name confirm.
 
 ## In progress
 - Aloha historical completion: 285 gaps queued (2025-06-26–2026-04-07), first five attempted but portal returned incomplete detail; 280 pending/5 retry. Manual bounded runner available, no cron; completion waits on historical portal data.
 - Shift marketplace + support chats batch (Oct 23): built, waiting for Jordan's "ship". Not published.
 - Toast Status public downloads: blocked by workspace public-bucket restriction. Owner/admin must allow public buckets under Settings → Privacy & Security, then make toast-status-releases public. Release publishing deliberately returns 503 until then.
+
+## Done (Nov 13)
+- Org/Location Active-Inactive switch: shipped to preview (not published). Anaheim Location left inactive, HH Blaze Inc Org active. Punch clock tablets and inventory jobs held for Jordan's OK.
 
 ## Done (Toast Status v2)
 - Toast-clock alert guards: 0088 late arrival accepts Toast clock-ins, late/NCNS skipped per store when Toast labor feed >30 min old; watchdog labor-stopped alert with separate ladder; heartbeat no longer resets ladders; weekly checklist alert fn locked down. Rolled-back SQL fixtures + 6 Deno tests pass; watchdog/service deployed; no real alerts.
