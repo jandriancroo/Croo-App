@@ -18,6 +18,7 @@ import {
   type GoogleReviewsRow,
   type ReviewsSource,
 } from '@/lib/reviewsSource';
+import { ExpandableReviewText } from '@/components/dashboard/ExpandableReviewText';
 
 interface OvationReview {
   id: string;
@@ -332,6 +333,7 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
   const [tailLeftPct, setTailLeftPct] = useState<number | null>(null);
 
   const reviewsWithFeedback = reviews.filter(r => r.feedback);
+  const currentFeedbackReview = reviewsWithFeedback[reviewIndex];
 
   const advanceReview = useCallback(() => {
     if (reviewsWithFeedback.length > 1) {
@@ -425,7 +427,7 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
             {/* Reviews carousel */}
             {reviewsWithFeedback.length > 0 ? (
               <div
-                className="px-4 sm:px-3 py-4 sm:py-3 min-h-[112px] sm:min-h-[60px] cursor-pointer"
+                className="px-4 sm:px-3 py-4 sm:py-3 min-h-[112px] sm:min-h-[60px] cursor-pointer overflow-y-auto max-h-[min(20rem,calc(100dvh-env(safe-area-inset-top)-10rem))]"
                 onClick={advanceReview}
               >
                 <AnimatePresence mode="wait">
@@ -448,9 +450,14 @@ export function OvationExpandedPanel({ expanded, triggerRef }: { expanded: boole
                         <span className="text-xs sm:text-[9px] ovation-panel-muted">{reviewsWithFeedback[reviewIndex]?.relativeTime}</span>
                       )}
                     </div>
-                     <p className="text-base sm:text-[11px] font-medium ovation-panel-ink leading-relaxed sm:leading-snug line-clamp-4 sm:line-clamp-3">
-                      {reviewsWithFeedback[reviewIndex]?.feedback}
-                    </p>
+                    {currentFeedbackReview?.feedback && (
+                      <ExpandableReviewText
+                        text={currentFeedbackReview.feedback}
+                        reviewId={currentFeedbackReview.id}
+                        className="text-base sm:text-[11px] font-medium ovation-panel-ink leading-relaxed sm:leading-snug"
+                        clampClassName="line-clamp-4 sm:line-clamp-3"
+                      />
+                    )}
                   </motion.div>
                 </AnimatePresence>
 

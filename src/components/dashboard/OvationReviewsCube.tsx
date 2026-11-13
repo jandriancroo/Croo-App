@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Star, MessageSquare, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ExpandableReviewText } from '@/components/dashboard/ExpandableReviewText';
 
 interface OvationReview {
   id: string;
@@ -60,6 +61,7 @@ function getScoreBg(score: number): string {
 export function OvationReviewsCube() {
   const { currentLocation, organizationId } = useAppLocation();
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
+  const [reviewExpanded, setReviewExpanded] = useState(false);
   const scrollTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get brand_id — prefer locations.brand_id, fall back to org
@@ -127,13 +129,14 @@ export function OvationReviewsCube() {
   // Reset review index when location changes
   useEffect(() => {
     setCurrentReviewIndex(0);
+    setReviewExpanded(false);
   }, [currentLocation?.id]);
 
   // Auto-scroll through reviews with feedback
   const reviewsWithFeedback = reviewsData?.reviews?.filter(r => r.feedback) || [];
 
   useEffect(() => {
-    if (reviewsWithFeedback.length <= 1) return;
+    if (reviewsWithFeedback.length <= 1 || reviewExpanded) return;
 
     scrollTimerRef.current = setInterval(() => {
       setCurrentReviewIndex(prev => (prev + 1) % reviewsWithFeedback.length);
@@ -142,7 +145,7 @@ export function OvationReviewsCube() {
     return () => {
       if (scrollTimerRef.current) clearInterval(scrollTimerRef.current);
     };
-  }, [reviewsWithFeedback.length]);
+  }, [reviewsWithFeedback.length, reviewExpanded]);
 
   // Don't render if no data or not configured
   if (!reviewsData || (reviewsData.reviews?.length === 0 && !reviewsData.error)) {
@@ -195,7 +198,7 @@ export function OvationReviewsCube() {
 
       {/* Scrolling Review */}
       {currentReview && (
-        <div className="px-3 pb-3 min-h-[60px]">
+        <div className="px-3 pb-3 min-h-[60px] overflow-y-auto max-h-[min(16rem,calc(100dvh-8rem))]">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentReview.id}
@@ -213,9 +216,15 @@ export function OvationReviewsCube() {
                   <span className="text-[9px] text-green-500 font-medium">✓ replied</span>
                 )}
               </div>
-              <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3">
-                {currentReview.feedback}
-              </p>
+              {currentReview.feedback && (
+                <ExpandableReviewText
+                  text={currentReview.feedback}
+                  reviewId={currentReview.id}
+                  className="text-[11px] text-muted-foreground leading-snug"
+                  clampClassName="line-clamp-3"
+                  onExpandedChange={setReviewExpanded}
+                />
+              )}
             </motion.div>
           </AnimatePresence>
 
