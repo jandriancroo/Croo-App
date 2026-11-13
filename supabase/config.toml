@@ -181,3 +181,6 @@ verify_jwt = true
 
 [functions.google-reviews-service]
 verify_jwt = false
+
+[functions.toast-session-check]
+verify_jwt = false
