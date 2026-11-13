@@ -673,6 +673,13 @@
       "when": 1794584465017,
       "tag": "0095_location_org_active_switch",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1794585258696,
+      "tag": "0096_toast_session_check",
+      "breakpoints": true
     }
   ]
 }
