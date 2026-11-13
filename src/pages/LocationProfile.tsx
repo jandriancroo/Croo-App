@@ -21,6 +21,8 @@ import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
 
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection';
 import { InitiateBillingCard } from '@/components/billing/InitiateBillingCard';
+import { ActiveSwitchCard } from '@/components/settings/ActiveSwitchCard';
+import { useLocation as useAppLocation } from '@/hooks/useLocation';
 
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -68,6 +70,8 @@ export default function LocationProfile() {
   
   const [location, setLocation] = useState<any>(isNew ? { name: '', address: '', location_type: 'standard' } : null);
   const [loading, setLoading] = useState(!isNew);
+  const [orgInactive, setOrgInactive] = useState(false);
+  const { refetchLocations } = useAppLocation();
   const [saving, setSaving] = useState(false);
 
   // Settings state (merged from LocationSettingsSection)
@@ -107,6 +111,12 @@ export default function LocationProfile() {
       fetchBusinessHours();
     }
   }, [locationId, isNew]);
+
+  useEffect(() => {
+    if (!isSuperAdmin || !location?.organization_id) return;
+    supabase.from('organizations').select('is_active').eq('id', location.organization_id).maybeSingle()
+      .then(({ data }) => setOrgInactive(data?.is_active === false));
+  }, [isSuperAdmin, location?.organization_id]);
 
   const fetchLocation = async () => {
     try {
@@ -682,6 +692,21 @@ export default function LocationProfile() {
                 {/* Integrations - at bottom, for all existing locations */}
                 {!isNew && (
                   <IntegrationsSection locationId={locationId} />
+                )}
+
+                {/* Active / Inactive switch — super admin only */}
+                {!isNew && isSuperAdmin && location?.id && (
+                  <ActiveSwitchCard
+                    kind="location"
+                    id={location.id}
+                    name={location.name}
+                    isActive={location.is_active !== false}
+                    orgInactive={orgInactive}
+                    onChanged={(active) => {
+                      setLocation((prev: any) => ({ ...prev, is_active: active }));
+                      refetchLocations();
+                    }}
+                  />
                 )}
               </>
             );
