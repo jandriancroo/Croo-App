@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Held
-- Org/Location Active-Inactive switch (archive): plan pending Jordan approval. Badges in Super Admin All Organizations list; super-admin-only Inactive button on Location Settings and Org Settings pages with cool-off countdown + type-the-name confirm.
+- Org/Location Active-Inactive switch (archive): plan pending Jordan approval; live test on Blaze Pizza Anaheim (HH Blaze Inc). Badges in Super Admin All Organizations list; super-admin-only Inactive button on Location Settings and Org Settings pages with cool-off countdown + type-the-name confirm.
 
 ## In progress
 - Aloha historical completion: 285 gaps queued (2025-06-26–2026-04-07), first five attempted but portal returned incomplete detail; 280 pending/5 retry. Manual bounded runner available, no cron; completion waits on historical portal data.
