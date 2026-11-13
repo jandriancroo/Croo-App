@@ -26,6 +26,8 @@ interface LocationContextType {
   organizationId: string | null;
   isSwitching: boolean;
   switchingTo: Location | null;
+  /** True when the user is assigned only to switched-off (inactive) locations. */
+  onlyInactiveLocations: boolean;
 }
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
@@ -52,6 +54,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [isSwitching, setIsSwitching] = useState(false);
   const [switchingTo, setSwitchingTo] = useState<Location | null>(null);
+  const [onlyInactiveLocations, setOnlyInactiveLocations] = useState(false);
 
   const fetchLocations = useCallback(async () => {
     if (!user) {
@@ -102,7 +105,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
           .single(),
         supabase
           .from('user_locations')
-          .select('user_id, location_id, locations(id, name, location_type, store_number, is_test_location, organization_id, organizations(brand_name, brands(name)))')
+          .select('user_id, location_id, locations(id, name, location_type, store_number, is_test_location, is_active, organization_id, organizations(brand_name, brands(name)))')
           .eq('user_id', user.id),
       ]);
 
@@ -121,7 +124,8 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
           const { data: orgLocations, error: orgError } = await supabase
             .from('locations')
             .select('id, name, location_type, store_number, is_test_location, organization_id, organizations(brand_name, brands(name))')
-            .eq('organization_id', orgId);
+            .eq('organization_id', orgId)
+            .neq('is_active', false);
 
           if (orgError) throw orgError;
           locs = (orgLocations || []).map((l: any) => ({
@@ -131,7 +135,8 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
         } else {
           const { data: allLocs, error: allError } = await supabase
             .from('locations')
-            .select('id, name, location_type, store_number, is_test_location');
+            .select('id, name, location_type, store_number, is_test_location')
+            .neq('is_active', false);
           
           if (allError) throw allError;
           locs = (allLocs || []) as Location[];
@@ -141,7 +146,8 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
         locs = (userLocData || [])
           .map((ul: any) => {
             const l = ul.locations;
-            if (!l) return null;
+            // Switched-off (inactive) locations never appear in the switcher.
+            if (!l || l.is_active === false) return null;
             return {
               ...l,
               brand_name: l.organizations?.brand_name || l.organizations?.brands?.name || null,
@@ -155,6 +161,8 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
       }
 
       setLocations(locs || []);
+      // Assigned to at least one location, but every one is switched off.
+      setOnlyInactiveLocations((locs?.length ?? 0) === 0 && (userLocData?.length ?? 0) > 0);
 
       // Set current location: priority is localStorage > default_location_id > first location
       const savedLocationId = localStorage.getItem('currentLocationId');
@@ -313,6 +321,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
         organizationId: effectiveOrganizationId,
         isSwitching,
         switchingTo,
+        onlyInactiveLocations,
       }}
     >
       {children}
