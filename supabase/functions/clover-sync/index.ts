@@ -674,7 +674,8 @@ Deno.serve(async (req) => {
         .from("location_integrations")
         .select("location_id, locations!inner(id, name, organizations!inner(brand_id))")
         .eq("integration_type", "clover")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("locations.is_active", true);
       if (error) throw new Error(`fan-out lookup failed: ${error.message}`);
 
       const playaLocations: any[] = ((integrations ?? []) as any[]).filter(

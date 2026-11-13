@@ -522,7 +522,8 @@ async function handleSyncLive(supabase: any): Promise<Response> {
       locations!inner(id, name)
     `)
     .eq('integration_type', 'qubeyond')
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .eq('locations.is_active', true);
 
   const locationIds = integrations?.map((i: any) => i.location_id) || [];
   const { data: locationSettings } = await supabase
@@ -1042,7 +1043,8 @@ async function handleSyncYesterday(supabase: any): Promise<Response> {
     .from('location_integrations')
     .select(`id, location_id, credentials, locations!inner(id, name)`)
     .eq('integration_type', 'qubeyond')
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .eq('locations.is_active', true);
 
   if (intError || !integrations || integrations.length === 0) {
     console.log('[sales-service] sync-yesterday: No active integrations');

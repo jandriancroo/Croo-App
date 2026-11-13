@@ -6,6 +6,7 @@ import { authorizeCaller, authenticateCaller, requireAuthorizedCaller, requireIn
 import { POS_SOURCES } from '../_shared/posSources.ts';
 import { getLocationTimezone, todayInTimezone, weekStartFor } from '../_shared/weekProjections.ts';
 import { ensureLivingWeek, runGoalEngine } from '../_shared/goalEngine.ts';
+import { keepLiveLocationIds } from '../_shared/locationLive.ts';
 
 const corsHeaders = { ...sdkCorsHeaders, 'Access-Control-Allow-Headers': `${sdkCorsHeaders['Access-Control-Allow-Headers']}, x-cron-secret` };
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => DateTime.fromFormat(value, 'yyyy-MM-dd').isValid);
@@ -70,7 +71,7 @@ Deno.serve(async req => {
     const { data: integrations, error } = await supabase.from('location_integrations')
       .select('location_id').eq('is_active', true).in('integration_type', [...POS_SOURCES]);
     if (error) throw error;
-    const ids = [...new Set((integrations ?? []).map(row => row.location_id as string))];
+    const ids = await keepLiveLocationIds(supabase, (integrations ?? []).map(row => row.location_id as string));
     const results: unknown[] = [];
     for (const locationId of ids) {
       let T: string | undefined;
