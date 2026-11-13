@@ -11,9 +11,16 @@
 - **Only on switched-off Locations:** after sign-in they see a simple screen: "Your location isn't active in CrooHQ right now. Talk to your manager." It has a Sign out button. Their account stays as it is, so they can sign straight back in if the Location is switched on again.
 - **Employee accounts, roles and Location assignments are never changed** by the switch.
 
-## What you see
-- In Settings, your Locations list and Orgs list show every Location and Org, with the badge and the switch.
-- Your Location switcher also lists switched-off Locations under an **Inactive** label, so you can still open old data. No one else sees them. *(This is my default because you didn't pick an answer here. Tell me if you'd rather see them in Settings only.)*
+## Where it lives (your layout)
+- **Super Admin → All Organizations list:** every Org and every Location shows an **Active** or **Inactive** badge. This is the one place you see the status of everything at a glance.
+- **Location Settings page (each store):** a **Make Location Inactive** button at the bottom that only you can see. If the Location is already off, it changes to **Make Location Active**.
+- **Org Settings page:** a **Make Org Inactive** button that only you can see, with the same on/off behavior.
+- **Safety step when switching OFF:**
+  1. A box opens explaining what will stop.
+  2. You type the exact Location or Org name.
+  3. The red button stays locked behind a **10-second cool-off countdown** and only unlocks when the name matches and the countdown ends.
+- **Switching back ON** asks for a single plain confirm, with no countdown. *(Tell me if you want the countdown both ways or a different length.)*
+- **Your Location switcher:** switched-off Locations are hidden there too, even for you. You open them from All Organizations, which takes you to Location Settings. *(Default. Tell me if you'd rather keep them in your switcher under an Inactive label.)*
 
 ## What stops for a switched-off Location (or Location in a switched-off Org)
 - Shown nowhere for anyone but you: Location switcher, Org and Brand dashboards, promo trackers and their rankings, Messages store lists, hiring job pickers, and the public job application list.
@@ -45,11 +52,14 @@
 - No changes to `has_location_access` or any RLS policy.
 
 **Frontend**
-- `src/hooks/useLocation.tsx`: select `is_active` plus `organizations(is_active)`. Non-super-admins get only live Locations. Super admin gets all, with an `inactive` flag. Saved and default Location fall back to the first live one.
-- `src/components/LocationPickerDialog.tsx`: hide inactive Locations for non-super-admins, and show an "Inactive" group/badge for super admin.
+- `src/hooks/useLocation.tsx`: select `is_active` plus `organizations(is_active)`. Everyone, including super admin, gets only live Locations in the switcher; inactive ones are opened from All Organizations. Saved and default Location fall back to the first live one.
+- `src/components/LocationPickerDialog.tsx`: hide inactive Locations for everyone.
 - New `src/components/NoActiveLocationScreen.tsx` plus a gate in the app shell, shown when the user isn't a super admin, has finished loading, and has zero live Locations.
-- `src/components/settings/LocationsSection.tsx`: Inactive badge and switch (super admin only), and Delete shown only when the Location is off.
-- Org settings screen (Settings Org list / `OrganizationProfile.tsx`): Org badge and switch (super admin only).
+- `src/pages/Settings.tsx` (All Organizations section): Active/Inactive badge on each Org and Location row. Inactive Locations still listed so you can open them.
+- `src/pages/LocationProfile.tsx` (Location Settings): super-admin-only Make Inactive/Active button.
+- `src/pages/OrganizationProfile.tsx` (Org Settings): super-admin-only Make Inactive/Active button.
+- New `src/components/settings/ArchiveConfirmDialog.tsx`: shared type-the-name, 10-second countdown dialog used by both pages. It calls the super-admin RPCs.
+- `src/components/settings/LocationsSection.tsx`: Delete shown only when the Location is off, for super admin only.
 - `src/hooks/useOrgDashboardData.ts`, Brand dashboard, `src/lib/promoTrackers.ts`, Messages/Hiring Location lists, and the public application Location list: filter to live Locations.
 
 **Edge functions (skip non-live Locations in batch loops; user-triggered calls for a dead Location return a quiet no-op)**
@@ -61,7 +71,7 @@
 **Verify**
 - Tests for `location_is_live`: Location off, Org off, both on, Org back on keeps an off Location off.
 - Test that a non-super-admin can't flip `is_active` (guard trigger).
-- Browser check as you: switch the TEST sandbox on and off and see the badge and picker change.
+- Browser check as you: on the TEST sandbox Location Settings page, the button stays locked until the name is typed and the countdown ends. The badge flips in All Organizations, and the Location leaves and returns to the switcher.
 - Check that a single-Location employee sees the notice screen, using a test account only.
 - Build passes. Not published until you say so.
 
