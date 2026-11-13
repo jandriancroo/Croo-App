@@ -16897,6 +16897,7 @@ export type Database = {
           source: string
         }[]
       }
+      _toast_session_check_due: { Args: { _now?: string }; Returns: boolean }
       _tz_valid_for_state: {
         Args: { _state: string; _tz: string }
         Returns: boolean
