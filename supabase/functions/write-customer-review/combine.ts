@@ -4,6 +4,7 @@ export const MAX_FIELD = 600;
 export const MAX_TEXT = 1200;
 
 export type LocationCount = "1" | "2-5" | "6+";
+export type QuestionSet = "A" | "B";
 
 export type ReviewAnswers = {
   name: string;
@@ -18,12 +19,17 @@ export type ReviewAnswers = {
   theo: string;
   advice: string;
   anythingElse: string;
+  shiftBeforeAfter: string;
+  savedMoment: string;
+  teamNoticed: string;
+  recommendTo: string;
 };
 
 export const SYSTEM_PROMPT = `You turn a restaurant operator's own answers into one short testimonial.
 Rules:
 - Write 2 to 4 sentences, first person, in their voice.
 - Use plain words. No hype, no slogans, no exclamation points, no marketing adjectives.
+- Use natural, specific wording in the customer's own phrasing.
 - Use only facts and numbers that appear in their answers. Do not add a store count, a dollar amount, a time saved, a percent, or any other number they did not write.
 - Always spell the product CrooHQ. If they wrote QHQ, Crew HQ, Croo HQ, CrewHQ, or croohq, write CrooHQ.
 - Never name a POS vendor or any point-of-sale brand.
@@ -62,7 +68,23 @@ export function clipAnswers(input: Partial<ReviewAnswers> | null | undefined): R
     theo: clip(input?.theo),
     advice: clip(input?.advice),
     anythingElse: clip(input?.anythingElse),
+    shiftBeforeAfter: clip(input?.shiftBeforeAfter),
+    savedMoment: clip(input?.savedMoment),
+    teamNoticed: clip(input?.teamNoticed),
+    recommendTo: clip(input?.recommendTo),
   };
+}
+
+export function hasSetAAnswers(answers: ReviewAnswers): boolean {
+  return Boolean(answers.headache || answers.helped || answers.advice || answers.feature || answers.featureNote);
+}
+
+export function hasSetBAnswers(answers: ReviewAnswers): boolean {
+  return Boolean(answers.shiftBeforeAfter || answers.savedMoment || answers.teamNoticed || answers.recommendTo);
+}
+
+export function hasAnyReviewAnswers(answers: ReviewAnswers): boolean {
+  return hasSetAAnswers(answers) || hasSetBAnswers(answers) || Boolean(answers.anythingElse || answers.theo);
 }
 
 export function runsMultipleLocations(locationCount: string): boolean {
@@ -106,6 +128,10 @@ export function sourceText(answers: ReviewAnswers): string {
     answers.theo,
     answers.advice,
     answers.anythingElse,
+    answers.shiftBeforeAfter,
+    answers.savedMoment,
+    answers.teamNoticed,
+    answers.recommendTo,
   ].filter(Boolean).join("\n");
 }
 
@@ -122,7 +148,7 @@ function asSentence(text: string): string {
 
 export function stitchFallback(answers: ReviewAnswers): string {
   const feature = [answers.feature, answers.featureNote].filter(Boolean).join(". ");
-  const parts = [
+  const setA = [
     answers.headache,
     runsMultipleLocations(answers.locationCount) ? answers.multiLocationSurprise : "",
     feature,
@@ -130,7 +156,16 @@ export function stitchFallback(answers: ReviewAnswers): string {
     answers.theo,
     answers.advice,
     answers.anythingElse,
-  ].map(asSentence).filter(Boolean).slice(0, 4);
+  ];
+  const setB = [
+    answers.shiftBeforeAfter,
+    answers.savedMoment,
+    answers.teamNoticed,
+    answers.recommendTo,
+    answers.anythingElse,
+  ];
+  const source = hasSetBAnswers(answers) && !hasSetAAnswers(answers) ? setB : hasSetBAnswers(answers) ? [...setB, ...setA] : setA;
+  const parts = source.map(asSentence).filter(Boolean).slice(0, 4);
   return parts.join(" ").slice(0, MAX_TEXT).trim();
 }
 
@@ -140,19 +175,29 @@ export function userPrompt(answers: ReviewAnswers): string {
     `Role: ${answers.role}`,
     `Restaurant: ${answers.restaurant}`,
     `Locations they run: ${answers.locationCount || "not said"}`,
-    `Biggest headache before CrooHQ: ${answers.headache || "(blank)"}`,
   ];
-  if (runsMultipleLocations(answers.locationCount)) {
-    lines.push(`What surprised them about multiple locations: ${answers.multiLocationSurprise || "(blank)"}`);
+  if (hasSetAAnswers(answers) || !hasSetBAnswers(answers)) {
+    lines.push(`Biggest headache before CrooHQ: ${answers.headache || "(blank)"}`);
+    if (runsMultipleLocations(answers.locationCount)) {
+      lines.push(`What surprised them about multiple locations: ${answers.multiLocationSurprise || "(blank)"}`);
+    }
+    lines.push(
+      `Feature they would miss: ${answers.feature || "(blank)"}`,
+      `More about that feature: ${answers.featureNote || "(blank)"}`,
+      `How CrooHQ has helped: ${answers.helped || "(blank)"}`,
+      `What they ask Theo: ${answers.theo || "(blank)"}`,
+      `What they would tell another operator: ${answers.advice || "(blank)"}`,
+    );
   }
-  lines.push(
-    `Feature they would miss: ${answers.feature || "(blank)"}`,
-    `More about that feature: ${answers.featureNote || "(blank)"}`,
-    `How CrooHQ has helped: ${answers.helped || "(blank)"}`,
-    `What they ask Theo: ${answers.theo || "(blank)"}`,
-    `What they would tell another operator: ${answers.advice || "(blank)"}`,
-    `Anything else: ${answers.anythingElse || "(blank)"}`,
-  );
+  if (hasSetBAnswers(answers)) {
+    lines.push(
+      `What a normal shift looked like before vs now: ${answers.shiftBeforeAfter || "(blank)"}`,
+      `One moment CrooHQ saved them: ${answers.savedMoment || "(blank)"}`,
+      `What their team or managers noticed: ${answers.teamNoticed || "(blank)"}`,
+      `Who they'd recommend it to and why: ${answers.recommendTo || "(blank)"}`,
+    );
+  }
+  lines.push(`Anything else: ${answers.anythingElse || "(blank)"}`);
   return lines.join("\n");
 }
 

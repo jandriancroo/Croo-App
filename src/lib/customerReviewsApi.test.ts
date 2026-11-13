@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { draftReview, fetchPublicReviews, submitReview, type ReviewInsert } from "./customerReviewsApi";
+import { draftReview, fetchPublicReviews, nextReviewQuestionSet, submitReview, type ReviewInsert } from "./customerReviewsApi";
 
 // Browsers throw "Illegal invocation" when native fetch is called with a `this`
 // other than the window (for example obj.fetch()). Node does not, so simulate it.
@@ -15,7 +15,7 @@ function browserLikeFetch(response: unknown) {
 const deps = { url: "https://example.supabase.co", key: "anon" };
 const row: ReviewInsert = {
   name: "A", role: "Owner", restaurant: "R", anonymous: false, display_attribution: "A, Owner, R",
-  raw_answers: {}, final_text: "Text.", consent: true,
+  raw_answers: {}, final_text: "Text.", consent: true, question_set: "A",
 };
 
 describe("customerReviewsApi uses the global fetch safely", () => {
@@ -37,6 +37,7 @@ describe("customerReviewsApi uses the global fetch safely", () => {
       name: "A", role: "Owner", restaurant: "R", locationCount: "1",
       headache: "Schedules used to live in a group text.", multiLocationSurprise: "", feature: "Scheduling",
       featureNote: "Swaps get approved from my phone.", helped: "", theo: "", advice: "", anythingElse: "",
+      shiftBeforeAfter: "", savedMoment: "", teamNoticed: "", recommendTo: "",
     }, deps);
     expect(result).toEqual({ text, drafted: true });
   });
@@ -44,5 +45,22 @@ describe("customerReviewsApi uses the global fetch safely", () => {
   it("lists reviews through the global fetch", async () => {
     globalThis.fetch = browserLikeFetch([]) as unknown as typeof fetch;
     await expect(fetchPublicReviews(deps)).resolves.toEqual([]);
+  });
+
+  it("reads the next question set from the rotation RPC", async () => {
+    const stub = browserLikeFetch("B");
+    globalThis.fetch = stub as unknown as typeof fetch;
+    await expect(nextReviewQuestionSet(deps)).resolves.toBe("B");
+    expect(String((stub.mock.calls[0] as unknown[])[0])).toBe("https://example.supabase.co/rest/v1/rpc/next_customer_review_question_set");
+  });
+
+  it("flips a coin when the rotation RPC cannot be reached", async () => {
+    const random = Math.random;
+    Math.random = () => 0.1;
+    globalThis.fetch = vi.fn(() => Promise.reject(new Error("offline"))) as unknown as typeof fetch;
+    await expect(nextReviewQuestionSet(deps)).resolves.toBe("A");
+    Math.random = () => 0.9;
+    await expect(nextReviewQuestionSet(deps)).resolves.toBe("B");
+    Math.random = random;
   });
 });

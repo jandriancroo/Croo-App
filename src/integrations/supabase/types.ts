@@ -3184,6 +3184,10 @@ export type Database = {
           final_text: string
           id: string
           name: string
+          near_match: boolean
+          near_match_review_id: string | null
+          near_match_score: number | null
+          question_set: string
           raw_answers: Json
           restaurant: string
           role: string
@@ -3198,6 +3202,10 @@ export type Database = {
           final_text: string
           id?: string
           name: string
+          near_match?: boolean
+          near_match_review_id?: string | null
+          near_match_score?: number | null
+          question_set?: string
           raw_answers: Json
           restaurant: string
           role: string
@@ -3212,12 +3220,24 @@ export type Database = {
           final_text?: string
           id?: string
           name?: string
+          near_match?: boolean
+          near_match_review_id?: string | null
+          near_match_score?: number | null
+          question_set?: string
           raw_answers?: Json
           restaurant?: string
           role?: string
           status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "customer_reviews_near_match_review_id_fkey"
+            columns: ["near_match_review_id"]
+            isOneToOne: false
+            referencedRelation: "customer_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       daily_spot_count_items: {
         Row: {
@@ -17834,6 +17854,7 @@ export type Database = {
           quote: string
         }[]
       }
+      next_customer_review_question_set: { Args: never; Returns: string }
       location_is_live: { Args: { _location_id: string }; Returns: boolean }
       location_pos_source: { Args: { _location_id: string }; Returns: string }
       log_pin_nudge: { Args: { p_target_user_id: string }; Returns: Json }

@@ -3,7 +3,7 @@
 // The /demo form notifies Jordan from a different Supabase project
 // (request-demo on hqadffricxfsbggqdqak). That function is not in this repo,
 // so this function does not send email.
-import { acceptDraft, clipAnswers, SYSTEM_PROMPT, userPrompt } from "./combine.ts";
+import { acceptDraft, clipAnswers, hasAnyReviewAnswers, SYSTEM_PROMPT, userPrompt } from "./combine.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
 
   const answers = clipAnswers(body.answers ?? {});
   const fallback = acceptDraft("", answers);
-  if (!answers.headache && !answers.helped && !answers.advice) {
+  if (!hasAnyReviewAnswers(answers)) {
     return json({ ok: false, fallback: true, text: fallback.text }, 200);
   }
 

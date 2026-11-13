@@ -3,6 +3,7 @@ import {
   clipAnswers,
   scrubPublicText,
   stitchFallback,
+  type QuestionSet,
   type ReviewAnswers,
 } from "../../supabase/functions/write-customer-review/combine.ts";
 import { attributionLine, displayRole, type ReviewForm } from "./customerReviewFlow";
@@ -23,6 +24,7 @@ export type ReviewInsert = {
   raw_answers: Record<string, string>;
   final_text: string;
   consent: true;
+  question_set: QuestionSet;
 };
 
 type Deps = { fetch?: typeof fetch; url: string; key: string };
@@ -57,6 +59,7 @@ export function reviewRow(form: ReviewForm): ReviewInsert {
     display_attribution: attributionLine({ ...form, role }),
     raw_answers: {
       locationCount: form.locationCount,
+      questionSet: form.questionSet,
       headache: form.headache.trim(),
       multiLocationSurprise: form.locationCount === "1" ? "" : form.multi.trim(),
       feature: form.feature,
@@ -65,12 +68,38 @@ export function reviewRow(form: ReviewForm): ReviewInsert {
       theo: form.theo.trim(),
       advice: form.advice.trim(),
       anythingElse: form.elseNote.trim(),
+      shiftBeforeAfter: form.shift.trim(),
+      savedMoment: form.moment.trim(),
+      teamNoticed: form.team.trim(),
+      recommendTo: form.recommend.trim(),
       restaurantType: form.restaurantType.trim(),
       state: form.state.trim(),
     },
     final_text: scrubPublicText(form.finalText),
     consent: true,
+    question_set: form.questionSet === "B" ? "B" : "A",
   };
+}
+
+/** Next question group for /review. A or B only. Falls back to a coin flip if the server is unreachable. */
+export async function nextReviewQuestionSet(deps?: Deps): Promise<QuestionSet> {
+  if (!deps && import.meta.env.MODE === "test") return "A";
+  const live = liveDeps(deps);
+  if (!live) return Math.random() < 0.5 ? "A" : "B";
+  try {
+    const response = await live.fetch(`${live.url}/rest/v1/rpc/next_customer_review_question_set`, {
+      method: "POST",
+      headers: headers(live.key),
+      body: "{}",
+      signal: AbortSignal.timeout(8000),
+    });
+    const data = await response.json().catch(() => null);
+    const value = String(data ?? "").trim().toUpperCase();
+    if (value === "A" || value === "B") return value;
+  } catch {
+    // Coin flip below.
+  }
+  return Math.random() < 0.5 ? "A" : "B";
 }
 
 /** Draft a paragraph. A failed or missing AI call returns their own words, or an empty string. */
@@ -95,9 +124,8 @@ export async function draftReview(answers: ReviewAnswers, deps?: Deps, companyWe
 }
 
 /**
- * Save a consented review. The trigger stores it as pending. The /demo form emails Jordan from a function that
- * lives on a different Supabase project and is not in this repo, so this
- * insert does not send mail.
+ * Save a consented review. The insert trigger stores it as pending and queues
+ * Jordan's notice. Anon cannot read other reviews.
  */
 export async function submitReview(row: ReviewInsert, deps?: Deps): Promise<void> {
   if (!deps && import.meta.env.MODE === "test") throw new Error("submitReview is disabled in tests");

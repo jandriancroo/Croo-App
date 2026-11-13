@@ -1,4 +1,4 @@
-import { clipAnswers, runsMultipleLocations, type ReviewAnswers } from "../../supabase/functions/write-customer-review/combine.ts";
+import { clipAnswers, runsMultipleLocations, type QuestionSet, type ReviewAnswers } from "../../supabase/functions/write-customer-review/combine.ts";
 
 export const INTRO = "Got 3 minutes? Tell us how CrooHQ's working for your store. We'll polish it up, and you approve every word.";
 export const HEADACHE = "What was the biggest headache in running your store before CrooHQ?";
@@ -8,6 +8,10 @@ export const HELPED = "How has CrooHQ helped?";
 export const THEO = "What do you ask Theo?";
 export const ADVICE = "What would you tell another operator who's thinking about trying it?";
 export const ANYTHING_ELSE = "Anything else you want to say?";
+export const SHIFT_BEFORE_AFTER = "What did a normal shift look like before CrooHQ, and what's different now?";
+export const SAVED_MOMENT = "Tell us about one moment CrooHQ saved you.";
+export const TEAM_NOTICED = "What have your team or managers noticed since you started using it?";
+export const RECOMMEND_TO = "Who would you recommend CrooHQ to, and why?";
 export const CONSENT = "I give CrooHQ permission to use my testimonial, name, role, and restaurant name on its website, social media, and marketing materials. I can ask for it to be removed at any time by emailing jordan@croohq.com.";
 export const ANONYMOUS = "Keep me anonymous. Show only my role and restaurant type (for example, Owner, fast-casual pizza, CA).";
 
@@ -32,6 +36,10 @@ export type StepId =
   | "helped"
   | "theo"
   | "advice"
+  | "shift"
+  | "moment"
+  | "team"
+  | "recommend"
   | "else"
   | "writing"
   | "edit"
@@ -44,6 +52,7 @@ export type ReviewForm = {
   roleOther: string;
   restaurant: string;
   locationCount: "" | "1" | "2-5" | "6+";
+  questionSet: QuestionSet;
   headache: string;
   multi: string;
   feature: string;
@@ -51,6 +60,10 @@ export type ReviewForm = {
   helped: string;
   theo: string;
   advice: string;
+  shift: string;
+  moment: string;
+  team: string;
+  recommend: string;
   elseNote: string;
   restaurantType: string;
   state: string;
@@ -65,6 +78,7 @@ export const EMPTY_REVIEW_FORM: ReviewForm = {
   roleOther: "",
   restaurant: "",
   locationCount: "",
+  questionSet: "A",
   headache: "",
   multi: "",
   feature: "",
@@ -72,6 +86,10 @@ export const EMPTY_REVIEW_FORM: ReviewForm = {
   helped: "",
   theo: "",
   advice: "",
+  shift: "",
+  moment: "",
+  team: "",
+  recommend: "",
   elseNote: "",
   restaurantType: "",
   state: "",
@@ -88,7 +106,10 @@ export function displayRole(form: Pick<ReviewForm, "role" | "roleOther">): strin
   return form.role === "Other" ? form.roleOther.trim() : form.role.trim();
 }
 
-export function interviewSteps(locationCount: string): StepId[] {
+export function interviewSteps(locationCount: string, questionSet: QuestionSet = "A"): StepId[] {
+  if (questionSet === "B") {
+    return ["intro", "who", "shift", "moment", "team", "recommend", "else"];
+  }
   const steps: StepId[] = ["intro", "who", "headache"];
   if (runsMultipleLocations(locationCount)) steps.push("multi");
   steps.push("feature", "helped", "theo", "advice", "else");
@@ -114,6 +135,10 @@ export function stepError(step: StepId, form: ReviewForm): string {
   if (step === "feature" && !form.feature && !form.featureNote.trim()) return "Pick a feature, or write the one you'd miss.";
   if (step === "helped" && !form.helped.trim()) return "Tell us how CrooHQ has helped.";
   if (step === "advice" && !form.advice.trim()) return "Add what you'd tell another operator.";
+  if (step === "shift" && !form.shift.trim()) return "Tell us what a normal shift looked like before, and what's different now.";
+  if (step === "moment" && !form.moment.trim()) return "Tell us about one moment CrooHQ saved you.";
+  if (step === "team" && !form.team.trim()) return "Tell us what your team or managers have noticed.";
+  if (step === "recommend" && !form.recommend.trim()) return "Tell us who you'd recommend it to, and why.";
   if (step === "edit" && !form.finalText.trim()) return "Write the review in your own words.";
   if (step === "approve") {
     if (!form.consent) return "Check the permission box to approve.";
@@ -138,6 +163,10 @@ export function toReviewAnswers(form: ReviewForm): ReviewAnswers {
     theo: form.theo,
     advice: form.advice,
     anythingElse: form.elseNote,
+    shiftBeforeAfter: form.shift,
+    savedMoment: form.moment,
+    teamNoticed: form.team,
+    recommendTo: form.recommend,
   });
 }
 
