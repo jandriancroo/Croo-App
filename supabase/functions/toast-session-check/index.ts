@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
       yesterday: loaded.yesterday,
     });
   } catch (e) {
-    console.error("[toast-session-check]", e);
+    console.error("[toast-session-check] internal_error");
     return json({ error: "internal_error" }, 500);
   }
 });

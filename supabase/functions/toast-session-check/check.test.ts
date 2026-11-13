@@ -120,3 +120,27 @@ Deno.test("fail email matches new-review style and TEST marking", () => {
   assertEquals(failDedupKey(now, false), "hayward_toast_check_failed_2026-11-13");
   assertEquals(failDedupKey(now, true), "hayward_toast_check_failed_TEST_2026-11-13");
 });
+
+Deno.test("email body contains no tokens, session ids or secrets", () => {
+  const reasons = [
+    "SESSION_EXPIRED: the saved Toast sign-in was rejected or missing.",
+    "The morning Toast check ran but returned no data.",
+    "The Hayward mini runner did not run or report by 5:15 AM PT.",
+    "TEST simulated failure (SESSION_EXPIRED / no data / runner did not report).",
+  ];
+  const leak = /token|secret|password|apikey|api_key|bearer|session id|session_id|\.toast-session|service_role|cron_secret/i;
+  for (const reason of reasons) {
+    assertFalse(leak.test(reason), reason);
+    const html = failEmailHtml(reason, false);
+    const testHtml = failEmailHtml(reason, true);
+    assertFalse(leak.test(html), html);
+    assertFalse(leak.test(testHtml), testHtml);
+  }
+});
+
+Deno.test("SECURITY DEFINER due function sets search_path public, pg_temp and revokes execute", () => {
+  const sql = Deno.readTextFileSync(new URL("../../migrations/20261113154500_toast_session_check.sql", import.meta.url));
+  assert(sql.includes("SECURITY DEFINER"));
+  assert(sql.includes("SET search_path = public, pg_temp"));
+  assert(/REVOKE EXECUTE ON FUNCTION public\._toast_session_check_due\(timestamptz\) FROM PUBLIC, anon, authenticated/i.test(sql));
+});

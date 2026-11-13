@@ -10,7 +10,7 @@ RETURNS boolean
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
   SELECT extract(hour FROM (_now AT TIME ZONE 'America/Los_Angeles')) = 5
      AND extract(minute FROM (_now AT TIME ZONE 'America/Los_Angeles')) >= 15;
