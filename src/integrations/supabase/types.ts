@@ -8958,6 +8958,9 @@ export type Database = {
           brand_id: string | null
           created_at: string
           created_by: string | null
+          deactivated_at: string | null
+          deactivated_by: string | null
+          deactivated_by_org: boolean
           fresh_kds_active: boolean
           fresh_kds_location_id: string | null
           id: string
@@ -8987,6 +8990,9 @@ export type Database = {
           brand_id?: string | null
           created_at?: string
           created_by?: string | null
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          deactivated_by_org?: boolean
           fresh_kds_active?: boolean
           fresh_kds_location_id?: string | null
           id?: string
@@ -9016,6 +9022,9 @@ export type Database = {
           brand_id?: string | null
           created_at?: string
           created_by?: string | null
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          deactivated_by_org?: boolean
           fresh_kds_active?: boolean
           fresh_kds_location_id?: string | null
           id?: string
@@ -9998,6 +10007,8 @@ export type Database = {
           brand_id: string | null
           brand_name: string | null
           created_at: string
+          deactivated_at: string | null
+          deactivated_by: string | null
           id: string
           is_active: boolean
           logo_url: string | null
@@ -10009,6 +10020,8 @@ export type Database = {
           brand_id?: string | null
           brand_name?: string | null
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           id?: string
           is_active?: boolean
           logo_url?: string | null
@@ -10020,6 +10033,8 @@ export type Database = {
           brand_id?: string | null
           brand_name?: string | null
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           id?: string
           is_active?: boolean
           logo_url?: string | null
@@ -17819,6 +17834,7 @@ export type Database = {
           quote: string
         }[]
       }
+      location_is_live: { Args: { _location_id: string }; Returns: boolean }
       location_pos_source: { Args: { _location_id: string }; Returns: string }
       log_pin_nudge: { Args: { p_target_user_id: string }; Returns: Json }
       mark_theo_read: {
@@ -18267,6 +18283,14 @@ export type Database = {
       }
       set_labor_goal: {
         Args: { _day_of_week?: number; _location_id: string; _pct?: number }
+        Returns: Json
+      }
+      set_location_active: {
+        Args: { _active: boolean; _location_id: string }
+        Returns: Json
+      }
+      set_organization_active: {
+        Args: { _active: boolean; _org_id: string }
         Returns: Json
       }
       set_pending_punch_pin: { Args: { p_pin: string }; Returns: Json }
