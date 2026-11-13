@@ -114,6 +114,7 @@ export default function PublicApplication() {
         .select('id, name')
         .eq('organization_id', organization!.id)
         .eq('location_type', 'standard')
+        .eq('is_active', true)
         .order('name');
       
       if (error) throw error;

@@ -167,6 +167,7 @@ export default function Hiring() {
           .select('id, name')
           .eq('organization_id', organization.id)
           .eq('location_type', 'standard')
+          .eq('is_active', true)
           .order('name');
         if (error) throw error;
         return data;
@@ -177,6 +178,7 @@ export default function Hiring() {
           .select('id, name, user_locations!inner(user_id)')
           .eq('organization_id', organization.id)
           .eq('location_type', 'standard')
+          .eq('is_active', true)
           .eq('user_locations.user_id', (await supabase.auth.getUser()).data.user?.id)
           .order('name');
         if (error) throw error;
