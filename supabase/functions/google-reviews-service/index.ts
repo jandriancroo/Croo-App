@@ -16,8 +16,8 @@
 // { skipped: "no_key" } so the cron job does not fill the logs.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import { authorizeCaller, requireInternalCaller } from "../_shared/callerAuth.ts";
-import {
 import { keepLiveLocationIds } from "../_shared/locationLive.ts";
+import {
   DETAILS_FIELD_MASK,
   LIGHT_FIELD_MASK,
   PLACES_BASE,
