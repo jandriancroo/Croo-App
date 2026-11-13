@@ -2,7 +2,7 @@
 
 ## What you get
 - Every **Location** and every **Org** gets an **Active / Inactive** switch. Only you (super admin) can flip it.
-- Switched-off Locations and Orgs show an **Inactive** badge in Settings.
+- Switched-off Locations and Orgs show an **Inactive** badge in your Super Admin → All Organizations list.
 - Nothing is deleted. All schedules, punches, sales, labor, checklists, logbook, hiring and inventory history stays saved. Switching it back on brings everything back.
 - **Org off = all of its Locations are treated as off**, but each Location keeps its own switch. When the Org comes back on, only the Locations that were on before come back. Nothing needs to be remembered or restored by hand.
 
@@ -23,7 +23,7 @@
 - **Your Location switcher:** switched-off Locations are hidden there too, even for you. You open them from All Organizations, which takes you to Location Settings. *(Default. Tell me if you'd rather keep them in your switcher under an Inactive label.)*
 
 ## What stops for a switched-off Location (or Location in a switched-off Org)
-- Shown nowhere for anyone but you: Location switcher, Org and Brand dashboards, promo trackers and their rankings, Messages store lists, hiring job pickers, and the public job application list.
+- Hidden everywhere except your All Organizations list: Location switcher, Org and Brand dashboards, promo trackers and their rankings, Messages store lists, hiring job pickers, and the public job application list.
 - Automatic work skips it: sales pulls, labor refreshes, Theo briefings and insights, Quick Nudge, phone alerts, daily and weekly emails, overdue-checklist digests, goal planning, and Google reviews checks.
 - **Left running on purpose:** auto clock-out still closes any punch that's still open, so no shift stays stuck.
 
@@ -33,7 +33,7 @@
 ## Things to confirm
 1. **Punch clock tablets** paired to a switched-off Location would show "This location isn't active." That touches the punch/kiosk area, so it's **in only if you say yes**.
 2. **Inventory jobs** (nightly count snapshots and inventory checks) are part of the locked Inventory system. I'll **leave them alone** unless you say "unlock please." They don't harm a switched-off Location, they just keep running.
-3. The test location **"[TEST] Sandbox (Retired Clone)"** is already marked inactive. It will drop out of everyone's Location switcher (you'll still see it under Inactive).
+3. The test location **"[TEST] Sandbox (Retired Clone)"** is already marked inactive. It will drop out of everyone's Location switcher. You'll still see it in All Organizations.
 
 ## Not changing
 - Employee accounts, roles, Location assignments, pay data, schedules and history.
