@@ -680,6 +680,20 @@
       "when": 1794585258696,
       "tag": "0096_toast_session_check",
       "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1794615600000,
+      "tag": "0097_customer_review_question_sets",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1794615601000,
+      "tag": "0098_shift_offer_claims_store_scope",
+      "breakpoints": true
     }
   ]
 }

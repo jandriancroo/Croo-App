@@ -3,7 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { SiteFooter } from "@/components/marketing/SiteFooter";
 import { scrubPublicText, stitchFallback } from "../../supabase/functions/write-customer-review/combine.ts";
-import { draftReview, reviewRow, submitReview } from "@/lib/customerReviewsApi";
+import { draftReview, nextReviewQuestionSet, reviewRow, submitReview } from "@/lib/customerReviewsApi";
 import {
   ADVICE,
   ANONYMOUS,
@@ -17,7 +17,11 @@ import {
   INTRO,
   LOCATION_CHOICES,
   MULTI,
+  RECOMMEND_TO,
   ROLES,
+  SAVED_MOMENT,
+  SHIFT_BEFORE_AFTER,
+  TEAM_NOTICED,
   THEO,
   attributionLine,
   interviewSteps,
@@ -96,12 +100,20 @@ export default function CustomerReview() {
   formRef.current = form;
   trapRef.current = trap;
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const steps = interviewSteps(form.locationCount);
+  const steps = interviewSteps(form.locationCount, form.questionSet);
   const interviewIndex = steps.indexOf(step);
 
   useEffect(() => {
     headingRef.current?.focus();
   }, [step]);
+
+  useEffect(() => {
+    let cancel = false;
+    nextReviewQuestionSet().then(questionSet => {
+      if (!cancel) setForm(current => current.questionSet === questionSet ? current : { ...current, questionSet });
+    });
+    return () => { cancel = true; };
+  }, []);
 
   useEffect(() => {
     if (step !== "writing") return;
@@ -242,8 +254,17 @@ export default function CustomerReview() {
         </div>
       </div>
     );
-  } else if (step === "headache" || step === "multi" || step === "helped" || step === "theo" || step === "advice" || step === "else") {
-    const field = step === "headache" ? "headache" : step === "multi" ? "multi" : step === "helped" ? "helped" : step === "theo" ? "theo" : step === "advice" ? "advice" : "elseNote";
+  } else if (step === "headache" || step === "multi" || step === "helped" || step === "theo" || step === "advice" || step === "else" || step === "shift" || step === "moment" || step === "team" || step === "recommend") {
+    const field = step === "headache" ? "headache"
+      : step === "multi" ? "multi"
+      : step === "helped" ? "helped"
+      : step === "theo" ? "theo"
+      : step === "advice" ? "advice"
+      : step === "shift" ? "shift"
+      : step === "moment" ? "moment"
+      : step === "team" ? "team"
+      : step === "recommend" ? "recommend"
+      : "elseNote";
     body = (
       <div className="rv-fields">
         {(step === "theo" || step === "else") && <p className="rv-help">Optional.</p>}
@@ -327,6 +348,10 @@ export default function CustomerReview() {
     : step === "helped" ? HELPED
     : step === "theo" ? THEO
     : step === "advice" ? ADVICE
+    : step === "shift" ? SHIFT_BEFORE_AFTER
+    : step === "moment" ? SAVED_MOMENT
+    : step === "team" ? TEAM_NOTICED
+    : step === "recommend" ? RECOMMEND_TO
     : step === "else" ? ANYTHING_ELSE
     : step === "writing" ? "Writing your review"
     : step === "edit" ? "Does this sound like you?"
@@ -361,7 +386,7 @@ export default function CustomerReview() {
               {steps.map(id => <span key={id} className={id === step ? "is-on" : ""} />)}
             </div>
           )}
-          <div className={dir === "back" ? "rv-card is-back" : "rv-card"}>
+          <div className={dir === "back" ? "rv-card is-back" : "rv-card"} data-question-set={form.questionSet}>
             <h1 id="rv-heading" tabIndex={-1} ref={headingRef}>{title}</h1>
             {body}
             {error && <p className="rv-error" role="alert">{error}</p>}

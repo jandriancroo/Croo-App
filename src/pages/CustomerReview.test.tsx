@@ -3,12 +3,12 @@ import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CustomerReview from "./CustomerReview";
-import { draftReview, submitReview } from "@/lib/customerReviewsApi";
+import { draftReview, nextReviewQuestionSet, submitReview } from "@/lib/customerReviewsApi";
 import { CONSENT } from "@/lib/customerReviewFlow";
 
 vi.mock("@/lib/customerReviewsApi", async () => {
   const actual = await vi.importActual<typeof import("@/lib/customerReviewsApi")>("@/lib/customerReviewsApi");
-  return { ...actual, draftReview: vi.fn(), submitReview: vi.fn() };
+  return { ...actual, draftReview: vi.fn(), submitReview: vi.fn(), nextReviewQuestionSet: vi.fn() };
 });
 
 const DRAFT = "The schedule lived in a group text. CrooHQ keeps Saturday on one list. I would tell another operator to start with the schedule.";
@@ -17,8 +17,10 @@ beforeEach(() => {
   localStorage.clear();
   vi.mocked(draftReview).mockReset();
   vi.mocked(submitReview).mockReset();
+  vi.mocked(nextReviewQuestionSet).mockReset();
   vi.mocked(draftReview).mockResolvedValue({ text: DRAFT, drafted: true });
   vi.mocked(submitReview).mockResolvedValue();
+  vi.mocked(nextReviewQuestionSet).mockResolvedValue("A");
 });
 
 afterEach(() => cleanup());
@@ -96,6 +98,7 @@ describe("customer review builder", () => {
     });
     expect(row.raw_answers.locationCount).toBe("1");
     expect(row.raw_answers.multiLocationSurprise).toBe("");
+    expect(row.question_set).toBe("A");
     expect(JSON.stringify(row)).not.toMatch(/password|card number|payment/i);
   });
 
@@ -174,5 +177,36 @@ describe("customer review builder", () => {
     fireEvent.click(screen.getByRole("button", { name: "Approve" }));
     expect(await screen.findByRole("heading", { name: "Thanks! We'll review it before it goes up." })).toBeTruthy();
     expect(submitReview).not.toHaveBeenCalled();
+  });
+
+  it("walks Set B through the second question group and saves it", async () => {
+    vi.mocked(nextReviewQuestionSet).mockResolvedValue("B");
+    const setBDraft = "Before CrooHQ the close lived on sticky notes. Now the list is on my phone. It saved me when two closers called out on the same Saturday.";
+    vi.mocked(draftReview).mockResolvedValue({ text: setBDraft, drafted: true });
+    renderPage();
+    expect(await screen.findByRole("heading", { name: /Got 3 minutes/ })).toBeTruthy();
+    await waitFor(() => expect(document.querySelector("[data-question-set='B']")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Start" }));
+    fillWho("1");
+    expect(screen.getByRole("heading", { name: "What did a normal shift look like before CrooHQ, and what's different now?" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: /biggest headache/i })).toBeNull();
+    answer("Before CrooHQ the close lived on sticky notes. Now the list is on my phone.");
+    expect(screen.getByRole("heading", { name: "Tell us about one moment CrooHQ saved you." })).toBeTruthy();
+    answer("It saved me when two closers called out on the same Saturday.");
+    expect(screen.getByRole("heading", { name: "What have your team or managers noticed since you started using it?" })).toBeTruthy();
+    answer("My managers noticed the openers actually finish the list.");
+    expect(screen.getByRole("heading", { name: "Who would you recommend CrooHQ to, and why?" })).toBeTruthy();
+    answer("I would recommend it to a first-time owner who is still running the shop from a group text.");
+    fireEvent.click(screen.getByRole("button", { name: "Write my review" }));
+    expect(await screen.findByRole("heading", { name: "Does this sound like you?" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: CONSENT }));
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+    expect(await screen.findByRole("heading", { name: "Thanks! We'll review it before it goes up." })).toBeTruthy();
+    const row = vi.mocked(submitReview).mock.calls[0][0];
+    expect(row.question_set).toBe("B");
+    expect(row.raw_answers.shiftBeforeAfter).toMatch(/sticky notes/);
+    expect(row.raw_answers.savedMoment).toMatch(/two closers/);
+    expect(row.final_text).toBe(setBDraft);
   });
 });
