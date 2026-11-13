@@ -6,6 +6,7 @@
 - **Buttons:** Location Settings has "Make Location Inactive," and Org Settings has "Make Org Inactive." Only you can see them.
 - **Safety step:** you type the exact name, then wait out a 10-second countdown before the button unlocks. Switching back on needs one plain confirm.
 - **Org off = all of its Locations off.** Turning the Org back on restores only the Locations that were on before.
+- **No required order.** A Location going off never switches its Org off. An Org with zero active Locations stays Active, shows a "No active locations" note in All Organizations, and you decide whether to switch it off too.
 
 ## What happens to an Inactive Location
 - Hidden from everyone's Location switcher, dashboards, promo trackers, Messages and hiring lists. You still reach it from All Organizations.
