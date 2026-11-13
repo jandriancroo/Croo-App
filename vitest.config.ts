@@ -9,7 +9,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
-    exclude: ["src/lib/shiftMarketplacePublication.test.ts", "src/lib/salesGoalPlanningLock.test.ts", "src/lib/dashboardCubeAccess.test.ts", "src/lib/employeeJobAlerts.test.ts", "src/lib/temperaturePhotoGuard.test.ts", "src/lib/locationGoogleReviews.test.ts"],
+    exclude: ["src/lib/shiftMarketplacePublication.test.ts", "src/lib/salesGoalPlanningLock.test.ts", "src/lib/dashboardCubeAccess.test.ts", "src/lib/employeeJobAlerts.test.ts", "src/lib/temperaturePhotoGuard.test.ts", "src/lib/locationGoogleReviews.test.ts", "src/lib/activeSwitch.test.ts"],
   },
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
