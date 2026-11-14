@@ -1061,6 +1061,39 @@ async function fetchSummaryMetrics(tokenGw: string, dateStr: string, qbLocationI
   return out;
 }
 
+// Diagnostics only (no amounts leave the function): which summary pieces explain
+// the feed's own "Gross Sales", and whether the hourly discount total agrees
+// with the day's summary "Discounts".
+function grossIdentityChecks(summary: Record<string, number>, net: number, hourlyDiscount: number | null, feedGross: number | null) {
+  const get = (name: string) => Object.entries(summary).find(([k]) => k.toLowerCase() === name.toLowerCase())?.[1];
+  const sumDisc = get('Discounts');
+  const itemSales = get('Item Sales');
+  const feedNet = get('Net Sales');
+  const pieces: Array<[string, number | undefined]> = [
+    ['Gift Card Sales', get('Gift Card Sales')], ['Non-Revenue Item Sales', get('Non-Revenue Item Sales')],
+    ['Service Charges', get('Service Charges')], ['Taxes', get('Taxes')], ['Gift Card Discounts', get('Gift Card Discounts')],
+    ['Profit Shared Donations', get('Profit Shared Donations')],
+  ];
+  let feed_gross_explained_by: string[] | null = null;
+  if (feedGross != null && feedNet != null && sumDisc != null) {
+    const base = feedNet + Math.abs(sumDisc);
+    const present = pieces.filter(([, v]) => v != null) as Array<[string, number]>;
+    for (let mask = 0; mask < (1 << present.length) && !feed_gross_explained_by; mask++) {
+      for (const sign of [1, -1]) {
+        let t = base; const names: string[] = [];
+        present.forEach(([n, v], i) => { if (mask & (1 << i)) { t += sign * Math.abs(v); names.push((sign > 0 ? '+' : '-') + n); } });
+        if (Math.abs(t - feedGross) < 1) { feed_gross_explained_by = names.length ? names : ['net + discounts']; break; }
+      }
+    }
+  }
+  return {
+    feed_net_matches: feedNet != null ? Math.abs(feedNet - net) < 1 : null,
+    hourly_disc_matches_summary: sumDisc != null && hourlyDiscount != null ? Math.abs(Math.abs(sumDisc) - Math.abs(hourlyDiscount)) < 1 : null,
+    net_plus_summary_disc_matches_item_sales: sumDisc != null && itemSales != null && feedNet != null ? Math.abs(feedNet + Math.abs(sumDisc) - itemSales) < 1 : null,
+    feed_gross_explained_by,
+  };
+}
+
 async function handleBackfillGross(req: Request, supabase: any): Promise<Response> {
   const json = (b: any, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   const body = await req.json().catch(() => ({}));
@@ -1103,6 +1136,7 @@ async function handleBackfillGross(req: Request, supabase: any): Promise<Respons
         net_matches: Math.abs(hourNet - Number(cur.net_sales ?? 0)) < 1,
         feed_gross_present: feedGross != null,
         matches_feed_gross: feedGross != null && rebuilt != null ? Math.abs(feedGross - rebuilt) < 1 : null,
+        ...grossIdentityChecks(summary, Number(cur.net_sales ?? 0), extras.discount_amount ?? null, feedGross ?? null),
       });
     } catch (e: any) {
       results.push({ date, gross: false, error: String(e?.message ?? e).slice(0, 200) });
