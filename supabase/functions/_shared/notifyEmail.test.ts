@@ -1,5 +1,5 @@
 import { assert, assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
-import { notifyEmail, EMAIL_ALWAYS_KEYS, type NotifyEmailInput } from './notifyEmail.ts';
+import { notifyEmail, EMAIL_ALWAYS_KEYS, managerClockAlertCopy, formatShiftStartLabel, type NotifyEmailInput } from './notifyEmail.ts';
 import { defaultEmailEnabled } from './notificationDefaults.ts';
 
 const STORE = '10000000-0000-0000-0000-000000000001';
@@ -30,7 +30,7 @@ function fixture() {
       assertEquals(name,'queue_notification_email');
       const dedup_key=`${args._type}:${args._ref}:${args._user_id}`;
       const dup=rows.email_queue.some(r=>r.dedup_key===dedup_key || (args._chat_id && r.chat===args._chat_id && now-r.time<30*60*1000));
-      if(!dup) rows.email_queue.push({dedup_key,html:args._html,chat:args._chat_id,time:now});
+      if(!dup) rows.email_queue.push({dedup_key,html:args._html,subject:args._subject,chat:args._chat_id,time:now});
       return Promise.resolve({data:!dup,error:null});
     },
   };
@@ -118,4 +118,75 @@ for (const [type,data] of [
 Deno.test('Toast late employee copy uses stored mapped employee, not caller text',async()=>{
  const f=fixture();f.input.notification_type='late_arrival_self';f.input.data={toast_shift_id:REF};f.input.fromHomeAllowed.clear();
  assertEquals((await f.run()).emailed,1);assert(f.rows.email_queue[0].html.includes('from Toast'));
+});
+Deno.test('manager clock alert copy uses store and employee in subject and body', () => {
+  const late = managerClockAlertCopy({
+    notificationType: 'late_arrivals',
+    locationName: 'Hayward',
+    employeeName: 'Chazzlin Davidson',
+    startTimeLabel: formatShiftStartLabel('09:00:00'),
+  });
+  const ncns = managerClockAlertCopy({
+    notificationType: 'no_call_no_show',
+    locationName: 'Hayward',
+    employeeName: 'Chazzlin Davidson',
+    startTimeLabel: formatShiftStartLabel('09:00:00'),
+  });
+  assertEquals(formatShiftStartLabel('09:00:00'), '9:00 AM');
+  assertEquals(late?.subject, 'Late arrival: Hayward · Chazzlin Davidson');
+  assertEquals(late?.paragraph, 'Chazzlin Davidson was scheduled at 9:00 AM at Hayward and has not clocked in.');
+  assertEquals(ncns?.subject, 'No-call/no-show: Hayward · Chazzlin Davidson');
+  assertEquals(ncns?.paragraph, "Chazzlin Davidson was scheduled at 9:00 AM at Hayward and hasn't clocked in.");
+  assertEquals(managerClockAlertCopy({ notificationType: 'late_arrivals', locationName: 'Hayward', employeeName: '  ' }), null);
+});
+for (const type of ['late_arrivals', 'no_call_no_show'] as const) {
+  Deno.test(`${type}: manager email names Hayward and Chazzlin Davidson, keeps Open CrooHQ, uses Late arrivals setting`, async () => {
+    const HAYWARD = '0d1477e5-791d-42f4-9245-ad8b2e75c41c';
+    const SHIFT = 'b5d38125-0ba5-42c4-8ba2-70133c3ac7d2';
+    const EMPLOYEE = '241cd70a-31c0-41b6-840d-7b802466eefc';
+    const MANAGER = 'a2e81a39-0e0b-47b1-a1aa-0e53f3869d37';
+    const OTHER = '20000000-0000-0000-0000-000000000099';
+    const f = fixture();
+    f.rows.locations[0] = {id:HAYWARD,name:'Hayward'};
+    f.rows.schedules[0] = {id:SHIFT,location_id:HAYWARD,updated_at:'version1'};
+    f.rows.scheduled_shifts[0] = {id:SHIFT,user_id:EMPLOYEE,schedule_id:SHIFT,start_time:'09:00:00'};
+    f.rows.profiles.push({id:EMPLOYEE,full_name:'Chazzlin Davidson',email:'staff@croohq.test',is_active:true});
+    f.rows.profiles[0] = {id:MANAGER,full_name:'Jordan Andrian',email:'manager@croohq.test',is_active:true};
+    f.rows.profiles.push({id:OTHER,full_name:'Not Eligible',email:'other@croohq.test',is_active:true});
+    f.input.location_id = HAYWARD;
+    f.input.notification_type = type;
+    f.input.data = {shift_id:SHIFT,body:'UNTRUSTED',html:'UNTRUSTED'};
+    f.input.eligible_user_ids = [MANAGER];
+    f.input.fromHomeAllowed = new Set([MANAGER]);
+    assertEquals(await f.run(), {emailed:1,emailed_fallback:1});
+    assertEquals(f.rows.email_queue.length, 1);
+    const mail = f.rows.email_queue[0];
+    const expectedSubject = type === 'no_call_no_show'
+      ? 'No-call/no-show: Hayward · Chazzlin Davidson'
+      : 'Late arrival: Hayward · Chazzlin Davidson';
+    assertEquals(mail.subject, expectedSubject);
+    assert(mail.html.includes('Chazzlin Davidson'));
+    assert(mail.html.includes('Hayward'));
+    assert(mail.html.includes('9:00 AM'));
+    assert(mail.html.includes('Open CrooHQ'));
+    assert(mail.html.includes('https://croohq.com/schedule'));
+    assert(mail.html.includes('email is on for Late arrivals'));
+    assert(!mail.html.includes('UNTRUSTED'));
+    assert(!mail.subject.includes('Late arrivals —'));
+    assertEquals(mail.dedup_key.endsWith(':' + MANAGER), true);
+    assertEquals((await f.run()).emailed, 0);
+    assertEquals(f.rows.email_queue.length, 1);
+  });
+}
+Deno.test('late_arrival_self wording is unchanged and still names the store and time', async () => {
+  const f = fixture();
+  f.rows.locations[0].name = 'Hayward';
+  f.input.notification_type = 'late_arrival_self';
+  f.input.data = {shift_id:REF};
+  f.input.fromHomeAllowed.clear();
+  assertEquals((await f.run()).emailed, 1);
+  const html = f.rows.email_queue[0].html;
+  assert(html.includes('You were scheduled at 9:00 AM at Hayward'));
+  assert(!f.rows.email_queue[0].subject.startsWith('Late arrival: Hayward ·'));
+  assertEquals(f.rows.email_queue[0].subject, 'Your late arrival — Hayward');
 });
