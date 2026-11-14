@@ -23,7 +23,7 @@ export function useShowGross(): [boolean, (next: boolean) => void] {
         if (!id) return;
         const { data } = await supabase.from('profiles').select('ui_prefs').eq('id', id).maybeSingle();
         if (cancelled) return;
-        const saved = readShowGrossPref((data as any)?.ui_prefs);
+        const saved = readShowGrossPref((data as { ui_prefs?: unknown } | null)?.ui_prefs);
         if (saved != null) {
           setShow(saved);
           try { window.localStorage.setItem(localShowGrossKey(id), saved ? '1' : '0'); } catch { /* ignore */ }
@@ -42,8 +42,8 @@ export function useShowGross(): [boolean, (next: boolean) => void] {
     (async () => {
       try {
         const { data } = await supabase.from('profiles').select('ui_prefs').eq('id', uid).maybeSingle();
-        const prefs = ((data as any)?.ui_prefs ?? {}) as Record<string, unknown>;
-        await supabase.from('profiles').update({ ui_prefs: { ...prefs, [SHOW_GROSS_PREF_KEY]: next } } as any).eq('id', uid);
+        const prefs = ((data as { ui_prefs?: unknown } | null)?.ui_prefs ?? {}) as Record<string, unknown>;
+        await supabase.from('profiles').update({ ui_prefs: { ...prefs, [SHOW_GROSS_PREF_KEY]: next } as never }).eq('id', uid);
       } catch (e) {
         console.warn('Could not save the gross toggle to the profile:', e);
       }

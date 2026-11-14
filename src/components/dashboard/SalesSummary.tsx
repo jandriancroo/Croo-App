@@ -818,7 +818,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         // Gross for the same date's periods (DataCube gross metrics + the optional gross line).
         // Separate object: comparisons, LY chips, pace and goals above stay on net.
         try {
-          const { data: gp } = await supabase.rpc('get_gross_sales_periods' as any, {
+          const { data: gp } = await supabase.rpc('get_gross_sales_periods', {
             _location_id: currentLocation.id,
             _date: cmpDate,
           });

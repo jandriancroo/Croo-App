@@ -79,7 +79,7 @@ describe('comparisons, pace and goals stay on net', () => {
     const rows = [
       { sale_date: '2026-11-12', net_sales: 1000, gross_sales: 1500, living_projection: 1100 },
       { sale_date: '2026-11-13', net_sales: 1200, gross_sales: 1700, living_projection: 1300 },
-    ] as any[];
+    ] as unknown as Parameters<typeof periodMetrics>[0];
     const m = periodMetrics(rows, ['2026-11-12', '2026-11-13'], '2026-11-13', 1250);
     expect(m.sales).toBe(2200);
     expect(m.goal).toBe(2400);
@@ -111,8 +111,8 @@ describe('POS gross pieces', () => {
     expect(hours[0].gross).toBe(120);
     expect(hours[1].gross).toBeUndefined();
     const formatted = formatHourlyTo24(hours, [{ hour: '13:00', projected: 90 }]);
-    expect(formatted.find((h: any) => h.hour === '13:00')).toMatchObject({ sales: 100, gross: 120, projected: 90 });
-    expect(formatted.find((h: any) => h.hour === '14:00').gross).toBeUndefined();
+    expect(formatted.find((h) => h.hour === '13:00')).toMatchObject({ sales: 100, gross: 120, projected: 90 });
+    expect(formatted.find((h) => h.hour === '14:00')?.gross).toBeUndefined();
     const merged = mergeHourlyGross([{ hour: '13:00', sales: 100, gross: 1 }, { hour: '14:00', sales: 50, gross: 9 }], new Map([['13:00', 120]]));
     expect(merged).toEqual([{ hour: '13:00', sales: 100, gross: 120 }, { hour: '14:00', sales: 50 }]);
   });

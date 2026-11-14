@@ -105,10 +105,10 @@ async function fetchLocationData(
   const salesNet = salesRows.reduce((s, r) => s + Number(r.net_sales || 0), 0);
   const guests = salesRows.reduce((s, r) => s + Number(r.guest_count || 0), 0);
   // Gross (visibility only): every day with sales must have gross, otherwise hide it.
-  const sellingDays = salesRows.filter((r: any) => Number(r.net_sales || 0) > 0);
-  const grossDays = sellingDays.filter((r: any) => r.gross_sales != null).length;
+  const sellingDays = salesRows.filter((r) => Number(r.net_sales || 0) > 0);
+  const grossDays = sellingDays.filter((r) => r.gross_sales != null).length;
   const gross = sellingDays.length > 0 && grossDays === sellingDays.length
-    ? sellingDays.reduce((s: number, r: any) => s + Number(r.gross_sales), 0)
+    ? sellingDays.reduce((s: number, r) => s + Number(r.gross_sales), 0)
     : null;
 
   // === Labor === — pick best source per day: prefer the row that actually has cost/hours
