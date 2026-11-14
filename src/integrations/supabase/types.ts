@@ -12760,6 +12760,8 @@ export type Database = {
           external_event_id: string | null
           fetched_at: string
           flagged_no_sales: boolean | null
+          gross_basis: string | null
+          gross_sales: number | null
           guest_count: number
           hourly_data: Json | null
           id: string
@@ -12782,6 +12784,7 @@ export type Database = {
           projected_sales: number | null
           promo_amount: number | null
           promo_count: number | null
+          refund_amount: number | null
           sale_date: string
           tips_amount: number | null
           validation_attempts: number | null
@@ -12802,6 +12805,8 @@ export type Database = {
           external_event_id?: string | null
           fetched_at?: string
           flagged_no_sales?: boolean | null
+          gross_basis?: string | null
+          gross_sales?: number | null
           guest_count?: number
           hourly_data?: Json | null
           id?: string
@@ -12824,6 +12829,7 @@ export type Database = {
           projected_sales?: number | null
           promo_amount?: number | null
           promo_count?: number | null
+          refund_amount?: number | null
           sale_date: string
           tips_amount?: number | null
           validation_attempts?: number | null
@@ -12844,6 +12850,8 @@ export type Database = {
           external_event_id?: string | null
           fetched_at?: string
           flagged_no_sales?: boolean | null
+          gross_basis?: string | null
+          gross_sales?: number | null
           guest_count?: number
           hourly_data?: Json | null
           id?: string
@@ -12866,6 +12874,7 @@ export type Database = {
           projected_sales?: number | null
           promo_amount?: number | null
           promo_count?: number | null
+          refund_amount?: number | null
           sale_date?: string
           tips_amount?: number | null
           validation_attempts?: number | null
@@ -16507,6 +16516,10 @@ export type Database = {
         Returns: boolean
       }
       _google_reviews_refresh_due: { Args: { _now?: string }; Returns: boolean }
+      _gross_sum: {
+        Args: { _from: string; _location_id: string; _to: string }
+        Returns: number
+      }
       _invert_log_rows: {
         Args: {
           _rows: Database["public"]["Tables"]["schedule_change_log"]["Row"][]
@@ -16851,6 +16864,17 @@ export type Database = {
       _sales_caller_ok: {
         Args: { _location_id: string; _min_role: string }
         Returns: boolean
+      }
+      _sales_gross_rebuild: {
+        Args: {
+          _comp: number
+          _discount: number
+          _net: number
+          _pos_source: string
+          _promo: number
+          _refund: number
+        }
+        Returns: number
       }
       _schedule_approval_required: {
         Args: { _location: string; _schedule: string; _user: string }
@@ -17473,6 +17497,32 @@ export type Database = {
           ref: string
           seen_on: string
           source: string
+        }[]
+      }
+      get_gross_sales_periods: {
+        Args: { _date: string; _location_id: string }
+        Returns: {
+          day_gross: number
+          day_hourly: Json
+          days: Json
+          lm_mtd_gross: number
+          lw_day_gross: number
+          lw_wtd_gross: number
+          ly_date: string
+          ly_day_gross: number
+          ly_month_gross: number
+          ly_week_gross: number
+          mtd_gross: number
+          wtd_gross: number
+          yday_gross: number
+        }[]
+      }
+      get_gross_sales_range: {
+        Args: { _end: string; _location_id: string; _start: string }
+        Returns: {
+          gross_days: number
+          gross_sales: number
+          sales_days: number
         }[]
       }
       get_labor_pace: {
