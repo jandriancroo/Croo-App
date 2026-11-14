@@ -1,4 +1,4 @@
-import { posExtrasPatch } from "../_shared/posExtras.ts";
+import { posExtrasPatch, mergeHourlyGross } from "../_shared/posExtras.ts";
 // Clover → clover_sales_cache sync (Playa Bowls scoped).
 // Mirrors the QU/Blaze sync shape: per-day rows with net_sales, guest_count,
 // avg_ticket, hourly_data, product_mix, payments_data.
@@ -6,7 +6,7 @@ import { posExtrasPatch } from "../_shared/posExtras.ts";
 // Brand guard: hard-refuses any location whose organization is not Playa Bowls.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { requireAuthorizedCaller } from "../_shared/callerAuth.ts";
+import { requireAuthorizedCaller, requireInternalCaller } from "../_shared/callerAuth.ts";
 import { computeAndSavePace } from "../_shared/projections.ts";
 
 
@@ -39,7 +39,7 @@ const BASE = (env: string) =>
   env === "sandbox" ? "https://apisandbox.dev.clover.com" : "https://api.clover.com";
 
 interface Body {
-  action: "sync_today" | "sync_yesterday" | "sync_date" | "sync_range" | "sync_dates" | "sync_all_today" | "sync_all_yesterday" | "get_live_expected_cash";
+  action: "sync_today" | "sync_yesterday" | "sync_date" | "sync_range" | "sync_dates" | "sync_all_today" | "sync_all_yesterday" | "get_live_expected_cash" | "backfill_gross";
   locationId?: string;    // required except for sync_all_*
   date?: string;          // yyyy-MM-dd, for sync_date / get_live_expected_cash (defaults to today)
   startDate?: string;     // for sync_range
@@ -243,7 +243,7 @@ function aggregateRefunds(refunds: any[]) {
 
 
 // ── Aggregation ─────────────────────────────────────────────────────────────
-type Hour = { hour: string; sales: number; checksCount: number };
+type Hour = { hour: string; sales: number; checksCount: number; gross?: number };
 
 // Clover "Net sales" definition (verified against the merchant dashboard):
 //   item sales (line price + modifier amounts, revenue items only)
@@ -336,6 +336,7 @@ function aggregateOrders(orders: any[], startMs: number) {
   let checkCount = 0;
   const hourlyCents: number[] = Array.from({ length: 24 }, () => 0);
   const hourlyChecks: number[] = Array.from({ length: 24 }, () => 0);
+  const hourlyGrossCents: number[] = Array.from({ length: 24 }, () => 0);
 
   // Product mix: aggregate line items by item id/name.
   const mix = new Map<string, { item_id: string; name: string; quantity: number; gross: number }>();
@@ -360,6 +361,7 @@ function aggregateOrders(orders: any[], startMs: number) {
     const t = o.clientCreatedTime ?? o.createdTime ?? startMs;
     const hourIdx = Math.max(0, Math.min(23, Math.floor((t - startMs) / (60 * 60 * 1000))));
     hourlyCents[hourIdx] += b.netCents;
+    hourlyGrossCents[hourIdx] += b.grossCents;
     hourlyChecks[hourIdx] += 1;
 
     // Line items → product mix (revenue items only, modifiers included).
@@ -382,6 +384,8 @@ function aggregateOrders(orders: any[], startMs: number) {
     hour: `${String(h).padStart(2, "0")}:00`,
     sales: Math.round(cents) / 100,
     checksCount: hourlyChecks[h],
+    // Gross for the hour = revenue item sales before discounts (visibility only).
+    gross: Math.round(hourlyGrossCents[h]) / 100,
   }));
 
   return {
@@ -443,6 +447,7 @@ async function syncOneDay(
   creds: CloverCreds,
   date: string,
   tz: string,
+  grossOnly = false,
 ) {
   const { startMs, endMs } = businessDayWindowMs(date, tz);
   // Serialize to avoid Clover 429s; retry inside cloverFetch handles transient throttling.
@@ -488,6 +493,24 @@ async function syncOneDay(
     }
   }
 
+
+  // Gross re-pull: write only the gross pieces onto the existing day; net, mix, tips untouched.
+  if (grossOnly) {
+    const { data: cur } = await supabase.from("sales_cache")
+      .select("net_sales, hourly_data, discount_amount, refund_amount, pos_source")
+      .eq("location_id", locationId).eq("sale_date", date).maybeSingle();
+    if (!cur) return { date, gross: false, reason: "no sales row" };
+    const grossByHour = new Map<string, number>(agg.hourly.map((h) => [h.hour, h.gross ?? 0]));
+    const { error: gErr } = await supabase.from("sales_cache").update({
+      ...posExtrasPatch({ discount_amount: agg.discounts, refund_amount: agg.refunds }, cur),
+      gross_sales: agg.grossSales,
+      gross_basis: "pos",
+      ...(Array.isArray(cur.hourly_data) && cur.hourly_data.length ? { hourly_data: mergeHourlyGross(cur.hourly_data, grossByHour) } : {}),
+    }).eq("location_id", locationId).eq("sale_date", date);
+    if (gErr) throw new Error(`gross update failed for ${date}: ${gErr.message}`);
+    // Net drift check only (no dollars logged): stored net vs fresh net within a cent.
+    return { date, gross: true, net_matches: Math.abs(Number(cur.net_sales ?? 0) - agg.netSales) < 0.015 };
+  }
 
   // Conditional spread merge — protect projections / overrides that came from elsewhere.
   const { data: existing } = await supabase
@@ -541,7 +564,10 @@ async function syncOneDay(
     location_id: locationId,
     sale_date: date,
     pos_source: "clover",
-    ...posExtrasPatch({ discount_amount: agg.discounts, check_count: agg.checkCount, tips_amount: paymentsData.total_tips }),
+    ...posExtrasPatch({ discount_amount: agg.discounts, check_count: agg.checkCount, tips_amount: paymentsData.total_tips, refund_amount: agg.refunds }),
+    // Clover gross = revenue item sales before discounts and refunds (its own definition); visibility only.
+    gross_sales: agg.grossSales,
+    gross_basis: "pos",
     net_sales: agg.netSales,
     guest_count: agg.guestCount,
     pizza_count: 0,
@@ -662,6 +688,7 @@ Deno.serve(async (req) => {
     const body = (await req.json()) as Body;
     const { action } = body;
     if (!action) throw new Error("action required");
+    if (action === "backfill_gross") { const denied = requireInternalCaller(req, corsHeaders); if (denied) return denied; }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -776,6 +803,11 @@ Deno.serve(async (req) => {
       let cur = body.startDate;
       while (cur <= body.endDate) { dates.push(cur); cur = addDays(cur, 1); }
       if (dates.length > 60) throw new Error("range too large (max 60 days)");
+    } else if (action === "backfill_gross") {
+      if (!body.startDate || !body.endDate) throw new Error("startDate and endDate required");
+      let cur = body.startDate;
+      while (cur <= body.endDate) { dates.push(cur); cur = addDays(cur, 1); }
+      if (dates.length > 31) throw new Error("range too large (max 31 days)");
     } else if (action === "sync_dates") {
       if (!Array.isArray(body.dates) || body.dates.length === 0) {
         throw new Error("dates[] required for sync_dates");
@@ -790,7 +822,7 @@ Deno.serve(async (req) => {
     const results: any[] = [];
     for (const d of dates) {
       try {
-        results.push(await syncOneDay(supabase, locationId, creds, d, tz));
+        results.push(await syncOneDay(supabase, locationId, creds, d, tz, action === "backfill_gross"));
       } catch (e) {
         console.error(`[clover-sync] ${locationId} ${d} failed:`, e);
         results.push({ date: d, error: e instanceof Error ? e.message : String(e) });

@@ -2,7 +2,7 @@
 // Keeps projected / laborPercent / laborCost from the existing cache row.
 
 export function formatHourlyTo24(
-  hourlyData: { hour: string; sales: number; checksCount: number }[],
+  hourlyData: { hour: string; sales: number; checksCount: number; gross?: number | null }[],
   existingHourly?: any[]
 ): any[] {
   // Build lookup of existing projected/laborPercent/laborCost values
@@ -23,6 +23,10 @@ export function formatHourlyTo24(
       sales: hourData?.sales || 0,
       checksCount: hourData?.checksCount || 0
     };
+    // Per-hour gross only when the feed measured that hour's pieces (visibility only).
+    if (hourData && typeof hourData.gross === 'number' && Number.isFinite(hourData.gross)) {
+      entry.gross = hourData.gross;
+    }
     // Preserve projected values from existing cache (set by fetch-qubeyond-sales)
     if (existing?.projected != null && existing.projected > 0) {
       entry.projected = existing.projected;

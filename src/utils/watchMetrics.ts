@@ -1,4 +1,5 @@
 import type { MetricType, SalesDataForWidgets } from '@/components/dashboard/DashboardWidget';
+import { isGrossMetric, grossMetricValue } from '@/components/dashboard/DashboardWidget';
 
 /**
  * Read-only mirror of the Data Cube metric resolver used for the Apple Watch
@@ -71,6 +72,7 @@ export function resolveWatchMetricValue(
   salesData?: SalesDataForWidgets | null
 ): number | undefined {
   if (!salesData) return undefined;
+  if (isGrossMetric(metricType)) return grossMetricValue(metricType, salesData);
 
   switch (metricType) {
     case 'sales_today': return salesData.daily;

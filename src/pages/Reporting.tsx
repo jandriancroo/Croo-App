@@ -43,10 +43,11 @@ import html2canvas from 'html2canvas';
 import Papa from 'papaparse';
 import { useMultiLocationReportData, type LocationReportData } from '@/hooks/useReportData';
 import { useCategorySegments, SEGMENT_ORDER, type CogsSegment } from '@/hooks/useCategorySegments';
+import { GROSS_FOOTNOTE } from '@/lib/grossSales';
 
 // ============ TYPES ============
 type Orientation = 'portrait' | 'landscape';
-type BlockType = 'inventory' | 'labor' | 'cash' | 'sales' | 'header' | 'spacer' | 'text' | 'cogs_by_category' | 'cogs_by_segment';
+type BlockType = 'inventory' | 'labor' | 'cash' | 'sales' | 'gross_sales' | 'header' | 'spacer' | 'text' | 'cogs_by_category' | 'cogs_by_segment';
 
 interface ReportBlock {
   id: string;
@@ -77,6 +78,7 @@ const DATA_LIBRARY: { type: BlockType; title: string; icon: any; description: st
   { type: 'labor', title: 'Gross Labor', icon: Clock, description: 'Hours, OT, DOT, gross wages' },
   { type: 'cash', title: 'Cash Over/Short', icon: DollarSign, description: 'Drawer counts, daily/weekly variance' },
   { type: 'sales', title: 'Sales Total', icon: DollarSign, description: 'Net sales for the period' },
+  { type: 'gross_sales', title: 'Gross Sales Total', icon: DollarSign, description: 'Before discounts, comps, promos and refunds (no tax or tips)' },
   { type: 'spacer', title: 'Spacer', icon: LayoutIcon, description: 'Vertical white space' },
 ];
 
@@ -578,6 +580,20 @@ function renderBlock(block: ReportBlock, locationData: LocationReportData) {
           )}
         </div>
       );
+    case 'gross_sales':
+      // Hidden (—) when any day in the range is missing a gross piece; never shows net as gross.
+      return (
+        <div>
+          <h3 className="font-semibold text-sm mb-2">{block.title}</h3>
+          <div className="text-2xl font-bold tabular-nums">
+            {locationData.sales.gross != null ? `$${locationData.sales.gross.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—'}
+          </div>
+          {locationData.sales.gross == null && locationData.sales.salesDays > 0 && (
+            <div className="text-xs text-muted-foreground">Gross available for {locationData.sales.grossDays} of {locationData.sales.salesDays} days</div>
+          )}
+          <div className="text-[10px] text-muted-foreground">{GROSS_FOOTNOTE}</div>
+        </div>
+      );
   }
 }
 
@@ -685,7 +701,7 @@ export default function Reporting() {
     inventory: { startingCount: 0, endingCount: 0, vendors: [], totalPurchases: 0, cogs: 0, cogsPct: 0, aligned: false, cogsByCategory: [] },
     labor: { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0, days: [] },
     cash: { days: [], total: 0, totalVariance: 0 },
-    sales: { net: 0, guests: 0 },
+    sales: { net: 0, guests: 0, gross: null, grossDays: 0, salesDays: 0 },
   };
   const combinedData = liveData?.combined ?? EMPTY;
   const dataByLocation = liveData?.byLocation ?? {};
@@ -816,6 +832,7 @@ export default function Reporting() {
       rows.push({ Location: loc.name, Section: 'Labor — DOT Hours', Value: d.labor.dotHours });
       rows.push({ Location: loc.name, Section: 'Labor — Gross Wages', Value: d.labor.grossWages });
       rows.push({ Location: loc.name, Section: 'Sales — Net', Value: d.sales.net });
+      rows.push({ Location: loc.name, Section: 'Sales — Gross', Value: d.sales.gross ?? '' });
       rows.push({ Location: loc.name, Section: 'Sales — Guests', Value: d.sales.guests });
     });
     const csv = Papa.unparse(rows);

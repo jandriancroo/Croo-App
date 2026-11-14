@@ -104,7 +104,18 @@ export type MetricType =
   | 'labor_percent'
   | 'labor_cost'
   | 'labor_hours'
-  | 'sales_last_year';  // Legacy alias for sales_last_week
+  | 'sales_last_year'  // Legacy alias for sales_last_week
+  // Gross sales (visibility only; net stays the primary number). Hidden when a day is missing a piece.
+  | 'gross_sales_today'
+  | 'gross_sales_yesterday'
+  | 'gross_sales_last_week'
+  | 'gross_sales_last_year_day'
+  | 'gross_sales_wtd'
+  | 'gross_sales_prev_week'
+  | 'gross_sales_last_year_week'
+  | 'gross_sales_mtd'
+  | 'gross_sales_prev_month'
+  | 'gross_sales_last_year_month';
 
 export interface MetricConfig {
   type: MetricType;
@@ -248,6 +259,18 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   labor_cost: { type: 'labor_cost', label: 'Labor Cost', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'daily' },
   labor_hours: { type: 'labor_hours', label: 'Hours', shortLabel: 'Hours', icon: Clock, format: 'hours', category: 'daily' },
   sales_last_year: { type: 'sales_last_year', label: 'Last Week', shortLabel: 'Last Wk', icon: Calendar, format: 'currency', category: 'daily' }, // Legacy alias
+
+  // Gross sales — before discounts, comps, promos and refunds; no tax or tips. Never a goal/pace input.
+  gross_sales_today: { type: 'gross_sales_today', label: 'Gross Sales', shortLabel: 'Gross', icon: DollarSign, format: 'currency', category: 'daily' },
+  gross_sales_yesterday: { type: 'gross_sales_yesterday', label: 'Gross Yesterday', shortLabel: 'Gross Yday', icon: Calendar, format: 'currency', category: 'daily' },
+  gross_sales_last_week: { type: 'gross_sales_last_week', label: 'Gross Last Week', shortLabel: 'Gross SDLW', icon: Calendar, format: 'currency', category: 'daily' },
+  gross_sales_last_year_day: { type: 'gross_sales_last_year_day', label: 'Gross Last Year', shortLabel: 'Gross SDLY', icon: Calendar, format: 'currency', category: 'daily' },
+  gross_sales_wtd: { type: 'gross_sales_wtd', label: 'Gross Sales WTD', shortLabel: 'Gross WTD', icon: DollarSign, format: 'currency', category: 'weekly' },
+  gross_sales_prev_week: { type: 'gross_sales_prev_week', label: 'Gross Last Week', shortLabel: 'Gross LW', icon: Calendar, format: 'currency', category: 'weekly' },
+  gross_sales_last_year_week: { type: 'gross_sales_last_year_week', label: 'Gross Last Year', shortLabel: 'Gross SWLY', icon: Calendar, format: 'currency', category: 'weekly' },
+  gross_sales_mtd: { type: 'gross_sales_mtd', label: 'Gross Sales MTD', shortLabel: 'Gross MTD', icon: DollarSign, format: 'currency', category: 'monthly' },
+  gross_sales_prev_month: { type: 'gross_sales_prev_month', label: 'Gross Last Month', shortLabel: 'Gross LM', icon: Calendar, format: 'currency', category: 'monthly' },
+  gross_sales_last_year_month: { type: 'gross_sales_last_year_month', label: 'Gross Last Year', shortLabel: 'Gross SMLY', icon: Calendar, format: 'currency', category: 'monthly' },
 };
 
 // Map legacy metric types to current ones for backwards compatibility
@@ -271,6 +294,7 @@ const RAW_METRIC_GROUPS = [
     label: 'Daily', 
     metrics: [
       'sales_today', 'sales_pace', 'sales_projected_today', 'sales_last_week', 'sales_last_year_day',
+      'gross_sales_today', 'gross_sales_yesterday', 'gross_sales_last_week', 'gross_sales_last_year_day',
       'pace_vs_ly_day',
       'guest_count_today', 'pizza_count_today', 'avg_ticket',
       'kds_ticket_time',
@@ -282,6 +306,7 @@ const RAW_METRIC_GROUPS = [
     label: 'Weekly', 
     metrics: [
       'sales_wtd', 'sales_pace_week', 'sales_projected_week', 'sales_prev_week', 'sales_last_year_week',
+      'gross_sales_wtd', 'gross_sales_prev_week', 'gross_sales_last_year_week',
       'pace_vs_ly_week',
       'guest_count_wtd', 'pizza_count_wtd',
       'kds_ticket_time_wtd',
@@ -292,6 +317,7 @@ const RAW_METRIC_GROUPS = [
     label: 'Monthly', 
     metrics: [
       'sales_mtd', 'sales_pace_month', 'sales_projected_month', 'sales_prev_month', 'sales_last_year_month',
+      'gross_sales_mtd', 'gross_sales_prev_month', 'gross_sales_last_year_month',
       'pace_vs_ly_month',
       'guest_count_mtd', 'pizza_count_mtd',
       'labor_percent_mtd'
@@ -325,7 +351,25 @@ export const METRIC_GROUPS = RAW_METRIC_GROUPS
   }))
   .filter(g => g.metrics.length > 0);
 
+/** Gross metric value for any widget/cube, or undefined (shown as --) when the period is missing a piece. */
+export function isGrossMetric(metric: MetricType): boolean {
+  return String(metric).startsWith('gross_sales_');
+}
+export function grossMetricValue(metric: MetricType, salesData?: SalesDataForWidgets | null): number | undefined {
+  const g = salesData?.gross;
+  if (!g) return undefined;
+  const pick: Record<string, number | null | undefined> = {
+    gross_sales_today: g.day, gross_sales_yesterday: g.yesterday, gross_sales_last_week: g.lwDay, gross_sales_last_year_day: g.lyDay,
+    gross_sales_wtd: g.wtd, gross_sales_prev_week: g.lwWtd, gross_sales_last_year_week: g.lyWeek,
+    gross_sales_mtd: g.mtd, gross_sales_prev_month: g.lmMtd, gross_sales_last_year_month: g.lyMonth,
+  };
+  const v = pick[metric];
+  return v == null ? undefined : v;
+}
+
 export interface SalesDataForWidgets {
+  /** Gross sales for the same day/WTD/MTD/LW/LY periods as net (get_gross_sales_periods). Visibility only. */
+  gross?: import('@/lib/grossSales').GrossPeriods | null;
   daily?: number;
   weekly?: number;
   monthly?: number;
@@ -430,6 +474,7 @@ export function DashboardWidget({
 
   const getMetricValue = (metricType: MetricType): number | undefined => {
     if (!salesData) return undefined;
+    if (isGrossMetric(metricType)) return grossMetricValue(metricType, salesData);
     
     switch (metricType) {
       // Daily sales

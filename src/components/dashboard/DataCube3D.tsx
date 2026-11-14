@@ -4,7 +4,7 @@ import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown, Pause } from 'lucide-react';
-import { MetricType, METRIC_CONFIGS, SalesDataForWidgets } from './DashboardWidget';
+import { MetricType, METRIC_CONFIGS, SalesDataForWidgets, isGrossMetric, grossMetricValue } from './DashboardWidget';
 import { format, subYears, getWeek } from 'date-fns';
 import { ThemeColorKey, migrateAccentColor, getThemeColorClass, getThemeTextClass, isThemeColorKey } from '@/utils/themeColors';
 import { useDuoDashPresentation } from '@/components/duo/DuoDashContext';
@@ -193,6 +193,7 @@ function getPaymentPercent(
 
 function getMetricValue(metricType: MetricType, salesData?: SalesDataForWidgets | null): number | undefined {
   if (!salesData) return undefined;
+  if (isGrossMetric(metricType)) return grossMetricValue(metricType, salesData);
 
   switch (metricType) {
     case 'sales_today': return salesData.daily;
