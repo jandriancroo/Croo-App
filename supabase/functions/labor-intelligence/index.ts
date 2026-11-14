@@ -1,5 +1,5 @@
-import { resolveGoal } from "../_shared/cubeMetrics.ts";
 // @ts-nocheck
+import { resolveGoal } from "../_shared/cubeMetrics.ts";
 import { aiFetchWithShadow } from "../_shared/ai-shadow.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
