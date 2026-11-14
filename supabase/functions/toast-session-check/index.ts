@@ -32,8 +32,11 @@ const json = (b: unknown, s = 200) =>
 
 type Body = { action?: string };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Db = any;
+
 async function queueFailEmail(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Db,
   reason: string,
   now: Date,
   test: boolean,
@@ -57,7 +60,7 @@ async function queueFailEmail(
   return { queued: true, deduped: false };
 }
 
-async function loadProbe(supabase: ReturnType<typeof createClient>, now: Date) {
+async function loadProbe(supabase: Db, now: Date) {
   const yesterday = chicagoYesterday(now);
   const [{ data: status }, { data: sales }] = await Promise.all([
     supabase.from("toast_robot_status").select("heartbeat_at, state, message").eq("location_id", HAYWARD_LOCATION_ID).maybeSingle(),
