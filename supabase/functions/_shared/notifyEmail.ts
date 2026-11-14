@@ -4,6 +4,37 @@ import { DateTime } from 'https://esm.sh/luxon@3.7.2';
 
 export const EMAIL_ALWAYS_KEYS = new Set(['late_arrival_self', 'no_call_no_show_self', 'cert_expiring_self', 'read_and_sign']);
 
+/** Manager clock-in alerts that share the late-arrivals email setting. */
+export const MANAGER_CLOCK_ALERT_TYPES = new Set(['late_arrivals', 'late_arrival', 'no_call_no_show', 'toast_late_clock_in']);
+
+export function formatShiftStartLabel(startTime: unknown): string {
+  const raw = String(startTime ?? '').slice(0, 5);
+  const dt = DateTime.fromFormat(raw, 'HH:mm');
+  return dt.isValid ? dt.toFormat('h:mm a') : '';
+}
+
+/** Store + employee copy for manager late / no-call/no-show emails. Lookups are done by the caller. */
+export function managerClockAlertCopy(opts: {
+  notificationType: string;
+  locationName: string;
+  employeeName: string;
+  startTimeLabel?: string | null;
+}): { kind: string; subject: string; paragraph: string } | null {
+  const employeeName = String(opts.employeeName ?? '').replace(/\s+/g, ' ').trim();
+  const locationName = String(opts.locationName ?? '').replace(/\s+/g, ' ').trim();
+  if (!employeeName || !locationName) return null;
+  const isNcns = opts.notificationType === 'no_call_no_show';
+  const kind = isNcns ? 'No-call/no-show' : 'Late arrival';
+  const start = String(opts.startTimeLabel ?? '').trim();
+  const scheduled = start ? ` was scheduled at ${start} at ${locationName}` : ` was scheduled at ${locationName}`;
+  const verb = isNcns ? "hasn't clocked in" : 'has not clocked in';
+  return {
+    kind,
+    subject: `${kind}: ${locationName} · ${employeeName}`,
+    paragraph: `${employeeName}${scheduled} and ${verb}.`,
+  };
+}
+
 export type PushOutcome = { attempted: number; succeeded: number; dead: number };
 export interface NotifyEmailInput {
   notification_type: string;
@@ -41,6 +72,8 @@ async function template(client: any, i: NotifyEmailInput, key: string) {
   let path = '/dashboard';
   let chat: string | null = null;
   let owner: string | null = null;
+  let subject: string | undefined;
+  let headerTitle: string | undefined;
   const postId = d.post_id ?? d.postId;
   const chatId = d.chat_id ?? d.chatId;
   if (EMAIL_ALWAYS_KEYS.has(i.notification_type)) {
@@ -121,6 +154,21 @@ async function template(client: any, i: NotifyEmailInput, key: string) {
     ref = `${record.id}:${record.updated_at ?? record.published_at ?? record.created_at}`;
     paragraph = key === 'shift_approvals' ? 'Your shift offer or approval has an update.' : key === 'late_arrivals' ? 'A scheduled shift needs attention.' : 'Your schedule has an update. Check your shifts.';
     path = '/schedule';
+    if (MANAGER_CLOCK_ALERT_TYPES.has(i.notification_type) && record.user_id) {
+      const employee = await load('profiles', record.user_id);
+      const store = await load('locations', i.location_id ?? '');
+      const copy = managerClockAlertCopy({
+        notificationType: i.notification_type,
+        locationName: store?.name ?? '',
+        employeeName: employee?.full_name ?? '',
+        startTimeLabel: formatShiftStartLabel(record.start_time),
+      });
+      if (copy) {
+        paragraph = copy.paragraph;
+        subject = copy.subject;
+        headerTitle = copy.kind;
+      }
+    }
   } else if (d.task_id || d.cert_id || d.certification_id) {
     const cert = d.cert_id ?? d.certification_id;
     const record = await load(cert ? 'certifications' : 'temporary_tasks', cert ?? d.task_id);
@@ -146,7 +194,7 @@ async function template(client: any, i: NotifyEmailInput, key: string) {
   if (typeof d.dedup_ref === 'string' && d.dedup_ref.length <= 500) ref = d.dedup_ref;
   if (!ref || !LABELS[key]) return null;
   if (key === 'hourly_sales_pulse' || key === 'day_part_pulse') ref = `${i.location_id}:${ref}`;
-  return { ref, paragraph, path, chat, owner };
+  return { ref, paragraph, path, chat, owner, subject, headerTitle };
 }
 
 export async function notifyEmail(client: any, i: NotifyEmailInput): Promise<{ emailed: number; emailed_fallback: number }> {
@@ -176,8 +224,10 @@ export async function notifyEmail(client: any, i: NotifyEmailInput): Promise<{ e
     if (!always && !fallback && (!enabled || !i.fromHomeAllowed.has(p.id))) continue;
     const e = escapeEmailHtml;
     const label = LABELS[key];
-    const html = `<html><body style="background:#f4f5f6;font-family:Arial,sans-serif"><table role="presentation" style="max-width:600px;width:100%;margin:auto;background:#fff">${renderEmailHeader({ title: label, logoUrl: logo.logoUrl, alt: logo.alt, line1: loc.data.name })}<tr><td style="padding:28px"><p>${e(content.paragraph)}</p><a href="${e('https://croohq.com' + content.path)}" style="display:inline-block;background:#0a7a8a;color:#fff;padding:12px 20px;text-decoration:none">Open CrooHQ</a><p style="font-size:12px;color:#666">You're getting this because email is on for ${e(label)}, or push isn't set up on your phone. Manage: <a href="https://croohq.com/settings?section=notifications">https://croohq.com/settings</a> (Notifications).</p></td></tr></table></body></html>`;
-    const queued = await client.rpc('queue_notification_email', { _user_id: p.id, _location_id: i.location_id, _type: i.notification_type, _ref: content.ref, _email: email, _subject: `${label} — ${loc.data.name}`, _html: html, _chat_id: key === 'chat_messages' ? content.chat : null });
+    const headerTitle = content.headerTitle ?? label;
+    const mailSubject = content.subject ?? `${label} — ${loc.data.name}`;
+    const html = `<html><body style="background:#f4f5f6;font-family:Arial,sans-serif"><table role="presentation" style="max-width:600px;width:100%;margin:auto;background:#fff">${renderEmailHeader({ title: headerTitle, logoUrl: logo.logoUrl, alt: logo.alt, line1: loc.data.name })}<tr><td style="padding:28px"><p>${e(content.paragraph)}</p><a href="${e('https://croohq.com' + content.path)}" style="display:inline-block;background:#0a7a8a;color:#fff;padding:12px 20px;text-decoration:none">Open CrooHQ</a><p style="font-size:12px;color:#666">You're getting this because email is on for ${e(label)}, or push isn't set up on your phone. Manage: <a href="https://croohq.com/settings?section=notifications">https://croohq.com/settings</a> (Notifications).</p></td></tr></table></body></html>`;
+    const queued = await client.rpc('queue_notification_email', { _user_id: p.id, _location_id: i.location_id, _type: i.notification_type, _ref: content.ref, _email: email, _subject: mailSubject, _html: html, _chat_id: key === 'chat_messages' ? content.chat : null });
     if (queued.error) throw new Error('notification_email_queue');
     if (queued.data === true) { counts.emailed++; if (fallback) counts.emailed_fallback++; }
   }
