@@ -1,6 +1,6 @@
 // Compatibility entrypoint: goal creation belongs only to the goal engine.
-import { createClient } from 'npm:@supabase/supabase-js@2.118.0';
-import { corsHeaders as sdkCorsHeaders } from 'npm:@supabase/supabase-js@2.118.0/cors';
+import { createClient } from 'npm:@supabase/supabase-js@2';
+import { corsHeaders as sdkCorsHeaders } from '../_shared/sdkCors.ts';
 import { z } from 'npm:zod@3';
 import { authorizeCaller, requireAuthorizedCaller } from '../_shared/callerAuth.ts';
 import { ensureLivingWeek } from '../_shared/goalEngine.ts';

@@ -516,7 +516,7 @@ async function sendDailyLogbookSummary(payload: any): Promise<Response> {
   // Get cash handling logbook entry values
   const cashCategories = ["Drawer Count", "Safe Count", "Bank Deposit"];
   const cashEntries = (logbookEntries || []).filter((e: any) => cashCategories.includes(e.category?.name));
-  let cashDetails: { category: string; author: string; fields: { name: string; value: string }[] }[] = [];
+  let cashDetails: { category: string; author: string; completedAt?: string; fields: { name: string; value: string }[] }[] = [];
   
   if (cashEntries.length > 0) {
     const entryIds = cashEntries.map((e: any) => e.id);

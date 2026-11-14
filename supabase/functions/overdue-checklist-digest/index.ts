@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { corsHeaders } from '../_shared/sdkCors.ts';
 import { requireInternalCaller } from '../_shared/callerAuth.ts';
 import { runDigest } from './digest.ts';
 
