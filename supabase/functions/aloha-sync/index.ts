@@ -53,6 +53,7 @@ const DEFAULT_TZ = "America/Los_Angeles";
 interface Body {
   action:
     | "backfill_history"
+    | "backfill_gross"
     | "sync_today"
     | "sync_yesterday"
     | "sync_date"
@@ -781,10 +782,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const parsed = z.object({ action: z.enum(["backfill_history","sync_today","sync_yesterday","sync_date","sync_range","sync_dates","sync_all_today","sync_all_yesterday"]), locationId: z.string().uuid().optional(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), startDate: z.string().optional(), endDate: z.string().optional(), dates: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).max(30).optional() }).safeParse(await req.json());
+    const parsed = z.object({ action: z.enum(["backfill_history","backfill_gross","sync_today","sync_yesterday","sync_date","sync_range","sync_dates","sync_all_today","sync_all_yesterday"]), locationId: z.string().uuid().optional(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), startDate: z.string().optional(), endDate: z.string().optional(), dates: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).max(30).optional() }).safeParse(await req.json());
     if (!parsed.success) return new Response(JSON.stringify({ error: "Invalid sync request" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     const body = parsed.data as Body;
-    if (body.action === "backfill_history") { const denied = requireInternalCaller(req, corsHeaders); if (denied) return denied; }
+    if (body.action === "backfill_history" || body.action === "backfill_gross") { const denied = requireInternalCaller(req, corsHeaders); if (denied) return denied; }
     const { action } = body;
     if (!action) throw new Error("action required");
 
@@ -842,6 +843,37 @@ Deno.serve(async (req) => {
     const creds = await getAlohaCreds(supabase, locationId);
     const tz = await getLocationTimezone(supabase, locationId);
     const today = todayInTz(tz);
+
+    // Gross re-pull: one login, then the grid for each listed past day (max 5 per call).
+    // Writes ONLY comps/promos/voids/checks onto the existing day; net, hourly, labor untouched.
+    // The DB trigger then rebuilds gross = net + comps + promos. Stops at the first login/lock error.
+    if (action === "backfill_gross") {
+      const dates = (body.dates ?? []).slice(0, 5);
+      if (!dates.length) throw new Error("dates[] required for backfill_gross");
+      const session = await alohaLogin({ portalUrl: creds.portal_url, companyId: creds.company_id, loginName: creds.username, password: creds.password });
+      const results: unknown[] = [];
+      for (const date of dates) {
+        try {
+          const { data: cur } = await supabase.from("sales_cache").select("net_sales, comp_amount, comp_count, promo_amount, promo_count, void_amount, void_count, check_count").eq("location_id", locationId).eq("sale_date", date).maybeSingle();
+          if (!cur) { results.push({ date, gross: false, reason: "no sales row" }); continue; }
+          const csv = await fetchAlohaGridCsv(session, creds.portal_url, date, date, 5, 0);
+          const { stores } = parseAlohaGridCsv(csv);
+          const target = normalizeName(creds.store_id || name);
+          const row = stores.find((r) => normalizeName(r.StoreName) === target) ?? (stores.length === 1 ? stores[0] : undefined);
+          if (!row) { results.push({ date, gross: false, reason: "store not in grid" }); continue; }
+          const patch = posExtrasPatch(gridExtras(row), cur);
+          const { error } = await supabase.from("sales_cache").update(Object.keys(patch).length ? patch : { gross_basis: null }).eq("location_id", locationId).eq("sale_date", date);
+          if (error) throw new Error(error.message);
+          const m = row.availableMetrics ?? {};
+          results.push({ date, gross: m.CompDollars != null && m.PromoDollars != null, net_matches: Math.abs(Number(cur.net_sales ?? 0) - row.NetSales) < 1 });
+        } catch (e) {
+          if (isPortalAccessError(e)) { results.push({ date, gross: false, blocked: true }); break; }
+          results.push({ date, gross: false, error: (e as Error).message.slice(0, 200) });
+        }
+        await sleep(2000);
+      }
+      return new Response(JSON.stringify({ success: true, action, results }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     if (action === "backfill_history") {
       const { data: jobs, error: claimError } = await supabase.rpc("claim_aloha_history_backfill", { _location_id: locationId });

@@ -715,6 +715,13 @@
       "when": 1794615604000,
       "tag": "0101_location_stations_store_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1794615605000,
+      "tag": "0102_gross_sales",
+      "breakpoints": true
     }
   ]
 }

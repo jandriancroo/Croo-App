@@ -42,14 +42,15 @@ export interface LocationReportData {
     total: number;
     totalVariance: number;
   };
-  sales: { net: number; guests: number };
+  /** gross is null when any sales day in the range is missing a gross piece (shown as —). */
+  sales: { net: number; guests: number; gross: number | null; grossDays: number; salesDays: number };
 }
 
 const EMPTY_DATA: LocationReportData = {
   inventory: { startingCount: 0, endingCount: 0, vendors: [], totalPurchases: 0, cogs: 0, cogsPct: 0, aligned: false, cogsByCategory: [] },
   labor: { totalHours: 0, regularHours: 0, otHours: 0, dotHours: 0, grossWages: 0, days: [] },
   cash: { days: [], total: 0, totalVariance: 0 },
-  sales: { net: 0, guests: 0 },
+  sales: { net: 0, guests: 0, gross: null, grossDays: 0, salesDays: 0 },
 };
 
 async function fetchLocationData(
@@ -60,7 +61,7 @@ async function fetchLocationData(
   // Sales (sales_cache)
   const salesP = supabase
     .from('sales_cache')
-    .select('net_sales, guest_count')
+    .select('net_sales, guest_count, gross_sales')
     .eq('location_id', locationId)
     .gte('sale_date', fromISO)
     .lte('sale_date', toISO);
@@ -103,6 +104,12 @@ async function fetchLocationData(
   const salesRows = salesR.data || [];
   const salesNet = salesRows.reduce((s, r) => s + Number(r.net_sales || 0), 0);
   const guests = salesRows.reduce((s, r) => s + Number(r.guest_count || 0), 0);
+  // Gross (visibility only): every day with sales must have gross, otherwise hide it.
+  const sellingDays = salesRows.filter((r) => Number(r.net_sales || 0) > 0);
+  const grossDays = sellingDays.filter((r) => r.gross_sales != null).length;
+  const gross = sellingDays.length > 0 && grossDays === sellingDays.length
+    ? sellingDays.reduce((s: number, r) => s + Number(r.gross_sales), 0)
+    : null;
 
   // === Labor === — pick best source per day: prefer the row that actually has cost/hours
   const laborRows = laborR.data || [];
@@ -557,7 +564,7 @@ async function fetchLocationData(
     },
     labor: laborAgg,
     cash: { days: cashDays, total: cashTotal, totalVariance: cashTotalVariance },
-    sales: { net: salesNet, guests },
+    sales: { net: salesNet, guests, gross, grossDays, salesDays: sellingDays.length },
   };
 }
 
@@ -584,6 +591,10 @@ export function useMultiLocationReportData(locationIds: string[], from: Date, to
 
       // Combined / org total
       const combined: LocationReportData = JSON.parse(JSON.stringify(EMPTY_DATA));
+      // Combined gross only when every store's gross is complete for the range.
+      combined.sales.gross = results.length > 0 && results.every(r => r.sales.gross != null || r.sales.salesDays === 0) && results.some(r => r.sales.gross != null)
+        ? results.reduce((sum, r) => sum + (r.sales.gross ?? 0), 0)
+        : null;
       const vendorMap = new Map<string, number>();
       const catMap = new Map<string, { starting: number; purchases: number; ending: number }>();
       results.forEach(r => {
@@ -605,6 +616,8 @@ export function useMultiLocationReportData(locationIds: string[], from: Date, to
         combined.labor.grossWages += r.labor.grossWages;
         combined.sales.net += r.sales.net;
         combined.sales.guests += r.sales.guests;
+        combined.sales.grossDays += r.sales.grossDays;
+        combined.sales.salesDays += r.sales.salesDays;
         // Labor: aggregate by date
         r.labor.days.forEach(d => {
           const ex = combined.labor.days.find(x => x.date === d.date);

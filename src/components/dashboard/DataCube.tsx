@@ -4,7 +4,9 @@ import {
   MetricConfig, 
   METRIC_CONFIGS, 
   METRIC_GROUPS,
-  SalesDataForWidgets 
+  SalesDataForWidgets,
+  isGrossMetric,
+  grossMetricValue,
 } from "./DashboardWidget";
 import { useIsOledTheme } from "@/hooks/useIsOledTheme";
 
@@ -84,6 +86,7 @@ export function DataCube({
 
   const getMetricValue = (metricType: MetricType): number | undefined => {
     if (!salesData) return undefined;
+    if (isGrossMetric(metricType)) return grossMetricValue(metricType, salesData);
     
     switch (metricType) {
       // Daily sales

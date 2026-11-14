@@ -27,6 +27,9 @@ import { useToastFreshness } from '@/hooks/useToastFreshness';
 import { useDuoDashPresentation } from '@/components/duo/DuoDashContext';
 import { DuoSummary } from '@/components/duo/DuoSummary';
 import { DuoSalesBars } from '@/components/duo/DuoSalesBars';
+import { Switch } from '@/components/ui/switch';
+import { useShowGross } from '@/hooks/useShowGross';
+import { GROSS_FOOTNOTE, parseGrossPeriods, visibleGross, grossForHour, grossForDay, type GrossPeriods } from '@/lib/grossSales';
 
 interface SalesData {
   daily: number;
@@ -53,6 +56,8 @@ interface SalesData {
   labor?: { laborPercent: number; laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number } | null;
   weeklyLabor?: { laborPercent: number; laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number } | null;
   monthlyLabor?: { laborPercent: number; laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number } | null;
+  /** Gross for the same periods (visibility only — never feeds comparisons, pace or goals). */
+  gross?: GrossPeriods | null;
 }
 
 interface LocationSettings {
@@ -77,6 +82,8 @@ interface DiagnosticInfo {
 }
 
 export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverviewProps) {
+  // Optional gross line + hover-pill gross; OFF by default. Display only.
+  const [showGross, setShowGross] = useShowGross();
   const duoPresentation = useDuoDashPresentation();
   const { currentLocation } = useAppLocation();
   const toastFresh = useToastFreshness(currentLocation?.id);
@@ -808,6 +815,18 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
             };
           }
         }
+        // Gross for the same date's periods (DataCube gross metrics + the optional gross line).
+        // Separate object: comparisons, LY chips, pace and goals above stay on net.
+        try {
+          const { data: gp } = await supabase.rpc('get_gross_sales_periods', {
+            _location_id: currentLocation.id,
+            _date: cmpDate,
+          });
+          salesData.gross = parseGrossPeriods(gp);
+        } catch (ge) {
+          console.warn('[SalesOverview] gross periods failed:', ge);
+          salesData.gross = null;
+        }
       } catch (e) {
         console.warn('[SalesOverview] comparisons failed:', e);
       }
@@ -1286,6 +1305,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     const monthPace = calculatedMonthPace;
 
     const emitKey = JSON.stringify({
+      gross: salesData.gross ?? null,
       daily: salesData.daily,
       weekly: salesData.weekly,
       monthly: salesData.monthly,
@@ -1425,7 +1445,9 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
     pace,
     lastYear,
     status,
+    gross,
   }: {
+    gross?: number | null;
     salesLabel: string;
     sales?: number;
     priorComparison?: number;
@@ -1446,6 +1468,11 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
         <p className="mt-1 whitespace-nowrap text-[37px] font-extrabold leading-none tracking-[-0.02em] tabular-nums text-accent-foreground">
           {sales !== undefined ? formatCurrency(sales) : '--'}
         </p>
+        {gross != null && (
+          <p className="mt-1 text-[12px] font-semibold leading-none tabular-nums text-accent-foreground/75" data-testid="gross-sales-line">
+            Gross {formatCurrency(gross)}
+          </p>
+        )}
 
         {(status || change !== null) && (
           <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
@@ -1756,6 +1783,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   pace: todayPace,
                   lastYear: salesData?.lastYear?.sameDay,
                   status: todayStatus,
+                  gross: visibleGross(showGross, salesData?.gross?.day, salesData?.daily),
                 })}
                 {isToday && toastFresh.isDelayed ? (
                   <p className="mt-2.5 text-center text-[10px] font-semibold text-amber-300">
@@ -1880,6 +1908,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                               <p className="font-medium">{label}</p>
                               <p className="text-muted-foreground">Projected: <span className="text-foreground">{formatCurrency(data?.projected || 0)}</span></p>
                               <p className="text-primary">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
+                              {(() => { const g = grossForHour(showGross, salesData?.gross, String(data?.hour ?? label ?? ''), data?.sales); return g != null ? <p className="text-xs text-muted-foreground">Gross: <span className="text-foreground">{formatCurrency(g)}</span></p> : null; })()}
                               {hasLaborData && data?.laborPercent !== undefined && data.laborPercent > 0 && (
                                 <p className="text-orange-500">Labor: <span className="font-medium">{data.laborPercent.toFixed(1)}%</span></p>
                               )}
@@ -1918,6 +1947,20 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                   </p>
                 );
               })()}
+              <div className="mt-1.5 flex flex-col items-center gap-0.5">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+                  <Switch
+                    checked={showGross}
+                    onCheckedChange={(v) => setShowGross(v === true)}
+                    aria-label="Show gross sales"
+                    className="h-4 w-7 [&>span]:h-3 [&>span]:w-3 [&>span]:data-[state=checked]:translate-x-3"
+                  />
+                  Show gross
+                </label>
+                {showGross && (
+                  <p className="text-center text-[10px] text-muted-foreground" data-testid="gross-footnote">{GROSS_FOOTNOTE}</p>
+                )}
+              </div>
               </div>
 
 
@@ -2073,6 +2116,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                             <p className="font-medium">{data?.date ? toBusinessDateTime(data.date).toFormat('cccc, MMM d') : ''}</p>
                             <p className="text-muted-foreground">Projected: <span className="text-foreground">{formatCurrency(data?.projected || 0)}</span></p>
                             <p className="text-primary">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
+                            {(() => { const g = grossForDay(showGross, salesData?.gross, data?.date, data?.sales); return g != null ? <p className="text-xs text-muted-foreground">Gross: <span className="text-foreground">{formatCurrency(g)}</span></p> : null; })()}
                             {hasWeeklyLabor && data?.laborPercent !== undefined && data.laborPercent > 0 && (
                               <p className="text-blue-500">Labor: <span className="font-medium">{data.laborPercent.toFixed(1)}%</span></p>
                             )}
@@ -2256,6 +2300,7 @@ export function SalesSummary({ locationSettings, onSalesDataChange }: SalesOverv
                               <p className="font-medium">{data?.date ? toBusinessDateTime(data.date).toFormat('cccc, MMM d') : ''}</p>
                               <p className="text-muted-foreground">Projected: <span className="text-foreground">{formatCurrency(data?.projected || 0)}</span></p>
                               <p className="text-primary">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
+                              {(() => { const g = grossForDay(showGross, salesData?.gross, data?.date, data?.sales); return g != null ? <p className="text-xs text-muted-foreground">Gross: <span className="text-foreground">{formatCurrency(g)}</span></p> : null; })()}
                             </div>
                           );
                         }}

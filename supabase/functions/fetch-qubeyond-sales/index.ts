@@ -1,4 +1,4 @@
-import { knownNumber, quHourlyExtras, posExtrasPatch } from "../_shared/posExtras.ts";
+import { knownNumber, quHourlyExtras, posExtrasPatch, hourlyGrossFromDiscounts, mergeHourlyGross } from "../_shared/posExtras.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { requireCaller } from '../_shared/callerAuth.ts';
@@ -2738,7 +2738,8 @@ serve(async (req) => {
               guest_count: dailyGuestCount,
               pizza_count: Math.round(finalPizzaCount),
               avg_ticket: avgTicket || null,
-              hourly_data: hourlyWithLabor,
+              // Per-hour gross (net + that hour's discounts) only where the hour's discount was reported.
+              hourly_data: mergeHourlyGross(hourlyWithLabor, new Map(hourlyGrossFromDiscounts(todayHourly).filter(h => h.gross != null).map(h => [`${String(h.hour).slice(0, 2)}:00`, h.gross as number]))),
               ...(todayPayments.length > 0 ? { payments_data: todayPayments } : {}),
               validation_status: 'valid',
               validation_attempts: 1,

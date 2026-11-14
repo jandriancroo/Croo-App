@@ -1,4 +1,4 @@
-import { posExtrasPatch, toastRawExtras } from "../_shared/posExtras.ts";
+import { posExtrasPatch, toastRawExtras, toastOfficialGross } from "../_shared/posExtras.ts";
 // Toast → toast_sales_cache + sales_cache (pos_source='toast') + labor_cache (source='toast').
 //
 // Homemade Toast integration (no paid Toast API). Data arrives from two
@@ -42,7 +42,7 @@ const DaySchema = z.object({
   locationId: z.string().uuid(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   source: z.enum(["export", "live", "api"]),
-  extras: z.object({ discount_amount: z.number().finite().nullable().optional(), comp_amount: z.number().finite().nullable().optional(), comp_count: z.number().finite().nullable().optional(), void_amount: z.number().finite().nullable().optional(), void_count: z.number().finite().nullable().optional(), promo_amount: z.number().finite().nullable().optional(), promo_count: z.number().finite().nullable().optional(), check_count: z.number().finite().nullable().optional(), tips_amount: z.number().finite().nullable().optional() }).optional(),
+  extras: z.object({ refund_amount: z.number().finite().nullable().optional(), discount_amount: z.number().finite().nullable().optional(), comp_amount: z.number().finite().nullable().optional(), comp_count: z.number().finite().nullable().optional(), void_amount: z.number().finite().nullable().optional(), void_count: z.number().finite().nullable().optional(), promo_amount: z.number().finite().nullable().optional(), promo_count: z.number().finite().nullable().optional(), check_count: z.number().finite().nullable().optional(), tips_amount: z.number().finite().nullable().optional() }).optional(),
   netSales: z.number().finite().min(0),
   guestCount: z.number().int().min(0).default(0),
   checkCount: z.number().int().min(0).default(0),
@@ -215,12 +215,20 @@ async function ingestDay(supabase: any, day: z.infer<typeof DaySchema>) {
   }, { onConflict: "location_id,sale_date" });
   if (rawErr) throw new Error(`toast_sales_cache upsert failed for ${date}: ${rawErr.message}`);
 
+  // Official day totals beat the discounts list (the list can overcount).
+  const official = toastOfficialGross(day.raw);
+  const officialExtras = {
+    ...(official.discount_amount != null ? { discount_amount: official.discount_amount } : {}),
+    ...(official.refund_amount != null ? { refund_amount: official.refund_amount } : {}),
+  };
   const { error: mailErr } = await supabase.from("sales_cache").upsert({
     ...(existingMail ? (({ hourly_data: _h, ...rest }) => rest)(existingMail) : {}),
     location_id: locationId,
     sale_date: date,
     pos_source: "toast",
-    ...posExtrasPatch({ ...toastRawExtras(day.raw), ...day.extras, ...(day.providedCheckCount ? { check_count: day.checkCount } : {}), ...(day.providedTips ? { tips_amount: day.payments.total_tips } : {}) }),
+    ...posExtrasPatch({ ...toastRawExtras(day.raw), ...day.extras, ...officialExtras, ...(day.providedCheckCount ? { check_count: day.checkCount } : {}), ...(day.providedTips ? { tips_amount: day.payments.total_tips } : {}) }),
+    // Toast's own gross (netSales[0].grossSales); without it the DB rebuilds or leaves gross empty.
+    ...(official.gross_sales != null ? { gross_sales: official.gross_sales, gross_basis: "pos" } : { gross_sales: null, gross_basis: null }),
     net_sales: day.netSales,
     guest_count: guests,
     avg_ticket: avgTicket,
