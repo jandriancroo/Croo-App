@@ -1,10 +1,11 @@
+import { resolveGoal } from "@/lib/goalResolver";
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { OrgLocationData } from '@/components/org-dashboard/OrgLocationCube';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fetchStoreLabor } from '@/hooks/useStoreLabor';
-import { computePace, laborPct, resolveGoal, storeNow } from '../../supabase/functions/_shared/cubeMetrics';
+import { computePace, laborPct, storeNow } from '../../supabase/functions/_shared/cubeMetrics';
 
 const LA_TZ = 'America/Los_Angeles';
 
@@ -194,7 +195,7 @@ export function useOrgLocationData(locationIds: string[], targetDate?: string, p
       // Fetch sales_cache — use effectiveToday (end of range) as upper bound
       const { data: salesRows } = await supabase
         .from('sales_cache')
-        .select('location_id, sale_date, net_sales, living_projection, override_projection, initial_projection, projected_sales, hourly_data, yoy_net_sales, pace_adjusted_projection, pace_calculated_at')
+        .select('location_id, sale_date, net_sales, living_projection, override_projection, initial_projection, hourly_data, yoy_net_sales, pace_adjusted_projection, pace_calculated_at')
         .in('location_id', locationIds)
         .gte('sale_date', prevMonthStart)
         .lte('sale_date', effectiveToday);

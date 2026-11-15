@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
+import { spawnSync } from "node:child_process";
 import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
@@ -55,6 +56,37 @@ export default defineConfig(({ mode }) => {
     react(), 
     versionEndpoint,
     mode === "development" && componentTagger(),
+    // Lovable has no path-based HTML rewrite, so every production build stamps
+    // JobPosting into dist/jobs/** from the live listings. See scripts/build-jobs.mjs.
+    {
+      name: "croohq-jobs-prerender",
+      apply: "build" as const,
+      closeBundle() {
+        const result = spawnSync(process.execPath, ["scripts/build-jobs.mjs"], {
+          cwd: process.cwd(),
+          stdio: "inherit",
+        });
+        if (result.status !== 0) {
+          throw new Error(`Job prerender failed (exit ${result.status ?? "signal"})`);
+        }
+      },
+    },
+    {
+      // vite preview only. Lovable already serves directory index.html for
+      // /blog/<slug> with or without a trailing slash; preview does not.
+      name: "croohq-jobs-preview-slash",
+      configurePreviewServer(server: any) {
+        server.middlewares.use((req: any, _res: any, next: any) => {
+          const url = req.url || "";
+          const pathOnly = url.split("?")[0];
+          if (pathOnly === "/jobs" || /^\/jobs\/[^/]+$/.test(pathOnly)) {
+            const suffix = url.slice(pathOnly.length);
+            req.url = `${pathOnly}/${suffix}`;
+          }
+          next();
+        });
+      },
+    },
   ].filter(Boolean),
   resolve: {
     alias: {

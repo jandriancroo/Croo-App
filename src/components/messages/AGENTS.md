@@ -1,0 +1,1 @@
+- Chat message deletion is only ChatWindow multi-select (max 5, own messages, canUnsend) plus a confirm dialog; MessageBubble never unsends directly. Why: prevents accidental long-press deletes.

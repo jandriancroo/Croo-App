@@ -1,3 +1,4 @@
+import { posExtrasPatch, mergeHourlyGross } from "../_shared/posExtras.ts";
 // Clover → clover_sales_cache sync (Playa Bowls scoped).
 // Mirrors the QU/Blaze sync shape: per-day rows with net_sales, guest_count,
 // avg_ticket, hourly_data, product_mix, payments_data.
@@ -5,15 +6,8 @@
 // Brand guard: hard-refuses any location whose organization is not Playa Bowls.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { requireAuthorizedCaller } from "../_shared/callerAuth.ts";
+import { requireAuthorizedCaller, requireInternalCaller } from "../_shared/callerAuth.ts";
 import { computeAndSavePace } from "../_shared/projections.ts";
-import {
-  fetchHistoricalDataFromCache,
-  generateHourlyProjections,
-  generateProjections,
-  getCurrentHourInTimezone,
-  getCurrentMinutesInTimezone,
-} from "../_shared/projections.ts";
 
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
@@ -45,7 +39,7 @@ const BASE = (env: string) =>
   env === "sandbox" ? "https://apisandbox.dev.clover.com" : "https://api.clover.com";
 
 interface Body {
-  action: "sync_today" | "sync_yesterday" | "sync_date" | "sync_range" | "sync_dates" | "sync_all_today" | "sync_all_yesterday" | "get_live_expected_cash";
+  action: "sync_today" | "sync_yesterday" | "sync_date" | "sync_range" | "sync_dates" | "sync_all_today" | "sync_all_yesterday" | "get_live_expected_cash" | "backfill_gross";
   locationId?: string;    // required except for sync_all_*
   date?: string;          // yyyy-MM-dd, for sync_date / get_live_expected_cash (defaults to today)
   startDate?: string;     // for sync_range
@@ -249,7 +243,7 @@ function aggregateRefunds(refunds: any[]) {
 
 
 // ── Aggregation ─────────────────────────────────────────────────────────────
-type Hour = { hour: string; sales: number; checksCount: number };
+type Hour = { hour: string; sales: number; checksCount: number; gross?: number };
 
 // Clover "Net sales" definition (verified against the merchant dashboard):
 //   item sales (line price + modifier amounts, revenue items only)
@@ -342,6 +336,7 @@ function aggregateOrders(orders: any[], startMs: number) {
   let checkCount = 0;
   const hourlyCents: number[] = Array.from({ length: 24 }, () => 0);
   const hourlyChecks: number[] = Array.from({ length: 24 }, () => 0);
+  const hourlyGrossCents: number[] = Array.from({ length: 24 }, () => 0);
 
   // Product mix: aggregate line items by item id/name.
   const mix = new Map<string, { item_id: string; name: string; quantity: number; gross: number }>();
@@ -366,6 +361,7 @@ function aggregateOrders(orders: any[], startMs: number) {
     const t = o.clientCreatedTime ?? o.createdTime ?? startMs;
     const hourIdx = Math.max(0, Math.min(23, Math.floor((t - startMs) / (60 * 60 * 1000))));
     hourlyCents[hourIdx] += b.netCents;
+    hourlyGrossCents[hourIdx] += b.grossCents;
     hourlyChecks[hourIdx] += 1;
 
     // Line items → product mix (revenue items only, modifiers included).
@@ -388,6 +384,8 @@ function aggregateOrders(orders: any[], startMs: number) {
     hour: `${String(h).padStart(2, "0")}:00`,
     sales: Math.round(cents) / 100,
     checksCount: hourlyChecks[h],
+    // Gross for the hour = revenue item sales before discounts (visibility only).
+    gross: Math.round(hourlyGrossCents[h]) / 100,
   }));
 
   return {
@@ -396,6 +394,7 @@ function aggregateOrders(orders: any[], startMs: number) {
     discounts: Math.round(discountsCents) / 100,
     nonRevenue: Math.round(nonRevenueCents) / 100,
     guestCount,
+    checkCount,
     avgTicket: checkCount > 0 ? netSales / checkCount : 0,
     hourly,
     productMix: Array.from(mix.values()),
@@ -448,6 +447,7 @@ async function syncOneDay(
   creds: CloverCreds,
   date: string,
   tz: string,
+  grossOnly = false,
 ) {
   const { startMs, endMs } = businessDayWindowMs(date, tz);
   // Serialize to avoid Clover 429s; retry inside cloverFetch handles transient throttling.
@@ -494,6 +494,24 @@ async function syncOneDay(
   }
 
 
+  // Gross re-pull: write only the gross pieces onto the existing day; net, mix, tips untouched.
+  if (grossOnly) {
+    const { data: cur } = await supabase.from("sales_cache")
+      .select("net_sales, hourly_data, discount_amount, refund_amount, pos_source")
+      .eq("location_id", locationId).eq("sale_date", date).maybeSingle();
+    if (!cur) return { date, gross: false, reason: "no sales row" };
+    const grossByHour = new Map<string, number>(agg.hourly.map((h) => [h.hour, h.gross ?? 0]));
+    const { error: gErr } = await supabase.from("sales_cache").update({
+      ...posExtrasPatch({ discount_amount: agg.discounts, refund_amount: agg.refunds }, cur),
+      gross_sales: agg.grossSales,
+      gross_basis: "pos",
+      ...(Array.isArray(cur.hourly_data) && cur.hourly_data.length ? { hourly_data: mergeHourlyGross(cur.hourly_data, grossByHour) } : {}),
+    }).eq("location_id", locationId).eq("sale_date", date);
+    if (gErr) throw new Error(`gross update failed for ${date}: ${gErr.message}`);
+    // Net drift check only (no dollars logged): stored net vs fresh net within a cent.
+    return { date, gross: true, net_matches: Math.abs(Number(cur.net_sales ?? 0) - agg.netSales) < 0.015 };
+  }
+
   // Conditional spread merge — protect projections / overrides that came from elsewhere.
   const { data: existing } = await supabase
     .from("clover_sales_cache")
@@ -536,7 +554,7 @@ async function syncOneDay(
   // Conditional spread protects projections/overrides set elsewhere.
   const { data: existingMail } = await supabase
     .from("sales_cache")
-    .select("projected_sales, living_projection, override_projection, override_at, override_by, initial_projection, validation_status, validation_attempts, yoy_sale_date, yoy_net_sales, yoy_hourly_data")
+    .select("validation_status, validation_attempts, yoy_sale_date, yoy_net_sales, yoy_hourly_data")
     .eq("location_id", locationId)
     .eq("sale_date", date)
     .maybeSingle();
@@ -546,6 +564,10 @@ async function syncOneDay(
     location_id: locationId,
     sale_date: date,
     pos_source: "clover",
+    ...posExtrasPatch({ discount_amount: agg.discounts, check_count: agg.checkCount, tips_amount: paymentsData.total_tips, refund_amount: agg.refunds }),
+    // Clover gross = revenue item sales before discounts and refunds (its own definition); visibility only.
+    gross_sales: agg.grossSales,
+    gross_basis: "pos",
     net_sales: agg.netSales,
     guest_count: agg.guestCount,
     pizza_count: 0,
@@ -591,54 +613,17 @@ async function syncOneDay(
     console.error(`[clover-sync] daily_tips error for ${date}:`, e);
   }
 
-  // ── YOY projection seed (only if missing) ──────────────────────────────
-  // Pull same-day last year (-364 days to keep day-of-week aligned).
+  // YOY reference fields remain actual-sales metadata, never goal seeds.
   try {
-    const existingProj = existingMail ?? {};
-    const hasProjection =
-      (existingProj.living_projection ?? 0) > 0 ||
-      (existingProj.initial_projection ?? 0) > 0 ||
-      (existingProj.override_projection ?? 0) > 0;
-    if (!hasProjection) {
+    if (!existingMail?.yoy_net_sales) {
       const yoyDate = addDays(date, -364);
-      const { data: yoy } = await supabase
-        .from("sales_cache")
-        .select("net_sales, hourly_data")
-        .eq("location_id", locationId)
-        .eq("sale_date", yoyDate)
-        .maybeSingle();
-      const yoyNet = Number(yoy?.net_sales ?? 0);
-      if (yoyNet > 0) {
-        await supabase.from("sales_cache").update({
-          initial_projection: yoyNet,
-          living_projection: yoyNet,
-          yoy_sale_date: yoyDate,
-          yoy_net_sales: yoyNet,
-          yoy_hourly_data: yoy?.hourly_data ?? null,
-        }).eq("location_id", locationId).eq("sale_date", date);
-      }
-    } else {
-      // Still backfill yoy_* reference fields if missing (cheap, read-only refs).
-      if (!existingProj.yoy_net_sales) {
-        const yoyDate = addDays(date, -364);
-        const { data: yoy } = await supabase
-          .from("sales_cache")
-          .select("net_sales, hourly_data")
-          .eq("location_id", locationId)
-          .eq("sale_date", yoyDate)
-          .maybeSingle();
-        if (yoy?.net_sales) {
-          await supabase.from("sales_cache").update({
-            yoy_sale_date: yoyDate,
-            yoy_net_sales: Number(yoy.net_sales),
-            yoy_hourly_data: yoy.hourly_data ?? null,
-          }).eq("location_id", locationId).eq("sale_date", date);
-        }
-      }
+      const { data: yoy } = await supabase.from("sales_cache").select("net_sales, hourly_data")
+        .eq("location_id", locationId).eq("sale_date", yoyDate).maybeSingle();
+      if (Number(yoy?.net_sales) > 0) await supabase.from("sales_cache").update({
+        yoy_sale_date: yoyDate, yoy_net_sales: Number(yoy.net_sales), yoy_hourly_data: yoy.hourly_data ?? null,
+      }).eq("location_id", locationId).eq("sale_date", date);
     }
-  } catch (e) {
-    console.warn(`[clover-sync] YOY seed skipped for ${date}:`, e);
-  }
+  } catch (e) { console.warn(`[clover-sync] YOY reference skipped for ${date}:`, e); }
 
   // ── Shared projection + pace engine (POS-agnostic) ─────────────────────
   // Only runs for "today" — historical days already have net_sales/hourly
@@ -667,116 +652,12 @@ async function syncOneDay(
         if (closeH != null) hoursClose = closeH;
       } catch {}
 
-      const hist = await fetchHistoricalDataFromCache(supabase, locationId, date);
-
-      // Weekly / monthly breakdowns from sales_cache for orchestrator inputs.
-      const [{ data: weekRows }, { data: monthRows }] = await Promise.all([
-        supabase.from("sales_cache")
-          .select("sale_date, net_sales")
-          .eq("location_id", locationId)
-          .gte("sale_date", (() => {
-            const d = new Date(date + "T12:00:00");
-            const dow = d.getDay();
-            const diff = dow === 0 ? 6 : dow - 1;
-            d.setDate(d.getDate() - diff);
-            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-          })())
-          .lte("sale_date", date),
-        supabase.from("sales_cache")
-          .select("sale_date, net_sales")
-          .eq("location_id", locationId)
-          .gte("sale_date", `${date.slice(0, 7)}-01`)
-          .lte("sale_date", date),
-      ]);
-
-      const weeklyBreakdown = (weekRows || []).map((r: any) => ({
-        date: r.sale_date, sales: Number(r.net_sales) || 0,
-      }));
-      const monthlyBreakdown = (monthRows || []).map((r: any) => ({
-        date: r.sale_date, sales: Number(r.net_sales) || 0,
-      }));
-      const weeklySales = weeklyBreakdown.reduce((s: number, r: { sales: number }) => s + r.sales, 0);
-      const monthlySales = monthlyBreakdown.reduce((s: number, r: { sales: number }) => s + r.sales, 0);
-
-      // Provisional daily projection to shape hourly curve, then run pace.
-      const provisionalDaily =
-        (hist.fourWeekAverage?.avgDailyByDayOfWeek.find(
-          (d) => d.dayOfWeek === new Date(date + "T12:00:00").getDay(),
-        )?.avgSales) ||
-        hist.lastYearData?.sameDay ||
-        agg.netSales ||
-        0;
-
-      const hourlyProjections = generateHourlyProjections(
-        agg.hourly,
-        hoursOpen,
-        hoursClose,
-        date,
-        locationId,
-        provisionalDaily,
-        hist.fourWeekHourlyPattern,
-        hist.lastYearData?.hourlyData,
-      );
-
-      const currentHour = getCurrentHourInTimezone(tz);
-      const currentMinutes = getCurrentMinutesInTimezone(tz);
-
-      const projections = generateProjections(
-        agg.netSales,
-        weeklySales,
-        monthlySales,
-        weeklyBreakdown,
-        monthlyBreakdown,
-        currentHour,
-        currentMinutes,
-        hoursOpen,
-        hoursClose,
-        date,
-        locationId,
-        hourlyProjections,
-        hist.lastYearData
-          ? {
-              sameDay: hist.lastYearData.sameDay,
-              sameWeek: hist.lastYearData.sameWeek,
-              sameMonth: hist.lastYearData.sameMonth,
-              weeklyBreakdown: hist.lastYearData.weeklyBreakdown,
-              yoyHourlyData: hist.lastYearData.hourlyData,
-            }
-          : undefined,
-        hist.fourWeekAverage,
-        hist.holidayContext,
-      );
-
-      // Persist: living_projection = today's target (refresh each sync),
-      // initial_projection = seed if empty, pace_adjusted_projection = live pace.
-      // Pace itself is written only by the shared computeAndSavePace below.
-      const paceUpdate: Record<string, any> = {};
-      if (projections.todayProjected > 0) {
-        paceUpdate.living_projection = projections.todayProjected;
-        // Only seed initial if missing (respect the "first projection wins" rule).
-        const { data: seedCheck } = await supabase
-          .from("sales_cache")
-          .select("initial_projection")
-          .eq("location_id", locationId)
-          .eq("sale_date", date)
-          .maybeSingle();
-        if (!seedCheck?.initial_projection || Number(seedCheck.initial_projection) <= 0) {
-          paceUpdate.initial_projection = projections.todayProjected;
-        }
-      }
-      if (Object.keys(paceUpdate).length) {
-        await supabase
-          .from("sales_cache")
-          .update(paceUpdate)
-          .eq("location_id", locationId)
-          .eq("sale_date", date);
-      }
-      await computeAndSavePace(supabase, { locationId, date, timezone: tz, openHour: hoursOpen, closeHour: hoursClose });
+      const pace = await computeAndSavePace(supabase, { locationId, date, timezone: tz, openHour: hoursOpen, closeHour: hoursClose });
 
       console.log(
         `[clover-sync] pace for ${locationId} ${date}: ` +
-        `actual=$${agg.netSales.toFixed(0)}, target=$${projections.todayProjected.toFixed(0)}, ` +
-        `pace=$${projections.todayPaceAdjusted}`,
+        `actual=$${agg.netSales.toFixed(0)}, target=$${(pace?.goal ?? 0).toFixed(0)}, ` +
+        `pace=$${pace?.day ?? 0}`,
       );
     }
   } catch (e) {
@@ -807,6 +688,7 @@ Deno.serve(async (req) => {
     const body = (await req.json()) as Body;
     const { action } = body;
     if (!action) throw new Error("action required");
+    if (action === "backfill_gross") { const denied = requireInternalCaller(req, corsHeaders); if (denied) return denied; }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -819,7 +701,8 @@ Deno.serve(async (req) => {
         .from("location_integrations")
         .select("location_id, locations!inner(id, name, organizations!inner(brand_id))")
         .eq("integration_type", "clover")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("locations.is_active", true);
       if (error) throw new Error(`fan-out lookup failed: ${error.message}`);
 
       const playaLocations: any[] = ((integrations ?? []) as any[]).filter(
@@ -920,6 +803,11 @@ Deno.serve(async (req) => {
       let cur = body.startDate;
       while (cur <= body.endDate) { dates.push(cur); cur = addDays(cur, 1); }
       if (dates.length > 60) throw new Error("range too large (max 60 days)");
+    } else if (action === "backfill_gross") {
+      if (!body.startDate || !body.endDate) throw new Error("startDate and endDate required");
+      let cur = body.startDate;
+      while (cur <= body.endDate) { dates.push(cur); cur = addDays(cur, 1); }
+      if (dates.length > 31) throw new Error("range too large (max 31 days)");
     } else if (action === "sync_dates") {
       if (!Array.isArray(body.dates) || body.dates.length === 0) {
         throw new Error("dates[] required for sync_dates");
@@ -934,7 +822,7 @@ Deno.serve(async (req) => {
     const results: any[] = [];
     for (const d of dates) {
       try {
-        results.push(await syncOneDay(supabase, locationId, creds, d, tz));
+        results.push(await syncOneDay(supabase, locationId, creds, d, tz, action === "backfill_gross"));
       } catch (e) {
         console.error(`[clover-sync] ${locationId} ${d} failed:`, e);
         results.push({ date: d, error: e instanceof Error ? e.message : String(e) });

@@ -1,3 +1,4 @@
+import { resolveGoal } from "@/lib/goalResolver";
 import { Button } from '@/components/ui/button';
 import { checklistScorePeriod, checklistShowsOn } from '@/lib/taskHistory/schedule';
 import { useMemo, useState, useEffect } from 'react';
@@ -263,7 +264,7 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
       const [salesRes, laborRes] = await Promise.all([
         supabase
           .from('sales_cache')
-          .select('sale_date, net_sales, projected_sales, initial_projection, override_projection')
+          .select('sale_date, net_sales, living_projection, initial_projection, override_projection')
           .eq('location_id', currentLocation!.id)
           .gte('sale_date', startStr)
           .lte('sale_date', endStr),
@@ -274,11 +275,7 @@ export function ChecklistHeatmap({ anchorDate, range }: Props) {
       (salesRes.data || []).forEach((r: any) => {
         out[r.sale_date] = {
           netSales: Number(r.net_sales) || 0,
-          goal:
-            Number(r.override_projection) ||
-            Number(r.initial_projection) ||
-            Number(r.projected_sales) ||
-            null,
+          goal: resolveGoal(r),
           laborHours: 0,
         };
       });

@@ -21,7 +21,7 @@ import { roleForUser } from "../_shared/theoActions.ts";
 import { getWageVisibility, getBlendedRate } from "../_shared/wageVisibility.ts";
 
 // Bump on every change so a deploy can be confirmed: POST {"action":"version"}.
-const WATCH_SERVICE_VERSION = "2026-10-30.1";
+const WATCH_SERVICE_VERSION = "2026-11-02.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -164,7 +164,7 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
   const prevMonthEnd = now.minus({ months: 1 }).endOf('month').toFormat('yyyy-MM-dd');
 
   const salesCols =
-    'sale_date, net_sales, guest_count, pizza_count, avg_ticket, projected_sales, initial_projection, living_projection, override_projection, pace_adjusted_projection, pace_calculated_at, hourly_data, yoy_net_sales, payments_data';
+    'sale_date, net_sales, guest_count, pizza_count, avg_ticket, initial_projection, living_projection, override_projection, pace_adjusted_projection, pace_calculated_at, hourly_data, yoy_net_sales, payments_data';
 
   const rangeStart = [monthStart, weekStart, prevWeekStart, prevMonthStart].sort()[0];
   const rangeEnd = [monthEnd, weekEnd, today].sort().slice(-1)[0];
@@ -262,7 +262,7 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
 
     sales_wtd: wtdSales || undefined,
     sales_pace_week: periodProjection(weekStart, weekEnd),
-    sales_projected_week: periodProjection(weekStart, weekEnd),
+    sales_projected_week: inRange(weekStart, weekEnd).reduce((s, r) => s + resolveGoal(r), 0),
     sales_prev_week: sum(inRange(prevWeekStart, prevWeekEnd), 'net_sales') || undefined,
     sales_last_year_week: lyWeek,
     guest_count_wtd: sum(inRange(weekStart, today), 'guest_count') || undefined,
@@ -273,7 +273,7 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
 
     sales_mtd: mtdSales || undefined,
     sales_pace_month: periodProjection(monthStart, monthEnd),
-    sales_projected_month: periodProjection(monthStart, monthEnd),
+    sales_projected_month: inRange(monthStart, monthEnd).reduce((s, r) => s + resolveGoal(r), 0),
     sales_prev_month: sum(inRange(prevMonthStart, prevMonthEnd), 'net_sales') || undefined,
     sales_last_year_month: lyMonth,
     guest_count_mtd: sum(inRange(monthStart, today), 'guest_count') || undefined,
@@ -636,7 +636,7 @@ async function buildSnapshot(sb: any, device: any, overrideLocationId?: string) 
   const count = (v?: number) => (v == null || Number.isNaN(v) ? '—' : Math.round(v).toLocaleString('en-US'));
   const goalSum = (from: string, to: string) => {
     const v = inRange(from, to).reduce((t, r) => t + (projectionFor(r) || 0), 0);
-    return v > 0 ? v : undefined;
+    return v;
   };
   // Same thresholds as getPaceStatus in SalesSummary.tsx.
   const paceStatus = (actual?: number, pace?: number, goal?: number) => {

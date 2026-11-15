@@ -1278,7 +1278,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
         const endDate = args.end_date || args.start_date;
         const { data, error } = await supabase
           .from("sales_cache")
-          .select("sale_date, net_sales, guest_count, pizza_count, avg_ticket, projected_sales, living_projection, override_projection, initial_projection, pace_adjusted_projection, pace_calculated_at, hourly_data, payments_data, product_mix")
+          .select("sale_date, net_sales, guest_count, pizza_count, avg_ticket, living_projection, override_projection, initial_projection, pace_adjusted_projection, pace_calculated_at, hourly_data, payments_data, product_mix")
           .eq("location_id", args.location_id)
           .gte("sale_date", args.start_date)
           .lte("sale_date", endDate)
@@ -1344,7 +1344,7 @@ async function executeTool(supabase: any, toolName: string, args: any, timezone:
                 // Re-query cache to get the freshly synced data
                 const { data: freshData } = await supabase
                   .from("sales_cache")
-                  .select("sale_date, net_sales, guest_count, pizza_count, avg_ticket, projected_sales, living_projection, override_projection, initial_projection, hourly_data, product_mix")
+                  .select("sale_date, net_sales, guest_count, pizza_count, avg_ticket, living_projection, override_projection, initial_projection, hourly_data, product_mix")
                   .eq("location_id", args.location_id)
                   .gte("sale_date", args.start_date)
                   .lte("sale_date", endDate)

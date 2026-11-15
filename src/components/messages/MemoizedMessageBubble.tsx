@@ -43,7 +43,10 @@ interface MemoizedMessageBubbleProps {
   onReaction: (messageId: string, reaction: string) => void;
   onReply: (message: Message) => void;
   onImageClick: (url: string) => void;
-  onUnsend?: (messageId: string) => void;
+  selectMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (message: Message) => void;
+  onStartSelect?: (message: Message) => void;
   sending: boolean;
 }
 
@@ -64,6 +67,10 @@ export const MemoizedMessageBubble = memo(
     if (prevProps.showName !== nextProps.showName) return false;
     if (prevProps.sending !== nextProps.sending) return false;
     if (prevProps.canUnsend !== nextProps.canUnsend) return false;
+    if (prevProps.selectMode !== nextProps.selectMode) return false;
+    if (prevProps.isSelected !== nextProps.isSelected) return false;
+    if (prevProps.onToggleSelect !== nextProps.onToggleSelect) return false;
+    if (prevProps.onStartSelect !== nextProps.onStartSelect) return false;
     if (prevProps.message.profiles?.full_name !== nextProps.message.profiles?.full_name) return false;
     if (prevProps.message.profiles?.profile_photo_url !== nextProps.message.profiles?.profile_photo_url) return false;
     return true;

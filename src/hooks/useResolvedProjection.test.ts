@@ -8,14 +8,14 @@ describe('saved sales goal display and prefill', () => {
   it('prefers the manager override', () => {
     expect(projectionGoalValue({ override_projection: 2800, living_projection: 2668 }, 2454.23, true)).toBe(2800);
   });
-  it('falls back through original and legacy goals', () => {
-    expect(projectionGoalValue({ initial_projection: 2500, projected_sales: 2400 }, 2454.23, true)).toBe(2500);
-    expect(projectionGoalValue({ projected_sales: 2400 }, 2454.23, true)).toBe(2400);
+  it('falls back through Planning only', () => {
+    expect(projectionGoalValue({ initial_projection: 2500 }, 2454.23, true)).toBe(2500);
+    expect(projectionGoalValue({}, 2454.23, true)).toBe(0);
   });
   it('never falls back to actuals when no goal exists', () => {
-    expect(projectionGoalValue(null, 2454.23, true)).toBeNull();
+    expect(projectionGoalValue(null, 2454.23, true)).toBe(0);
   });
-  it('allows a non-actual grid goal fallback', () => {
-    expect(projectionGoalValue(null, 2668, false)).toBe(2668);
+  it('never substitutes a grid number', () => {
+    expect(projectionGoalValue(null, 2668, false)).toBe(0);
   });
 });

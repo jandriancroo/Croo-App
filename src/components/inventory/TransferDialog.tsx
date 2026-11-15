@@ -12,6 +12,7 @@ import { useInventoryTransfers, TransferItem } from "@/hooks/useInventoryTransfe
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation } from "@/hooks/useLocation";
 import { Textarea } from "@/components/ui/textarea";
+import { transferLineValue } from "@/lib/transferValue";
 
 interface TransferDialogProps {
   open: boolean;
@@ -114,15 +115,11 @@ export default function TransferDialog({ open, onClose, locationId }: TransferDi
     onClose();
   };
 
-  const totalCost = items.reduce((sum, item) => {
-    // Matches counter: costPerCase / packQty = costPerUnit
-    const costPerCase = item.cost_per_unit || 0;
-    const packQty = Math.max(item.packQty, 1);
-    const costPerEach = costPerCase / packQty;
-    // Cases = qty * packQty units, Units = qty units
-    const totalUnits = item.unit_type === "case" ? item.quantity * packQty : item.quantity;
-    return sum + totalUnits * costPerEach;
-  }, 0);
+  // Shared helper: case = qty × case cost; unit = qty × case cost / pack
+  const totalCost = items.reduce(
+    (sum, item) => sum + transferLineValue({ ...item, pack_quantity: item.packQty }),
+    0
+  );
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>

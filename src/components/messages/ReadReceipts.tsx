@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Check, CheckCheck, Eye } from 'lucide-react';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { getDisplayName } from '@/utils/displayName';
@@ -88,8 +88,8 @@ export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: Rea
   const unreadMembers = allMembers.filter(m => m.user_id !== senderId && !readUserIds.has(m.user_id));
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
         <button className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
           {isReadByOthers ? (
             <>
@@ -103,9 +103,12 @@ export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: Rea
             </>
           )}
         </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-64 p-0" align="end" side="top">
-        <div className="max-h-64 overflow-y-auto">
+      </DialogTrigger>
+      <DialogContent className="max-w-sm p-0 gap-0">
+        <DialogHeader className="px-4 pt-4 pb-2">
+          <DialogTitle className="text-base">Read receipts</DialogTitle>
+        </DialogHeader>
+        <div className="max-h-[60vh] overflow-y-auto overscroll-contain touch-pan-y pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
           {/* Read section */}
           {readByOthers.length > 0 && (
             <div>
@@ -154,7 +157,7 @@ export function ReadReceipts({ messageId, senderId, currentUserId, chatId }: Rea
             </div>
           )}
         </div>
-      </PopoverContent>
-    </Popover>
+      </DialogContent>
+    </Dialog>
   );
 }

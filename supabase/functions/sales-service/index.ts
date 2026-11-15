@@ -1,3 +1,4 @@
+import { knownNumber, quHourlyExtras, posExtrasPatch, hourlyGrossFromDiscounts, mergeHourlyGross } from "../_shared/posExtras.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { requireCaller } from '../_shared/callerAuth.ts';
@@ -191,7 +192,7 @@ async function fetchHourlySales(
   tokenGw: string, 
   dateStr: string,
   qbLocationId: string
-): Promise<{ hour: string; sales: number; checksCount: number }[]> {
+): Promise<{ hour: string; sales: number; checksCount: number; discountAmount?: number | null }[]> {
   const requestPayload = {
     fields: [
       { fieldName: "hour" }, { fieldName: "checksCount" }, { fieldName: "netSales" },
@@ -225,7 +226,7 @@ async function fetchHourlySales(
   }
 
   const data = await response.json();
-  const hourlyData: { hour: string; sales: number; checksCount: number }[] = [];
+  const hourlyData: { hour: string; sales: number; checksCount: number; discountAmount?: number | null }[] = [];
 
   if (data.items && Array.isArray(data.items)) {
     for (const item of data.items) {
@@ -233,7 +234,7 @@ async function fetchHourlySales(
       const hour24 = convertTo24Hour(rawHour);
       const sales = parseFloat(String(item.netSales || '0').replace(/[$,]/g, '')) || 0;
       const checksCount = parseInt(String(item.checksCount || '0').replace(/,/g, '')) || 0;
-      if (rawHour) hourlyData.push({ hour: hour24, sales, checksCount });
+      if (rawHour) hourlyData.push({ hour: hour24, sales, checksCount, discountAmount: knownNumber(item.discount) });
     }
   }
   
@@ -447,6 +448,7 @@ async function fetchAllSalesData(
   formattedHourly: any[];
   productMix: any[];
   paymentsData: any[];
+  extras: ReturnType<typeof quHourlyExtras>;
   yoyNetSales: number | null;
   yoyHourlyData: any[] | null;
   yoySaleDate: string | null;
@@ -464,9 +466,10 @@ async function fetchAllSalesData(
   const guestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
   const avgTicket = guestCount > 0 ? netSales / guestCount : null;
   const existingHourly = existingCache?.data?.hourly_data as any[] | undefined;
-  const formattedHourly = formatHourlyTo24(hourlyData, existingHourly);
+  const formattedHourly = formatHourlyTo24(hourlyGrossFromDiscounts(hourlyData), existingHourly);
 
   return {
+    extras: quHourlyExtras(hourlyData),
     netSales,
     guestCount,
     avgTicket,
@@ -482,6 +485,7 @@ function buildUpsertPayload(locationId: string, dateStr: string, data: Awaited<R
   return {
     location_id: locationId,
     sale_date: dateStr,
+    ...posExtrasPatch(data.extras),
     net_sales: data.netSales,
     guest_count: data.guestCount,
     avg_ticket: data.avgTicket,
@@ -518,7 +522,8 @@ async function handleSyncLive(supabase: any): Promise<Response> {
       locations!inner(id, name)
     `)
     .eq('integration_type', 'qubeyond')
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .eq('locations.is_active', true);
 
   const locationIds = integrations?.map((i: any) => i.location_id) || [];
   const { data: locationSettings } = await supabase
@@ -1028,6 +1033,119 @@ async function handleBackfillQuLabor(req: Request, supabase: any): Promise<Respo
 }
 
 // ============================================================================
+// ACTION: backfill-gross — service only. Re-pulls the hourly report (which already
+// carries discounts) for up to 31 past days and stores ONLY the gross pieces:
+// discount_amount and per-hour gross. Net, mix, payments and goals are untouched;
+// the DB trigger rebuilds gross_sales from net + discounts. Also reads the daily
+// summary so we can check our rebuilt gross against the feed's own Gross Sales
+// metric (counts only, no dollars in the response).
+// ============================================================================
+async function fetchSummaryMetrics(tokenGw: string, dateStr: string, qbLocationId: string): Promise<Record<string, number>> {
+  const resp = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/sales', {
+    method: 'POST',
+    headers: getV4Headers(tokenGw),
+    body: JSON.stringify({
+      fields: [{ fieldName: 'metric' }, { fieldName: 'total' }],
+      filters: { date: { from: null, to: null, values: [dateStr], type: 'custom' }, location: { operationalUnits: [parseInt(qbLocationId)] } },
+      params: { sectionId: 'overview', pageNumber: 1, pageSize: 50, totalRecords: null, sort: null, showTotals: true },
+    }),
+  });
+  if (!resp.ok) return {};
+  const data = await resp.json().catch(() => ({}));
+  const out: Record<string, number> = {};
+  for (const item of (Array.isArray(data?.items) ? data.items : [])) {
+    const name = String(item?.metric ?? '').trim();
+    const v = knownNumber(item?.total);
+    if (name && v != null) out[name] = v;
+  }
+  return out;
+}
+
+// Diagnostics only (no amounts leave the function): which summary pieces explain
+// the feed's own "Gross Sales", and whether the hourly discount total agrees
+// with the day's summary "Discounts".
+function grossIdentityChecks(summary: Record<string, number>, net: number, hourlyDiscount: number | null, feedGross: number | null) {
+  const get = (name: string) => Object.entries(summary).find(([k]) => k.toLowerCase() === name.toLowerCase())?.[1];
+  const sumDisc = get('Discounts');
+  const itemSales = get('Item Sales');
+  const feedNet = get('Net Sales');
+  const pieces: Array<[string, number | undefined]> = [
+    ['Gift Card Sales', get('Gift Card Sales')], ['Non-Revenue Item Sales', get('Non-Revenue Item Sales')],
+    ['Service Charges', get('Service Charges')], ['Taxes', get('Taxes')], ['Gift Card Discounts', get('Gift Card Discounts')],
+    ['Profit Shared Donations', get('Profit Shared Donations')],
+  ];
+  let feed_gross_explained_by: string[] | null = null;
+  if (feedGross != null && feedNet != null && sumDisc != null) {
+    const base = feedNet + Math.abs(sumDisc);
+    const present = pieces.filter(([, v]) => v != null) as Array<[string, number]>;
+    for (let mask = 0; mask < (1 << present.length) && !feed_gross_explained_by; mask++) {
+      for (const sign of [1, -1]) {
+        let t = base; const names: string[] = [];
+        present.forEach(([n, v], i) => { if (mask & (1 << i)) { t += sign * Math.abs(v); names.push((sign > 0 ? '+' : '-') + n); } });
+        if (Math.abs(t - feedGross) < 1) { feed_gross_explained_by = names.length ? names : ['net + discounts']; break; }
+      }
+    }
+  }
+  return {
+    feed_net_matches: feedNet != null ? Math.abs(feedNet - net) < 1 : null,
+    hourly_disc_matches_summary: sumDisc != null && hourlyDiscount != null ? Math.abs(Math.abs(sumDisc) - Math.abs(hourlyDiscount)) < 1 : null,
+    net_plus_summary_disc_matches_item_sales: sumDisc != null && itemSales != null && feedNet != null ? Math.abs(feedNet + Math.abs(sumDisc) - itemSales) < 1 : null,
+    feed_gross_explained_by,
+  };
+}
+
+async function handleBackfillGross(req: Request, supabase: any): Promise<Response> {
+  const json = (b: any, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  const body = await req.json().catch(() => ({}));
+  const { locationId, from, to } = body || {};
+  const re = /^\d{4}-\d{2}-\d{2}$/;
+  if (typeof locationId !== 'string' || !re.test(from) || !re.test(to) || from > to) return json({ error: 'locationId, from, to required' }, 400);
+  const { data: integ } = await supabase.from('location_integrations').select('credentials')
+    .eq('location_id', locationId).eq('integration_type', 'qubeyond').eq('is_active', true).maybeSingle();
+  const qb = getQbLocationId(integ?.credentials);
+  const token = await authenticateV4();
+  if (!qb || !token) return json({ error: 'Sales feed not reachable' }, 502);
+  const dates: string[] = [];
+  const d = new Date(from + 'T12:00:00Z');
+  while (d.toISOString().slice(0, 10) <= to && dates.length < 31) { dates.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); }
+  const metricNames = new Set<string>();
+  const results: any[] = [];
+  for (const date of dates) {
+    try {
+      const { data: cur } = await supabase.from('sales_cache').select('net_sales, hourly_data, discount_amount')
+        .eq('location_id', locationId).eq('sale_date', date).maybeSingle();
+      if (!cur) { results.push({ date, gross: false, reason: 'no sales row' }); continue; }
+      const [hours, summary] = await Promise.all([fetchHourlySales(token, date, qb), fetchSummaryMetrics(token, date, qb)]);
+      Object.keys(summary).forEach(k => metricNames.add(k));
+      if (!hours.length) { results.push({ date, gross: false, reason: 'no hourly report' }); continue; }
+      const extras = quHourlyExtras(hours);
+      const withGross = hourlyGrossFromDiscounts(hours);
+      const grossByHour = new Map<string, number>(withGross.filter(h => h.gross != null).map(h => [`${String(h.hour).slice(0, 2)}:00`, h.gross as number]));
+      const patch: Record<string, unknown> = posExtrasPatch({ discount_amount: extras.discount_amount ?? null }, cur);
+      if (Array.isArray(cur.hourly_data) && cur.hourly_data.length) patch.hourly_data = mergeHourlyGross(cur.hourly_data, grossByHour);
+      // Nothing new to write: still touch the row so the gross trigger re-runs.
+      if (!Object.keys(patch).length) patch.gross_basis = null;
+      const { error } = await supabase.from('sales_cache').update(patch).eq('location_id', locationId).eq('sale_date', date);
+      if (error) throw new Error(error.message);
+      const hourNet = hours.reduce((sum, h) => sum + h.sales, 0);
+      const feedGross = Object.entries(summary).find(([k]) => /^gross\s*sales$/i.test(k))?.[1];
+      const rebuilt = extras.discount_amount != null ? Number(cur.net_sales ?? 0) + Math.abs(extras.discount_amount) : null;
+      results.push({
+        date,
+        gross: extras.discount_amount != null,
+        net_matches: Math.abs(hourNet - Number(cur.net_sales ?? 0)) < 1,
+        feed_gross_present: feedGross != null,
+        matches_feed_gross: feedGross != null && rebuilt != null ? Math.abs(feedGross - rebuilt) < 1 : null,
+        ...grossIdentityChecks(summary, Number(cur.net_sales ?? 0), extras.discount_amount ?? null, feedGross ?? null),
+      });
+    } catch (e: any) {
+      results.push({ date, gross: false, error: String(e?.message ?? e).slice(0, 200) });
+    }
+  }
+  return json({ success: true, metric_names: [...metricNames].sort(), results });
+}
+
+// ============================================================================
 // ACTION: sync-yesterday — No auth required, uses service role (called by nightly maintenance)
 // ============================================================================
 
@@ -1038,7 +1156,8 @@ async function handleSyncYesterday(supabase: any): Promise<Response> {
     .from('location_integrations')
     .select(`id, location_id, credentials, locations!inner(id, name)`)
     .eq('integration_type', 'qubeyond')
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .eq('locations.is_active', true);
 
   if (intError || !integrations || integrations.length === 0) {
     console.log('[sales-service] sync-yesterday: No active integrations');
@@ -1577,6 +1696,12 @@ serve(async (req) => {
 
       case 'test-api':
         return await handleTestApi(supabase);
+
+      case 'backfill-gross':
+        if (authed.caller?.kind !== 'service') {
+          return new Response(JSON.stringify({ error: 'Service role required' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        return await handleBackfillGross(req, supabase);
 
       case 'backfill-qu-labor':
         if (authed.caller?.kind !== 'service') {

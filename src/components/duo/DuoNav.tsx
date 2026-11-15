@@ -5,7 +5,7 @@ import { TheoOrb } from '@/components/dock/TheoOrb';
 import { DuoOvation } from '@/components/duo/DuoOvation';
 import { useDuoPageActions } from '@/lib/duoPageActions';
 import { useDuoTheme, setDuoThemeMode, type DuoThemeMode } from '@/lib/duoTheme';
-import { useOvationData } from '@/components/dashboard/OvationScorePopover';
+import { useReviewsData } from '@/components/dashboard/OvationScorePopover';
 import { Pencil, Mail, Inbox, ChevronRight, MapPin, X, Sparkles, Hand, SlidersHorizontal, LayoutDashboard, MessageSquare, CheckSquare, FileText, Calendar, Package, Users, Settings, Briefcase, Clock, Gauge, Zap, ClipboardList, FileText as FileTextIcon, Copy, Plus, BookOpen, Upload, UserPlus, RefreshCw, FlaskConical, Save, Award, ListChecks, Sun, Moon, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
@@ -118,7 +118,8 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
   const onLocationEdit = /^\/location\/[^/]+$/.test(route.pathname);
   const onOrgEdit = /^\/organization\/[^/]+$/.test(route.pathname);
   const pageStatus = onChat ? (chat ? `${chat} unread` : 'All caught up') : pageNote;
-  const ovation = useOvationData().displayScore;
+  const reviewsView = useReviewsData();
+  const ovation = reviewsView.displayScore;
   const showOvation = (isManager || hasPermission('view_ovation_reviews')) && !!ovation;
   const canTalk = !loading && isShiftManager;
   useEffect(() => {
@@ -188,7 +189,7 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
         <Button variant="ghost" aria-label="Close page menu" onClick={() => setOpen(false)}><X /></Button></div>
       <div className="duo-menu-top">
         <Button variant="ghost" className="duo-menu-loc" onClick={() => { setOpen(false); window.setTimeout(openLocation, 300); }}>{brandLogo ? <img src={brandLogo} alt="" /> : <i aria-hidden />}<span><b>{currentLocation?.name}</b><small>{brandName} · tap to switch</small></span><ChevronRight size={16} /></Button>
-        {showOvation && <Button variant="ghost" className="duo-menu-ovation" onClick={(e) => { setOvTop(e.currentTarget.getBoundingClientRect().bottom); setOvOpen(o => !o); }}><span>Ovation</span><b>{ovation!.toFixed(1)}</b></Button>}
+        {showOvation && <Button variant="ghost" className="duo-menu-ovation" onClick={(e) => { setOvTop(e.currentTarget.getBoundingClientRect().bottom); setOvOpen(o => !o); }}><span>{reviewsView.source === 'google' ? 'Google' : 'Ovation'}</span><b>{ovation!.toFixed(1)}</b></Button>}
       </div>
       <div className="duo-menu-items">{menu.map(m => <Button key={m.title} variant="ghost" className={active(m.path) ? 'duo-selected' : ''} onClick={() => { setOpen(false); navigate(m.path); }}><m.icon size={21} />{m.title}{m.title === 'Chat' && chat && <b className="duo-badge">{chat}</b>}</Button>)}{timeItems.length > 0 && <><Button variant="ghost" className={`duo-menu-group${timeActive ? ' duo-selected' : ''}`} aria-expanded={timeOpen} onClick={() => setTimeOpen(o => !o)}><Clock size={21} />Time<ChevronDown size={16} className={`duo-group-chev${timeOpen ? ' duo-open' : ''}`} /></Button>{timeOpen && timeItems.map(m => <Button key={m.title} variant="ghost" className={`duo-menu-sub${active(m.path) ? ' duo-selected' : ''}`} onClick={() => { setOpen(false); navigate(m.path); }}><m.icon size={19} />{m.title}</Button>)}</>}</div>
       <div className="duo-userrow">

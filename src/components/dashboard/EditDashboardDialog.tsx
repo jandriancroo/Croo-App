@@ -38,6 +38,7 @@ import { PROMO_BANNER_ASPECT, PROMO_BANNER_ASPECT_CLASS, PromoBadgeOverlay, Prom
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useCanAddDashboardCube } from "@/hooks/useCanAddDashboardCube";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { resolveBrandId } from "@/utils/resolveBrandId";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -286,6 +287,7 @@ export function EditDashboardDialog({
   const { user } = useAuth();
   const { isAdmin, isOrgAdmin, isBrandAdmin, isSuperAdmin } = useUserRole();
   const canPublish = isAdmin;
+  const canAddCube = useCanAddDashboardCube();
   // Personal "hide from my dashboard" toggle is reserved for management roles.
   // (Lower roles see fewer widgets to begin with — they don't need to declutter.)
   const canHideForSelf = isAdmin || isOrgAdmin || isBrandAdmin || isSuperAdmin;
@@ -730,6 +732,7 @@ export function EditDashboardDialog({
   };
 
   const handleAddClick = () => {
+    if (!canAddCube) return;
     // Open the Add Widget dialog FIRST so it animates in over the Edit dialog,
     // then close the Edit dialog on the next frame. This eliminates the visible
     // gap between Radix's close-out and open-in animations (the "flicker").
@@ -935,7 +938,7 @@ export function EditDashboardDialog({
                 </div>
               </ScrollArea>
 
-              <div className="shrink-0 border-t px-4 py-3">
+              {canAddCube && <div className="shrink-0 border-t px-4 py-3">
                 <Button 
                   onClick={handleAddClick}
                   className="w-full"
@@ -943,7 +946,7 @@ export function EditDashboardDialog({
                   <Plus className="mr-2 h-4 w-4" />
                   Add Widget
                 </Button>
-              </div>
+              </div>}
             </div>
           )}
 

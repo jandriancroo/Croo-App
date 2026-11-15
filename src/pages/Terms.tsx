@@ -1,6 +1,16 @@
+import { Helmet } from "react-helmet-async";
+import { Link } from "react-router-dom";
+import { SiteFooter } from "@/components/marketing/SiteFooter";
+
 export default function Terms() {
   return (
-    <div className="min-h-screen bg-background text-foreground px-4 py-12 max-w-3xl mx-auto prose prose-invert prose-headings:text-foreground prose-p:text-muted-foreground prose-li:text-muted-foreground prose-strong:text-foreground">
+    <div className="min-h-screen bg-background text-foreground px-4 py-12">
+      <Helmet>
+        <title>Terms of Service | CrooHQ</title>
+        <meta name="description" content="Terms of Service for the CrooHQ website, mobile app, and related restaurant operations services." />
+        <link rel="canonical" href="https://croohq.com/terms" />
+      </Helmet>
+      <div className="max-w-3xl mx-auto prose prose-invert prose-headings:text-foreground prose-p:text-muted-foreground prose-li:text-muted-foreground prose-strong:text-foreground">
       <h1 className="text-3xl font-bold mb-1">CrooHQ Terms of Service</h1>
       <p className="text-sm text-muted-foreground mb-8">Last updated: February 28, 2026</p>
 
@@ -85,11 +95,21 @@ export default function Terms() {
       <h2>9. Contact Us</h2>
       <p>Questions about these Terms? Contact us at:</p>
       <p>
-        Email: <a href="mailto:jordan@jo-pizza.com" className="text-primary hover:underline">jordan@jo-pizza.com</a><br />
+        Email: <a href="mailto:jordan@croohq.com" className="text-primary hover:underline">jordan@croohq.com</a><br />
         Address: 1433 Misty Ln, Unit A, Beaumont CA 92223
       </p>
 
       <p className="mt-8 text-sm text-muted-foreground">Thank you for using CrooHQ.</p>
+      </div>
+      <div className="max-w-3xl mx-auto">
+        <SiteFooter>
+          <nav aria-label="Footer navigation">
+            <Link to="/">Home</Link>
+            <a href="/blog/">Blog</a>
+            <Link to="/privacy">Privacy Policy</Link>
+          </nav>
+        </SiteFooter>
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@
 //
 // Rule: no adapter reimplements projection or pace math. Call the functions
 // exported here; supply raw sales inputs only.
+import { resolveStoredGoal } from './storedGoal.ts';
 
 export interface HolidayInfo {
   name: string;
@@ -144,6 +145,13 @@ export function getSeededRandomFactor(seed: string): number {
   return 0.97 + (normalized * 0.05);
 }
 
+// Shared daily-goal blend; hourly jitter and curves deliberately stay separate.
+export function calculateDailyGoal(date: string, locationId: string, dowAverage: number, ly: number, weight = 0.5): number {
+  const base = dowAverage > 0 && ly > 0 ? (1 - weight) * dowAverage + weight * ly
+    : dowAverage > 0 ? dowAverage : ly > 0 ? ly : 0;
+  return Math.round(base * getSeededRandomFactor(`${date}-${locationId}`));
+}
+
 // ── Historical data loader (reads sales_cache; POS-agnostic) ────────────────
 export async function fetchHistoricalDataFromCache(
   supabase: any,
@@ -166,7 +174,7 @@ export async function fetchHistoricalDataFromCache(
   } | undefined;
   prevWeekSales: number;
   prevMonthSales: number;
-  holidayContext: { lastYearWeight: number; reason: string };
+  holidayContext: { lastYearWeight: number; reason: string; dailyGoal?: number };
 }> {
   const today = new Date(todayStr + 'T12:00:00');
   const dayOfWeek = today.getDay();
@@ -248,7 +256,7 @@ export async function fetchHistoricalDataFromCache(
       lastYearData: undefined,
       prevWeekSales: 0,
       prevMonthSales: 0,
-      holidayContext: { lastYearWeight: 0.5, reason: 'Cache error - default' },
+      holidayContext: { lastYearWeight: 0.5, reason: 'Cache error - default', dailyGoal: 0 },
     };
   }
 
@@ -408,7 +416,13 @@ export async function fetchHistoricalDataFromCache(
   const prevWeekSales = prevWeekDates.reduce((sum, d) => sum + (cacheMap.get(d)?.net_sales || 0), 0);
   const prevMonthSales = prevMonthDates.reduce((sum, d) => sum + (cacheMap.get(d)?.net_sales || 0), 0);
 
-  return { fourWeekAverage, fourWeekHourlyPattern, lastYearData, prevWeekSales, prevMonthSales, holidayContext };
+  // Load only the DAILY goal from the write-date engine. Historical hourly
+  // patterns and week/month inputs above remain unchanged. Dynamic import
+  // avoids a static cycle through weekProjections and this module.
+  const { dailyGoalFromCache } = await import('./goalEngine.ts');
+  const dailyGoal = await dailyGoalFromCache(supabase, locationId, todayStr);
+  return { fourWeekAverage, fourWeekHourlyPattern, lastYearData, prevWeekSales, prevMonthSales,
+    holidayContext: { ...holidayContext, dailyGoal } };
 }
 
 // ── Hourly projections ──────────────────────────────────────────────────────
@@ -560,76 +574,19 @@ export function generateProjections(
     avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[];
     weeks: { weekStart: string; total: number }[];
   },
-  holidayContext?: { lastYearWeight: number; reason: string },
+  holidayContext?: { lastYearWeight: number; reason: string; dailyGoal?: number },
 ): { todayProjected: number; todayPaceAdjusted: number; weekProjected: number; monthProjected: number } {
-  const today = new Date(todayStr + 'T12:00:00');
-  const dayOfWeek = today.getDay();
-  const randomFactor = getSeededRandomFactor(`${todayStr}-${locationId}`);
-  const lyWeight = holidayContext?.lastYearWeight ?? 0.5;
-  const fwWeight = 1 - lyWeight;
-
-  let todayProjected = 0;
-  const fourWeekDayAvg = fourWeekAverage?.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek)?.avgSales || 0;
-  const lastYearSameDay = lastYearData?.sameDay || 0;
-  if (fourWeekDayAvg > 0 && lastYearSameDay > 0) {
-    todayProjected = ((fourWeekDayAvg * fwWeight) + (lastYearSameDay * lyWeight)) * randomFactor;
-  } else if (fourWeekDayAvg > 0) {
-    todayProjected = fourWeekDayAvg * randomFactor;
-  } else if (lastYearSameDay > 0) {
-    todayProjected = lastYearSameDay * randomFactor;
-  } else {
-    const completedDays = weeklyBreakdown.filter(d => d.sales > 0);
-    if (completedDays.length > 0) {
-      todayProjected = (completedDays.reduce((sum, d) => sum + d.sales, 0) / completedDays.length) * randomFactor;
-    } else {
-      todayProjected = dailySales;
-    }
-  }
-
-  const todayPaceAdjusted = calculatePaceAdjustedProjection(
-    dailySales, currentHour, currentMinutes, hoursOpen, hoursClose, hourlyProjections,
-  );
-
-  let weekProjected = 0;
-  const fourWeekAvgWeek = fourWeekAverage?.avgWeekTotal || 0;
-  const lastYearSameWeek = lastYearData?.sameWeek || 0;
-  if (fourWeekAvgWeek > 0 && lastYearSameWeek > 0) {
-    weekProjected = ((fourWeekAvgWeek + lastYearSameWeek) / 2) * randomFactor;
-  } else if (fourWeekAvgWeek > 0) {
-    weekProjected = fourWeekAvgWeek * randomFactor;
-  } else if (lastYearSameWeek > 0) {
-    weekProjected = lastYearSameWeek * randomFactor;
-  } else {
-    const daysRemainingInWeek = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
-    const avgDailySales = weeklyBreakdown.length > 0 ? weeklySales / weeklyBreakdown.length : todayProjected;
-    weekProjected = (weeklySales + (avgDailySales * daysRemainingInWeek)) * randomFactor;
-  }
-  weekProjected = Math.max(weekProjected, weeklySales);
-
-  let monthProjected = 0;
-  const lastYearSameMonth = lastYearData?.sameMonth || 0;
-  const lastMonthSales = lastYearData?.lastMonth || 0;
-  if (lastMonthSales > 0 && lastYearSameMonth > 0) {
-    monthProjected = ((lastMonthSales + lastYearSameMonth) / 2) * randomFactor;
-  } else if (lastYearSameMonth > 0) {
-    monthProjected = lastYearSameMonth * randomFactor;
-  } else if (lastMonthSales > 0) {
-    monthProjected = lastMonthSales * randomFactor;
-  } else {
-    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    const daysRemainingInMonth = daysInMonth - today.getDate();
-    const daysOfData = monthlyBreakdown.length;
-    const monthAvgDaily = daysOfData > 0 ? monthlySales / daysOfData : todayProjected;
-    monthProjected = (monthlySales + (monthAvgDaily * daysRemainingInMonth)) * randomFactor;
-  }
-  monthProjected = Math.max(monthProjected, monthlySales);
-
-  return { todayProjected, todayPaceAdjusted, weekProjected, monthProjected };
+  // Retained for pace callers only. No generated goal is a reader fallback.
+  return {
+    todayProjected: holidayContext?.dailyGoal ?? 0,
+    todayPaceAdjusted: calculatePaceAdjustedProjection(dailySales, currentHour, currentMinutes, hoursOpen, hoursClose, hourlyProjections),
+    weekProjected: 0, monthProjected: 0,
+  };
 }
 
 // ── Shared pace writer (Stage 5, Pack 3) ────────────────────────────────────
 // Every POS adapter calls this after saving today's sales. It:
-//   1. reads the one goal (resolve_goal: override > living > initial > projected),
+//   1. reads the one goal (resolve_goal: positive override > living > planning > zero),
 //   2. normalizes the hourly curve so the projected hours add up to the goal,
 //   3. computes day, week and month pace with the shared shift-aware math,
 //   4. saves hourly projected values + pace_* columns + pace_calculated_at.
@@ -641,11 +598,7 @@ const PACE_DEFAULT_PATTERN: Record<number, number> = {
 };
 
 function goalOf(r: any): number {
-  for (const k of ['override_projection', 'living_projection', 'initial_projection', 'projected_sales']) {
-    const v = Number(r?.[k]);
-    if (v && v !== 0) return v;
-  }
-  return 0;
+  return resolveStoredGoal(r);
 }
 
 export function normalizeHourlyCurve(
@@ -692,12 +645,11 @@ export async function computeAndSavePace(
 
   const { data: row } = await supabase
     .from('sales_cache')
-    .select('net_sales, hourly_data, override_projection, living_projection, initial_projection, projected_sales')
+    .select('net_sales, hourly_data, override_projection, living_projection, initial_projection')
     .eq('location_id', locationId).eq('sale_date', date).maybeSingle();
   if (!row) return null;
 
-  const { data: goalRpc } = await supabase.rpc('resolve_goal', { _location_id: locationId, _date: date });
-  const goal = Number(goalRpc) || goalOf(row);
+  const goal = goalOf(row);
   if (!goal) return null;
 
   const net = Number(row.net_sales) || 0;
@@ -728,7 +680,7 @@ export async function computeAndSavePace(
   const to = we > me ? we : me;
   const { data: rows } = await supabase
     .from('sales_cache')
-    .select('sale_date, net_sales, override_projection, living_projection, initial_projection, projected_sales')
+    .select('sale_date, net_sales, override_projection, living_projection, initial_projection')
     .eq('location_id', locationId).gte('sale_date', from).lte('sale_date', to);
   const map = new Map<string, any>((rows || []).map((r: any) => [r.sale_date, r]));
   const sumRange = (a: string, b: string) => {

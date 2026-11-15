@@ -152,6 +152,9 @@ verify_jwt = false
 [functions.sales-week-projections]
 verify_jwt = false
 
+[functions.goal-engine]
+verify_jwt = false
+
 [functions.availability-insights]
 verify_jwt = false
 
@@ -168,4 +171,16 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.toast-status]
+verify_jwt = false
+
+[functions.overdue-checklist-digest]
+verify_jwt = true
+
+[functions.write-customer-review]
+verify_jwt = true
+
+[functions.google-reviews-service]
+verify_jwt = false
+
+[functions.toast-session-check]
 verify_jwt = false

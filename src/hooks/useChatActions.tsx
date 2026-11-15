@@ -192,6 +192,27 @@ export function useChatActions({
     }
   }, [currentUserId, chatId, queryClient]);
 
+  /** Multi-select delete-for-everyone. Only called after the confirm box is accepted. */
+  const handleUnsendMessages = useCallback(async (messageIds: string[]) => {
+    if (!currentUserId || messageIds.length === 0) return;
+    const results = await Promise.allSettled(messageIds.map(id => unsendMessage(id, currentUserId)));
+    const done = messageIds.filter((_, i) => results[i].status === 'fulfilled');
+    if (done.length) {
+      const doneSet = new Set(done);
+      queryClient.setQueryData(['chat-messages', chatId], (old: Message[] | undefined) => {
+        if (!old) return [];
+        return old.map(m => doneSet.has(m.id) ? { ...m, is_deleted_for_everyone: true, content: null, attachment_url: null } : m);
+      });
+    }
+    const failed = messageIds.length - done.length;
+    if (failed === 0) {
+      toast.success(done.length === 1 ? 'Message removed for everyone' : `${done.length} messages removed for everyone`);
+    } else {
+      results.forEach(r => { if (r.status === 'rejected') console.error('Error unsending message:', r.reason); });
+      toast.error(done.length ? `${done.length} removed, ${failed} failed` : 'Failed to remove messages');
+    }
+  }, [currentUserId, chatId, queryClient]);
+
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !currentUserId) return;
@@ -239,6 +260,7 @@ export function useChatActions({
     
     handleDeleteChat,
     handleUnsendMessage,
+    handleUnsendMessages,
     handleFileUpload,
   };
 }

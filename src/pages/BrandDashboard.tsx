@@ -84,7 +84,8 @@ export default function FBCDashboard() {
           organization_id,
           organizations!inner(id, name, brand_name, brand_id)
         `)
-        .eq('location_type', 'standard');
+        .eq('location_type', 'standard')
+        .eq('is_active', true);
       
       // If not super admin, filter by brand
       if (!brandMembership?.isSuperAdmin && brandMembership?.brandId) {

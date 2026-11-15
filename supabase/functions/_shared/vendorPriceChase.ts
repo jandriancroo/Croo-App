@@ -40,6 +40,10 @@ export interface ChaseItem {
   last_seen_on_bid_list?: string | null;
   // Needed only by sweep mode (activateOnHit) to identify house-made items.
   vendor_source?: string | null;
+  // Sweep mode only (CHASE_SWEEP_SELECT): activation guards.
+  is_active?: boolean | null;
+  deactivated_by?: string | null;
+  created_at?: string | null;
 }
 
 
@@ -59,6 +63,8 @@ export interface ChaseResult {
 export type SkipReason =
   | "no_brand_link"
   | "template_not_live"
+  | "manager_deactivated"
+  | "already_exists"
   | "write_rejected"
   | "cost_intentionally_zero"
   | "error";
@@ -331,7 +337,7 @@ export async function chasePrices(
   supabase: any,
   locationId: string,
   items: ChaseItem[],
-  opts: { windowDays?: number; activateOnHit?: boolean } = {},
+  opts: { windowDays?: number; activateOnHit?: boolean; newRowSince?: string } = {},
 ): Promise<ChaseSummary> {
   const windowDays = opts.windowDays ?? ACTIVITY_WINDOW_DAYS;
   // OPT-IN ONLY (default false): the deploy activation sweep passes true so a real
@@ -384,12 +390,8 @@ export async function chasePrices(
   }
 
   /** True when this item may be switched on. Returns a reason when it may not. */
-  const activationBlock = (item: ChaseItem): SkipReason | null => {
-    if (!activateOnHit) return null;
-    if (!item.brand_item_id) return "no_brand_link";
-    if (!liveTemplates.has(item.brand_item_id)) return "template_not_live";
-    return null;
-  };
+  const activationBlock = (item: ChaseItem): ActivationDecision =>
+    activateOnHit ? activationDecision(item, liveTemplates, opts.newRowSince) : null;
 
   const numbersFor = (item: ChaseItem) => numbersForItem(item, approved);
 
@@ -443,6 +445,7 @@ export async function chasePrices(
       // never get a price hit, so leaving it inactive would hide it forever. Turn it on.
       if (activateOnHit && !item.vendor_source) {
         const block = activationBlock(item);
+        if (block === "already_active") continue; // no write, no skip entry
         if (block) { skip(item, block); continue; }
         const { error } = await supabase
           .from("inventory_items")
@@ -542,8 +545,8 @@ export async function chasePrices(
       // blocked item still keeps its price — it just stays off, with a reason.
       if (activateOnHit) {
         const block = activationBlock(item);
-        if (block) skip(item, block);
-        else patch.is_active = true;
+        if (block === null) patch.is_active = true;
+        else if (block !== "already_active") skip(item, block);
       }
     } else {
       patch.discontinued_at = discontinued ? (item.discontinued_at ?? nowIso) : item.discontinued_at ?? null;
@@ -601,4 +604,29 @@ export async function chasePrices(
 
 export const CHASE_SELECT =
   "id, name, item_number, pa_item_id, brand_item_id, cost_per_unit, cost_zeroed_at, unpriced_since, discontinued_at, ship_in_only, last_seen_on_bid_list, vendor_source";
+
+/** Sweep mode select: adds the fields the activation guards need. */
+export const CHASE_SWEEP_SELECT = CHASE_SELECT + ", is_active, deactivated_by, created_at";
+
+export type ActivationDecision = SkipReason | "already_active" | null;
+
+/**
+ * Sweep-mode activation rule (null = may switch on). Already-active rows are
+ * never written; any non-null deactivated_by blocks; when newRowSince is set
+ * (single-template publish) only rows created at/after it may switch on.
+ */
+export function activationDecision(
+  item: ChaseItem,
+  liveTemplates: Set<string>,
+  newRowSince?: string,
+): ActivationDecision {
+  if (item.is_active === true) return "already_active";
+  if (item.deactivated_by != null) return "manager_deactivated";
+  if (newRowSince && (!item.created_at || Date.parse(item.created_at) < Date.parse(newRowSince))) {
+    return "already_exists";
+  }
+  if (!item.brand_item_id) return "no_brand_link";
+  if (!liveTemplates.has(item.brand_item_id)) return "template_not_live";
+  return null;
+}
 

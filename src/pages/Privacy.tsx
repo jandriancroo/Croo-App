@@ -1,6 +1,15 @@
+import { Helmet } from "react-helmet-async";
+import { Link } from "react-router-dom";
+import { SiteFooter } from "@/components/marketing/SiteFooter";
+
 export default function Privacy() {
   return (
     <div className="min-h-screen bg-background py-12 px-4 sm:px-6 lg:px-8">
+      <Helmet>
+        <title>Privacy Policy | CrooHQ</title>
+        <meta name="description" content="How CrooHQ collects, uses, and protects restaurant operations data for owners, managers, and crew." />
+        <link rel="canonical" href="https://croohq.com/privacy" />
+      </Helmet>
       <div className="max-w-3xl mx-auto prose prose-neutral dark:prose-invert">
         <h1>CrooHQ Privacy Policy</h1>
         <p><strong>Last updated: February 28, 2026</strong></p>
@@ -91,7 +100,7 @@ export default function Privacy() {
         <p>
           We do not target or knowingly collect data from children under 13 for non-business purposes. If we learn that we have collected personal information from a child under 13 without parental consent, we will delete that information as quickly as possible.
         </p>
-        <p>If you believe we have collected information from a child under 13 without proper consent, please contact us immediately at jordan@jo-pizza.com.</p>
+        <p>If you believe we have collected information from a child under 13 without proper consent, please contact us immediately at <a href="mailto:jordan@croohq.com">jordan@croohq.com</a>.</p>
 
         <h3>8. Changes to This Policy</h3>
         <p>
@@ -102,10 +111,19 @@ export default function Privacy() {
         <p>If you have any questions about this Privacy Policy or our data practices, please contact us:</p>
         <p>
           <strong>CrooHQ</strong><br />
-          Email: jordan@jo-pizza.com<br />
+          Email: <a href="mailto:jordan@croohq.com">jordan@croohq.com</a><br />
           Address: 1433 Misty Ln Unit A, Beaumont, California 92223
         </p>
         <p>Thank you for trusting CrooHQ with your restaurant's operations.</p>
+      </div>
+      <div className="max-w-3xl mx-auto">
+        <SiteFooter>
+          <nav aria-label="Footer navigation">
+            <Link to="/">Home</Link>
+            <a href="/blog/">Blog</a>
+            <Link to="/terms">Terms</Link>
+          </nav>
+        </SiteFooter>
       </div>
     </div>
   );

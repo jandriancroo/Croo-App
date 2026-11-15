@@ -65,6 +65,8 @@ export interface RunCtx {
   tempValue: (id: string) => string;
   setTempValue: (id: string, v: string) => void;
   saveTemp: (id: string) => void;
+  /** Shift managers and up may still correct an old reading saved without a photo. */
+  canFixLegacyTemp?: boolean;
   completer: (id: string) => Completer | undefined;
   canUndo: (id: string) => boolean;
   undo: (id: string) => void;
@@ -341,9 +343,6 @@ function Row({ it, ctx, wide, onOpen, flash, sel }: { it: RunItem; ctx: RunCtx; 
     if (oneTap) right = <span className="shrink-0 text-sm text-muted-foreground">Tap to complete</span>;
     else if (wide && photo) right = (
       <span className="flex shrink-0 items-center gap-2" onClick={(e) => e.stopPropagation()}>
-        {temp && !ctx.tempOpen(it.id) && (
-          <button type="button" className="min-h-11 px-2 text-sm text-muted-foreground underline-offset-2 hover:underline" onClick={() => ctx.setTempOpen(it.id, true)}>Type it instead</button>
-        )}
         {ctx.uploading(it.id) ? (
           <span className="text-sm text-primary">Uploading…</span>
         ) : (
@@ -426,7 +425,7 @@ function Row({ it, ctx, wide, onOpen, flash, sel }: { it: RunItem; ctx: RunCtx; 
               <Markers it={it} />
             </>
           )}
-          {ctx.tempOpen(it.id) && temp && !amber && (
+          {ctx.tempOpen(it.id) && temp && !amber && ctx.photos(it).length > 0 && (
             <span className="mt-2 block"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></span>
           )}
           {amber && <span className="mt-2 flex items-center gap-3"><TempInput ctx={ctx} id={it.id} /><PhotoIcon ctx={ctx} it={it} /></span>}
@@ -553,7 +552,9 @@ function GuidedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
     const has = r.temp != null;
     const shot = photos[0];
     const tone = !has ? 'warn' : r.valid === false ? 'bad' : 'good';
-    const editOpen = ctx.tempOpen(it.id);
+    // The number box only fixes the reading on a saved photo (old photo-less readings: managers only).
+    const canEdit = !!shot || (has && !!ctx.canFixLegacyTemp);
+    const editOpen = canEdit && ctx.tempOpen(it.id);
     const openEdit = () => { ctx.setTempValue(it.id, has ? String(r.temp) : ''); ctx.setTempOpen(it.id, true); };
     return (
       <div className="space-y-3">
@@ -580,11 +581,13 @@ function GuidedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
                 tone === 'good' && 'bg-[hsl(var(--success))] text-primary-foreground', tone === 'bad' && 'bg-destructive text-destructive-foreground', tone === 'warn' && 'bg-[hsl(var(--warning))] text-primary-foreground')}>
                 {tone === 'good' ? 'Safe' : tone === 'bad' ? 'Out of range' : '?'}
               </span>
-              <button type="button" onClick={openEdit} aria-label={has ? 'Edit temperature' : 'Enter temperature'}
-                className={cn('flex h-11 w-11 items-center justify-center rounded-full',
-                  tone === 'good' && 'bg-[hsl(var(--success))] text-primary-foreground', tone === 'bad' && 'bg-destructive text-destructive-foreground', tone === 'warn' && 'bg-[hsl(var(--warning))] text-primary-foreground')}>
-                <Pencil className="h-4 w-4" />
-              </button>
+              {canEdit && (
+                <button type="button" onClick={openEdit} aria-label={has ? 'Edit temperature' : 'Enter temperature'}
+                  className={cn('flex h-11 w-11 items-center justify-center rounded-full',
+                    tone === 'good' && 'bg-[hsl(var(--success))] text-primary-foreground', tone === 'bad' && 'bg-destructive text-destructive-foreground', tone === 'warn' && 'bg-[hsl(var(--warning))] text-primary-foreground')}>
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -601,12 +604,7 @@ function GuidedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
             )}
           </div>
         ) : (
-          <>
-            <TakeButtons ctx={ctx} it={it} label="Take photo" />
-            {it.item_type === 'temperature' && !editOpen && (
-              <button type="button" className="min-h-11 w-full text-sm text-muted-foreground" onClick={openEdit}>Type it instead</button>
-            )}
-          </>
+          <TakeButtons ctx={ctx} it={it} label="Take photo" />
         )}
         <DoneBanner ctx={ctx} it={it} />
       </div>
@@ -797,14 +795,14 @@ function CompletedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
               </div>
               {temp && r!.editedBy && <div className="text-xs text-muted-foreground">Edited by {r!.editedBy}</div>}
             </div>
-            {temp && can && (
+            {temp && can && (!!photos[0] || !!ctx.canFixLegacyTemp) && (
               <Button type="button" variant="outline" className="h-11 shrink-0 border-border bg-card"
                 onClick={() => { ctx.setTempValue(it.id, r!.temp != null ? String(r!.temp) : ''); ctx.setTempOpen(it.id, true); }}>
                 <Pencil className="mr-1.5 h-4 w-4" />Edit reading
               </Button>
             )}
           </div>
-          {temp && ctx.tempOpen(it.id) && <div className="mt-2"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></div>}
+          {temp && ctx.tempOpen(it.id) && (!!photos[0] || !!ctx.canFixLegacyTemp) && <div className="mt-2"><TempInput ctx={ctx} id={it.id} autoFocus onCancel={() => ctx.setTempOpen(it.id, false)} /></div>}
           {temp && photos[0] && (
             <button type="button" onClick={() => openPhoto(0)} className="mt-3 flex items-center gap-3 text-left" aria-label="See temp photo full size">
               <img src={photos[0]} alt="Temp photo" className="h-24 w-24 rounded-xl border object-cover" loading="lazy" decoding="async" />

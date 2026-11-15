@@ -6,6 +6,10 @@
 export const SETTINGS_ALIAS: Record<string, string> = {
   late_arrival: 'late_arrivals',
   toast_late_clock_in: 'late_arrivals',
+  late_arrival_self: 'personal',
+  no_call_no_show_self: 'personal',
+  cert_expiring_self: 'personal',
+  no_call_no_show: 'late_arrivals',
   overdue_checklist: 'overdue_checklists',
   monthly_checklist: 'overdue_checklists',
   certificate_expiry: 'certification_expiring',

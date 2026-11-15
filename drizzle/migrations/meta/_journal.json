@@ -540,6 +540,188 @@
       "when": 1793204204808,
       "tag": "0076_scheduling_manager_no_briefings",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1793593627522,
+      "tag": "0077_daily_goal_consistency_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1793594046895,
+      "tag": "0078_goal_engine_hourly_tick",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1793594647403,
+      "tag": "0079_daily_goal_planning_insert_once",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1793595904442,
+      "tag": "0080_daily_goal_legacy_backfill_and_resolver",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1793595982562,
+      "tag": "0081_daily_goal_past_living_freeze",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1793597207693,
+      "tag": "0082_daily_goal_atomic_cutover",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1793597981030,
+      "tag": "0083_dashboard_cube_manager_add_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1793599217419,
+      "tag": "0084_pos_sales_extras_and_aloha_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1793602977646,
+      "tag": "0085_notification_email_channel",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1793603808752,
+      "tag": "0086_employee_job_alerts",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1793685202981,
+      "tag": "0087_scope_brand_publish_activation",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1793734609344,
+      "tag": "0088_toast_clock_alert_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1793915571355,
+      "tag": "0089_messages_member_only_edit_delete",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1793918607652,
+      "tag": "0090_lock_validate_widget_authority",
+      "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1794471994786,
+      "tag": "0091_customer_reviews",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1794472013836,
+      "tag": "0092_customer_review_notice",
+      "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1794513349105,
+      "tag": "0093_temperature_photo_required",
+      "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1794513377509,
+      "tag": "0094_location_google_reviews",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1794584465017,
+      "tag": "0095_location_org_active_switch",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1794585258696,
+      "tag": "0096_toast_session_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1794615600000,
+      "tag": "0097_customer_review_question_sets",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1794615601000,
+      "tag": "0098_shift_offer_claims_store_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1794615602000,
+      "tag": "0099_pin_review_question_set_to_a",
+      "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1794615603000,
+      "tag": "0100_restore_review_question_set_rotation",
+      "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1794615604000,
+      "tag": "0101_location_stations_store_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1794615605000,
+      "tag": "0102_gross_sales",
+      "breakpoints": true
     }
   ]
 }

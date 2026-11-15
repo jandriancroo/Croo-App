@@ -16,6 +16,9 @@ import { RoleManagementSection } from '@/components/settings/RoleManagementSecti
 
 import { PositionManagementInline } from '@/components/settings/PositionManagementInline';
 import { useUserRole } from '@/hooks/useUserRole';
+import { ActiveSwitchCard } from '@/components/settings/ActiveSwitchCard';
+import { ActiveStatusBadge } from '@/components/settings/ActiveStatusBadge';
+import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { OrgLibraryEnableSection } from '@/components/library/OrgLibraryEnableSection';
 import { PunchDeviceManager } from '@/components/organization/PunchDeviceManager';
 import { WatchDeviceManager } from '@/components/organization/WatchDeviceManager';
@@ -32,6 +35,7 @@ export default function OrganizationProfile() {
   const [slug, setSlug] = useState('');
   const [brandId, setBrandId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const { refetchLocations } = useAppLocation();
 
   // Fetch all brands for the dropdown
   const { data: brands = [] } = useQuery({
@@ -374,12 +378,30 @@ export default function OrganizationProfile() {
                         </div>
                       </div>
                     </div>
-                    <ExternalLink className="h-3 w-3" />
+                    <div className="flex items-center gap-2">
+                      {isSuperAdmin && <ActiveStatusBadge active={location.is_active !== false} />}
+                      <ExternalLink className="h-3 w-3" />
+                    </div>
                   </Button>
                 ))
               )}
             </CardContent>
           </Card>
+        )}
+
+        {/* Active / Inactive switch — super admin only */}
+        {!isNew && isSuperAdmin && organization?.id && (
+          <ActiveSwitchCard
+            kind="org"
+            id={organization.id}
+            name={organization.name}
+            isActive={organization.is_active !== false}
+            onChanged={() => {
+              queryClient.invalidateQueries({ queryKey: ['organization', id] });
+              queryClient.invalidateQueries({ queryKey: ['organization-locations', id] });
+              refetchLocations();
+            }}
+          />
         )}
       </div>
     </Layout>

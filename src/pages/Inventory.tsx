@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClipboardList, Settings, Package, MapPin, ArrowLeft, DollarSign, ArrowRightLeft, Plus, FileText, Sparkles } from "lucide-react";
 import TransferDialog from "@/components/inventory/TransferDialog";
-import { useInventoryTransfers } from "@/hooks/useInventoryTransfers";
+import { useInventoryTransfers, getTransferTotalsForPeriod, Transfer } from "@/hooks/useInventoryTransfers";
 import MenuPricingCard from "@/components/inventory/menu-pricing/MenuPricingCard";
 import RecipeGeniusCard from "@/components/inventory/menu-pricing/RecipeGeniusCard";
 import InventoryCountTab from "@/components/inventory/InventoryCountTab";
@@ -324,12 +324,58 @@ const Inventory = () => {
           completedWithWindow[0].win.end,
         );
 
+        // Sales can run past the period end (sales_end_override, late/flex
+        // counts) or start before it (sales_start_override). Widen the sales
+        // fetch so the list pill sees the same days as PeriodDetailPanel.
+        let salesFetchStart = earliestStart;
+        let salesFetchEnd = latestEnd;
+        for (const { c } of completedWithWindow) {
+          const so = (c as any).sales_start_override as string | null;
+          const eo = (c as any).sales_end_override as string | null;
+          if (so && so < salesFetchStart) salesFetchStart = so;
+          if (eo && eo > salesFetchEnd) salesFetchEnd = eo;
+          if (c.counted_at) {
+            const cd = formatInTimeZone(new Date(c.counted_at), timezone, "yyyy-MM-dd");
+            if (cd > salesFetchEnd) salesFetchEnd = cd;
+          }
+        }
+
         const [pfgRes, paRes, invRes, salesRes] = await Promise.all([
           supabase.from("pfg_orders").select("delivery_date,total_amount").eq("location_id", locationId).gte("delivery_date", earliestStart).lte("delivery_date", latestEnd),
           supabase.from("pa_orders").select("delivery_date,total_amount").eq("location_id", locationId).gte("delivery_date", earliestStart).lte("delivery_date", latestEnd),
           supabase.from("vendor_invoices").select("delivery_date,total_amount").eq("location_id", locationId).gte("delivery_date", earliestStart).lte("delivery_date", latestEnd),
-          supabase.from("sales_cache").select("sale_date,net_sales").eq("location_id", locationId).gte("sale_date", earliestStart).lte("sale_date", latestEnd),
+          supabase.from("sales_cache").select("sale_date,net_sales").eq("location_id", locationId).gte("sale_date", salesFetchStart).lte("sale_date", salesFetchEnd),
         ]);
+
+        // Received transfers in/out for this location across the shown periods
+        // (same received-only rule + shared line-value helper as PeriodDetailPanel).
+        let periodTransfers: Transfer[] = [];
+        {
+          const { data: tData } = await supabase
+            .from("inventory_transfers")
+            .select("*, inventory_transfer_items (*)")
+            .or(`from_location_id.eq.${locationId},to_location_id.eq.${locationId}`)
+            .eq("status", "received")
+            .gte("transfer_date", earliestStart)
+            .lte("transfer_date", latestEnd);
+          const tRows = (tData as any[]) || [];
+          const tItemIds = [...new Set(tRows.flatMap(t => (t.inventory_transfer_items || []).map((i: any) => i.item_id)))];
+          const packMap = new Map<string, number | null>();
+          if (tItemIds.length > 0) {
+            const { data: packRows } = await supabase
+              .from("inventory_items")
+              .select("id, pack_quantity")
+              .in("id", tItemIds);
+            for (const r of ((packRows as any[]) || [])) packMap.set(r.id, r.pack_quantity);
+          }
+          periodTransfers = tRows.map(t => ({
+            ...t,
+            inventory_transfer_items: (t.inventory_transfer_items || []).map((ti: any) => ({
+              ...ti,
+              pack_quantity: packMap.get(ti.item_id) ?? null,
+            })),
+          }));
+        }
 
         const allOrders: { delivery_date: string | null; total_amount: number | null }[] = [
           ...((pfgRes.data as any[]) || []),
@@ -474,7 +520,8 @@ const Inventory = () => {
           const salesEnd = salesEndFor(c, win);
           const netSales = salesRows.reduce((s, r) => {
             if (!r.sale_date) return s;
-            if (r.sale_date < win.start || r.sale_date > salesEnd) return s;
+            const salesStart = (c as any).sales_start_override || win.start;
+            if (r.sale_date < salesStart || r.sale_date > salesEnd) return s;
             return s + (Number(r.net_sales) || 0);
           }, 0);
 
@@ -490,7 +537,13 @@ const Inventory = () => {
             beginValue = fallback ? (statsMap[fallback.c.id]?.totalCost ?? 0) : 0;
           }
           const ending = statsMap[c.id]?.totalCost ?? 0;
-          const cogsTotal = beginValue + purchasesTotal - ending;
+          const { transfersIn, transfersOut } = getTransferTotalsForPeriod(
+            periodTransfers,
+            locationId!,
+            win.start,
+            win.end,
+          );
+          const cogsTotal = beginValue + purchasesTotal + transfersIn - transfersOut - ending;
           const cogsPct = netSales > 0 ? (cogsTotal / netSales) * 100 : null;
           enrichMap[c.id] = { purchasesTotal, cogsPct };
         }

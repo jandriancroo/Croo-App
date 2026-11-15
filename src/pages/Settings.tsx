@@ -5,9 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { ActiveStatusBadge } from '@/components/settings/ActiveStatusBadge';
 import { toast } from '@/components/ui/sonner';
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { supabase } from '@/integrations/supabase/client';
@@ -123,6 +124,7 @@ const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> =
 
 export default function Settings() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const duo = useDuo();
   const [duoSel, setDuoSel] = useState<string | null>(null);
   const { isAdmin, isSuperAdmin, isOrgAdmin, isBrandAdmin, isShiftManager, isManager, role } = useUserRole();
@@ -157,6 +159,13 @@ export default function Settings() {
   const toggleSection = (sectionId: string) => {
     setOpenSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
   };
+  useEffect(() => {
+    if (searchParams.get('section') === 'notifications') {
+      setActiveTab('location');
+      setOpenSections(prev => ({ ...prev, notifications: true }));
+      setDuoSel('notifications');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -178,7 +187,7 @@ export default function Settings() {
     try {
       const { data, error } = await supabase
         .from('locations')
-        .select('id, name, organization_id')
+        .select('id, name, organization_id, is_active')
         .order('created_at', { ascending: true });
       if (error) throw error;
       setLocations(data || []);
@@ -189,11 +198,12 @@ export default function Settings() {
 
   const fetchOrganizations = async () => {
     try {
-      const { data, error } = await supabase
+      // Super admin sees every Org (Active and Inactive) in All Organizations.
+      let orgQuery = supabase
         .from('organizations')
-        .select('*, brands(name, logo_url)')
-        .eq('is_active', true)
-        .order('name', { ascending: true });
+        .select('*, brands(name, logo_url)');
+      if (!isSuperAdmin) orgQuery = orgQuery.eq('is_active', true);
+      const { data, error } = await orgQuery.order('name', { ascending: true });
       if (error) throw error;
       const orgsWithLogos = (data || []).map((org: any) => ({
         ...org,
@@ -396,6 +406,12 @@ export default function Settings() {
                         )}
                         {org.name}
                       </div>
+                      <div className="flex items-center gap-1.5">
+                        {org.is_active !== false && orgLocations.length > 0 && orgLocations.every(l => l.is_active === false) && (
+                          <span className="text-[10px] text-muted-foreground">No active locations</span>
+                        )}
+                        <ActiveStatusBadge active={org.is_active !== false} />
+                      </div>
                     </Button>
                     <div className="space-y-1">
                       {orgLocations.map((location) => (
@@ -407,6 +423,7 @@ export default function Settings() {
                           onClick={() => navigate(`/location/${location.id}`)}
                         >
                           <span className="text-xs">{location.name}</span>
+                          <ActiveStatusBadge active={location.is_active !== false} />
                         </Button>
                       ))}
                       {orgLocations.length === 0 && (

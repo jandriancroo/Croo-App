@@ -46,7 +46,7 @@ import { PullToRefresh } from './PullToRefresh';
 import { useDockToast } from '@/contexts/DockToastContext';
 import { useRolePermissions } from '@/hooks/useRolePermissions';
 import { CompactDashboard } from '@/components/dock/CompactDashboard';
-import { OvationScorePopover, OvationScoreTab, OvationExpandedPanel, OvationTriggerWithPanel, useOvationData } from '@/components/dashboard/OvationScorePopover';
+import { OvationScorePopover, OvationScoreTab, OvationExpandedPanel, OvationTriggerWithPanel, useReviewsData } from '@/components/dashboard/OvationScorePopover';
 import { syncChromeColor } from '@/utils/syncChrome';
 import { DuoNav } from '@/components/duo/DuoNav';
 
@@ -474,7 +474,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   // Safety net: clear a stray body pointer-events:none when no dialog is open.
   useEffect(() => installStrayPointerLockGuard(), []);
   const [ovationExpanded, setOvationExpanded] = useState(false);
-  const { displayScore: ovationDisplayScore, isLoading: ovationLoading } = useOvationData();
+  // Ovation, or Google for stores not on Ovation (same pill, same spot).
+  const { displayScore: ovationDisplayScore, isLoading: ovationLoading } = useReviewsData();
   const ovationHasContent = !!ovationDisplayScore || ovationLoading;
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [textSize, setTextSize] = useState(localStorage.getItem('app-text-size') || 'medium');

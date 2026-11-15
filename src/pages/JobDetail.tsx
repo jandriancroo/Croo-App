@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
+import { safeJsonLd, buildJobPosting, parseJobAddress } from '@/lib/jobSeo';
 import { supabase } from '@/integrations/supabase/client';
 import { MapPin, DollarSign, Clock, ArrowLeft, Loader2 } from 'lucide-react';
 import crooLogo from '@/assets/croo-logo-square.png';
@@ -13,30 +14,6 @@ const EMPLOYMENT_LABEL: Record<string, string> = {
   seasonal: 'Seasonal',
   intern: 'Intern',
 };
-const EMPLOYMENT_SCHEMA: Record<string, string> = {
-  full_time: 'FULL_TIME',
-  part_time: 'PART_TIME',
-  contract: 'CONTRACTOR',
-  temporary: 'TEMPORARY',
-  intern: 'INTERN',
-  seasonal: 'TEMPORARY',
-};
-
-function parseAddress(address: string | null) {
-  if (!address) return { street: '', city: '', state: '', zip: '' };
-  const parts = address.split(',').map((s) => s.trim());
-  if (parts.length >= 2) {
-    const lastPart = parts[parts.length - 1];
-    const m = lastPart.match(/^([A-Za-z\s]+?)\s+(\d{5}(?:-\d{4})?)$/);
-    if (m) {
-      const city = parts.length >= 3 ? parts[parts.length - 2] : '';
-      return { street: parts[0], city, state: m[1].trim(), zip: m[2] };
-    }
-    return { street: parts[0], city: parts.length >= 3 ? parts[1] : '', state: lastPart, zip: '' };
-  }
-  return { street: address, city: '', state: '', zip: '' };
-}
-
 export default function JobDetail() {
   const { slug } = useParams<{ slug: string }>();
   const idMatch = slug?.match(/([0-9a-f]{8})$/i);
@@ -51,7 +28,7 @@ export default function JobDetail() {
         .select(`
           id, title, description, employment_type, pay_min, pay_max, pay_type, posted_at, expires_at, status, syndication_enabled,
           location:locations(id, name, address),
-          organization:organizations(id, name, slug, brand_name)
+          organization:organizations(id, name, slug, brand_name, logo_url)
         `)
         .eq('status', 'active')
         .eq('syndication_enabled', true);
@@ -74,6 +51,10 @@ export default function JobDetail() {
   if (error || !job) {
     return (
       <div className="min-h-screen bg-[#f5f4f1] flex flex-col items-center justify-center p-6 text-center">
+        <Helmet>
+          <title>Job no longer available | CrooHQ Jobs</title>
+          <meta name="robots" content="noindex" />
+        </Helmet>
         <h1 className="text-2xl font-semibold text-gray-900 mb-2">Job not found</h1>
         <p className="text-gray-500 mb-6">This listing is no longer available.</p>
         <Link to="/jobs" className="text-teal-700 font-medium">Browse open positions →</Link>
@@ -81,71 +62,32 @@ export default function JobDetail() {
     );
   }
 
-  const addr = parseAddress(job.location?.address || null);
+  const built = buildJobPosting(job);
+  const addr = parseJobAddress(job.location?.address || null);
   const company = job.organization?.brand_name || job.organization?.name || 'Company';
   const empLabel = EMPLOYMENT_LABEL[job.employment_type] || 'Full Time';
   const payStr = job.pay_min
     ? `$${job.pay_min}${job.pay_max && job.pay_max !== job.pay_min ? `–$${job.pay_max}` : ''}/${job.pay_type === 'salary' ? 'yr' : 'hr'}`
     : '';
-  const titleText = `${job.title} – ${company}${addr.city ? `, ${addr.city}` : ''}`;
-  const metaDesc = (job.description || `Apply for ${job.title} at ${company}${addr.city ? ` in ${addr.city}` : ''}.`).slice(0, 158);
-  const canonical = `https://croohq.com/jobs/${slug}`;
   const applyUrl = `/apply/${job.organization?.slug}?utm_source=job_detail&listing=${job.id}`;
-  const jsonLd: any = {
-    '@context': 'https://schema.org/',
-    '@type': 'JobPosting',
-    title: job.title,
-    description: job.description || job.title,
-    datePosted: job.posted_at?.split('T')[0],
-    employmentType: EMPLOYMENT_SCHEMA[job.employment_type] || 'FULL_TIME',
-    hiringOrganization: { '@type': 'Organization', name: company, sameAs: `https://croohq.com/apply/${job.organization?.slug}` },
-    jobLocation: {
-      '@type': 'Place',
-      address: {
-        '@type': 'PostalAddress',
-        streetAddress: addr.street,
-        addressLocality: addr.city,
-        addressRegion: addr.state,
-        postalCode: addr.zip,
-        addressCountry: 'US',
-      },
-    },
-    identifier: { '@type': 'PropertyValue', name: company, value: job.id },
-    // Apply happens on a separate page (/apply/...), not inline on this URL
-    directApply: false,
-    url: canonical,
-    industry: 'Food Services',
-  };
-  // Only set validThrough when there's a real expiry — never fake it
-  if (job.expires_at) {
-    jsonLd.validThrough = job.expires_at.split('T')[0];
-  }
-  if (job.pay_min || job.pay_max) {
-    jsonLd.baseSalary = {
-      '@type': 'MonetaryAmount',
-      currency: 'USD',
-      value: {
-        '@type': 'QuantitativeValue',
-        minValue: job.pay_min,
-        maxValue: job.pay_max || job.pay_min,
-        unitText: job.pay_type === 'salary' ? 'YEAR' : 'HOUR',
-      },
-    };
-  }
+  const documentTitle = built.document.documentTitle;
+  const metaDescription = built.document.metaDescription;
+  const canonical = built.canonical;
+  const jsonLd = built.posting;
 
   const paragraphs = (job.description || '').split(/\n{2,}/).map((p: string) => p.trim()).filter(Boolean);
 
   return (
     <>
       <Helmet>
-        <title>{`${titleText} | CrooHQ Jobs`}</title>
-        <meta name="description" content={metaDesc} />
+        <title>{documentTitle}</title>
+        <meta name="description" content={metaDescription} />
         <link rel="canonical" href={canonical} />
-        <meta property="og:title" content={titleText} />
-        <meta property="og:description" content={metaDesc} />
+        <meta property="og:title" content={documentTitle} />
+        <meta property="og:description" content={metaDescription} />
         <meta property="og:type" content="article" />
         <meta property="og:url" content={canonical} />
-        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+        <script type="application/ld+json">{safeJsonLd(jsonLd)}</script>
       </Helmet>
       <div className="min-h-screen bg-[#f5f4f1]">
         <header className="bg-white border-b border-gray-200">

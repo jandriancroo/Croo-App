@@ -9,13 +9,13 @@ import {
 import { resolveProjection } from "@/hooks/useResolvedProjection";
 
 describe("resolveGoal", () => {
-  it("override > living > initial > projected, ignoring <= 0", () => {
-    expect(resolveGoal({ override_projection: 900, living_projection: 800, initial_projection: 700, projected_sales: 600 })).toBe(900);
+  it("positive override > living > planning > zero", () => {
+    expect(resolveGoal({ override_projection: 900, living_projection: 800, initial_projection: 700 })).toBe(900);
     expect(resolveGoal({ override_projection: 0, living_projection: 800, initial_projection: 700 })).toBe(800);
     expect(resolveGoal({ override_projection: -5, living_projection: null, initial_projection: 700 })).toBe(700);
-    expect(resolveGoal({ projected_sales: "600" })).toBe(600);
-    expect(resolveGoal({})).toBeNull();
-    expect(resolveGoal(null)).toBeNull();
+    expect(resolveGoal({ living_projection: 0, initial_projection: 700 })).toBe(0);
+    expect(resolveGoal({})).toBe(0);
+    expect(resolveGoal(null)).toBe(0);
     expect(resolveProjection({ living_projection: 800, initial_projection: 700 })).toMatchObject({ value: 800, source: "living", isLiving: true });
   });
 });

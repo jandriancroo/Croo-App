@@ -50,6 +50,7 @@ async function dispatchReminders() {
         .not("user_id", "is", null)
         .eq("is_time_off", false)
         .eq("schedules.is_published", true)
+        .eq("schedules.locations.is_active", true)
         .gte("shift_date", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10))
         .lte("shift_date", new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
 

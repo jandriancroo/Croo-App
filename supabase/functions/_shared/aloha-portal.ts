@@ -200,6 +200,7 @@ function parseAppConfig(base: string, html: string, companyId: string, jar: Jar)
 export type AlohaLocationType = 1 | 2 | 3 | 4 | 5;
 
 export interface AlohaGridRow {
+  availableMetrics?: Record<string, number>;
   StoreName: string;
   NetSales: number;
   NetSalesLastYear: number;
@@ -307,6 +308,7 @@ export function parseAlohaGridCsv(csv: string): { stores: AlohaGridRow[]; summar
   }
 
   const parseRow = (r: Record<string, string>): AlohaGridRow => ({
+    availableMetrics: availableAlohaMetrics(r),
     StoreName: r.StoreName ?? r.Summary ?? "",
     NetSales: num(r.NetSales),
     NetSalesLastYear: num(r.NetSalesLastYear),
@@ -365,6 +367,18 @@ function num(v: string | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+// Unlike the legacy display numbers, presence distinguishes missing data from a measured zero.
+function availableAlohaMetrics(row: Record<string, unknown>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const key of ['CompCount','CompDollars','PromoCount','PromoDollars','VoidCount','VoidDollars','CheckCount','NetSalesLastYear']) {
+    const raw = row[key];
+    if (raw == null || String(raw).trim() === '') continue;
+    const value = Number(String(raw).replace(/[$,%\s,]/g, '').replace(/^\((.+)\)$/, '-$1'));
+    if (Number.isFinite(value)) out[key] = value;
+  }
+  return out;
+}
+
 // ── InsightDashboard config-based fetch (works for "yesterday" tiles) ─────
 // The Insight portal computes tile metrics server-side and returns them via
 // /servlet/InsightDashboard?requestType=getDashboardConfiguration. Each tile
@@ -376,6 +390,7 @@ function num(v: string | undefined): number {
 // Hourly and tips are NOT in the dashboard payload; those need the Drilldown
 // Viewer report and can be layered in later.
 export interface AlohaStoreRow {
+  availableMetrics?: Record<string, number>;
   storeName: string;
   netSales: number;
   netSalesLastYear: number;
@@ -425,6 +440,7 @@ function n(v: unknown): number {
 
 function mapStoreRow(r: any, storeName?: string): AlohaStoreRow {
   return {
+    availableMetrics: availableAlohaMetrics(r),
     storeName: storeName ?? r.StoreName ?? r.Summary ?? "",
     netSales: n(r.NetSales),
     netSalesLastYear: n(r.NetSalesLastYear),
@@ -665,6 +681,7 @@ export async function fetchAlohaHourly(
     throw new Error(`Aloha ddv_parse_hrly failed: HTTP ${res.status}`);
   }
   const html = await res.text();
+  assertAlohaReportSession(html);
   return parseAlohaHourlyHtml(html);
 }
 
@@ -752,6 +769,7 @@ export async function fetchAlohaMenu(
 
   if (!res.ok) throw new Error(`Aloha ddv_parse_menu failed: HTTP ${res.status}`);
   const html = await res.text();
+  assertAlohaReportSession(html);
   return parseAlohaMenuHtml(html);
 }
 
@@ -862,7 +880,15 @@ async function postDdvTable(
     body: form.toString(),
   });
   if (!res.ok) throw new Error(`Aloha ${path} failed: HTTP ${res.status}`);
-  return await res.text();
+  const html = await res.text();
+  assertAlohaReportSession(html);
+  return html;
+}
+
+function assertAlohaReportSession(html: string): void {
+  if (/name=["']loginForm["']|session (?:expired|invalid)|account.{0,20}locked|invalid (?:login|password)/i.test(html)) {
+    throw new Error('Aloha login/session blocked');
+  }
 }
 
 function stripHtml(s: string): string {

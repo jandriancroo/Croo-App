@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 
-export interface DuoCellMetric { label: string; value: string; behind?: boolean }
+export interface DuoCellMetric { label: string; value: string; behind?: boolean; goalTag?: React.ReactNode }
 export function DuoSalesCell({ title, metrics, currentFace, totalFaces, onFace, onDown, onUp, onCancel }: {
   title?: string; metrics: DuoCellMetric[]; currentFace: number; totalFaces: number;
   onFace: (n: number) => void; onDown: () => void; onUp: () => void; onCancel: () => void;
@@ -13,8 +13,8 @@ export function DuoSalesCell({ title, metrics, currentFace, totalFaces, onFace, 
       <Button key={i} variant="ghost" aria-label={`Show face ${i + 1}`} aria-pressed={i === currentFace}
         onPointerDown={e => e.stopPropagation()} onPointerUp={e => e.stopPropagation()}
         onClick={e => { e.stopPropagation(); onFace(i); }}><i /></Button>)}</div></div>
-    <div className="duo-cell-face" key={currentFace}><div className="duo-cell-hero"><b>{hero?.value ?? '--'}</b><small>{hero?.label}</small></div>
-      <div className="duo-cell-grid">{rest.map((m, i) => <div key={i}><b>{m.behind && <i className="duo-down">↓ </i>}{m.value}</b><small>{m.label}</small></div>)}</div>
+    <div className="duo-cell-face" key={currentFace}><div className="duo-cell-hero"><b>{hero?.value ?? '--'}</b><small>{hero?.label}{hero?.goalTag}</small></div>
+      <div className="duo-cell-grid">{rest.map((m, i) => <div key={i}><b>{m.behind && <i className="duo-down">↓ </i>}{m.value}</b><small>{m.label}{m.goalTag}</small></div>)}</div>
     </div>
   </div>;
 }

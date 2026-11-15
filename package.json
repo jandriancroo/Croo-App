@@ -5,10 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/check-jobs-html.mjs",
+    "build:jobs": "node scripts/build-jobs.mjs",
+    "check:jobs": "node scripts/check-jobs-html.mjs",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:blog": "node scripts/build-blog.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.5.0",

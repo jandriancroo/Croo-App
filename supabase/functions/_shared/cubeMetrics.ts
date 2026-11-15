@@ -4,33 +4,35 @@
 // dashboard (useOrgDashboardData / OrgTotalsBar), dock CompactDashboard, and
 // watch-device-service.
 
-export type GoalSource = "override" | "living" | "initial" | "legacy";
+export type GoalSource = "override" | "living" | "planning" | "none";
 
 export interface GoalRow {
   override_projection?: number | string | null;
   living_projection?: number | string | null;
   initial_projection?: number | string | null;
-  projected_sales?: number | string | null;
 }
 
-/** Goal: override > living > initial > projected_sales; values <= 0 are ignored. */
-export function resolveGoalWithSource(row: GoalRow | null | undefined): { value: number | null; source: GoalSource | null } {
-  if (!row) return { value: null, source: null };
+/** Positive Override > Living > Planning > zero; a saved zero is not missing. */
+export function resolveGoalWithSource(row: GoalRow | null | undefined): { value: number; source: GoalSource } {
+  if (!row) return { value: 0, source: 'none' };
   const order: [GoalSource, unknown][] = [
     ["override", row.override_projection],
     ["living", row.living_projection],
-    ["initial", row.initial_projection],
-    ["legacy", row.projected_sales],
+    ["planning", row.initial_projection],
   ];
   for (const [source, v] of order) {
     const n = Number(v);
-    if (v != null && Number.isFinite(n) && n > 0) return { value: n, source };
+    if (v != null && Number.isFinite(n) && (source !== 'override' || n > 0)) return { value: n, source };
   }
-  return { value: null, source: null };
+  return { value: 0, source: 'none' };
 }
 
-export function resolveGoal(row: GoalRow | null | undefined): number | null {
+export function resolveGoal(row: GoalRow | null | undefined): number {
   return resolveGoalWithSource(row).value;
+}
+
+export function periodGoal(rows: (GoalRow | null | undefined)[]): number {
+  return rows.reduce((total, row) => total + resolveGoal(row), 0);
 }
 
 /** Store-local date and clock for a time zone (location_settings.timezone). */

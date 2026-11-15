@@ -8,6 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
+import { canEditDailyGoal } from '@/lib/goalResolver';
+import { ProjectionTag } from '@/components/ui/projection-tag';
 import { projectionGoalValue, resolveProjection } from '@/hooks/useResolvedProjection';
 
 interface SalesProjectionDialogProps {
@@ -20,7 +24,7 @@ interface SalesProjectionDialogProps {
   todayStr: string;
   /** Value currently displayed in the grid */
   currentValue: number;
-  currentSource?: 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'initial';
+  currentSource?: 'manual' | 'historical' | 'ai' | 'override' | 'living' | 'planning' | 'none';
   canEdit: boolean;
   onSaveOverride: (value: number, excludedDates?: string[]) => Promise<void> | void;
   onResetToProjection: () => Promise<void> | void;
@@ -32,7 +36,6 @@ interface CacheRow {
   living_projection: number | null;
   override_projection: number | null;
   override_at: string | null;
-  projected_sales: number | null;
   override_excluded_dates: string[] | null;
 }
 
@@ -80,10 +83,13 @@ export function SalesProjectionDialog({
   todayStr,
   currentValue,
   currentSource,
-  canEdit,
+  canEdit: requestedEdit,
   onSaveOverride,
   onResetToProjection,
 }: SalesProjectionDialogProps) {
+  const { role } = useUserRole();
+  const { timezone } = useLocationTimezone();
+  const canEdit = requestedEdit && canEditDailyGoal(role, dateStr, DateTime.now().setZone(timezone).toFormat('yyyy-MM-dd'));
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [row, setRow] = useState<CacheRow | null>(null);
@@ -114,7 +120,7 @@ export function SalesProjectionDialog({
       const [rowRes, histRes, holidayRes, eventRes] = await Promise.all([
         supabase
           .from('sales_cache')
-          .select('net_sales, initial_projection, living_projection, override_projection, override_at, projected_sales, override_excluded_dates')
+          .select('net_sales, initial_projection, living_projection, override_projection, override_at, override_excluded_dates')
           .eq('location_id', locationId)
           .eq('sale_date', dateStr)
           .maybeSingle(),
@@ -178,7 +184,7 @@ export function SalesProjectionDialog({
       const ly = rows.find(r => r.sale_date === lastYearDate);
       setLastYear(ly ? { date: lastYearDate, net_sales: ly.net_sales } : { date: lastYearDate, net_sales: null });
       const goal = projectionGoalValue(rowRes.data, currentValue, dateStr <= todayStr || currentSource === 'historical');
-      setDraft(goal != null ? String(Math.round(goal * 100) / 100) : '');
+      setDraft(goal != null ? String(Math.round(goal)) : '');
       setLoading(false);
     };
     load();
@@ -213,32 +219,20 @@ export function SalesProjectionDialog({
     const average = included.length
       ? included.reduce((sum, item) => sum + (item.net_sales || 0), 0) / included.length
       : 0;
-    setDraft(average > 0 ? String(Math.round(average * 100) / 100) : '');
+    setDraft(average > 0 ? String(Math.round(average)) : '');
   };
 
-  const sourceBadge = (() => {
-    const source = !isPast ? resolved.source : currentSource;
-    if (source === 'historical') {
-      return <Badge variant="outline" className="gap-1 border-green-500/40 text-green-600"><CheckCircle2 className="h-3 w-3" />Actual sales</Badge>;
-    }
-    if (source === 'override' || source === 'manual') {
-      return <Badge variant="outline" className="gap-1 border-amber-500/40 text-amber-600"><PencilLine className="h-3 w-3" />Manager override</Badge>;
-    }
-    if (source === 'living') {
-      return <Badge variant="outline" className="gap-1 border-primary/40 text-primary"><Radio className="h-3 w-3" />Live goal</Badge>;
-    }
-    return <Badge variant="outline" className="gap-1 border-primary/30 text-primary"><Sparkles className="h-3 w-3" />Goal</Badge>;
-  })();
+  const sourceBadge = <ProjectionTag source={resolved.source} locationId={locationId} dateStr={dateStr} timezone={timezone} planningValue={row?.initial_projection} />;
 
   const handleSave = async () => {
     const value = parseFloat(draft);
-    if (!(value >= 0)) return;
+    if (!canEdit || !(value > 0)) return;
     setSaving(true);
     try {
       const excludedDates = history
         .filter(item => (item.net_sales ?? 0) > 0 && !includedDates.has(item.date))
         .map(item => item.date);
-      await onSaveOverride(Math.round(value * 100) / 100, excludedDates);
+      await onSaveOverride(Math.round(value), excludedDates);
       onOpenChange(false);
     } finally {
       setSaving(false);
@@ -246,6 +240,7 @@ export function SalesProjectionDialog({
   };
 
   const handleReset = async () => {
+    if (!canEdit) return;
     setSaving(true);
     try {
       await onResetToProjection();
@@ -340,30 +335,30 @@ export function SalesProjectionDialog({
               </p>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Actual sales</span>
-                <span>{(row?.net_sales ?? 0) > 0 ? money(row!.net_sales as number) : '—'}</span>
+                <span>{(row?.net_sales ?? 0) > 0 ? money(row?.net_sales as number) : '—'}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Original goal</span>
-                <span>{(row?.initial_projection ?? 0) > 0 ? money(row!.initial_projection as number) : '—'}</span>
+                <span>{(row?.initial_projection ?? 0) > 0 ? money(row?.initial_projection as number) : '—'}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Latest goal</span>
-                <span>{(row?.living_projection ?? 0) > 0 ? money(row!.living_projection as number) : '—'}</span>
+                <span>{(row?.living_projection ?? 0) > 0 ? money(row?.living_projection as number) : '—'}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Manager override</span>
                 <span className={hasOverride ? 'text-amber-600 font-medium' : 'text-muted-foreground'}>
-                  {hasOverride ? money(row!.override_projection as number) : 'none'}
+                  {hasOverride ? money(row?.override_projection as number) : 'none'}
                 </span>
               </div>
               {hasOverride && row?.override_at && (
                 <p className="text-xs text-muted-foreground">
-                   Set {DateTime.fromISO(row.override_at, { setZone: true }).setZone(BUSINESS_ZONE).toFormat('MMM d, yyyy h:mm a')}
+                   Set {DateTime.fromISO(row.override_at, { setZone: true }).setZone(timezone).toFormat('MMM d, yyyy h:mm a')}
                 </p>
               )}
               <p className="text-xs text-muted-foreground">
                 Order used: manager override, then latest goal, then original goal
-                {resolved.source ? ` — currently ${resolved.source === 'legacy' ? 'a saved number' : resolved.source}.` : '.'}
+                {resolved.source ? ` — currently ${resolved.source}.` : '.'}
               </p>
             </div>
 
@@ -376,8 +371,8 @@ export function SalesProjectionDialog({
                   </p>
                   <Input
                     type="number"
-                    step="0.01"
-                    min="0"
+                    step="1"
+                    min="1"
                     value={draft}
                     onChange={e => setDraft(e.target.value)}
                     placeholder="$0"

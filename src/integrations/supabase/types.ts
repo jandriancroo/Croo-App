@@ -154,6 +154,41 @@ export type Database = {
           },
         ]
       }
+      aloha_history_backfill_progress: {
+        Row: {
+          attempts: number
+          error: string | null
+          location_id: string
+          sale_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          error?: string | null
+          location_id: string
+          sale_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          error?: string | null
+          location_id?: string
+          sale_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aloha_history_backfill_progress_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       aloha_sales_cache: {
         Row: {
           avg_ticket: number
@@ -3139,6 +3174,71 @@ export type Database = {
           },
         ]
       }
+      customer_reviews: {
+        Row: {
+          anonymous: boolean
+          consent: boolean
+          consent_at: string | null
+          created_at: string
+          display_attribution: string
+          final_text: string
+          id: string
+          name: string
+          near_match: boolean
+          near_match_review_id: string | null
+          near_match_score: number | null
+          question_set: string
+          raw_answers: Json
+          restaurant: string
+          role: string
+          status: string
+        }
+        Insert: {
+          anonymous?: boolean
+          consent: boolean
+          consent_at?: string | null
+          created_at?: string
+          display_attribution: string
+          final_text: string
+          id?: string
+          name: string
+          near_match?: boolean
+          near_match_review_id?: string | null
+          near_match_score?: number | null
+          question_set?: string
+          raw_answers: Json
+          restaurant: string
+          role: string
+          status?: string
+        }
+        Update: {
+          anonymous?: boolean
+          consent?: boolean
+          consent_at?: string | null
+          created_at?: string
+          display_attribution?: string
+          final_text?: string
+          id?: string
+          name?: string
+          near_match?: boolean
+          near_match_review_id?: string | null
+          near_match_score?: number | null
+          question_set?: string
+          raw_answers?: Json
+          restaurant?: string
+          role?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_reviews_near_match_review_id_fkey"
+            columns: ["near_match_review_id"]
+            isOneToOne: false
+            referencedRelation: "customer_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_spot_count_items: {
         Row: {
           created_at: string
@@ -3379,6 +3479,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      dashboard_widgets_bak_20261101: {
+        Row: {
+          accent_color: string | null
+          audience_roles: Database["public"]["Enums"]["app_role"][] | null
+          authority_scope: string | null
+          brand_id: string | null
+          config: Json | null
+          created_at: string | null
+          created_by: string | null
+          display_order: number | null
+          hidden_for_user_ids: string[] | null
+          id: string | null
+          is_active: boolean | null
+          location_id: string | null
+          organization_id: string | null
+          reference_id: string | null
+          title: string | null
+          updated_at: string | null
+          widget_size: string | null
+          widget_type: string | null
+        }
+        Insert: {
+          accent_color?: string | null
+          audience_roles?: Database["public"]["Enums"]["app_role"][] | null
+          authority_scope?: string | null
+          brand_id?: string | null
+          config?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          display_order?: number | null
+          hidden_for_user_ids?: string[] | null
+          id?: string | null
+          is_active?: boolean | null
+          location_id?: string | null
+          organization_id?: string | null
+          reference_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          widget_size?: string | null
+          widget_type?: string | null
+        }
+        Update: {
+          accent_color?: string | null
+          audience_roles?: Database["public"]["Enums"]["app_role"][] | null
+          authority_scope?: string | null
+          brand_id?: string | null
+          config?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          display_order?: number | null
+          hidden_for_user_ids?: string[] | null
+          id?: string | null
+          is_active?: boolean | null
+          location_id?: string | null
+          organization_id?: string | null
+          reference_id?: string | null
+          title?: string | null
+          updated_at?: string | null
+          widget_size?: string | null
+          widget_type?: string | null
+        }
+        Relationships: []
       }
       data_point_registry: {
         Row: {
@@ -4082,6 +4245,53 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goal_engine_runs: {
+        Row: {
+          days_written: number | null
+          error: string | null
+          local_run_date: string
+          location_id: string
+          ran_at: string
+          source: string
+          week_adj: number | null
+          window_end: string | null
+          window_start: string | null
+          wrote_planning: boolean
+        }
+        Insert: {
+          days_written?: number | null
+          error?: string | null
+          local_run_date: string
+          location_id: string
+          ran_at?: string
+          source?: string
+          week_adj?: number | null
+          window_end?: string | null
+          window_start?: string | null
+          wrote_planning?: boolean
+        }
+        Update: {
+          days_written?: number | null
+          error?: string | null
+          local_run_date?: string
+          location_id?: string
+          ran_at?: string
+          source?: string
+          week_adj?: number | null
+          window_end?: string | null
+          window_start?: string | null
+          wrote_planning?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_engine_runs_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
@@ -8130,6 +8340,59 @@ export type Database = {
           },
         ]
       }
+      location_google_reviews: {
+        Row: {
+          active: boolean
+          created_at: string
+          fetched_at: string | null
+          google_maps_uri: string | null
+          last_error: string | null
+          last_full_fetch_at: string | null
+          location_id: string
+          place_id: string
+          rating: number | null
+          reviews: Json
+          updated_at: string
+          user_rating_count: number | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          fetched_at?: string | null
+          google_maps_uri?: string | null
+          last_error?: string | null
+          last_full_fetch_at?: string | null
+          location_id: string
+          place_id: string
+          rating?: number | null
+          reviews?: Json
+          updated_at?: string
+          user_rating_count?: number | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          fetched_at?: string | null
+          google_maps_uri?: string | null
+          last_error?: string | null
+          last_full_fetch_at?: string | null
+          location_id?: string
+          place_id?: string
+          rating?: number | null
+          reviews?: Json
+          updated_at?: string
+          user_rating_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_google_reviews_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: true
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       location_hours: {
         Row: {
           close_time: string | null
@@ -8500,6 +8763,7 @@ export type Database = {
           inventory_period_end_day: number
           labor_percentage_target: number | null
           location_id: string
+          ncns_alert_minutes: number | null
           pizza_sales_percentage: number | null
           pm_safe_count_window_minutes: number
           punch_clock_background_url: string | null
@@ -8539,6 +8803,7 @@ export type Database = {
           inventory_period_end_day?: number
           labor_percentage_target?: number | null
           location_id: string
+          ncns_alert_minutes?: number | null
           pizza_sales_percentage?: number | null
           pm_safe_count_window_minutes?: number
           punch_clock_background_url?: string | null
@@ -8578,6 +8843,7 @@ export type Database = {
           inventory_period_end_day?: number
           labor_percentage_target?: number | null
           location_id?: string
+          ncns_alert_minutes?: number | null
           pizza_sales_percentage?: number | null
           pm_safe_count_window_minutes?: number
           punch_clock_background_url?: string | null
@@ -8712,6 +8978,9 @@ export type Database = {
           brand_id: string | null
           created_at: string
           created_by: string | null
+          deactivated_at: string | null
+          deactivated_by: string | null
+          deactivated_by_org: boolean
           fresh_kds_active: boolean
           fresh_kds_location_id: string | null
           id: string
@@ -8741,6 +9010,9 @@ export type Database = {
           brand_id?: string | null
           created_at?: string
           created_by?: string | null
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          deactivated_by_org?: boolean
           fresh_kds_active?: boolean
           fresh_kds_location_id?: string | null
           id?: string
@@ -8770,6 +9042,9 @@ export type Database = {
           brand_id?: string | null
           created_at?: string
           created_by?: string | null
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          deactivated_by_org?: boolean
           fresh_kds_active?: boolean
           fresh_kds_location_id?: string | null
           id?: string
@@ -9752,6 +10027,8 @@ export type Database = {
           brand_id: string | null
           brand_name: string | null
           created_at: string
+          deactivated_at: string | null
+          deactivated_by: string | null
           id: string
           is_active: boolean
           logo_url: string | null
@@ -9763,6 +10040,8 @@ export type Database = {
           brand_id?: string | null
           brand_name?: string | null
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           id?: string
           is_active?: boolean
           logo_url?: string | null
@@ -9774,6 +10053,8 @@ export type Database = {
           brand_id?: string | null
           brand_name?: string | null
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           id?: string
           is_active?: boolean
           logo_url?: string | null
@@ -12471,10 +12752,16 @@ export type Database = {
       sales_cache: {
         Row: {
           avg_ticket: number | null
+          check_count: number | null
+          comp_amount: number | null
+          comp_count: number | null
           created_at: string
+          discount_amount: number | null
           external_event_id: string | null
           fetched_at: string
           flagged_no_sales: boolean | null
+          gross_basis: string | null
+          gross_sales: number | null
           guest_count: number
           hourly_data: Json | null
           id: string
@@ -12495,19 +12782,31 @@ export type Database = {
           pos_source: string
           product_mix: Json | null
           projected_sales: number | null
+          promo_amount: number | null
+          promo_count: number | null
+          refund_amount: number | null
           sale_date: string
+          tips_amount: number | null
           validation_attempts: number | null
           validation_status: string | null
+          void_amount: number | null
+          void_count: number | null
           yoy_hourly_data: Json | null
           yoy_net_sales: number | null
           yoy_sale_date: string | null
         }
         Insert: {
           avg_ticket?: number | null
+          check_count?: number | null
+          comp_amount?: number | null
+          comp_count?: number | null
           created_at?: string
+          discount_amount?: number | null
           external_event_id?: string | null
           fetched_at?: string
           flagged_no_sales?: boolean | null
+          gross_basis?: string | null
+          gross_sales?: number | null
           guest_count?: number
           hourly_data?: Json | null
           id?: string
@@ -12528,19 +12827,31 @@ export type Database = {
           pos_source?: string
           product_mix?: Json | null
           projected_sales?: number | null
+          promo_amount?: number | null
+          promo_count?: number | null
+          refund_amount?: number | null
           sale_date: string
+          tips_amount?: number | null
           validation_attempts?: number | null
           validation_status?: string | null
+          void_amount?: number | null
+          void_count?: number | null
           yoy_hourly_data?: Json | null
           yoy_net_sales?: number | null
           yoy_sale_date?: string | null
         }
         Update: {
           avg_ticket?: number | null
+          check_count?: number | null
+          comp_amount?: number | null
+          comp_count?: number | null
           created_at?: string
+          discount_amount?: number | null
           external_event_id?: string | null
           fetched_at?: string
           flagged_no_sales?: boolean | null
+          gross_basis?: string | null
+          gross_sales?: number | null
           guest_count?: number
           hourly_data?: Json | null
           id?: string
@@ -12561,9 +12872,15 @@ export type Database = {
           pos_source?: string
           product_mix?: Json | null
           projected_sales?: number | null
+          promo_amount?: number | null
+          promo_count?: number | null
+          refund_amount?: number | null
           sale_date?: string
+          tips_amount?: number | null
           validation_attempts?: number | null
           validation_status?: string | null
+          void_amount?: number | null
+          void_count?: number | null
           yoy_hourly_data?: Json | null
           yoy_net_sales?: number | null
           yoy_sale_date?: string | null
@@ -12571,6 +12888,128 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "sales_cache_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_goal_cutover_backup_20261101: {
+        Row: {
+          backed_up_at: string
+          initial_projection: number | null
+          living_projection: number | null
+          location_id: string
+          override_at: string | null
+          override_by: string | null
+          override_projection: number | null
+          projected_sales: number | null
+          sale_date: string
+        }
+        Insert: {
+          backed_up_at?: string
+          initial_projection?: number | null
+          living_projection?: number | null
+          location_id: string
+          override_at?: string | null
+          override_by?: string | null
+          override_projection?: number | null
+          projected_sales?: number | null
+          sale_date: string
+        }
+        Update: {
+          backed_up_at?: string
+          initial_projection?: number | null
+          living_projection?: number | null
+          location_id?: string
+          override_at?: string | null
+          override_by?: string | null
+          override_projection?: number | null
+          projected_sales?: number | null
+          sale_date?: string
+        }
+        Relationships: []
+      }
+      sales_goal_legacy_backup_20261101: {
+        Row: {
+          backed_up_at: string
+          initial_projection: number | null
+          living_projection: number | null
+          location_id: string
+          override_projection: number | null
+          projected_sales: number | null
+          sale_date: string
+        }
+        Insert: {
+          backed_up_at?: string
+          initial_projection?: number | null
+          living_projection?: number | null
+          location_id: string
+          override_projection?: number | null
+          projected_sales?: number | null
+          sale_date: string
+        }
+        Update: {
+          backed_up_at?: string
+          initial_projection?: number | null
+          living_projection?: number | null
+          location_id?: string
+          override_projection?: number | null
+          projected_sales?: number | null
+          sale_date?: string
+        }
+        Relationships: []
+      }
+      sales_goal_override_log: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          changed_by_role: string | null
+          id: string
+          living_at_change: number | null
+          location_id: string
+          new_value: number | null
+          old_value: number | null
+          planning_value: number | null
+          reason: string | null
+          sale_date: string
+          source: string | null
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_role?: string | null
+          id?: string
+          living_at_change?: number | null
+          location_id: string
+          new_value?: number | null
+          old_value?: number | null
+          planning_value?: number | null
+          reason?: string | null
+          sale_date: string
+          source?: string | null
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_role?: string | null
+          id?: string
+          living_at_change?: number | null
+          location_id?: string
+          new_value?: number | null
+          old_value?: number | null
+          planning_value?: number | null
+          reason?: string | null
+          sale_date?: string
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_goal_override_log_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
@@ -14531,6 +14970,7 @@ export type Database = {
           full_logins_count: number
           full_logins_date: string | null
           heartbeat_at: string | null
+          labor_alert_stage: number
           last_alert_at: string | null
           last_dispatch_at: string | null
           location_id: string
@@ -14544,6 +14984,7 @@ export type Database = {
           full_logins_count?: number
           full_logins_date?: string | null
           heartbeat_at?: string | null
+          labor_alert_stage?: number
           last_alert_at?: string | null
           last_dispatch_at?: string | null
           location_id: string
@@ -14557,6 +14998,7 @@ export type Database = {
           full_logins_count?: number
           full_logins_date?: string | null
           heartbeat_at?: string | null
+          labor_alert_stage?: number
           last_alert_at?: string | null
           last_dispatch_at?: string | null
           location_id?: string
@@ -14963,6 +15405,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_notification_settings_email_backup_20261101: {
+        Row: {
+          email_enabled: boolean | null
+          id: string
+        }
+        Insert: {
+          email_enabled?: boolean | null
+          id: string
+        }
+        Update: {
+          email_enabled?: boolean | null
+          id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
@@ -16053,6 +16510,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      _can_override_goal: { Args: { _user_id: string }; Returns: boolean }
+      _checklist_response_has_photo: {
+        Args: { _image_url: string; _text: string }
+        Returns: boolean
+      }
+      _google_reviews_refresh_due: { Args: { _now?: string }; Returns: boolean }
+      _gross_sum: {
+        Args: { _from: string; _location_id: string; _to: string }
+        Returns: number
+      }
       _invert_log_rows: {
         Args: {
           _rows: Database["public"]["Tables"]["schedule_change_log"]["Row"][]
@@ -16348,6 +16815,10 @@ export type Database = {
         Args: { _rules: Json; _shifts: Json; _wage: number }
         Returns: Json
       }
+      _pos_clock_feed_fresh: {
+        Args: { _location_id: string }
+        Returns: boolean
+      }
       _promo_json: {
         Args: {
           _p: Database["public"]["Tables"]["promo_trackers"]["Row"]
@@ -16393,6 +16864,17 @@ export type Database = {
       _sales_caller_ok: {
         Args: { _location_id: string; _min_role: string }
         Returns: boolean
+      }
+      _sales_gross_rebuild: {
+        Args: {
+          _comp: number
+          _discount: number
+          _net: number
+          _pos_source: string
+          _promo: number
+          _refund: number
+        }
+        Returns: number
       }
       _schedule_approval_required: {
         Args: { _location: string; _schedule: string; _user: string }
@@ -16474,6 +16956,7 @@ export type Database = {
           source: string
         }[]
       }
+      _toast_session_check_due: { Args: { _now?: string }; Returns: boolean }
       _tz_valid_for_state: {
         Args: { _state: string; _tz: string }
         Returns: boolean
@@ -16701,6 +17184,23 @@ export type Database = {
         }
         Returns: boolean
       }
+      claim_aloha_history_backfill: {
+        Args: { _location_id: string }
+        Returns: {
+          attempts: number
+          error: string | null
+          location_id: string
+          sale_date: string
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "aloha_history_backfill_progress"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_checklist_photo: {
         Args: {
           _item_id: string
@@ -16713,6 +17213,10 @@ export type Database = {
       cleanup_internal_logs: { Args: never; Returns: undefined }
       cleanup_theo_chat_messages: { Args: never; Returns: undefined }
       clear_all_pending_pin_plaintext: { Args: never; Returns: Json }
+      clear_goal_override: {
+        Args: { _location_id: string; _reason?: string; _sale_date: string }
+        Returns: undefined
+      }
       clone_count_to_sandbox: {
         Args: { _source_count_id: string; _source_location_id: string }
         Returns: string
@@ -16797,6 +17301,18 @@ export type Database = {
         }
       }
       cron_edge_headers: { Args: never; Returns: Json }
+      customer_review_attribution: {
+        Args: {
+          _anonymous: boolean
+          _answers: Json
+          _name: string
+          _restaurant: string
+          _role: string
+        }
+        Returns: string
+      }
+      customer_review_html_escape: { Args: { _text: string }; Returns: string }
+      customer_review_public_text: { Args: { _text: string }; Returns: string }
       decline_labor_rule_proposal: {
         Args: { _note?: string; _proposal_id: string }
         Returns: {
@@ -16983,6 +17499,32 @@ export type Database = {
           source: string
         }[]
       }
+      get_gross_sales_periods: {
+        Args: { _date: string; _location_id: string }
+        Returns: {
+          day_gross: number
+          day_hourly: Json
+          days: Json
+          lm_mtd_gross: number
+          lw_day_gross: number
+          lw_wtd_gross: number
+          ly_date: string
+          ly_day_gross: number
+          ly_month_gross: number
+          ly_week_gross: number
+          mtd_gross: number
+          wtd_gross: number
+          yday_gross: number
+        }[]
+      }
+      get_gross_sales_range: {
+        Args: { _end: string; _location_id: string; _start: string }
+        Returns: {
+          gross_days: number
+          gross_sales: number
+          sales_days: number
+        }[]
+      }
       get_labor_pace: {
         Args: { _date?: string; _location_id: string }
         Returns: Json
@@ -17008,6 +17550,17 @@ export type Database = {
         Returns: {
           cost: number
           hours: number
+        }[]
+      }
+      get_location_google_reviews: {
+        Args: { _location_id: string }
+        Returns: {
+          fetched_at: string
+          google_maps_uri: string
+          location_id: string
+          rating: number
+          reviews: Json
+          user_rating_count: number
         }[]
       }
       get_next_system_alert: {
@@ -17342,6 +17895,16 @@ export type Database = {
       labor_source_for: { Args: { _location_id: string }; Returns: string }
       labor_week_pay: { Args: { _rules: Json; _shifts: Json }; Returns: Json }
       list_promo_trackers: { Args: { _location_id: string }; Returns: Json }
+      list_public_customer_reviews: {
+        Args: never
+        Returns: {
+          attribution: string
+          created_at: string
+          id: string
+          quote: string
+        }[]
+      }
+      location_is_live: { Args: { _location_id: string }; Returns: boolean }
       location_pos_source: { Args: { _location_id: string }; Returns: string }
       log_pin_nudge: { Args: { p_target_user_id: string }; Returns: Json }
       mark_theo_read: {
@@ -17368,6 +17931,7 @@ export type Database = {
         Returns: number
       }
       my_labor_rules_access: { Args: { _location_id: string }; Returns: Json }
+      next_customer_review_question_set: { Args: never; Returns: string }
       normalize_vendor_name: { Args: { _name: string }; Returns: string }
       oneshot_backfill_qu_pmix: { Args: never; Returns: undefined }
       original_shift_changes: {
@@ -17479,6 +18043,19 @@ export type Database = {
       purge_old_client_debug_logs: { Args: never; Returns: undefined }
       queue_nightly_emails: { Args: never; Returns: undefined }
       queue_nightly_maintenance: { Args: never; Returns: undefined }
+      queue_notification_email: {
+        Args: {
+          _chat_id?: string
+          _email: string
+          _html: string
+          _location_id: string
+          _ref: string
+          _subject: string
+          _type: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
@@ -17547,6 +18124,17 @@ export type Database = {
       }
       refresh_all_pfg_tokens: { Args: never; Returns: undefined }
       refresh_labor_close_habits: { Args: never; Returns: Json }
+      remove_dashboard_cubes_20261101: { Args: never; Returns: Json }
+      replan_goal_cutover_20261101: {
+        Args: {
+          _end: string
+          _goals: Json
+          _location_id: string
+          _start: string
+          _today: string
+        }
+        Returns: Json
+      }
       resolve_goal: {
         Args: { _date: string; _location_id: string }
         Returns: number
@@ -17754,8 +18342,26 @@ export type Database = {
       send_day_part_pulse: { Args: never; Returns: undefined }
       send_hourly_sales_pulse: { Args: never; Returns: undefined }
       send_shift_overstay_alerts: { Args: never; Returns: undefined }
+      set_goal_override: {
+        Args: {
+          _excluded_dates?: Json
+          _location_id: string
+          _reason?: string
+          _sale_date: string
+          _value: number
+        }
+        Returns: undefined
+      }
       set_labor_goal: {
         Args: { _day_of_week?: number; _location_id: string; _pct?: number }
+        Returns: Json
+      }
+      set_location_active: {
+        Args: { _active: boolean; _location_id: string }
+        Returns: Json
+      }
+      set_organization_active: {
+        Args: { _active: boolean; _org_id: string }
         Returns: Json
       }
       set_pending_punch_pin: { Args: { p_pin: string }; Returns: Json }

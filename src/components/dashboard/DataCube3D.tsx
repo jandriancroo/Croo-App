@@ -1,7 +1,10 @@
+import { ProjectionTag } from '@/components/ui/projection-tag';
+import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown, Pause } from 'lucide-react';
-import { MetricType, METRIC_CONFIGS, SalesDataForWidgets } from './DashboardWidget';
+import { MetricType, METRIC_CONFIGS, SalesDataForWidgets, isGrossMetric, grossMetricValue } from './DashboardWidget';
 import { format, subYears, getWeek } from 'date-fns';
 import { ThemeColorKey, migrateAccentColor, getThemeColorClass, getThemeTextClass, isThemeColorKey } from '@/utils/themeColors';
 import { useDuoDashPresentation } from '@/components/duo/DuoDashContext';
@@ -51,6 +54,12 @@ function formatValue(value: number | undefined, format: 'currency' | 'currency_s
     default:
       return Math.round(value).toLocaleString();
   }
+}
+
+function DailyGoalVersion({ source }: { source?: import('@/lib/goalResolver').GoalSource }) {
+  const { currentLocation } = useAppLocation();
+  const { timezone, getBusinessDateInTimezone } = useLocationTimezone();
+  return <ProjectionTag source={source ?? 'none'} showLabel={false} locationId={currentLocation?.id} dateStr={getBusinessDateInTimezone()} timezone={timezone} />;
 }
 
 // Category prefix removed - labels now come directly from METRIC_CONFIGS
@@ -184,6 +193,7 @@ function getPaymentPercent(
 
 function getMetricValue(metricType: MetricType, salesData?: SalesDataForWidgets | null): number | undefined {
   if (!salesData) return undefined;
+  if (isGrossMetric(metricType)) return grossMetricValue(metricType, salesData);
 
   switch (metricType) {
     case 'sales_today': return salesData.daily;
@@ -472,7 +482,8 @@ export function DataCube3D({
     if (requested[0] === 'sales_wtd') requested = ['sales_wtd', 'sales_pace_week', 'sales_last_year_week'];
     if (requested[0] === 'sales_mtd') requested = ['sales_mtd', 'sales_pace_month', 'sales_last_year_month'];
     const metrics = requested.map(metric => ({
-      label: metric === 'sales_projected_today' ? 'Projection' : getDynamicLabel(metric, undefined, effectiveSalesData?.lastYear?.date),
+      label: metric === 'sales_projected_today' ? 'Goal' : getDynamicLabel(metric, undefined, effectiveSalesData?.lastYear?.date),
+      goalTag: metric === 'sales_projected_today' ? <DailyGoalVersion source={effectiveSalesData?.projections?.todaySource} /> : undefined,
       value: isLoading ? '--' : formatValue(getMetricValue(metric, effectiveSalesData), METRIC_CONFIGS[metric]?.format ?? 'number'),
       behind: isPaceMetric(metric) && getPacingStatus(metric, effectiveSalesData) === 'down',
     }));
@@ -822,6 +833,7 @@ function CubeFaceComponent({
                         )}
                       >
                         {getDynamicLabel(metricType, undefined, salesData?.lastYear?.date)}
+                        {metricType === 'sales_projected_today' && <DailyGoalVersion source={salesData?.projections?.todaySource} />}
                         {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
                           <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                         )}
@@ -868,6 +880,7 @@ function CubeFaceComponent({
                       )}
                     >
                       {getDynamicLabel(centerMetric, undefined, salesData?.lastYear?.date)}
+                      {centerMetric === 'sales_projected_today' && <DailyGoalVersion source={salesData?.projections?.todaySource} />}
                       {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(centerMetric) && (
                         <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                       )}
@@ -932,6 +945,7 @@ function CubeFaceComponent({
                         )}
                       >
                         {getDynamicLabel(metricType, undefined, salesData?.lastYear?.date)}
+                        {metricType === 'sales_projected_today' && <DailyGoalVersion source={salesData?.projections?.todaySource} />}
                         {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
                           <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                         )}
@@ -972,6 +986,7 @@ function CubeFaceComponent({
                         )}
                       >
                         {getDynamicLabel(metricType, undefined, salesData?.lastYear?.date)}
+                        {metricType === 'sales_projected_today' && <DailyGoalVersion source={salesData?.projections?.todaySource} />}
                         {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
                           <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                         )}
@@ -1027,6 +1042,7 @@ function CubeFaceComponent({
                       )}
                     >
                       {getDynamicLabel(metricType, undefined, salesData?.lastYear?.date)}
+                        {metricType === 'sales_projected_today' && <DailyGoalVersion source={salesData?.projections?.todaySource} />}
                       {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
                         <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                       )}
@@ -1069,6 +1085,7 @@ function CubeFaceComponent({
                     )}
                   >
                     {getDynamicLabel(metricType, undefined, salesData?.lastYear?.date)}
+                        {metricType === 'sales_projected_today' && <DailyGoalVersion source={salesData?.projections?.todaySource} />}
                     {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
                       <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
                     )}

@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { Transfer, useInventoryTransfers } from "@/hooks/useInventoryTransfers";
 import { formatInTimeZone } from "date-fns-tz";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import { transferLineValue, transferLinesTotal } from "@/lib/transferValue";
 
 interface PendingTransfersSectionProps {
   locationId: string;
@@ -62,7 +63,7 @@ export default function PendingTransfersSection({ locationId }: PendingTransfers
               {/* Items list */}
               <div className="space-y-1">
                 {((transfer as any).inventory_transfer_items || []).map((item: any) => {
-                  const itemCost = Number(item.quantity) * Number(item.cost_per_unit || 0);
+                  const itemCost = transferLineValue(item);
                   return (
                     <div key={item.id} className="flex items-center justify-between text-xs">
                       <span className="text-foreground">{item.item_name || "Unknown"}</span>
@@ -81,8 +82,7 @@ export default function PendingTransfersSection({ locationId }: PendingTransfers
 
               {/* Total value */}
               {(() => {
-                const total = ((transfer as any).inventory_transfer_items || [])
-                  .reduce((s: number, i: any) => s + Number(i.quantity) * Number(i.cost_per_unit || 0), 0);
+                const total = transferLinesTotal((transfer as any).inventory_transfer_items || []);
                 return total > 0 ? (
                   <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40">
                     <span className="text-muted-foreground">Est. Value</span>

@@ -1,3 +1,4 @@
+import { posExtrasPatch, toastRawExtras, toastOfficialGross } from "../_shared/posExtras.ts";
 // Toast → toast_sales_cache + sales_cache (pos_source='toast') + labor_cache (source='toast').
 //
 // Homemade Toast integration (no paid Toast API). Data arrives from two
@@ -22,14 +23,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { z } from "npm:zod@3.23.8";
 import { requireInternalCaller } from "../_shared/callerAuth.ts";
 import { isToastRunner, TOAST_RUNNER_HEADER } from "../_shared/toastRunnerKey.ts";
-import {
-  computeAndSavePace,
-  fetchHistoricalDataFromCache,
-  generateHourlyProjections,
-  generateProjections,
-  getCurrentHourInTimezone,
-  getCurrentMinutesInTimezone,
-} from "../_shared/projections.ts";
+import { computeAndSavePace } from "../_shared/projections.ts";
 import { formatHourlyTo24 } from "../_shared/hourly.ts";
 import { pizzaCountFromMix } from "../_shared/productMix.ts";
 import { normToastName } from "../_shared/toastNames.ts";
@@ -48,6 +42,7 @@ const DaySchema = z.object({
   locationId: z.string().uuid(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   source: z.enum(["export", "live", "api"]),
+  extras: z.object({ refund_amount: z.number().finite().nullable().optional(), discount_amount: z.number().finite().nullable().optional(), comp_amount: z.number().finite().nullable().optional(), comp_count: z.number().finite().nullable().optional(), void_amount: z.number().finite().nullable().optional(), void_count: z.number().finite().nullable().optional(), promo_amount: z.number().finite().nullable().optional(), promo_count: z.number().finite().nullable().optional(), check_count: z.number().finite().nullable().optional(), tips_amount: z.number().finite().nullable().optional() }).optional(),
   netSales: z.number().finite().min(0),
   guestCount: z.number().int().min(0).default(0),
   checkCount: z.number().int().min(0).default(0),
@@ -72,7 +67,15 @@ const DaySchema = z.object({
     netSales: z.number().finite(),
   })).max(1500).default([]),
   raw: z.unknown().optional(),
+  providedCheckCount: z.boolean().optional(),
+  providedTips: z.boolean().optional(),
 });
+const ParsedDaySchema = z.preprocess((input) => {
+  if (!input || typeof input !== "object") return input;
+  const row = input as Record<string, unknown>;
+  const payments = row.payments as Record<string, unknown> | undefined;
+  return { ...row, providedCheckCount: row.checkCount != null, providedTips: payments?.total_tips != null };
+}, DaySchema);
 
 // ── Labor (read-only Toast punches → labor_cache source='toast') ───────────
 const ShiftSchema = z.object({
@@ -102,7 +105,7 @@ const ShiftSchema = z.object({
 
 const BodySchema = z.object({
   action: z.literal("ingest"),
-  days: z.array(DaySchema).min(1).max(400),
+  days: z.array(ParsedDaySchema).min(1).max(400),
 });
 
 const LaborBodySchema = z.object({
@@ -176,7 +179,7 @@ async function ingestDay(supabase: any, day: z.infer<typeof DaySchema>) {
 
   const { data: existingMail } = await supabase
     .from("sales_cache")
-    .select("projected_sales, living_projection, override_projection, override_at, override_by, initial_projection, yoy_sale_date, yoy_net_sales, yoy_hourly_data, hourly_data")
+    .select("yoy_sale_date, yoy_net_sales, yoy_hourly_data, hourly_data")
     .eq("location_id", locationId)
     .eq("sale_date", date)
     .maybeSingle();
@@ -212,11 +215,20 @@ async function ingestDay(supabase: any, day: z.infer<typeof DaySchema>) {
   }, { onConflict: "location_id,sale_date" });
   if (rawErr) throw new Error(`toast_sales_cache upsert failed for ${date}: ${rawErr.message}`);
 
+  // Official day totals beat the discounts list (the list can overcount).
+  const official = toastOfficialGross(day.raw);
+  const officialExtras = {
+    ...(official.discount_amount != null ? { discount_amount: official.discount_amount } : {}),
+    ...(official.refund_amount != null ? { refund_amount: official.refund_amount } : {}),
+  };
   const { error: mailErr } = await supabase.from("sales_cache").upsert({
     ...(existingMail ? (({ hourly_data: _h, ...rest }) => rest)(existingMail) : {}),
     location_id: locationId,
     sale_date: date,
     pos_source: "toast",
+    ...posExtrasPatch({ ...toastRawExtras(day.raw), ...day.extras, ...officialExtras, ...(day.providedCheckCount ? { check_count: day.checkCount } : {}), ...(day.providedTips ? { tips_amount: day.payments.total_tips } : {}) }),
+    // Toast's own gross (netSales[0].grossSales); without it the DB rebuilds or leaves gross empty.
+    ...(official.gross_sales != null ? { gross_sales: official.gross_sales, gross_basis: "pos" } : { gross_sales: null, gross_basis: null }),
     net_sales: day.netSales,
     guest_count: guests,
     avg_ticket: avgTicket,
@@ -239,12 +251,10 @@ async function ingestDay(supabase: any, day: z.infer<typeof DaySchema>) {
       .eq("location_id", locationId).eq("sale_date", yoyDate).maybeSingle();
     const yoyNet = Number(yoy?.net_sales ?? 0);
     if (yoyNet > 0 && !existingMail?.yoy_net_sales) {
-      const hasProj = (existingMail?.living_projection ?? 0) > 0 || (existingMail?.initial_projection ?? 0) > 0 || (existingMail?.override_projection ?? 0) > 0;
       await supabase.from("sales_cache").update({
         yoy_sale_date: yoyDate,
         yoy_net_sales: yoyNet,
         yoy_hourly_data: yoy?.hourly_data ?? null,
-        ...(hasProj ? {} : { initial_projection: yoyNet, living_projection: yoyNet }),
       }).eq("location_id", locationId).eq("sale_date", date);
     }
   } catch (e) {
@@ -273,38 +283,6 @@ async function runPace(supabase: any, locationId: string, date: string, netSales
   const open = h(settings?.hours_open, 10);
   const close = h(settings?.hours_close, 22);
 
-  const hist = await fetchHistoricalDataFromCache(supabase, locationId, date);
-  const d = new Date(date + "T12:00:00Z");
-  const dow = d.getUTCDay();
-  const weekStart = addDays(date, -(dow === 0 ? 6 : dow - 1));
-  const [{ data: weekRows }, { data: monthRows }] = await Promise.all([
-    supabase.from("sales_cache").select("sale_date, net_sales").eq("location_id", locationId).gte("sale_date", weekStart).lte("sale_date", date),
-    supabase.from("sales_cache").select("sale_date, net_sales").eq("location_id", locationId).gte("sale_date", `${date.slice(0, 7)}-01`).lte("sale_date", date),
-  ]);
-  const wb = (weekRows || []).map((r: any) => ({ date: r.sale_date, sales: Number(r.net_sales) || 0 }));
-  const mb = (monthRows || []).map((r: any) => ({ date: r.sale_date, sales: Number(r.net_sales) || 0 }));
-  const provisional =
-    hist.fourWeekAverage?.avgDailyByDayOfWeek.find((x: any) => x.dayOfWeek === dow)?.avgSales ||
-    hist.lastYearData?.sameDay || netSales || 0;
-
-  const hourlyProj = generateHourlyProjections(hourly, open, close, date, locationId, provisional, hist.fourWeekHourlyPattern, hist.lastYearData?.hourlyData);
-  const proj = generateProjections(
-    netSales, wb.reduce((s: number, r: any) => s + r.sales, 0), mb.reduce((s: number, r: any) => s + r.sales, 0),
-    wb, mb, getCurrentHourInTimezone(tz), getCurrentMinutesInTimezone(tz), open, close, date, locationId, hourlyProj,
-    hist.lastYearData ? {
-      sameDay: hist.lastYearData.sameDay, sameWeek: hist.lastYearData.sameWeek, sameMonth: hist.lastYearData.sameMonth,
-      weeklyBreakdown: hist.lastYearData.weeklyBreakdown, yoyHourlyData: hist.lastYearData.hourlyData,
-    } : undefined,
-    hist.fourWeekAverage, hist.holidayContext,
-  );
-
-  if (proj.todayProjected > 0) {
-    const { data: seed } = await supabase.from("sales_cache").select("initial_projection").eq("location_id", locationId).eq("sale_date", date).maybeSingle();
-    await supabase.from("sales_cache").update({
-      living_projection: proj.todayProjected,
-      ...(!(Number(seed?.initial_projection) > 0) ? { initial_projection: proj.todayProjected } : {}),
-    }).eq("location_id", locationId).eq("sale_date", date);
-  }
   await computeAndSavePace(supabase, { locationId, date, timezone: tz, openHour: open, closeHour: close });
 }
 
@@ -639,6 +617,8 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
   // ── Punch alerts (today only, paired against the CrooHQ schedule) ──
   if (isToday) {
     const queueRows: any[] = [];
+    const employeeQueueRows: any[] = [];
+    const { data: alertLocation } = await supabase.from("locations").select("name").eq("id", locationId).maybeSingle();
     for (const e of employeeBreakdown as any[]) {
       if (e.croo_user_id && e.late_minutes != null) {
         queueRows.push({
@@ -651,6 +631,18 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
             user_ids: managerIds,
             notification_type: "toast_late_clock_in",
             data: { location_id: locationId, shift_id: e.id, late_minutes: e.late_minutes },
+          },
+        });
+        employeeQueueRows.push({
+          alert_type: "late_arrival_self",
+          dedup_key: `toast-late-in-self:${e.id}`,
+          location_id: locationId,
+          payload: {
+            title: "Late clock-in",
+            body: `You clocked in ${e.late_minutes} min late at ${alertLocation?.name || "your store"} today (from Toast).`,
+            user_ids: [e.croo_user_id],
+            notification_type: "late_arrival_self",
+            data: { location_id: locationId, toast_shift_id: e.id, url: "https://croohq.com/schedule" },
           },
         });
       }
@@ -682,6 +674,9 @@ async function ingestLabor(supabase: any, body: z.infer<typeof LaborBodySchema>)
     }
     if (queueRows.length > 0 && managerIds.length > 0) {
       await supabase.from("alert_queue").upsert(queueRows, { onConflict: "dedup_key" });
+    }
+    if (employeeQueueRows.length > 0) {
+      await supabase.from("alert_queue").upsert(employeeQueueRows, { onConflict: "dedup_key", ignoreDuplicates: true });
     }
   }
 

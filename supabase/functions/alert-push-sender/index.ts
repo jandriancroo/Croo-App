@@ -91,7 +91,7 @@ async function drainAlertQueue() {
               body: payload.body,
               notification_type: payload.notification_type ?? item.alert_type,
               type: payload.notification_type ?? item.alert_type,
-              data: payload.data || {},
+              data: { ...(payload.data || {}), dedup_ref: item.dedup_key },
               location_id: item.location_id
             }
           })
@@ -220,7 +220,7 @@ async function handleAlarmAlert(supabase: any, item: any, payload: any) {
       body: task.description || 'Recurring task reminder',
       type: 'alarm_task',
       notification_type: 'alarm_task',
-      data: { task_id: task.id, interval_key: intervalKey },
+      data: { task_id: task.id, interval_key: intervalKey, dedup_ref: item.dedup_key },
       location_id: item.location_id
     }
   })

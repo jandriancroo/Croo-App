@@ -3,7 +3,7 @@ import { DateTime } from 'npm:luxon@3';
 import { computePace, resolveGoal, storeNow } from './cubeMetrics.ts';
 import { periodMetrics, scaleLastYear, comparison, paceStatus } from './periodMetrics.ts';
 
-export const SALES_PERIOD_COLUMNS = 'sale_date, net_sales, guest_count, pizza_count, avg_ticket, override_projection, initial_projection, projected_sales, living_projection, pace_adjusted_projection, pace_calculated_at, hourly_data, payments_data, product_mix';
+export const SALES_PERIOD_COLUMNS = 'sale_date, net_sales, guest_count, pizza_count, avg_ticket, override_projection, initial_projection, living_projection, pace_adjusted_projection, pace_calculated_at, hourly_data, payments_data, product_mix';
 export function periodBounds(today: string, zone: string) {
   const d = DateTime.fromFormat(today, 'yyyy-MM-dd', { zone });
   if (!d.isValid) throw new Error('Invalid business date');

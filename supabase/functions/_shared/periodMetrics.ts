@@ -9,9 +9,9 @@ export interface SalesRow extends GoalRow {
 export type PaceStatus = 'ahead' | 'onTrack' | 'behind';
 const num = (v: unknown): number => Number(v) || 0;
 
-/** Dashboard breakdown fallback: a day without a saved goal uses its actual sales. */
+/** Goals never fall back to actuals or generated projections. */
 export function dailyGoal(row: SalesRow | null | undefined): number {
-  return resolveGoal(row) ?? num(row?.net_sales);
+  return resolveGoal(row);
 }
 export function periodDays(rows: SalesRow[], dates: string[]): PeriodDay[] {
   const map = new Map(rows.map(r => [r.sale_date, r]));
@@ -22,7 +22,7 @@ export function periodDays(rows: SalesRow[], dates: string[]): PeriodDay[] {
 }
 export function periodGoal(days: PeriodDay[] | undefined, fallback = 0): number {
   const total = (days || []).reduce((s, d) => s + (d.projected || 0), 0);
-  return total > 0 ? total : fallback;
+  return total;
 }
 /** Exact calculatedWeekPace/calculatedMonthPace rules, including historical selection. */
 export function periodPace(days: PeriodDay[] | undefined, today: string, todayPace?: number | null, isToday = true, fallback = 0): number {

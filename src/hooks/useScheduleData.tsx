@@ -1,3 +1,4 @@
+import { periodGoal } from "@/lib/goalResolver";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -299,7 +300,7 @@ export function useScheduleData() {
         supabase.from("schedule_events").select("*, event_categories(name, color)").eq("schedule_id", schedule.id),
         supabase.from("schedule_events").select("*, event_categories(name, color)").eq("is_recurring", true).is("schedule_id", null).eq("location_id", currentLocation.id),
         supabase.from("availability_requests").select("*").eq("location_id", currentLocation.id).eq("request_type", "unpaid").in("status", ["pending", "approved"]).lte("start_date", format(weekEnd, "yyyy-MM-dd")).or(`end_date.gte.${format(currentWeekStart, "yyyy-MM-dd")},and(end_date.is.null,start_date.gte.${format(currentWeekStart, "yyyy-MM-dd")})`),
-        supabase.from("schedule_projected_sales").select("*").eq("schedule_id", schedule.id),
+        supabase.from("sales_cache").select("sale_date, override_projection, living_projection, initial_projection").eq("location_id", currentLocation.id).gte("sale_date", format(currentWeekStart, "yyyy-MM-dd")).lte("sale_date", format(weekEnd, "yyyy-MM-dd")),
         supabase.from("holidays").select("*").or(`location_id.eq.${currentLocation.id},location_id.is.null`).gte("holiday_date", format(currentWeekStart, "yyyy-MM-dd")).lte("holiday_date", format(weekEnd, "yyyy-MM-dd")),
         supabase.from("location_settings").select("blackout_dates, hours_open, hours_close, stations_enabled, break_coverage_enabled").eq("location_id", currentLocation.id).single(),
         supabase.from("schedules").select("id").eq("week_start_date", lastWeekDate).eq("location_id", currentLocation.id).single(),
@@ -356,7 +357,7 @@ export function useScheduleData() {
 
       let totalSales = 0;
       if (!salesResult.error && salesResult.data) {
-        totalSales = (salesResult.data as any[]).reduce((sum: number, sale: any) => sum + (Number(sale.projected_sales) || 0), 0);
+        totalSales = periodGoal(salesResult.data);
       }
 
       let processedHolidays: Holiday[] = [];
