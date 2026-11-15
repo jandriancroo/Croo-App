@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { calculateCountItemValue } from '@/utils/countItemValue';
 import { fetchRecipeCosts } from '@/utils/recipeCostCalculation';
 import { fetchStoreLabor } from '@/hooks/useStoreLabor';
+import { periodSalesTotals } from '@/lib/reports/periodTotals';
 
 export interface CogsCategoryRow {
   category: string;
@@ -102,14 +103,13 @@ async function fetchLocationData(
 
   // === Sales ===
   const salesRows = salesR.data || [];
-  const salesNet = salesRows.reduce((s, r) => s + Number(r.net_sales || 0), 0);
-  const guests = salesRows.reduce((s, r) => s + Number(r.guest_count || 0), 0);
-  // Gross (visibility only): every day with sales must have gross, otherwise hide it.
-  const sellingDays = salesRows.filter((r) => Number(r.net_sales || 0) > 0);
-  const grossDays = sellingDays.filter((r) => r.gross_sales != null).length;
-  const gross = sellingDays.length > 0 && grossDays === sellingDays.length
-    ? sellingDays.reduce((s: number, r) => s + Number(r.gross_sales), 0)
-    : null;
+  // Shared with Theo's compare_metrics (src/lib/reports/periodTotals.ts): net, guests, and
+  // gross (visibility only; null when any selling day is missing a gross piece).
+  const salesTotals = periodSalesTotals(salesRows);
+  const salesNet = salesTotals.net;
+  const guests = salesTotals.guests;
+  const grossDays = salesTotals.grossDays;
+  const gross = salesTotals.gross;
 
   // === Labor === — pick best source per day: prefer the row that actually has cost/hours
   const laborRows = laborR.data || [];
@@ -564,7 +564,7 @@ async function fetchLocationData(
     },
     labor: laborAgg,
     cash: { days: cashDays, total: cashTotal, totalVariance: cashTotalVariance },
-    sales: { net: salesNet, guests, gross, grossDays, salesDays: sellingDays.length },
+    sales: { net: salesNet, guests, gross, grossDays, salesDays: salesTotals.salesDays },
   };
 }
 
