@@ -9,6 +9,8 @@ import { useAuth } from '@/lib/auth';
 import { TheoVoiceOrb, type TheoVoiceOrbHandle } from './TheoVoiceOrb';
 import { playCue, type TheoCue } from './theoCues';
 import { NO_ACTS, readActs, isShiftAction, type Acts, type AnyProposal, type CoverScreen, type TheoWizard } from './theoWizard';
+import { TheoCompareCard } from './TheoCompareCard';
+import { readComparePayload, type ComparePayload } from '@/lib/theoCompare';
 
 type Phase = 'idle' | 'connecting' | 'speaking' | 'listening' | 'thinking' | 'error';
 
@@ -27,7 +29,7 @@ const CARRY_ANSWER_CHARS = 300;
 /** One decision for "long": Theo points to the chat and the screen shows "See full answer". */
 const isLongAnswer = (a: string) => a.length > 500 || a.split('\n').filter((l) => l.trim()).length > 10;
 const VOICE_SUFFIX =
-  '\n\n(Voice mode: answer the whole question. If the answer is a list of people, shifts or items, include every one with its key detail (for a schedule: name and shift time). Keep it compact: round numbers, short lines, no tables. You are talking to a manager with full access, so say names and details plainly.)';
+  '\n\n(Voice mode: answer the whole question. If the answer is a list of people, shifts or items, include every one with its key detail (for a schedule: name and shift time). Keep it compact: round numbers, short lines. For any comparison between periods, call compare_metrics: its table card shows on the voice screen, so never refuse a table; answer with its spoken_summary and do not write a markdown table. You are talking to a manager with full access, so say names and details plainly.)';
 
 const b64ToFloat = (b64: string) => {
   const bin = atob(b64);
@@ -167,6 +169,8 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
   const [speechTick, setSpeechTick] = useState(0);
   const [stoppedListening, setStoppedListening] = useState(false);
   const [longAnswer, setLongAnswer] = useState(false);
+  // Theo Dashboards: one comparison card at a time in the overlay slot (never replaces an action preview).
+  const [compare, setCompare] = useState<ComparePayload | null>(null);
   const [hitLimit, setHitLimit] = useState(false);
   const phaseRef = useRef<Phase>('idle');
   const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -278,7 +282,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
 
   // One preview at a time: opening the voice screen drops whatever the chat had open.
   useEffect(() => { if (open && wizard.ownerRef.current === 'chat' && (actionRef.current || screenRef.current)) dropAll(); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!open) { const a = actionRef.current; if (a?.stage === 'preview') logAction(a.logId, { status: 'cancelled' }); setAction(null); setScreen(null); setScreenNote(''); teardown(); setStoppedListening(false); setLongAnswer(false); setHitLimit(false); historyRef.current = []; } }, [open, teardown]);
+  useEffect(() => { if (!open) { const a = actionRef.current; if (a?.stage === 'preview') logAction(a.logId, { status: 'cancelled' }); setAction(null); setScreen(null); setScreenNote(''); setCompare(null); teardown(); setStoppedListening(false); setLongAnswer(false); setHitLimit(false); historyRef.current = []; } }, [open, teardown]);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   const hardStop = useCallback(() => {
@@ -397,6 +401,7 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     const pa = data?.proposal?.action as string | undefined;
     if (pa && acts[pa as keyof Acts] === true) {
       if (showProposal(data.proposal as AnyProposal)) {
+        setCompare(null);
         onExchange?.(question, answer);
         remember();
         return JSON.stringify({ answer, long: false, preview: true });
@@ -405,8 +410,21 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
     if (schedAct && data?.screen?.kind && !actionRef.current) {
       setScreen(data.screen as CoverScreen, 'voice');
       setScreenNote('');
+      setCompare(null);
       onExchange?.(question, answer);
       return JSON.stringify({ answer, long: false, screen: true });
+    }
+    const cmp = readComparePayload(data?.compare);
+    if (cmp) {
+      // A comparison card: shown in the overlay slot unless an action preview or list is open
+      // (one preview at a time: keep the preview and just say the numbers).
+      const spoken = cmp.spoken_summary || answer;
+      const shown = !actionRef.current && !screenRef.current;
+      if (shown) setCompare(cmp);
+      onExchange?.(question, answer || spoken);
+      if (answer || spoken) historyRef.current = [...historyRef.current, { q: question, a: (answer || spoken).slice(0, CARRY_ANSWER_CHARS) }].slice(-CARRY_MAX);
+      setLongAnswer(false);
+      return JSON.stringify({ answer: spoken, long: false, compare: shown });
     }
     const long = !!answer && isLongAnswer(answer);
     if (answer) {
@@ -697,15 +715,15 @@ export function TheoVoiceOverlay({ open, onClose, onOpenChat, onOpenAnswer, onEx
         </button>
       </div>
 
-      <div className={action && isShiftAction(action.proposal) && (action.stage === 'preview' || action.stage === 'saving') ? "flex min-h-0 flex-1 flex-col items-center overflow-hidden px-4 pt-2 pb-2" : action ? "flex flex-1 flex-col items-center overflow-y-auto px-4 pt-2" : screen ? "flex min-h-0 flex-1 flex-col items-center overflow-hidden px-4 pt-2" : "flex flex-1 flex-col items-center justify-center px-6"}>
+      <div className={action && isShiftAction(action.proposal) && (action.stage === 'preview' || action.stage === 'saving') ? "flex min-h-0 flex-1 flex-col items-center overflow-hidden px-4 pt-2 pb-2" : action ? "flex flex-1 flex-col items-center overflow-y-auto px-4 pt-2" : screen ? "flex min-h-0 flex-1 flex-col items-center overflow-hidden px-4 pt-2" : compare ? "flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-4 pt-2" : "flex flex-1 flex-col items-center justify-center px-6"}>
         <button aria-label={ORB_LABEL[phase]} onClick={onOrbTap}
-          className={action || screen ? 'theo-voice-orb-btn relative h-[76px] w-[76px] bg-transparent active:scale-95 transition-transform' : 'theo-voice-orb-btn relative h-[280px] w-[280px] bg-transparent active:scale-95 transition-transform'}>
-          <div className={action || screen ? 'absolute left-0 top-0 h-[280px] w-[280px] origin-top-left scale-[0.2714]' : 'h-full w-full'}>
+          className={action || screen || compare ? 'theo-voice-orb-btn relative h-[76px] w-[76px] bg-transparent active:scale-95 transition-transform' : 'theo-voice-orb-btn relative h-[280px] w-[280px] bg-transparent active:scale-95 transition-transform'}>
+          <div className={action || screen || compare ? 'absolute left-0 top-0 h-[280px] w-[280px] origin-top-left scale-[0.2714]' : 'h-full w-full'}>
             <TheoVoiceOrb ref={orbRef} phase={phase} level={level} />
           </div>
         </button>
-        {phase === 'listening' && <MicInputMeter level={micLevel} compact={!!(action || screen)} />}
-        {action ? renderAction(action) : screen ? renderScreen(screen) : <>
+        {phase === 'listening' && <MicInputMeter level={micLevel} compact={!!(action || screen || compare)} />}
+        {action ? renderAction(action) : screen ? renderScreen(screen) : compare ? <TheoCompareCard data={compare} onClose={() => setCompare(null)} className="mt-3" /> : <>
         <p className={phase === 'listening' ? 'mt-3 text-center text-lg font-bold tracking-[-0.01em] text-white' : 'mt-[26px] text-center text-lg font-bold tracking-[-0.01em] text-white'}>{phase === 'error' ? error : phase === 'idle' && mode === 'talk' ? 'Tap to talk to Theo' : phase === 'connecting' && withOpenerRef.current && !caption ? 'Getting your update…' : phase === 'thinking' ? thinkingLine : PHASE_TEXT[phase]}</p>
         {(() => {
           const sub = phase === 'idle' && mode === 'talk'
