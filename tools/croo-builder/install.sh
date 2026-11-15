@@ -1,19 +1,20 @@
 #!/bin/bash
-# One-time (and after updates): builds Croo Builder from this folder and puts it in ~/Applications.
+# One-time (and after updates): builds Ship Deck from this folder and puts it in ~/Applications.
 # Run from Terminal:  ~/Developer/Croo-App/tools/croo-builder/install.sh
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$DIR/../.." && pwd)"
-FINAL_APP="$HOME/Applications/Croo Builder.app"
+FINAL_APP="$HOME/Applications/Ship Deck.app"
+OLD_APP="$HOME/Applications/Croo Builder.app"   # the old name; removed once Ship Deck is installed
 # Build into a scratch folder first, so a failed build never removes the working app.
-APP="$(mktemp -d)/Croo Builder.app"
+APP="$(mktemp -d)/Ship Deck.app"
 
-echo "▶ Building Croo Builder (about a minute)"
+echo "▶ Building Ship Deck (about a minute)"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 if ! xcrun swiftc -O -swift-version 5 -parse-as-library \
   -target "$(uname -m)-apple-macos14.0" \
   -o "$APP/Contents/MacOS/CrooBuilder" "$DIR"/App/*.swift 2>&1; then
-  echo "✖ Croo Builder couldn't be rebuilt. Your current Croo Builder is untouched and still works. Copy this log to Claude."
+  echo "✖ Ship Deck couldn't be rebuilt. Your current Ship Deck is untouched and still works. Copy this log to Claude."
   exit 1
 fi
 
@@ -23,8 +24,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <plist version="1.0"><dict>
   <key>CFBundleExecutable</key><string>CrooBuilder</string>
   <key>CFBundleIdentifier</key><string>com.croohq.builder</string>
-  <key>CFBundleName</key><string>Croo Builder</string>
-  <key>CFBundleDisplayName</key><string>Croo Builder</string>
+  <key>CFBundleName</key><string>Ship Deck</string>
+  <key>CFBundleDisplayName</key><string>Ship Deck</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>CFBundleVersion</key><string>1</string>
@@ -49,9 +50,9 @@ if [[ -f "$SRC" ]]; then
 fi
 
 mkdir -p "$HOME/Applications"
-rm -rf "$FINAL_APP"
+rm -rf "$FINAL_APP" "$OLD_APP"
 mv "$APP" "$FINAL_APP"
 codesign --force --deep -s - "$FINAL_APP" >/dev/null 2>&1 || true
 pkill -x CrooBuilder 2>/dev/null || true
-echo "✔ Installed: $FINAL_APP (look for the hammer in your menu bar)"
+echo "✔ Installed: $FINAL_APP (look for the hammer in your menu bar; it used to be called Croo Builder)"
 open "$FINAL_APP"

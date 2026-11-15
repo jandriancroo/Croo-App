@@ -4,13 +4,13 @@
 source "$(dirname "$0")/common.sh"
 
 SCHEME="${1:?scheme}"; UDID="${2:?device}"; PLATFORM="${3:-iOS}"
-DD="$CACHE/DerivedData"
+DD="$CACHE/DerivedData-$APP_ID"
 LOG="$CACHE/run-$(date +%Y%m%d-%H%M%S).log"
 
 ensure_pods
 
 step "Building $SCHEME for your device (first build takes a few minutes)"
-if ! xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Debug \
+if ! xcodebuild "${XCTARGET[@]}" -scheme "$SCHEME" -configuration Debug \
      -destination "id=$UDID" -derivedDataPath "$DD" -allowProvisioningUpdates build >"$LOG" 2>&1; then
   grep -E "error:|BUILD FAILED" "$LOG" | head -20
   if grep -q "isn't registered in your developer account" "$LOG"; then
@@ -21,7 +21,7 @@ fi
 ok "Built"
 
 # Ask Xcode where it put the app (folder names differ per device type), then fall back to searching.
-SETTINGS="$(xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Debug \
+SETTINGS="$(xcodebuild "${XCTARGET[@]}" -scheme "$SCHEME" -configuration Debug \
   -destination "id=$UDID" -derivedDataPath "$DD" -showBuildSettings 2>/dev/null || true)"
 TBD="$(printf '%s\n' "$SETTINGS" | awk -F' = ' '/^ *TARGET_BUILD_DIR = /{print $2; exit}')"
 FPN="$(printf '%s\n' "$SETTINGS" | awk -F' = ' '/^ *FULL_PRODUCT_NAME = /{print $2; exit}')"

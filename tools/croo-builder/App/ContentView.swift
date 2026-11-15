@@ -19,7 +19,9 @@ struct PanelView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
+            appPicker
             status
+            if runner.needsTestingOK { testingBranchQuestion }
             stepsSection
             if runner.notesDraft != nil { notesEditor }
             if let preview = previewNotes, runner.notesDraft == nil { notesPreview(preview) }
@@ -43,7 +45,7 @@ struct PanelView: View {
     private var header: some View {
         HStack(spacing: 8) {
             Image(systemName: "hammer.fill").foregroundStyle(orange)
-            Text("Croo Builder").font(.headline)
+            Text("Ship Deck").font(.headline)
             Spacer()
             if !runner.branch.isEmpty {
                 Text("Mac is on: \(runner.branch)")
@@ -52,10 +54,38 @@ struct PanelView: View {
                     .background(.quaternary.opacity(0.7), in: Capsule())
                     .help("Which version of the code this Mac has right now. You can't change it here; the steps switch it for you.")
             }
-            Image(systemName: runner.repoLooksRight ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                .foregroundStyle(runner.repoLooksRight ? .green : .orange)
-                .help(runner.repoPath)
+            Image(systemName: (runner.repoLooksRight && runner.appLooksRight) ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle((runner.repoLooksRight && runner.appLooksRight) ? .green : .orange)
+                .help(runner.appPath)
         }
+    }
+
+    /// Which app every step below works on.
+    private var appPicker: some View {
+        Picker("", selection: Binding(get: { runner.appID }, set: { runner.selectApp($0) })) {
+            ForEach(BuilderApp.all) { app in Text(app.name).tag(app.id) }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .disabled(runner.isRunning)
+        .help("Pick the app. All four steps below, and the ship buttons, work on this app only.")
+    }
+
+    /// Shown the first time an app has no testing branch yet (an in-panel question: pop-up dialogs don't show well here).
+    private var testingBranchQuestion: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("\(runner.app.name) has no testing branch yet.").font(.callout.weight(.semibold))
+            Text("OK to create one from main? Nothing leaves this Mac and main isn't touched. If this Mac already has unsaved edits, they come along; you'll be asked to press “Send local changes to GitHub” to save them on testing.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Button("Not now") { runner.declineCreateTesting() }
+                Spacer()
+                Button("Create testing for \(runner.app.name)") { runner.confirmCreateTesting() }
+                    .buttonStyle(.borderedProminent).tint(orange)
+            }
+        }
+        .padding(10)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
     }
 
     @ViewBuilder private var status: some View {
@@ -124,7 +154,7 @@ struct PanelView: View {
                 runner.openXcode()
                 runner.complete(1)
             }
-            stepCard(2, "Ship drafts to main", "arrow.triangle.merge", orange, unlocked: shipUnlocked) {
+            stepCard(2, "Ship drafts to main for \(runner.app.name)", "arrow.triangle.merge", orange, unlocked: shipUnlocked) {
                 runner.shipToMain()
             }
             if runner.stepDone[1] && !runner.stepDone[2] {
@@ -132,7 +162,7 @@ struct PanelView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.callout)
             }
-            stepCard(3, "Ship to TestFlight", "paperplane.fill", orange, unlocked: runner.stepDone[2]) {
+            stepCard(3, "Ship \(runner.app.name) to TestFlight", "paperplane.fill", orange, unlocked: runner.stepDone[2]) {
                 runner.prepareShip()
             }
             HStack {
@@ -268,8 +298,8 @@ struct PanelView: View {
     private var deviceRow: some View {
         HStack(spacing: 8) {
             Picker("", selection: $selectedDevice) {
-                Text(runner.devices.isEmpty ? "No device found" : "Or run on a device (step 2)…").tag(Device?.none)
-                ForEach(runner.devices) { d in
+                Text(runner.visibleDevices.isEmpty ? "No device found" : "Or run on a device (step 2)…").tag(Device?.none)
+                ForEach(runner.visibleDevices) { d in
                     Label(d.label, systemImage: d.symbol).tag(Device?.some(d))
                 }
             }
@@ -331,21 +361,21 @@ struct PanelView: View {
     private var footer: some View {
         HStack {
             Button("Preview notes") {
-                previewNotes = previewNotes == nil ? TestFlightNotes.draft(repo: runner.repoPath) : nil
+                previewNotes = previewNotes == nil ? TestFlightNotes.draft(repo: runner.appPath) : nil
             }
             .buttonStyle(.link).font(.caption)
             .help("See the What to Test message the next Ship will post (nothing ships)")
             Button("Start over") { shipWord = ""; infoStep = nil; runner.startOver() }
                 .buttonStyle(.link).font(.caption)
                 .help("Goes back to step 1")
-            Button("Change folder…") { pickFolder() }.buttonStyle(.link).font(.caption)
+            Button("Change CrooHQ folder…") { pickFolder() }.buttonStyle(.link).font(.caption)
             Button("Terminal") { runner.openInTerminal() }.buttonStyle(.link).font(.caption)
             Button(loginOn ? "Opens at login ✓" : "Open at login") {
                 if loginOn { try? SMAppService.mainApp.unregister() } else { try? SMAppService.mainApp.register() }
                 loginOn = SMAppService.mainApp.status == .enabled
             }
             .buttonStyle(.link).font(.caption)
-            .help("Start Croo Builder automatically when you sign in to this Mac")
+            .help("Start Ship Deck automatically when you sign in to this Mac")
             Spacer()
             Button("Quit") { NSApp.terminate(nil) }.buttonStyle(.link).font(.caption)
         }
@@ -364,7 +394,7 @@ struct PanelView: View {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
-        panel.message = "Pick your Croo-App folder"
+        panel.message = "Pick your CrooHQ (Croo-App) folder. Ship Deck's scripts live there."
         NSApp.activate(ignoringOtherApps: true)
         if panel.runModal() == .OK, let url = panel.url { runner.repoPath = url.path }
     }

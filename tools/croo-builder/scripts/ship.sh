@@ -26,11 +26,12 @@ ok "Build $NEW (saved to GitHub so both Macs agree)"
 VERSIONS="$(grep -oE 'MARKETING_VERSION = [^;]+;' "$PBX" | sort -u | wc -l | tr -d ' ')"
 BUILDS="$(grep -oE 'CURRENT_PROJECT_VERSION = [^;]+;' "$PBX" | sort -u | wc -l | tr -d ' ')"
 [[ "$VERSIONS" == "1" && "$BUILDS" == "1" ]] || fail "The apps don't all have the same version/build number. Tell Claude: 'version mismatch in ship'."
-ok "iPhone, widgets, Watch and Vision Pro all on $(grep -oE 'MARKETING_VERSION = [^;]+' "$PBX" | head -1 | cut -d' ' -f3) ($NEW)"
+ok "$APP_NAME ($APP_PIECES) all on $(grep -oE 'MARKETING_VERSION = [^;]+' "$PBX" | head -1 | cut -d' ' -f3) ($NEW)"
 
-TEAM="$(grep -oE 'DEVELOPMENT_TEAM = [A-Z0-9]+;' "$PBX" | head -1 | sed -E 's/DEVELOPMENT_TEAM = ([A-Z0-9]+);/\1/')"
+TEAM="$(grep -oE 'DEVELOPMENT_TEAM = [A-Z0-9]+;' "$PBX" | head -1 | sed -E 's/DEVELOPMENT_TEAM = ([A-Z0-9]+);/\1/' || true)"
+[[ -n "$TEAM" ]] || TEAM="$APP_TEAM"
 [[ "$TEAM" =~ ^[A-Z0-9]{10}$ ]] || fail "Couldn't read your Apple team ID from the Xcode project (got '$TEAM'). Tell Claude: 'team id in ship'."
-OUT="$CACHE/ship-$NEW"
+OUT="$CACHE/ship-$APP_ID-$NEW"
 LOG="$OUT/xcodebuild.log"
 rm -rf "$OUT"; mkdir -p "$OUT"
 
@@ -48,13 +49,13 @@ if [[ -n "$ASC_DIR" ]]; then
   [[ -f "$ASC_KEY_PATH" ]] || fail "Your App Store Connect key file wasn't found next to $ASC_DIR/asc.env. Put the AuthKey_XXXX.p8 file in that folder, then Ship again."
   AUTH=(-authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
 else
-  fail "This Mac has no App Store Connect key yet. Put asc.env and the AuthKey .p8 in ~/.croo-builder or in iCloud Drive in a folder named Croo Builder (iCloud lets both Macs share it), or create a key in App Store Connect → Users and Access → Integrations (role: App Manager). See the Croo Builder README."
+  fail "This Mac has no App Store Connect key yet. Put asc.env and the AuthKey .p8 in ~/.croo-builder or in iCloud Drive in a folder named Croo Builder (iCloud lets both Macs share it), or create a key in App Store Connect → Users and Access → Integrations (role: App Manager). See the Ship Deck README."
 fi
 
 ensure_pods
 
 step "Archiving build $NEW (about 5–15 minutes, you can keep working)"
-if ! xcodebuild -workspace "$WORKSPACE" -scheme App -configuration Release \
+if ! xcodebuild "${XCTARGET[@]}" -scheme App -configuration Release DEVELOPMENT_TEAM="$TEAM" \
      -destination 'generic/platform=iOS' -archivePath "$OUT/App.xcarchive" \
      -allowProvisioningUpdates ${AUTH[@]+"${AUTH[@]}"} archive >"$LOG" 2>&1; then
   grep -E "error:|ARCHIVE FAILED" "$LOG" | head -20
@@ -89,7 +90,7 @@ if ! xcodebuild -exportArchive -archivePath "$OUT/App.xcarchive" -exportOptionsP
 fi
 ok "Uploaded build $NEW to TestFlight. Apple emails you when it's ready (usually 10–30 minutes)."
 
-# TestFlight notes: Croo Builder posts them (or copies them) after this. Here we file them under
+# TestFlight notes: Ship Deck posts them (or copies them) after this. Here we file them under
 # this build in ios/TESTFLIGHT_NOTES.md and start a fresh "Next build" section.
 if [[ -n "${CROO_NOTES_FILE:-}" && -f "$CROO_NOTES_FILE" ]] && command -v python3 >/dev/null 2>&1; then
   step "Filing the TestFlight notes under build $NEW"

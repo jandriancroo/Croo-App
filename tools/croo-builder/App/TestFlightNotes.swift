@@ -68,7 +68,7 @@ enum TestFlightNotes {
 
     /// ~/.croo-builder/asc.env with ASC_KEY_PATH, ASC_KEY_ID, ASC_ISSUER_ID (same file Ship uses).
     static func apiKey() -> Key? {
-        // ~/.croo-builder, or iCloud Drive's "Croo Builder" folder so both Macs share one key.
+        // ~/.croo-builder, or iCloud Drive's "Ship Deck" folder so both Macs share one key.
         let icloud = NSHomeDirectory() + "/Library/Mobile Documents/com~apple~CloudDocs"
         let dirs = [NSHomeDirectory() + "/.croo-builder", icloud + "/CrooHQ/Apple Dev", icloud + "/Croo Builder"]
         guard let dir = dirs.first(where: { FileManager.default.fileExists(atPath: $0 + "/asc.env") }),
@@ -102,7 +102,7 @@ enum TestFlightNotes {
     }
 
     /// Waits (up to 60 min) for build `build` to show up in App Store Connect, then sets "What to Test".
-    static func post(build: String, notes: String, key: Key, progress: @escaping @Sendable (String) -> Void) async throws {
+    static func post(build: String, notes: String, key: Key, bundleId: String, progress: @escaping @Sendable (String) -> Void) async throws {
         let api = ASC(key: key)
         let apps = try await api.get("/v1/apps?filter[bundleId]=\(bundleId)&limit=1")
         guard let appId = (apps["data"] as? [[String: Any]])?.first?["id"] as? String else {

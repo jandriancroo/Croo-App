@@ -44,7 +44,7 @@ struct LogLine: Identifiable {
     }
 }
 
-/// A real iPhone or Vision Pro this Mac has paired with (Croo Builder never lists simulators).
+/// A real iPhone or Vision Pro this Mac has paired with (Ship Deck never lists simulators).
 struct Device: Identifiable, Hashable {
     let id: String       // UDID
     let name: String     // the name you gave it, e.g. "Jordan's iPhone"
@@ -62,6 +62,19 @@ struct Device: Identifiable, Hashable {
     }
 }
 
+/// An app Ship Deck can ship. The scripts hold the per-app Git and Xcode details; this is what the panel needs.
+struct BuilderApp: Identifiable, Hashable {
+    let id: String          // matches the scripts' CROO_APP_ID
+    let name: String        // shown in the panel and on the step buttons
+    let folder: String      // inside ~/Developer (CrooHQ's folder is set separately by "Change folder…")
+    let bundleId: String    // for posting TestFlight notes
+    let hasVision: Bool     // false = hide Vision Pro devices
+
+    static let croohq = BuilderApp(id: "croohq", name: "CrooHQ", folder: "Croo-App", bundleId: "com.croohq.kitchenmate", hasVision: true)
+    static let shredpal = BuilderApp(id: "shredpal", name: "ShredPal", folder: "shredpal", bundleId: "com.shredpal.app", hasVision: false)
+    static let all: [BuilderApp] = [croohq, shredpal]
+}
+
 @MainActor
 final class Runner: ObservableObject {
     @Published var lines: [LogLine] = []
@@ -74,6 +87,12 @@ final class Runner: ObservableObject {
     /// The branch this Mac is on right now (read-only, shown at the top).
     @Published private(set) var branch = ""
     @Published var loadingDevices = false
+    /// Which app the four steps work on. Saved between launches.
+    @Published private(set) var appID = UserDefaults.standard.string(forKey: "selectedApp") ?? "croohq"
+    /// True while a first-time "create the testing branch?" question is waiting for a yes or no.
+    @Published var needsTestingOK = false
+    private var pendingRetry: (BuilderAction, (() -> Void)?)?
+    /// The CrooHQ folder. Ship Deck's scripts live here, and it is also the CrooHQ app's own folder.
     @Published var repoPath: String {
         didSet { UserDefaults.standard.set(repoPath, forKey: "repoPath") }
     }
@@ -93,7 +112,37 @@ final class Runner: ObservableObject {
         let saved = UserDefaults.standard.string(forKey: "repoPath")
         let fromInstall = Bundle.main.object(forInfoDictionaryKey: "CrooRepoPath") as? String
         repoPath = saved ?? fromInstall ?? (NSHomeDirectory() + "/Developer/Croo-App")
+        if !BuilderApp.all.contains(where: { $0.id == appID }) { appID = "croohq" }
         refreshBranch()
+    }
+
+    // MARK: Which app
+
+    var app: BuilderApp { BuilderApp.all.first(where: { $0.id == appID }) ?? .croohq }
+    /// The selected app's folder on this Mac.
+    var appPath: String { app.id == "croohq" ? repoPath : NSHomeDirectory() + "/Developer/" + app.folder }
+    var appLooksRight: Bool { FileManager.default.fileExists(atPath: appPath + "/ios/App") }
+    /// Real devices that make sense for the selected app (no Vision Pro for apps without one).
+    var visibleDevices: [Device] { app.hasVision ? devices : devices.filter { $0.platform != "visionOS" } }
+
+    func selectApp(_ id: String) {
+        guard !isRunning, id != appID, BuilderApp.all.contains(where: { $0.id == id }) else { return }
+        appID = id
+        UserDefaults.standard.set(id, forKey: "selectedApp")
+        startOver()
+        refreshBranch()
+    }
+
+    func confirmCreateTesting() {
+        guard let retry = pendingRetry else { return }
+        pendingRetry = nil
+        needsTestingOK = false
+        run(retry.0, env: ["CROO_CREATE_TESTING": "1"], onSuccess: retry.1)
+    }
+
+    func declineCreateTesting() {
+        pendingRetry = nil
+        needsTestingOK = false
     }
 
     // MARK: Steps and branch label
@@ -123,7 +172,7 @@ final class Runner: ObservableObject {
     func refreshBranch() {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
-        p.arguments = ["-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD"]
+        p.arguments = ["-C", appPath, "rev-parse", "--abbrev-ref", "HEAD"]
         let pipe = Pipe()
         p.standardOutput = pipe
         p.standardError = FileHandle.nullDevice
@@ -146,10 +195,14 @@ final class Runner: ObservableObject {
         guard !isRunning else { return }
         self.onSuccess = onSuccess
         guard repoLooksRight else {
-            lines = [LogLine(text: "✖ Can't find the CrooHQ project at \(repoPath). Use “Change…” to pick the Croo-App folder.")]
+            lines = [LogLine(text: "✖ Can't find the CrooHQ project at \(repoPath). Use “Change folder…” to pick the Croo-App folder (Ship Deck's scripts live there).")]
             return
         }
-        lines = [LogLine(text: "▶ \(action.title) · \(Self.timeString())")]
+        guard appLooksRight else {
+            lines = [LogLine(text: "✖ Can't find the \(app.name) project at \(appPath).")]
+            return
+        }
+        lines = [LogLine(text: "▶ \(action.title) · \(app.name) · \(Self.timeString())")]
         isRunning = true
         currentTitle = action.title
         lastResult = nil
@@ -158,9 +211,11 @@ final class Runner: ObservableObject {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/bash")
         p.arguments = [scriptsDir + "/" + action.script] + action.arguments
-        p.currentDirectoryURL = URL(fileURLWithPath: repoPath)
+        p.currentDirectoryURL = URL(fileURLWithPath: appPath)
         var env = ProcessInfo.processInfo.environment
         env["CROO_BUILDER"] = "1"
+        env["CROO_APP_ID"] = app.id
+        env["CROO_APP_DIR"] = appPath
         extra.forEach { env[$0.key] = $0.value }
         p.environment = env
 
@@ -205,6 +260,8 @@ final class Runner: ObservableObject {
         process = nil
         isRunning = false
         refreshBranch()
+        // Exit code 3 = "this app has no testing branch yet": ask before creating one.
+        if status == 3 { pendingRetry = (action, onSuccess); needsTestingOK = true }
         let ok = status == 0
         lastResult = (action.title, ok)
         if !ok && !lines.contains(where: { $0.kind == .error }) {
@@ -224,7 +281,7 @@ final class Runner: ObservableObject {
         notesStatus = ""
         run(.getLatest, env: ["CROO_BRANCH": "main"]) { [weak self] in
             guard let self else { return }
-            self.notesDraft = TestFlightNotes.draft(repo: self.repoPath)
+            self.notesDraft = TestFlightNotes.draft(repo: self.appPath)
         }
     }
 
@@ -254,9 +311,10 @@ final class Runner: ObservableObject {
             return
         }
         notesStatus = "Adding the notes to build \(build) once Apple finishes processing it (10–30 min)…"
+        let bundleId = app.bundleId
         Task { [weak self] in
             do {
-                try await TestFlightNotes.post(build: build, notes: notes, key: key) { msg in
+                try await TestFlightNotes.post(build: build, notes: notes, key: key, bundleId: bundleId) { msg in
                     Task { @MainActor in self?.notesStatus = msg }
                 }
                 await MainActor.run {
@@ -279,7 +337,7 @@ final class Runner: ObservableObject {
     func copyErrorReport() {
         let errors = lines.filter { $0.kind == .error }.map(\.text)
         let tail = lines.suffix(40).map(\.text)
-        var report = "Croo Builder · \(currentTitle.isEmpty ? (lastResult?.title ?? "") : currentTitle) · \(Self.timeString())\n"
+        var report = "Ship Deck · \(app.name) · \(currentTitle.isEmpty ? (lastResult?.title ?? "") : currentTitle) · \(Self.timeString())\n"
         if !errors.isEmpty { report += "Errors:\n" + errors.joined(separator: "\n") + "\n\n" }
         report += "Last lines:\n" + tail.joined(separator: "\n")
         NSPasteboard.general.clearContents()
@@ -338,12 +396,14 @@ final class Runner: ObservableObject {
     // MARK: Helpers
 
     func openXcode() {
-        let ws = URL(fileURLWithPath: repoPath + "/ios/App/App.xcworkspace")
-        NSWorkspace.shared.open(ws)
+        // CocoaPods apps (CrooHQ) open the workspace; Swift Package Manager apps (ShredPal) have only the project file.
+        let ws = appPath + "/ios/App/App.xcworkspace"
+        let proj = appPath + "/ios/App/App.xcodeproj"
+        NSWorkspace.shared.open(URL(fileURLWithPath: FileManager.default.fileExists(atPath: ws) ? ws : proj))
     }
 
     func openInTerminal() {
-        let url = URL(fileURLWithPath: repoPath)
+        let url = URL(fileURLWithPath: appPath)
         NSWorkspace.shared.open([url], withApplicationAt: URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"),
                                 configuration: NSWorkspace.OpenConfiguration())
     }
