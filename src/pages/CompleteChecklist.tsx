@@ -1,4 +1,5 @@
 import { placeSectionHeaders } from '@/lib/checklistSectionGroups';
+import { tempCoachingTip } from '@/lib/temperatureCoaching';
 import { referencePhotoFields, getPrimaryReferencePhoto } from '@/lib/checklistReferencePhotos';
 import { canUndoChecklistItem, CHECKLIST_UNDO_ANY_ROLES } from '@/lib/checklistUndo';
 import { planManualTemperature, isTempPhotoRequiredError, TEMP_PHOTO_FIRST_MESSAGE } from '@/lib/checklistTemperature';
@@ -125,6 +126,8 @@ export default function CompleteChecklist() {
   const previewTouchX = useRef<number | null>(null);
   const [showNotes, setShowNotes] = useState(false);
   const [manualTempOpen, setManualTempOpen] = useState<Record<string, boolean>>({});
+  // Tip for a thermometer photo that was too unclear to read (that photo is not saved).
+  const [tempRetakeTip, setTempRetakeTip] = useState<Record<string, string>>({});
   const [manualTempValue, setManualTempValue] = useState<Record<string, string>>({});
   const [uploadingItems, setUploadingItems] = useState<Record<string, boolean>>({});
   const notesTimeoutRef = useRef<NodeJS.Timeout>();
@@ -985,6 +988,7 @@ export default function CompleteChecklist() {
       },
     }));
     setUploadingItems(prev => ({ ...prev, [itemId]: true }));
+    setTempRetakeTip(prev => { if (!(itemId in prev)) return prev; const next = { ...prev }; delete next[itemId]; return next; });
 
     try {
       // Compress image to reduce memory usage on mobile devices
@@ -1011,10 +1015,11 @@ export default function CompleteChecklist() {
       if (shouldValidateTemp) {
         const { data: tempData, error: tempError } = await supabase.functions.invoke(
           'ai-extraction-service?action=extract-temperature',
-          { body: { imageUrl: data.publicUrl } }
+          { body: { imageUrl: data.publicUrl, itemName: item?.question ?? null } }
         );
         const taskLocationId = currentLocation?.id || checklist?.location_id;
-        const reason: string | null = tempError || !tempData ? 'function_error' : (tempData.reason ?? null);
+        // A disagreement settled by the third read is still logged (with all reads).
+        const reason: string | null = tempError || !tempData ? 'function_error' : (tempData.reason ?? (tempData.tiebreak ? 'tiebreak_confirmed' : null));
         if (!tempError && tempData && tempData.temperature != null) {
           extractedTemp = tempData.temperature;
           tempValid = tempData.isValid;
@@ -1025,7 +1030,7 @@ export default function CompleteChecklist() {
         if (reason) {
           void supabase.from('temperature_read_issues').insert({
             reason,
-            reads: tempData?.reads ?? null,
+            reads: tempData?.readDetails ?? tempData?.reads ?? null,
             saved_temperature: hasNewReading ? extractedTemp : null,
             image_url: data.publicUrl,
             item_id: itemId,
@@ -1034,8 +1039,18 @@ export default function CompleteChecklist() {
             user_id: user?.id,
           } as any).then(({ error }) => { if (error) console.warn('[temp-read-issue] log failed', error.message); });
         }
+        // Too unclear to read: reject this photo (nothing saved) and coach a retake.
+        if (!tempError && tempData?.reason === 'unclear') {
+          const tip = tempCoachingTip(tempData.coaching);
+          setResponses(previousResponses);
+          setResponsesWithCompleters(previousResponsesWithCompleters);
+          revokeBlob();
+          setTempRetakeTip(prev => ({ ...prev, [itemId]: tip }));
+          toast.warning("We couldn't read that photo", { description: tip });
+          return;
+        }
         if (!hasNewReading) {
-          toast.warning("Couldn't read the temperature", { description: 'Please type the temperature you see on the thermometer.' });
+          toast.warning("Couldn't get a sure reading", { description: 'Retake the photo, or tap Fix the number and type what the thermometer shows.' });
           setManualTempOpen(prev => ({ ...prev, [itemId]: true }));
         }
 
@@ -1405,6 +1420,7 @@ export default function CompleteChecklist() {
     tempValue: (id) => manualTempValue[id] ?? '',
     setTempValue: (id, v) => setManualTempValue(prev => ({ ...prev, [id]: v })),
     saveTemp: (id) => saveManualTemperature(id, manualTempValue[id] ?? ''),
+    tempTip: (id) => tempRetakeTip[id] ?? null,
     canFixLegacyTemp: !!role && (CHECKLIST_UNDO_ANY_ROLES as readonly string[]).includes(role),
     completer: (id) => responsesWithCompleters[id]?.completedBy,
     canUndo: (id) => !!responsesWithCompleters[id]?.responseId && canUndoItem(id),
