@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 // Static blog generator: blog-src/posts/*.md + blog-src/heroes/<hero>-{1600x900,1200x627}.png
-// -> public/blog/index.html, public/blog/<slug>/index.html, public/blog/assets/*
+// -> public/blog/index.html, public/blog/<slug>/index.html, public/blog/assets/*, public/blog/feed.xml
 // Usage: node scripts/build-blog.mjs   (see blog-src/README.md)
 import fs from "node:fs"; import path from "node:path";
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const SRC = path.join(ROOT, "blog-src"), OUT = path.join(ROOT, "public/blog"), A = path.join(OUT, "assets");
 const SITE = "https://croohq.com", DEMO = "/demo";
+// Front matter dates stay as written (they are staggered on purpose). Crawler
+// "last changed" signals must not sit after the day this file is generated.
+const buildDate = new Date().toISOString().slice(0, 10);
+const asOfBuild = (d) => (d > buildDate ? buildDate : d);
 const BIO = "Ran four restaurant locations over 12 years before building CrooHQ.";
 const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 const inl = s => esc(s).replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2">$1</a>').replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
@@ -31,11 +35,13 @@ h2{font-size:27px;margin:42px 0 8px;color:#2e6270;font-weight:800}article a{colo
 const FONT = `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap">`;
 const HEADER = `<header><div class="wrap hd"><a href="/"><img src="/croohq-wordmark.png" alt="CrooHQ" class="logo" width="136" height="32"></a><a class="sep" href="/blog/">Blog</a><nav><a href="/">Product</a><a href="/blog/">Operator notes</a><a class="nb" href="${DEMO}">Book a demo</a></nav></div></header>`;
 const FOOTER = `<footer><div class="wrap ft"><a class="ft-contact" href="mailto:jordan@croohq.com">Contact Us</a><div>© ${new Date().getFullYear()} CrooHQ · Your crew's HQ · <a href="/">Visit croohq.com</a> · <a href="/blog/">All posts</a></div></div></footer>`;
+const ldTag = (ld) => (Array.isArray(ld) ? ld : ld ? [ld] : []).map(obj =>
+  `<script type="application/ld+json">${JSON.stringify(obj).replace(/</g,"\\u003c")}</script>`).join("");
 const head = (o) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(o.title)}</title><meta name="description" content="${esc(o.desc)}"><link rel="canonical" href="${o.url}"><link rel="icon" href="/favicon.png">
+<title>${esc(o.title)}</title><meta name="description" content="${esc(o.desc)}"><link rel="canonical" href="${o.url}"><link rel="alternate" type="application/rss+xml" title="CrooHQ Blog" href="${SITE}/blog/feed.xml"><link rel="icon" href="/favicon.png">
 <meta property="og:type" content="${o.type}"><meta property="og:site_name" content="CrooHQ"><meta property="og:title" content="${esc(o.title)}"><meta property="og:description" content="${esc(o.desc)}"><meta property="og:url" content="${o.url}"><meta property="og:image" content="${o.img}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="627">
 <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(o.title)}"><meta name="twitter:description" content="${esc(o.desc)}"><meta name="twitter:image" content="${o.img}">
-${o.ld ? `<script type="application/ld+json">${JSON.stringify(o.ld).replace(/</g,"\\u003c")}</script>` : ""}
+${ldTag(o.ld)}
 ${FONT}<style>${CSS}</style></head><body>`;
 fs.rmSync(OUT,{recursive:true,force:true}); fs.mkdirSync(A,{recursive:true});
 fs.copyFileSync(path.join(SRC,"jordan-avatar.png"), path.join(A,"jordan-avatar.png"));
@@ -50,8 +56,15 @@ for (const p of posts) {
   p.excerpt = p.excerpt || p.meta_description;
   const url = `${SITE}/blog/${p.slug}/`, img = `${SITE}/blog/assets/${p.slug}-1200x627.png`, alt = p.hero_alt || p.title;
   const ctah = cta.map((c,i)=>`<a class="btn${i?" alt":""}" href="${esc(c.match(/\]\(([^)]+)\)/)[1])}">${esc(c.replace(/\*\*|\[|\]|\([^)]*\)/g,"").trim())}</a>`).join("");
-  const ld = {"@context":"https://schema.org","@type":"Article",headline:p.title,description:p.meta_description,image:[img],datePublished:p.date,dateModified:p.updated||p.date,
-    author:{"@type":"Person",name:"Jordan Andrian",jobTitle:"Founder, CrooHQ",url:SITE},publisher:{"@type":"Organization",name:"CrooHQ",url:SITE,logo:{"@type":"ImageObject",url:`${SITE}/croohq-logo.png`}},mainEntityOfPage:url};
+  const ld = [
+    {"@context":"https://schema.org","@type":"BlogPosting",headline:p.title,description:p.meta_description,image:[img],datePublished:p.date,dateModified:asOfBuild(p.updated||p.date),
+      author:{"@type":"Person",name:"Jordan Andrian",jobTitle:"Founder, CrooHQ",url:SITE},publisher:{"@type":"Organization",name:"CrooHQ",url:SITE,logo:{"@type":"ImageObject",url:`${SITE}/croohq-logo.png`}},mainEntityOfPage:url},
+    {"@context":"https://schema.org","@type":"BreadcrumbList",itemListElement:[
+      {"@type":"ListItem",position:1,name:"Home",item:`${SITE}/`},
+      {"@type":"ListItem",position:2,name:"Blog",item:`${SITE}/blog/`},
+      {"@type":"ListItem",position:3,name:p.title,item:url},
+    ]},
+  ];
   const mins = Math.max(1, Math.round(main.split(/\s+/).length/230));
   const html = head({title:p.seo_title,desc:p.meta_description,url,img,type:"article",ld}) + `${HEADER}
 <main class="wrap art"><div class="kicker">CrooHQ Blog · Operator notes</div><h1>${esc(p.title)}</h1>
@@ -68,6 +81,26 @@ fs.writeFileSync(path.join(OUT,"index.html"), head({title:"CrooHQ Blog: Operator
   + `${HEADER}<main class="wrap list"><div class="kicker">CrooHQ Blog · Operator notes</div><h1>Operator notes</h1><p class="lede">Straight talk on schedules, punches, and labor from someone who ran four restaurant locations. <a href="/">See what CrooHQ does</a>.</p><div class="cards">${cards}</div></main>${FOOTER}</body></html>\n`);
 // latest-posts feed for the homepage "Latest from the blog" block
 fs.writeFileSync(path.join(OUT,"posts.json"), JSON.stringify(posts.slice(0,3).map(p=>({slug:p.slug,title:p.title,date:p.date,dateLabel:fmtDate(p.date),img:`/blog/assets/${p.slug}-1200x627.png`,alt:p.hero_alt||p.title,url:`/blog/${p.slug}/`})),null,1)+"\n");
-// blog sitemap (referenced from public/sitemap.xml index)
-fs.writeFileSync(path.join(ROOT,"public/blog-sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${SITE}/blog/</loc><lastmod>${posts[0].date}</lastmod></url>\n${posts.map(p=>`  <url><loc>${SITE}/blog/${p.slug}/</loc><lastmod>${p.updated||p.date}</lastmod></url>`).join("\n")}\n</urlset>\n`);
-console.log(`listing: ${posts.length} posts`);
+const xml = (s) => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const rssDate = (d) => new Date(`${d}T12:00:00Z`).toUTCString();
+fs.writeFileSync(path.join(OUT,"feed.xml"), `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+<channel>
+  <title>CrooHQ Blog</title>
+  <link>${SITE}/blog/</link>
+  <description>${xml(desc)}</description>
+  <language>en-us</language>
+  <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+${posts.map(p => `  <item>
+    <title>${xml(p.title)}</title>
+    <link>${SITE}/blog/${p.slug}/</link>
+    <guid isPermaLink="true">${SITE}/blog/${p.slug}/</guid>
+    <pubDate>${rssDate(p.date)}</pubDate>
+    <description>${xml(p.meta_description)}</description>
+  </item>`).join("\n")}
+</channel>
+</rss>
+`);
+// blog sitemap (referenced from public/sitemap.xml index). lastmod never exceeds the build date.
+fs.writeFileSync(path.join(ROOT,"public/blog-sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${SITE}/blog/</loc><lastmod>${asOfBuild(posts[0].date)}</lastmod></url>\n${posts.map(p=>`  <url><loc>${SITE}/blog/${p.slug}/</loc><lastmod>${asOfBuild(p.updated||p.date)}</lastmod></url>`).join("\n")}\n</urlset>\n`);
+console.log(`listing: ${posts.length} posts; feed public/blog/feed.xml; build date ${buildDate}`);
