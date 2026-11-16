@@ -83,7 +83,7 @@ reset_auto_files() {
       if [[ -e "$f" ]] && ! git diff --quiet -- "$f" 2>/dev/null; then git checkout -- "$f"; fi
     done
   fi
-  for f in "${BACKUP_FILES[@]}"; do
+  for f in ${BACKUP_FILES[@]+"${BACKUP_FILES[@]}"}; do
     if [[ -e "$f" ]] && ! git diff --quiet -- "$f" 2>/dev/null; then
       if [[ "$mode" != "quiet" ]]; then
         local stamp backup
