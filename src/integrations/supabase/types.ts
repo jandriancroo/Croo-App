@@ -16830,6 +16830,15 @@ export type Database = {
         Args: { _by: string; _schedule_id: string }
         Returns: number
       }
+      _punch_shift_segments: {
+        Args: { _from: string; _location: string; _to: string; _user: string }
+        Returns: {
+          is_open: boolean
+          member_ids: string[]
+          seg_limit: string
+          seg_start: string
+        }[]
+      }
       _rc_batch: {
         Args: { _bp_id: string; _location_id: string; _visited?: string[] }
         Returns: Json
@@ -16957,6 +16966,10 @@ export type Database = {
         }[]
       }
       _toast_session_check_due: { Args: { _now?: string }; Returns: boolean }
+      _tp_approval_guard: {
+        Args: { _approved: Json; _touched: Json }
+        Returns: undefined
+      }
       _tz_valid_for_state: {
         Args: { _state: string; _tz: string }
         Returns: boolean
