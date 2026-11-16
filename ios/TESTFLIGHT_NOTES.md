@@ -6,6 +6,11 @@ Croo Builder's Ship button shows this for editing, posts it to TestFlight, then 
 
 ## Next build
 
+## Build 26 · Nov 16, 2026
+
+What's new:
+- TestFlight notes for build 25
+
 ## Build 25 · Oct 30, 2026
 
 What's new:
