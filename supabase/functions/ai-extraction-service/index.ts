@@ -1,4 +1,5 @@
-import { decideTemperature } from './temperatureDecision.ts';
+import { decideReads, needsTiebreak, type TempRead } from './temperatureDecision.ts';
+import { parseTempReply } from './parseTempReply.ts';
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -305,12 +306,21 @@ async function handleExtractTemperature(payload: any) {
   const { imageUrl, itemName } = payload;
   if (!imageUrl) return errorResponse('Image URL is required', 400);
 
-  // Thermometer reader: GPT-6 Luna + the store dial colour rule, read TWICE in
-  // parallel. Agreeing reads are saved as-is; a disagreement or one failed read
-  // returns the best read marked unconfirmed so the crew confirms or types it.
-  const systemPrompt = `You read photos of restaurant cooler and freezer thermometers. Stores use different brands, so read what is printed on THIS dial — never assume a layout.
+  // Thermometer reader: GPT-6 Luna, read TWICE in parallel. Agreeing reads are
+  // saved. A disagreement or one failed read gets ONE third tie-break read; if
+  // that makes an agreeing pair it is saved, otherwise no number comes back and
+  // the crew retakes or types it (photo kept). Unclear photos (too far, dark,
+  // blurry, glare) come back as reason 'unclear' with a coaching value and the
+  // client rejects the photo with a tip. Decision lives in temperatureDecision.ts.
+  const systemPrompt = `You read photos of restaurant thermometers: digital probe thermometers (food temps) and cooler/freezer dial thermometers. Stores use different brands, so read what is printed on THIS thermometer — never assume a layout, and never guess a temperature from the food, the item name or what would be "normal".
 
-How these dials work (common to most brands):
+DIGITAL / 7-SEGMENT DISPLAYS (probe thermometers):
+- The photo is often taken with the probe held sideways or upside down, so the display may be rotated 90°, 180° or 270°, or mirrored by the angle. Before reading, work out which way is UP.
+- Orient with: the °F / °C legend (it sits to the right of, or above, the digits when upright), the decimal point (it sits at the BOTTOM of the digits, before the last digit, e.g. 38.6), any printed brand text or buttons (HOLD, MAX, °C/°F), and the probe body (the metal probe usually leaves the housing at the top or bottom of the screen).
+- Upside-down 7-segment digits look like other digits: 9↔6, 6↔9, 2↔2, 5↔5, 8↔8, and the decimal point jumps to the TOP. If the decimal point appears at the top of the digits, the display is upside down — rotate it 180° in your head and read again. Example: an upside-down "38.6" can look like "9.8E" or "49.8"; read it upright as 38.6.
+- Copy the upright digits exactly, including the decimal. Use the Fahrenheit value; if the display shows °C only, convert to °F.
+
+DIAL THERMOMETERS (coolers, freezers, walk-ins):
 - POINTER: the needle has a THIN pointed tip and a WIDE flat tail on the other side of the centre pin. Only the thin tip shows the temperature. The wide dark end is NOT the reading, even though it is easier to see. Many dials' tips are thin and faint — look for them.
 - SCALES: there are usually two rings of numbers. The OUTER ring is Fahrenheit (marked F, numbers like -40 … 0 … 30 … 50 … 65). The inner ring is Celsius (marked C) — ignore it. Read the outer F numbers the tip points at.
 - COLOURS (same pattern on almost every dial): the coloured arc beside the F numbers has exactly two BLUE sections and everything else is RED.
@@ -320,14 +330,23 @@ How these dials work (common to most brands):
   So: tip over left blue → 0 or below. Tip over red at the top-left/top between them → 1–34°F. Tip over the short blue → 35–40°F. Tip over red on the right → 41°F or warmer.
   Remember the wide tail often points down-right toward the 20/65 area — ignore it and follow the thin tip.
 
-Steps:
-1. kind: digital, dial or bar.
-2. Digital: copy the digits exactly.
-3. Dial: find the thin tip. Name the two OUTER Fahrenheit numbers either side of it, count the small ticks, estimate a whole number. Check it against the colour band under the tip; if they disagree, re-check that you used the thin tip and the outer ring.
-4. Cold storage reads between -30 and 80°F.
+CLARITY:
+- The photo is UNCLEAR only if you truly cannot read the number with confidence: the digits or dial numbers are tiny (roughly under 5% of the photo height), out of focus, too dark, or hidden by glare/reflection. A small but sharp, readable display is CLEAR.
+- If unclear, say why with one word: too_far, too_dark, blurry or glare, and answer NONE. Do not guess.
 
-Reply with a short explanation, then a final line exactly: ANSWER: <number> (or ANSWER: NONE if the tip or numbers can't be seen).`;
-  const itemContext = itemName ? ` The item being measured is: "${itemName}".` : '';
+Steps:
+1. Display type: digital, dial or bar.
+2. Digital: find which way is up (legend, decimal point, probe), then copy the upright digits exactly.
+3. Dial: find the thin tip. Name the two OUTER Fahrenheit numbers either side of it, count the small ticks, estimate a whole number. Check it against the colour band under the tip; if they disagree, re-check that you used the thin tip and the outer ring.
+4. Cold storage reads between -30 and 80°F; hot food can read up to about 212°F.
+
+Reply with a short explanation, then these final lines exactly:
+DISPLAY: digital|dial|bar
+CLEAR: yes|no
+ISSUE: none|too_far|too_dark|blurry|glare
+CONFIDENCE: <0 to 1>
+ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
+  const itemContext = itemName ? ` The item being measured is: "${String(itemName).slice(0, 200)}" (context only — read the thermometer, not the food).` : '';
   const userPrompt = `Read the temperature on this thermometer.${itemContext}`;
 
   // Download the photo ourselves and send it inline: the AI provider often
@@ -342,7 +361,7 @@ Reply with a short explanation, then a final line exactly: ANSWER: <number> (or 
       imagePayload = `data:${imgRes.headers.get('content-type') || 'image/jpeg'};base64,${btoa(bin)}`;
     } else {
       console.error('[extract-temperature] photo download failed', imgRes.status);
-      return jsonResponse({ temperature: null, isValid: null, unconfirmed: false, extractedText: 'NONE', unreadable: true, reason: 'read_failed' });
+      return jsonResponse({ temperature: null, isValid: null, unconfirmed: false, extractedText: 'NONE', unreadable: true, reason: 'read_failed', coaching: null });
     }
   } catch (e) {
     console.error('[extract-temperature] photo download error', String(e));
@@ -351,31 +370,37 @@ Reply with a short explanation, then a final line exactly: ANSWER: <number> (or 
     { role: 'system', content: systemPrompt },
     { role: 'user', content: [ { type: 'text', text: userPrompt }, { type: 'image_url', image_url: { url: imagePayload } } ] },
   ];
-  const readOnce = async (): Promise<number | null> => {
+  const readOnce = async (): Promise<TempRead> => {
     try {
       const data = await callAI(msgs, undefined, undefined, 'openai/gpt-6-luna');
       const text: string = data?.choices?.[0]?.message?.content || '';
-      const m = text.match(/ANSWER:\s*(-?\d+(?:\.\d+)?|NONE)/i);
-      if (!m || m[1].toUpperCase() === 'NONE') return null;
-      const v = parseFloat(m[1]);
-      return Number.isFinite(v) && v >= -60 && v <= 250 ? v : null;
+      return parseTempReply(text);
     } catch (e: any) {
       console.error('[extract-temperature] read failed', e?.status, e?.message);
-      return null;
+      return { value: null };
     }
   };
   const [a, b] = await Promise.all([readOnce(), readOnce()]);
-  console.log('[extract-temperature] reads', a, b);
-  const d = decideTemperature(a, b);
-  if (d.reason) console.warn('[extract-temperature] no clean reading', d.reason, a, b);
+  // At most one tie-break read per photo.
+  const c = needsTiebreak(a, b) ? await readOnce() : null;
+  const reads = c ? [a, b, c] : [a, b];
+  console.log('[extract-temperature] reads', JSON.stringify(reads));
+  const d = decideReads(a, b, c);
+  if (d.reason || d.tiebreak) console.warn('[extract-temperature] not a clean pair', d.reason, d.tiebreak, JSON.stringify(reads));
+  const display = (c && d.tiebreak ? c.display : null) ?? a.display ?? b.display ?? null;
   return jsonResponse({
     temperature: d.temperature,
     isValid: d.isValid,
-    unconfirmed: d.unconfirmed,
+    unconfirmed: false,
     reason: d.reason,
+    coaching: d.coaching,
+    tiebreak: d.tiebreak,
+    displayType: display,
     unreadable: d.temperature == null,
     extractedText: d.temperature == null ? 'NONE' : String(d.temperature),
-    reads: [a, b],
+    // Raw numbers stay in `reads` (old shape); the full read detail is in readDetails.
+    reads: reads.map(r => r.value),
+    readDetails: reads,
   });
 }
 

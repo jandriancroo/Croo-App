@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DateTime } from 'luxon';
 import { PhotoPickerButton } from '@/components/PhotoPickerButton';
+import { TempRetakeTip } from './TempRetakeTip';
 import { ChecklistQuestionText } from '@/components/tasks/ChecklistQuestionText';
 import { InlineVideoPlayer } from '@/components/ui/inline-video-player';
 import { parseLinkRefs, type ChecklistLinkRef } from '@/lib/checklistLinks';
@@ -65,6 +66,8 @@ export interface RunCtx {
   tempValue: (id: string) => string;
   setTempValue: (id: string, v: string) => void;
   saveTemp: (id: string) => void;
+  /** Tip to show when the last thermometer photo was too unclear to read (that photo was not saved). */
+  tempTip?: (id: string) => string | null;
   /** Shift managers and up may still correct an old reading saved without a photo. */
   canFixLegacyTemp?: boolean;
   completer: (id: string) => Completer | undefined;
@@ -556,9 +559,11 @@ function GuidedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
     const canEdit = !!shot || (has && !!ctx.canFixLegacyTemp);
     const editOpen = canEdit && ctx.tempOpen(it.id);
     const openEdit = () => { ctx.setTempValue(it.id, has ? String(r.temp) : ''); ctx.setTempOpen(it.id, true); };
+    const tip = ctx.tempTip?.(it.id) ?? null;
     return (
       <div className="space-y-3">
         <NotesPanel it={it} />
+        {tip && <TempRetakeTip tip={tip} uploading={ctx.uploading(it.id)} onRetake={(f) => ctx.upload(it.id, f)} />}
         {shot ? (
           <button type="button" onClick={() => ctx.preview(shot)} className="block w-full overflow-hidden rounded-xl border" aria-label="See photo full size">
             <img src={shot} alt="Your temperature photo" className="max-h-72 w-full object-cover" />
@@ -836,6 +841,7 @@ function CompletedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
       )}
       <NotesPanel it={it} />
       <ReferenceRows it={it} ctx={ctx} showPhotos />
+      {temp && can && ctx.tempTip?.(it.id) && <TempRetakeTip tip={ctx.tempTip(it.id)!} uploading={ctx.uploading(it.id)} onRetake={(f) => ctx.upload(it.id, f)} />}
       {can && (
         <div className="space-y-2">
           {temp && (
