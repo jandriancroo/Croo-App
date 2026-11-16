@@ -317,7 +317,11 @@ async function handleExtractTemperature(payload: any) {
 DIGITAL / 7-SEGMENT DISPLAYS (probe thermometers):
 - The photo is often taken with the probe held sideways or upside down, so the display may be rotated 90°, 180° or 270°, or mirrored by the angle. Before reading, work out which way is UP.
 - Orient with: the °F / °C legend (it sits to the right of, or above, the digits when upright), the decimal point (it sits at the BOTTOM of the digits, before the last digit, e.g. 38.6), any printed brand text or buttons (HOLD, MAX, °C/°F), and the probe body (the metal probe usually leaves the housing at the top or bottom of the screen).
-- Upside-down 7-segment digits look like other digits: 9↔6, 6↔9, 2↔2, 5↔5, 8↔8, and the decimal point jumps to the TOP. If the decimal point appears at the top of the digits, the display is upside down — rotate it 180° in your head and read again. Example: an upside-down "38.6" can look like "9.8E" or "49.8"; read it upright as 38.6.
+- If the decimal point appears at the TOP of the digits, the display is upside down: rotate it 180° in your head (the digit order reverses too) and read again.
+- After orienting, read each digit by which of its 7 segments are lit, relative to the UPRIGHT digit:
+  * 3 = top, upper-right, middle, lower-right, bottom — NO left-side segments.
+  * 9 = like 3 plus the upper-left segment. 8 = all seven. 5 = top, upper-left, middle, lower-right, bottom. 6 = like 5 plus lower-left. 7 = top plus the right side only. 0 = all but the middle.
+  * Rotated displays are easy to misread as 9, 5, 7 or 8 when the digit is really 3. Before choosing 9, 8, 6 or 5, confirm the left-side segment is really lit.
 - Copy the upright digits exactly, including the decimal. Use the Fahrenheit value; if the display shows °C only, convert to °F.
 
 DIAL THERMOMETERS (coolers, freezers, walk-ins):
