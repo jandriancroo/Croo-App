@@ -264,3 +264,13 @@ When displaying punches:
 ❌ Incomplete (will be auto-punched):
    clock_in (6:00 PM) → [no clock_out]
 ```
+
+## Approval rules (Nov 15, 2026)
+
+- A shift with no clock-out, including a live shift still in progress, can't be approved. The database
+  blocks it on every write path (`trg_tp_approval_guard_*` on `time_punches`), checked against the state
+  after the whole statement, and the Time screen disables Approve with "Cannot approve a shift that has no clock-out."
+- Editing a punch's time, type, person or store, or adding/removing a punch, clears approval for that whole
+  shift (`trg_tp_edit_clears_own_approval` + the statement guards). Shift pairing (`_punch_shift_segments`)
+  mirrors `_labor_pair_shifts`; the client copy is `src/lib/timeTracking/punchBreaks.ts`.
+- The Edit Shift form rejects a break outside clock-in/out, ending before it starts, or as long as the shift.

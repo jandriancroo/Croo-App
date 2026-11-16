@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { hasOpenClockIn, OPEN_SHIFT_APPROVE_REASON } from '@/lib/timeTracking/punchBreaks';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePunchViewsRefresh, invalidatePunchViews } from '@/lib/punchEditGuard';
 import { useShiftFlags, invalidateShiftFlags } from '@/hooks/useShiftFlags';
@@ -633,7 +634,8 @@ export function usePayrollData() {
     const flags = flagsForDay(dayPunches, flagIndex);
     const hasAutoClockOut = hasCode(flags, 'auto_clock_out');
     const hasBreakViolation = hasCode(flags, 'no_meal_break') || hasCode(flags, 'second_meal_missing');
-    const hasOpenShift = hasCode(flags, 'missing_clock_out');
+    // Any clock-in without a clock-out is open, including a live shift still in progress.
+    const hasOpenShift = hasCode(flags, 'missing_clock_out') || hasOpenClockIn(dayPunches);
     return {
       hasAutoClockOut,
       hasBreakViolation,
@@ -933,7 +935,8 @@ export function usePayrollData() {
       .eq('id', punchId);
 
     if (error) {
-      toast.error('Failed to approve punch');
+      toast.error(error.message?.includes(OPEN_SHIFT_APPROVE_REASON) ? OPEN_SHIFT_APPROVE_REASON : 'Failed to approve punch');
+      fetchTimeCards();
       return;
     }
 
@@ -1014,7 +1017,7 @@ export function usePayrollData() {
         });
 
         if (error) {
-          toast.error('Failed to approve punches');
+          toast.error(error.message?.includes(OPEN_SHIFT_APPROVE_REASON) ? OPEN_SHIFT_APPROVE_REASON : 'Failed to approve punches');
           fetchTimeCards();
         } else {
           setApprovalWarning(null);
@@ -1024,6 +1027,10 @@ export function usePayrollData() {
   };
 
   const handleApproveDay = async (dayPunches: any[]) => {
+    if (getDayFlags(dayPunches).hasOpenShift) {
+      toast.error(OPEN_SHIFT_APPROVE_REASON);
+      return;
+    }
     const dayFlagRows = getDayFlags(dayPunches).flags;
     const hasAutoClockOut = hasCode(dayFlagRows, 'auto_clock_out');
     const hasOvertime = hasCode(dayFlagRows, 'overtime');
