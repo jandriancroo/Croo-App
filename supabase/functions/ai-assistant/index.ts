@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { QUERY_TASK_HISTORY_TOOL, runQueryTaskHistory } from "./taskHistoryTool.ts";
 import { QUERY_CHECKLIST_ITEMS_TOOL, runQueryChecklistItems } from "./checklistItemsTool.ts";
+import { COMPARE_METRICS_TOOL, runCompareMetrics } from "./compareTool.ts";
 import { getDateDayOfWeekInTimezone } from "../_shared/taskHistory/helpers.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { findShifts, candidatesScreen, buildCoverProposal } from "./cover.ts";
@@ -1045,7 +1046,7 @@ const PROPOSE_ACTION_TOOL = {
 };
 
 // query_inventory is parked (not offered to the model) — see THEO_INVENTORY.md. Code kept for later.
-const THEO_TOOLS = [...tools.filter((t: any) => t.function?.name !== "query_inventory"), QUERY_TASK_HISTORY_TOOL, QUERY_CHECKLIST_ITEMS_TOOL];
+const THEO_TOOLS = [...tools.filter((t: any) => t.function?.name !== "query_inventory"), QUERY_TASK_HISTORY_TOOL, QUERY_CHECKLIST_ITEMS_TOOL, COMPARE_METRICS_TOOL];
 // Build 6A: without the messages switch (below manager, no store access, bake-off), Theo reads no chats.
 const NO_CHAT_TOOLS = THEO_TOOLS.filter((t: any) => t.function?.name !== "query_my_chats");
 
@@ -3472,6 +3473,7 @@ TOOL USAGE:
 - The snapshot includes projections for EVERY remaining day this week (Thu-Sun, etc.). Use them directly.
 - For deeper dives, specific employees, checklists, or other details, invoke your tools to fetch real-time data.
 - For day/week/month scoreboard questions use the snapshot, or query_sales with period: "day", "week", or "month".
+- COMPARISONS (Theo Dashboards): for ANY comparison, side-by-side, "X vs Y", "compared to", "versus", "how did we do against last week/last year", or "show me a table" request about net sales, gross sales, labor hours, labor %, guests, average ticket, product mix or checklist completion, call compare_metrics, even when the snapshot has the numbers. It puts a table card on the screen. Never subtract, average or compute a percent change yourself, and never write a markdown table for it: reply with its spoken_summary (you may shorten it). It covers the current store only and never shows labor dollars. If it says a checklist period is too long (over 14 days), tell the manager to pick a shorter range.
 - Monthly goal = sum of the daily goals for every day of the month (same as the dashboard). Never say the monthly goal is unavailable. If the sales read itself fails, say the numbers could not be loaded; never invent a goal.
 - LY at this point compares actuals through the current local hour; Pace vs Last Year compares the expected finish to the full LY period. Missing LY stays unavailable, not zero.
 - You get up to 5 tool calls per question — USE THEM for retries and cross-referencing.
@@ -3521,7 +3523,7 @@ RESPONSE FORMATTING:
   **Nicole Mendez** — 7.5 hrs ($127.50)
   **Joshua Haro** — 8.0 hrs ($140.00)
 
-- Use markdown TABLES only for narrow comparisons (2-3 short columns max).
+- Use markdown TABLES only for narrow comparisons (2-3 short columns max). Never for a period comparison of sales, gross, labor hours/%, guests, ticket, product mix or checklists: those use compare_metrics, which draws the table card itself.
 - For checklist items, tasks, or logbook entries with 3+ items, use bullet lists.
 - After any data list, add a brief 1-2 sentence insight or takeaway.
 - Use **bold** for key numbers.
@@ -3959,7 +3961,7 @@ You cannot create, change or delete anything in CrooHQ (tasks, shifts, checklist
 For simple number questions (sales, projections, labor %, guests, tips, who's scheduled), answer straight from the LIVE CONTEXT SNAPSHOT when the figure is there, without calling a tool.
 For any question about whether a checklist, quick task, alarm, completed daily event or logbook entry was done, by whom, when, or a checklist percentage, call query_task_history first. It reflects Tasks > History exactly. History lists only COMPLETED work. Never treat missing from History as not done. Say something is not done ONLY when it appears in open_quick_tasks. Otherwise say you don't see it completed yet.
 For a specific checklist item (was X done, what temp, who did it, what's missing), call query_checklist_items.
-For questions about today's sales, goal, labor %, who's working or on the clock, today's schedule, or open checklists/tasks, answer directly from STORE SNAPSHOT (the LIVE CONTEXT SNAPSHOT below) without calling a tool. Call tools only for anything else (other dates, details not in the snapshot, actions/proposals).
+For questions about today's sales, goal, labor %, who's working or on the clock, today's schedule, or open checklists/tasks, answer directly from STORE SNAPSHOT (the LIVE CONTEXT SNAPSHOT below) without calling a tool. Comparisons between periods ("this week vs last week", "vs last year", two date ranges) always use compare_metrics. Call tools only for anything else (other dates, details not in the snapshot, actions/proposals).
 
 ${contextSnapshot}
 ${memoryContext}`;
@@ -3970,6 +3972,8 @@ ${memoryContext}`;
       ...messages,
     ];
     let liveProposal: any = null;
+    // compare_metrics card (structured; rendered by TheoCompareCard, never as markdown).
+    let compareCard: any = null;
     let cancelPending = false;
     let coverScreen: any = null;
     // Ids Theo was actually given this turn. The model sometimes mistypes a long id by a character or
@@ -4223,6 +4227,18 @@ ${memoryContext}`;
         } else if (actionsOn && anyPending && tc.function.name === "cancel_pending_action") {
           cancelPending = true; liveProposal = null;
           result = JSON.stringify({ status: "dropped" });
+        } else if (tc.function.name === "compare_metrics") {
+          // Theo Dashboards: user from the JWT (user.id), current store only, has_location_access
+          // inside, every read on the signed-in user's client, no labor dollars in the output.
+          const cmpDow = getDateDayOfWeekInTimezone(new Date(), timezone);
+          const { data: cmpHours } = await supabaseUser.from("location_hours").select("close_time").eq("location_id", location_id).eq("day_of_week", cmpDow).maybeSingle();
+          const r = await runCompareMetrics(args || {}, {
+            userClient: supabaseUser, admin: supabaseAdmin, userId: user.id, locationId: location_id, storeName: null,
+            timezone, today, closeTime: cmpHours?.close_time || null,
+            fetchLabor: (loc: string, s: string, e: string) => fetchStoreLaborRows(supabaseUser, loc, s, e, blendedLabor && loc === location_id ? blendedLabor : null),
+          });
+          if (r.card) compareCard = r.card;
+          result = JSON.stringify(r.for_theo);
         } else {
           result = addLocalTimes(await executeTool(supabaseAdmin, tc.function.name, args, timezone, user.id, userRole, { userClient: supabaseUser, today, exposeIds: dryRun, locationId: location_id, blended: blendedLabor }), timezone);
         }
@@ -4332,12 +4348,13 @@ ${memoryContext}`;
       else if (coverScreen && !declineLine) out.screen = coverScreen;
       if (declineLine) out.content = declineLine;
       out.content ??= finalResponse;
+      if (compareCard && !declineLine) out.compare = compareCard;
       // The model sometimes repeats a one-line question ("Which day?\nWhich day?"): say it once.
       if (typeof out.content === "string") { const ls = out.content.split(/\n+/).map((x: string) => x.trim()).filter(Boolean); if (ls.length > 1 && ls.every((x: string) => x === ls[0])) out.content = ls[0]; }
       return new Response(JSON.stringify(out), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    return new Response(JSON.stringify({ content: finalResponse }), {
+    return new Response(JSON.stringify({ content: finalResponse, ...(compareCard ? { compare: compareCard } : {}) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

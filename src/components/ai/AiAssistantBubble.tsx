@@ -22,11 +22,15 @@ import { TheoVoiceOverlay } from './TheoVoiceOverlay';
 import { useTheoWizard, CHAT_COLORS, NO_ACTS, readActs, type Acts, type AnyProposal, type CoverScreen } from './theoWizard';
 import { AudioLines } from 'lucide-react';
 import { askTheoStream, TheoStreamError } from '@/lib/theoStream';
+import { TheoCompareCard } from './TheoCompareCard';
+import { readComparePayload, type ComparePayload } from '@/lib/theoCompare';
 
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  /** Theo Dashboards: compare_metrics card shown under this answer (structured, never markdown). */
+  compare?: ComparePayload;
 }
 
 const SUGGESTIONS = [
@@ -463,7 +467,8 @@ export function AiAssistantBubble() {
         wizard.setScreen(data.screen as CoverScreen, 'chat');
         wizard.setScreenNote('');
       }
-      const assistantMsg: Message = { role: 'assistant', content: data.content };
+      const compare = readComparePayload(data?.compare);
+      const assistantMsg: Message = { role: 'assistant', content: data.content, ...(compare ? { compare } : {}) };
       setMessages(prev => [...prev, assistantMsg]);
       persistMessage(assistantMsg);
     } catch (e: any) {
@@ -603,6 +608,7 @@ export function AiAssistantBubble() {
                             </div>
                             <div className="rounded-2xl border border-border bg-card p-4">
                             <AiMarkdownRenderer content={msg.content} />
+                            {msg.compare && <TheoCompareCard data={msg.compare} className="mt-3 border border-border" />}
                             {!loading && i > 0 && (
                               <div className="mt-2 flex items-center gap-1">
                               <button

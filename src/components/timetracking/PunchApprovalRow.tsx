@@ -1,4 +1,5 @@
 import { ReactNode, useState } from 'react';
+import { OPEN_SHIFT_APPROVE_REASON } from '@/lib/timeTracking/punchBreaks';
 import { Calendar, Check, Coffee } from 'lucide-react';
 
 /* ── Shared visual primitives for the Time / punch approval screen ─────────
@@ -345,13 +346,14 @@ export function PunchRow({
         type="button"
         onClick={handleApproveClick}
         disabled={state === 'open' || isApproving}
-        title={state === 'open' ? 'Cannot approve open shift — add clock-out first' : undefined}
+        title={state === 'open' ? OPEN_SHIFT_APPROVE_REASON : undefined}
+        aria-label={state === 'open' ? OPEN_SHIFT_APPROVE_REASON : undefined}
         className={`punch-approve ${state === 'approved' ? 'is-approved' : ''} ${
           state === 'open' ? 'is-open' : ''
         }`}
       >
         {state === 'open' ? (
-          <span className="text-xs font-bold text-muted-foreground">—</span>
+          <span className="text-center text-[10px] font-bold leading-tight text-muted-foreground">No<br />clock-out</span>
         ) : (
           <>
             <span className="punch-tick">

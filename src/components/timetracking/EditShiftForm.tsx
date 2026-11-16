@@ -11,6 +11,7 @@ import {
 } from '@/utils/timezoneUtils';
 import { findShiftStartClockIns } from '@/utils/payrollDayBucketing';
 import { must, recheckSnapshot, friendlyPunchError, STALE_SHIFT_MESSAGE } from '@/lib/punchEditGuard';
+import { validateShiftBreaks } from '@/lib/timeTracking/punchBreaks';
 
 // Edit Shift Form Component - Full shift editing with clock in/out and breaks
 export function EditShiftForm({ 
@@ -196,6 +197,10 @@ export function EditShiftForm({
     return baseDate;
   };
 
+  // Break times follow the same midnight rule as clock out (an overnight shift's 1 AM break is the next day).
+  const breakIsoFor = (time: string, clockInTime: string): string =>
+    toISOStringInTimezone(getAdjustedDateForClockOut(time, clockInTime, shiftDate), time, timezone);
+
   const handleRemovePunch = async (id: string) => {
     setSaving(true);
     try {
@@ -287,6 +292,27 @@ export function EditShiftForm({
           }
         }
         ranges.push({ start: inMs, end: outMs, n: i + 1 });
+
+        // Breaks must sit inside clock-in/out, end after they start, and be shorter than the shift.
+        const breakProblem = validateShiftBreaks(
+          {
+            inMs,
+            outMs: Number.isFinite(outMs) ? outMs : null,
+            breaks: sh.breaks
+              .filter((b) => b.startTime)
+              .map((b) => ({
+                startMs: new Date(breakIsoFor(b.startTime, sh.clockInTime)).getTime(),
+                endMs: b.endTime ? new Date(breakIsoFor(b.endTime, sh.clockInTime)).getTime() : null,
+              })),
+          },
+          `Shift ${i + 1}`,
+          timezone,
+        );
+        if (breakProblem) {
+          toast.error(breakProblem, { duration: 8000 });
+          setSaving(false);
+          return;
+        }
       }
       for (let i = 0; i < ranges.length; i++) {
         for (let j = i + 1; j < ranges.length; j++) {
@@ -364,7 +390,7 @@ export function EditShiftForm({
         for (const brk of shift.breaks) {
           if (!brk.startTime) continue;
           const breakNotes = brk.type === 'unpaid' ? '30 minute unpaid break' : '10 minute paid break';
-          const breakStartIso = toISOStringInTimezone(shiftDate, brk.startTime, timezone);
+          const breakStartIso = breakIsoFor(brk.startTime, shift.clockInTime);
           if (!validateNotFuture(breakStartIso, 'Break start')) { setSaving(false); return; }
 
           if (brk.id) {
@@ -382,7 +408,7 @@ export function EditShiftForm({
           }
 
           if (brk.endTime) {
-            const breakEndIso = toISOStringInTimezone(shiftDate, brk.endTime, timezone);
+            const breakEndIso = breakIsoFor(brk.endTime, shift.clockInTime);
             if (!validateNotFuture(breakEndIso, 'Break end')) { setSaving(false); return; }
             if (brk.endId) {
               must(await supabase.from('time_punches').update({
