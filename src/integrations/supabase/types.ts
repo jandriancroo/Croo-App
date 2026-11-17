@@ -4713,6 +4713,7 @@ export type Database = {
       intake_submissions: {
         Row: {
           answers: Json
+          company: string | null
           created_at: string
           email_status: string | null
           id: string
@@ -4722,6 +4723,7 @@ export type Database = {
         }
         Insert: {
           answers: Json
+          company?: string | null
           created_at?: string
           email_status?: string | null
           id?: string
@@ -4731,6 +4733,7 @@ export type Database = {
         }
         Update: {
           answers?: Json
+          company?: string | null
           created_at?: string
           email_status?: string | null
           id?: string
@@ -4742,7 +4745,7 @@ export type Database = {
           {
             foreignKeyName: "intake_submissions_org_fkey"
             columns: ["org"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "intake_links"
             referencedColumns: ["org"]
           },
