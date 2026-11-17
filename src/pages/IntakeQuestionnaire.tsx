@@ -145,7 +145,7 @@ export default function IntakeQuestionnaire() {
   return (
     <div className="iq">
       <Helmet>
-        <title>Questionnaire for DAMM Fine Pizza</title>
+        <title>Questionnaire</title>
         <meta name="robots" content="noindex, nofollow" />
         <meta name="referrer" content="no-referrer" />
         <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
@@ -166,7 +166,7 @@ export default function IntakeQuestionnaire() {
             <div className="iq-card">
               <div className="iq-band">
                 <p className="iq-kicker">CrooHQ</p>
-                <h1>Questionnaire for DAMM Fine Pizza</h1>
+                <h1>Questionnaire</h1>
                 <p className="iq-sub">A few quick questions so we can make tomorrow's time count.</p>
               </div>
               {status === "done" ? (
