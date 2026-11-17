@@ -118,6 +118,7 @@ const EmailPreview = lazyWithRetry(() => import("./pages/EmailPreview"));
 const KDSBoard = lazyWithRetry(() => import("./pages/KDSBoard"));
 const DemoGate = lazyWithRetry(() => import("./pages/DemoGate"));
 const BookDemo = lazyWithRetry(() => import("./pages/BookDemo"));
+const IntakeQuestionnaire = lazyWithRetry(() => import("./pages/IntakeQuestionnaire"));
 const CustomerReview = lazyWithRetry(() => import("./pages/CustomerReview"));
 
 const queryClient = new QueryClient();
@@ -299,6 +300,7 @@ const AppContent = () => {
         <Route path="/architecture-map" element={<ProtectedRoute><ArchitectureMap /></ProtectedRoute>} />
         <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
         
+        <Route path="/q/:slug" element={<IntakeQuestionnaire />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>

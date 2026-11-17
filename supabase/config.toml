@@ -184,3 +184,6 @@ verify_jwt = false
 
 [functions.toast-session-check]
 verify_jwt = false
+
+[functions.intake-questionnaire]
+verify_jwt = false
