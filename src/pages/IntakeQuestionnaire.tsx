@@ -94,7 +94,7 @@ export default function IntakeQuestionnaire() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data, error: fnError } = await supabase.functions.invoke("intake-questionnaire", {
+      const { error: fnError } = await supabase.functions.invoke("intake-questionnaire", {
         body: { action: "status", slug },
       });
       if (cancelled) return;
@@ -106,7 +106,8 @@ export default function IntakeQuestionnaire() {
         setStatus(code === 404 ? "notfound" : "form");
         return;
       }
-      setStatus(data?.submitted === true ? "done" : "form");
+      // Valid link: always show the form (no one-submission lock).
+      setStatus("form");
     })();
     return () => { cancelled = true; };
   }, [slug]);
@@ -132,12 +133,7 @@ export default function IntakeQuestionnaire() {
       window.scrollTo(0, 0);
       return;
     }
-    const { status: code, message } = await readError(fnError);
-    if (code === 409) {
-      setStatus("done");
-      window.scrollTo(0, 0);
-      return;
-    }
+    const { message } = await readError(fnError);
     setError(`${message || "Something went wrong."} Please try again.`);
     setSending(false);
   };
@@ -166,12 +162,12 @@ export default function IntakeQuestionnaire() {
             <div className="iq-card">
               <div className="iq-band">
                 <h1>Questionnaire</h1>
-                <p className="iq-sub">A few quick questions so we can make tomorrow's time count.</p>
+                <p className="iq-sub">A few quick questions so we can make our time together count.</p>
               </div>
               {status === "done" ? (
                 <div className="iq-done">
                   <h2>Thanks, we've got it.</h2>
-                  <p>We'll use this to make tomorrow's time count. See you then.</p>
+                  <p>Thanks for filling this out. We'll be in touch.</p>
                 </div>
               ) : (
                 <form className="iq-form" onSubmit={submit} autoComplete="off" noValidate>
