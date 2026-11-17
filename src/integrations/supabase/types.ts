@@ -2184,6 +2184,7 @@ export type Database = {
           created_at: string | null
           days_of_week: number[] | null
           deleted_at: string | null
+          equipment_type: string | null
           forked_from_item_id: string | null
           id: string
           is_required: boolean | null
@@ -2201,7 +2202,6 @@ export type Database = {
           reference_video_url: string | null
           requires_temperature_validation: boolean
           station_id: string | null
-          equipment_type: string | null
           temperature_alert_enabled: boolean
         }
         Insert: {
@@ -2211,6 +2211,7 @@ export type Database = {
           created_at?: string | null
           days_of_week?: number[] | null
           deleted_at?: string | null
+          equipment_type?: string | null
           forked_from_item_id?: string | null
           id?: string
           is_required?: boolean | null
@@ -2228,7 +2229,6 @@ export type Database = {
           reference_video_url?: string | null
           requires_temperature_validation?: boolean
           station_id?: string | null
-          equipment_type?: string | null
           temperature_alert_enabled?: boolean
         }
         Update: {
@@ -2238,6 +2238,7 @@ export type Database = {
           created_at?: string | null
           days_of_week?: number[] | null
           deleted_at?: string | null
+          equipment_type?: string | null
           forked_from_item_id?: string | null
           id?: string
           is_required?: boolean | null
@@ -2255,7 +2256,6 @@ export type Database = {
           reference_video_url?: string | null
           requires_temperature_validation?: boolean
           station_id?: string | null
-          equipment_type?: string | null
           temperature_alert_enabled?: boolean
         }
         Relationships: [
@@ -3971,6 +3971,75 @@ export type Database = {
           },
         ]
       }
+      equipment_check_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          acknowledged_by_name: string | null
+          created_at: string
+          equipment_type: string | null
+          first_failed_day: string
+          id: string
+          item_id: string | null
+          last_failed_day: string
+          location_id: string
+          location_name: string
+          readings: Json
+          timezone: string | null
+          unit_key: string
+          unit_name: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          acknowledged_by_name?: string | null
+          created_at?: string
+          equipment_type?: string | null
+          first_failed_day: string
+          id?: string
+          item_id?: string | null
+          last_failed_day: string
+          location_id: string
+          location_name: string
+          readings?: Json
+          timezone?: string | null
+          unit_key: string
+          unit_name: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          acknowledged_by_name?: string | null
+          created_at?: string
+          equipment_type?: string | null
+          first_failed_day?: string
+          id?: string
+          item_id?: string | null
+          last_failed_day?: string
+          location_id?: string
+          location_name?: string
+          readings?: Json
+          timezone?: string | null
+          unit_key?: string
+          unit_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_check_alerts_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_check_alerts_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_attendees: {
         Row: {
           created_at: string
@@ -4617,6 +4686,65 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      intake_links: {
+        Row: {
+          created_at: string | null
+          org: string
+          org_label: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string | null
+          org: string
+          org_label: string
+          slug: string
+        }
+        Update: {
+          created_at?: string | null
+          org?: string
+          org_label?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      intake_submissions: {
+        Row: {
+          answers: Json
+          created_at: string
+          email_status: string | null
+          id: string
+          is_test: boolean
+          name: string
+          org: string
+        }
+        Insert: {
+          answers: Json
+          created_at?: string
+          email_status?: string | null
+          id?: string
+          is_test?: boolean
+          name: string
+          org: string
+        }
+        Update: {
+          answers?: Json
+          created_at?: string
+          email_status?: string | null
+          id?: string
+          is_test?: boolean
+          name?: string
+          org?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intake_submissions_org_fkey"
+            columns: ["org"]
+            isOneToOne: true
+            referencedRelation: "intake_links"
+            referencedColumns: ["org"]
           },
         ]
       }
@@ -16999,6 +17127,32 @@ export type Database = {
           _uid: string
         }
         Returns: undefined
+      }
+      acknowledge_equipment_check: {
+        Args: { _alert_id: string }
+        Returns: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          acknowledged_by_name: string | null
+          created_at: string
+          equipment_type: string | null
+          first_failed_day: string
+          id: string
+          item_id: string | null
+          last_failed_day: string
+          location_id: string
+          location_name: string
+          readings: Json
+          timezone: string | null
+          unit_key: string
+          unit_name: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "equipment_check_alerts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       admin_get_employee_pin: { Args: { _user_id: string }; Returns: string }
       admin_set_pending_punch_pin: {
