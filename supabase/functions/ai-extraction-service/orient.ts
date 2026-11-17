@@ -16,7 +16,7 @@ const toDataUrl = (bytes: Uint8Array) => {
 };
 
 export interface Rotated {
-  /** Small copies (long side <= 640) for the orientation pick, in ROTATIONS order. */
+  /** Copies for the orientation pick (long side <= 1200, i.e. full size for app photos), in ROTATIONS order. */
   thumbs: string[];
   /** Full-size copy for a rotation (built on demand). */
   full: (r: Rotation) => Promise<string>;
@@ -33,7 +33,9 @@ export async function rotations(bytes: Uint8Array): Promise<Rotated | null> {
     return null;
   }
   const long = Math.max(img.width, img.height);
-  const small = long > 640 ? img.clone().resize(Math.round(img.width * 640 / long), Math.round(img.height * 640 / long)) : img.clone();
+  // Full size: small probe screens need every pixel (at 640px the Sparks
+  // display was too small to tell upright from upside down).
+  const small = long > 1200 ? img.clone().resize(Math.round(img.width * 1200 / long), Math.round(img.height * 1200 / long)) : img.clone();
   const thumbs: string[] = [];
   for (const r of ROTATIONS) {
     const t = r === 0 ? small : small.clone().rotate(r);
