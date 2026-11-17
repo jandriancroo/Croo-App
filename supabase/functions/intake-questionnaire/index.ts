@@ -10,12 +10,8 @@ import { corsHeaders } from "../_shared/sdkCors.ts";
 const FIELDS: [string, string][] = [
   ["name", "Name"],
   ["role", "Role"],
+  ["company", "Company"],
   ["num_stores", "Number of stores"],
-  ["loc_blaze", "Locations: Blaze Pizza"],
-  ["loc_daves", "Locations: Dave's Hot Chicken"],
-  ["loc_mikes", "Locations: Mike's Red Tacos"],
-  ["loc_other", "Locations: Other"],
-  ["split", "How stores are split between team members"],
   ["tool_punch", "Tools today: Punch clock and scheduling"],
   ["tool_comms", "Tools today: Communication and manager logbook"],
   ["tool_hr", "Tools today: Write-ups and employee reviews"],
@@ -24,8 +20,6 @@ const FIELDS: [string, string][] = [
   ["tool_tasks", "Tools today: Task management"],
   ["one_thing", "One thing to see every morning before calling stores"],
   ["headache", "Biggest headache right now"],
-  ["pilot", "3-5 stores to start with"],
-  ["other", "Anything else we should know"],
 ];
 const MAX_LEN = 3000;
 

@@ -8,9 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 // storage of any kind: answers live only in React state until submitted.
 
 const FIELD_NAMES = [
-  "name", "role", "num_stores", "loc_blaze", "loc_daves", "loc_mikes", "loc_other", "split",
+  "name", "role", "company", "num_stores",
   "tool_punch", "tool_comms", "tool_hr", "tool_hiring", "tool_inv", "tool_tasks",
-  "one_thing", "headache", "pilot", "other",
+  "one_thing", "headache",
 ] as const;
 type FieldName = (typeof FIELD_NAMES)[number];
 type Answers = Record<FieldName, string>;
@@ -165,7 +165,6 @@ export default function IntakeQuestionnaire() {
           ) : (
             <div className="iq-card">
               <div className="iq-band">
-                <p className="iq-kicker">CrooHQ</p>
                 <h1>Questionnaire</h1>
                 <p className="iq-sub">A few quick questions so we can make tomorrow's time count.</p>
               </div>
@@ -187,6 +186,10 @@ export default function IntakeQuestionnaire() {
                         <label className="iq-label" htmlFor="iq-role">Role</label>
                         <input id="iq-role" name="role" type="text" maxLength={120} value={answers.role} onChange={set("role")} />
                       </div>
+                      <div className="iq-field">
+                        <label className="iq-label" htmlFor="iq-company">Company</label>
+                        <input id="iq-company" name="company" type="text" maxLength={120} value={answers.company} onChange={set("company")} />
+                      </div>
                     </div>
                   </div>
 
@@ -195,31 +198,6 @@ export default function IntakeQuestionnaire() {
                     <div className="iq-field">
                       <label className="iq-label" htmlFor="iq-num_stores">Number of stores</label>
                       <input id="iq-num_stores" name="num_stores" type="number" min={0} max={999} inputMode="numeric" value={answers.num_stores} onChange={set("num_stores")} />
-                    </div>
-                    <div className="iq-field">
-                      <span className="iq-label">Number of locations per brand</span>
-                      <div className="iq-brands">
-                        <div className="iq-brandrow">
-                          <label htmlFor="iq-loc_blaze">Blaze Pizza</label>
-                          <input id="iq-loc_blaze" name="loc_blaze" type="number" min={0} max={999} inputMode="numeric" value={answers.loc_blaze} onChange={set("loc_blaze")} />
-                        </div>
-                        <div className="iq-brandrow">
-                          <label htmlFor="iq-loc_daves">Dave's Hot Chicken</label>
-                          <input id="iq-loc_daves" name="loc_daves" type="number" min={0} max={999} inputMode="numeric" value={answers.loc_daves} onChange={set("loc_daves")} />
-                        </div>
-                        <div className="iq-brandrow">
-                          <label htmlFor="iq-loc_mikes">Mike's Red Tacos</label>
-                          <input id="iq-loc_mikes" name="loc_mikes" type="number" min={0} max={999} inputMode="numeric" value={answers.loc_mikes} onChange={set("loc_mikes")} />
-                        </div>
-                        <div className="iq-field">
-                          <label htmlFor="iq-loc_other" style={{ fontWeight: 500, fontSize: 14 }}>Other <span className="iq-hint">Brand and count, if any</span></label>
-                          <input id="iq-loc_other" name="loc_other" type="text" maxLength={200} value={answers.loc_other} onChange={set("loc_other")} />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="iq-field">
-                      <label className="iq-label" htmlFor="iq-split">How are the stores split between team members?</label>
-                      <textarea id="iq-split" name="split" maxLength={2000} value={answers.split} onChange={set("split")} />
                     </div>
                   </div>
 
@@ -245,18 +223,6 @@ export default function IntakeQuestionnaire() {
                     <div className="iq-field">
                       <label className="iq-label" htmlFor="iq-headache">Biggest headache right now</label>
                       <textarea id="iq-headache" name="headache" maxLength={2000} value={answers.headache} onChange={set("headache")} />
-                    </div>
-                  </div>
-
-                  <div className="iq-section">
-                    <h2>Getting started</h2>
-                    <div className="iq-field">
-                      <label className="iq-label" htmlFor="iq-pilot">3–5 stores you'd want to start with</label>
-                      <textarea id="iq-pilot" name="pilot" maxLength={2000} value={answers.pilot} onChange={set("pilot")} />
-                    </div>
-                    <div className="iq-field">
-                      <label className="iq-label" htmlFor="iq-other">Anything else we should know?</label>
-                      <textarea id="iq-other" name="other" maxLength={3000} value={answers.other} onChange={set("other")} />
                     </div>
                   </div>
 
