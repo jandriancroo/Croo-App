@@ -391,7 +391,13 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
         const rangeHint = band
           ? ` This is a ${band.label.toLowerCase()} unit; its thermometer should read somewhere between ${range.min} and ${range.max}°F. Use that only to break a tie between orientations.`
           : '';
-        const orientPrompt = `These are 4 copies of ONE thermometer photo, each turned a different way (Image 1, Image 2, Image 3, Image 4 in order). Pick the image where the thermometer's display reads UPRIGHT, the way you'd read it normally: digits standing upright left-to-right, the decimal point at the BOTTOM of the digits, the °F/°C legend and any printed text upright. For a dial, pick the one where the printed numbers are upright.${rangeHint} Never decide from the food. Reply with one short reason, then the final line exactly: UPRIGHT: <1-4>`;
+        const orientPrompt = `These are 4 copies of ONE thermometer photo, each turned a different way (Image 1, Image 2, Image 3, Image 4 in order). Exactly one shows the thermometer's display UPRIGHT. Zoom in on the display in each image and pick the upright one.
+Upright means ALL of these:
+- every character is a normal digit standing upright and reading left-to-right;
+- the decimal point sits at the BOTTOM of the digits, just before the last digit (e.g. 36.1);
+- the °F / °C legend and any printed words (brand, HOLD, MAX) read normally, not upside down or mirrored.
+An upside-down 7-segment display still looks like digits but gives it away: a 3 turns into an E, 1 and 7 sit at the wrong edge, and the decimal point floats at the TOP. If an image shows an E, an h, an L, a backwards digit or a top decimal point, it is NOT upright. Two images will be sideways; of the other two, one is the 180° flip of the other — compare those two carefully.${rangeHint} Never decide from the food.
+Reply with one short reason naming the digits you see in the upright image, then the final line exactly: UPRIGHT: <1-4>`;
         const content: any[] = [{ type: 'text', text: orientPrompt }];
         rot.thumbs.forEach((url, i) => { content.push({ type: 'text', text: `Image ${i + 1}:` }); content.push({ type: 'image_url', image_url: { url } }); });
         const data = await callAI([{ role: 'user', content }], undefined, undefined, 'openai/gpt-6-luna');
