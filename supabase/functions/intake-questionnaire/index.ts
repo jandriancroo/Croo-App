@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
 
   const { data: link, error: linkError } = await admin
     .from("intake_links")
-    .select("org")
+    .select("org, company")
     .eq("slug", slug)
     .maybeSingle();
   if (linkError) {
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
   }
   if (!link) return json({ error: "Not found" }, 404);
 
-  if (action === "status") return json({ ok: true });
+  if (action === "status") return json({ ok: true, company: link.company ?? "" });
 
   const answers = cleanAnswers(body.answers);
   const name = answers.name;

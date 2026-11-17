@@ -94,7 +94,7 @@ export default function IntakeQuestionnaire() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { error: fnError } = await supabase.functions.invoke("intake-questionnaire", {
+      const { data, error: fnError } = await supabase.functions.invoke("intake-questionnaire", {
         body: { action: "status", slug },
       });
       if (cancelled) return;
@@ -106,7 +106,10 @@ export default function IntakeQuestionnaire() {
         setStatus(code === 404 ? "notfound" : "form");
         return;
       }
-      // Valid link: always show the form (no one-submission lock).
+      // Valid link: always show the form (no one-submission lock). The link's
+      // company (if any) becomes the Company box's real, editable value.
+      const company = typeof data?.company === "string" ? data.company.slice(0, 120) : "";
+      setAnswers(current => ({ ...current, company }));
       setStatus("form");
     })();
     return () => { cancelled = true; };
