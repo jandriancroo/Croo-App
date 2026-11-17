@@ -4691,18 +4691,21 @@ export type Database = {
       }
       intake_links: {
         Row: {
+          company: string | null
           created_at: string | null
           org: string
           org_label: string
           slug: string
         }
         Insert: {
+          company?: string | null
           created_at?: string | null
           org: string
           org_label: string
           slug: string
         }
         Update: {
+          company?: string | null
           created_at?: string | null
           org?: string
           org_label?: string
