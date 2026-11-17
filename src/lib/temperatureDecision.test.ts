@@ -8,8 +8,8 @@ describe('thermometer reading decision', () => {
   });
   it('disagreeing reads, third agrees with A: A+C averaged, confirmed', () =>
     expect(decideTemperature(38.8, 50, 39.2)).toMatchObject({ temperature: 39, isValid: true, reason: null, tiebreak: true }));
-  it('disagreeing reads, third agrees with B (Sparks tomatoes 49.8/38.9/38.6): 38.8 confirmed', () =>
-    expect(decideTemperature(49.8, 38.9, 38.6)).toMatchObject({ temperature: 38.8, isValid: true, reason: null, tiebreak: true }));
+  it('disagreeing reads, third agrees with B (Sparks tomatoes 49.8/38.9/38.6): whole degree 38 confirmed (tenths differ)', () =>
+    expect(decideTemperature(49.8, 38.9, 38.6)).toMatchObject({ temperature: 38, isValid: true, reason: null, tiebreak: true }));
   it('disagreeing reads, third agrees with neither: no number, never a wrong out-of-range value', () =>
     expect(decideTemperature(38, 50, 70)).toEqual({ temperature: null, isValid: null, unconfirmed: false, reason: 'reads_disagree', coaching: null, tiebreak: false }));
   it('one read failed: third read needed; no agreeing third → nothing saved', () => {

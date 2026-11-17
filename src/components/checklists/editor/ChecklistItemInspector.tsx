@@ -14,6 +14,7 @@ import { PrepListEditor } from '@/components/checklists/PrepListEditor';
 import { getReferencePhotos } from '@/lib/checklistReferencePhotos';
 import { displayType, hasPhotoCount, minPhotos, photosDroppedAt, referenceSlotCount, setReferencePhotos, type EditorItem } from '@/lib/checklistEditorItems';
 import { ReferencePhotoSlots } from './ReferencePhotoSlots';
+import { EQUIPMENT_TYPES, TEMP_BANDS, safeRangeText, type EquipmentType } from '../../../../supabase/functions/_shared/tempBands';
 
 export const ITEM_TYPES = [
   { value: 'confirmation', label: 'Check', Icon: CheckSquare },
@@ -188,6 +189,23 @@ export function ChecklistItemInspector({ item, onChange, onEnter, onDuplicate, o
           </span>
           <Switch checked={item.temperature_alert_enabled || false} onCheckedChange={(c) => set({ temperature_alert_enabled: c })} />
         </label>
+      )}
+      {item.item_type === 'temperature' && (
+        <div className="flex min-h-11 items-center justify-between gap-3">
+          <span>
+            <span className="block text-sm font-semibold">Equipment</span>
+            <span className="block text-sm text-muted-foreground">
+              {item.equipment_type ? `Safe: ${safeRangeText(item.equipment_type)}` : 'Sets the safe range.'}
+            </span>
+          </span>
+          <Select value={item.equipment_type || 'none'} onValueChange={(v) => set({ equipment_type: v === 'none' ? null : (v as EquipmentType) })}>
+            <SelectTrigger className="min-h-11 w-40" aria-label="Equipment"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Not set</SelectItem>
+              {EQUIPMENT_TYPES.map((t) => <SelectItem key={t} value={t}>{TEMP_BANDS[t].label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       )}
       {item.item_type === 'multiple_choice' && (
         <div>

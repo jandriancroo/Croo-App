@@ -32,6 +32,9 @@ export const LOCKED_KEYS = new Set([
   'read_and_sign',
   'training_approval',
   'personal',
+  // Equipment check (same unit failed temp checks 2 days in a row): food safety,
+  // always delivered to the managers the server picked, at the store or from home.
+  'equipment_check',
 ]);
 
 /** Store-status types. Shift managers and team members default to NOT getting these from home. */

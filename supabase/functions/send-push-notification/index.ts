@@ -438,6 +438,7 @@ export const KNOWN_NOTIFICATION_TYPES = [
   'logbook_maintenance', 'logbook_manager_notes', 'logbook_online_refunds',
   'logbook_pass_down', 'logbook_performance_review', 'logbook_read_sign',
   'logbook_safe_count', 'logbook_waste_log', 'logbook_weekly_summary',
+  'equipment_check',
 ] as const;
 const USER_TYPES = new Set<string>([
   'chat_messages', 'announcements', 'schedule_updates', 'shift_approvals',

@@ -6,7 +6,9 @@
 // (the photo stays). A wrong number is never saved from a disagreement.
 // A read the model flags as unclear (too far, dark, blurry, glare) counts as no
 // number; when the reads come back unclear the photo is rejected with a tip.
-export type TempReason = 'read_failed' | 'reads_disagree' | 'one_read_failed' | 'unclear';
+import { classifyTemp, type EquipmentType, type TempVerdict } from '../_shared/tempBands.ts';
+
+export type TempReason = 'read_failed' | 'reads_disagree' | 'one_read_failed' | 'unclear' | 'implausible';
 export type Coaching = 'too_far' | 'too_dark' | 'blurry' | 'glare';
 export const COACHING_VALUES: readonly Coaching[] = ['too_far', 'too_dark', 'blurry', 'glare'];
 
@@ -16,6 +18,8 @@ export interface TempRead {
   unclear?: Coaching | null;
   display?: 'digital' | 'dial' | null;
   confidence?: number | null;
+  /** false when the model isn't sure of the last (tenths) digit. */
+  tenthsSure?: boolean | null;
 }
 
 export interface TempDecision {
@@ -32,6 +36,16 @@ export interface TempDecision {
 export const AGREE_F = 5;
 export const isSafeTemp = (t: number) => t <= 41.0 || t >= 135.0;
 const avg = (x: number, y: number) => Math.round(((x + y) / 2) * 10) / 10;
+// Decimal cut: if either read of the pair isn't sure of the tenths digit, or
+// the pair agrees on the whole degree but not the tenths, save the whole
+// degree cut toward zero (41.7 → 41, never rounded up).
+function pairValue(x: TempRead, y: TempRead): number {
+  const vx = x.value as number, vy = y.value as number;
+  const sameWhole = Math.trunc(vx) === Math.trunc(vy);
+  if (x.tenthsSure === false || y.tenthsSure === false) return sameWhole ? Math.trunc(vx) : Math.trunc(avg(vx, vy));
+  if (vx !== vy && sameWhole) return Math.trunc(vx);
+  return avg(vx, vy);
+}
 const agree = (x: number | null, y: number | null): x is number => x != null && y != null && Math.abs(x - y) < AGREE_F;
 const valOf = (r: TempRead | null | undefined) => (r && !r.unclear && r.value != null && Number.isFinite(r.value) ? r.value : null);
 
@@ -69,7 +83,7 @@ function topCoaching(reads: TempRead[]): Coaching | null {
 
 export function decideReads(a: TempRead, b: TempRead, c?: TempRead | null): TempDecision {
   const va = valOf(a), vb = valOf(b);
-  if (agree(va, vb)) return confirmed(avg(va, vb as number), false);
+  if (agree(va, vb)) return confirmed(pairValue(a, b), false);
 
   const reads = [a, b, ...(c ? [c] : [])];
   const unclearCount = reads.filter(r => !!r.unclear).length;
@@ -81,11 +95,11 @@ export function decideReads(a: TempRead, b: TempRead, c?: TempRead | null): Temp
       if (withA && withB) {
         // Third sits between both: pair it with the closer one.
         return Math.abs((va as number) - vc) <= Math.abs((vb as number) - vc)
-          ? confirmed(avg(va as number, vc), true)
-          : confirmed(avg(vb as number, vc), true);
+          ? confirmed(pairValue(a, c), true)
+          : confirmed(pairValue(b, c), true);
       }
-      if (withA) return confirmed(avg(va as number, vc), true);
-      if (withB) return confirmed(avg(vb as number, vc), true);
+      if (withA) return confirmed(pairValue(a, c), true);
+      if (withB) return confirmed(pairValue(b, c), true);
     }
   }
 
@@ -101,4 +115,26 @@ export function decideReads(a: TempRead, b: TempRead, c?: TempRead | null): Temp
 /** Back-compat wrapper over plain numbers (two reads, optional third). */
 export function decideTemperature(a: number | null, b: number | null, c?: number | null): TempDecision {
   return decideReads({ value: a }, { value: b }, c === undefined ? null : { value: c });
+}
+
+export interface BandedDecision extends TempDecision {
+  /** pass | fail | borderline (hot tags: one retake prompt) | null when no number. */
+  verdict: Exclude<TempVerdict, 'implausible'> | null;
+  /** The confirmed number that was thrown out as outside the unit's possible range. */
+  implausibleValue?: number;
+}
+
+/**
+ * Apply the equipment tag's bands (_shared/tempBands.ts) to a decision.
+ * Outside the possible range → no number (reason 'implausible'): the crew
+ * retakes or types it, the photo stays. Otherwise isValid = compliance.
+ * Untagged tasks keep today's broad -60..250 check and 41/135 rule.
+ */
+export function applyBands(d: TempDecision, tag: EquipmentType | null | undefined): BandedDecision {
+  if (d.temperature == null) return { ...d, verdict: null };
+  const v = classifyTemp(tag, d.temperature);
+  if (v === 'implausible') {
+    return { temperature: null, isValid: null, unconfirmed: false, reason: 'implausible', coaching: null, tiebreak: d.tiebreak, verdict: null, implausibleValue: d.temperature };
+  }
+  return { ...d, isValid: v === 'pass', verdict: v };
 }

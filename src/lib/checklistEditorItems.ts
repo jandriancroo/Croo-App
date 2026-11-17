@@ -3,6 +3,7 @@
 import { referencePhotoFields, getReferencePhotos } from '@/lib/checklistReferencePhotos';
 import type { ChecklistLinkRef } from '@/lib/checklistLinks';
 import type { PrepRow } from '@/components/checklists/PrepListEditor';
+import { asEquipmentType, type EquipmentType } from '../../supabase/functions/_shared/tempBands';
 
 export type EditorItemType =
   | 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature' | 'number'
@@ -17,6 +18,8 @@ export interface EditorItem {
   item_type: EditorItemType | string;
   is_required: boolean;
   temperature_alert_enabled?: boolean;
+  /** Temp tasks: freezer / refrigerator / walk_in / line / hot_holding / reheating, or null (broad check). */
+  equipment_type?: EquipmentType | null;
   options?: string[] | { minPhotos?: number } | null;
   reference_image_url?: string | null;
   reference_image_urls?: string[];
@@ -79,6 +82,7 @@ export function toItemRow(item: EditorItem, orderIndex: number, amPm: boolean, p
     is_required: item.is_required,
     requires_temperature_validation: dbItemType === 'temperature',
     temperature_alert_enabled: dbItemType === 'temperature' ? (item.temperature_alert_enabled || false) : false,
+    equipment_type: dbItemType === 'temperature' ? asEquipmentType(item.equipment_type) : null,
     options: (item.item_type === 'multiple_choice' ? item.options : (item.item_type === 'image' || item.item_type === 'temperature') ? item.options : null) as any,
     ...referencePhotoFields(item),
     reference_link: item.reference_link || null,

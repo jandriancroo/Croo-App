@@ -1,5 +1,7 @@
-import { decideReads, needsTiebreak, type TempRead } from './temperatureDecision.ts';
+import { decideReads, needsTiebreak, applyBands, type TempRead } from './temperatureDecision.ts';
 import { parseTempReply } from './parseTempReply.ts';
+import { rotations, parseOrientReply, type Rotation } from './orient.ts';
+import { asEquipmentType, possibleRange, TEMP_BANDS } from '../_shared/tempBands.ts';
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -304,6 +306,7 @@ async function handleParseResume(payload: any) {
 
 async function handleExtractTemperature(payload: any) {
   const { imageUrl, itemName } = payload;
+  const equipmentType = asEquipmentType(payload?.equipmentType);
   if (!imageUrl) return errorResponse('Image URL is required', 400);
 
   // Thermometer reader: GPT-6 Luna, read TWICE in parallel. Agreeing reads are
@@ -315,7 +318,7 @@ async function handleExtractTemperature(payload: any) {
   const systemPrompt = `You read photos of restaurant thermometers: digital probe thermometers (food temps) and cooler/freezer dial thermometers. Stores use different brands, so read what is printed on THIS thermometer — never assume a layout, and never guess a temperature from the food, the item name or what would be "normal".
 
 DIGITAL / 7-SEGMENT DISPLAYS (probe thermometers):
-- The photo is often taken with the probe held sideways or upside down, so the display may be rotated 90°, 180° or 270°, or mirrored by the angle. Before reading, work out which way is UP.
+- The photo has usually already been turned so the display is upright, but check: it may still be rotated 90°, 180° or 270°, or mirrored by the angle. Before reading, work out which way is UP.
 - Orient with: the °F / °C legend (it sits to the right of, or above, the digits when upright), the decimal point (it sits at the BOTTOM of the digits, before the last digit, e.g. 38.6), any printed brand text or buttons (HOLD, MAX, °C/°F), and the probe body (the metal probe usually leaves the housing at the top or bottom of the screen).
 - If the decimal point appears at the TOP of the digits, the display is upside down: rotate it 180° in your head (the digit order reverses too) and read again.
 - After orienting, read each digit by which of its 7 segments are lit, relative to the UPRIGHT digit:
@@ -323,6 +326,7 @@ DIGITAL / 7-SEGMENT DISPLAYS (probe thermometers):
   * 9 = like 3 plus the upper-left segment. 8 = all seven. 5 = top, upper-left, middle, lower-right, bottom. 6 = like 5 plus lower-left. 7 = top plus the right side only. 0 = all but the middle.
   * Rotated displays are easy to misread as 9, 5, 7 or 8 when the digit is really 3. Before choosing 9, 8, 6 or 5, confirm the left-side segment is really lit.
 - Copy the upright digits exactly, including the decimal. Use the Fahrenheit value; if the display shows °C only, convert to °F.
+- TENTHS: say whether you are sure of the LAST digit after the decimal point (sure), not sure (unsure), or there is no decimal digit (none). Never guess a tenths digit you can't see clearly.
 
 DIAL THERMOMETERS (coolers, freezers, walk-ins):
 - POINTER: the needle has a THIN pointed tip and a WIDE flat tail on the other side of the centre pin. Only the thin tip shows the temperature. The wide dark end is NOT the reading, even though it is easier to see. Many dials' tips are thin and faint — look for them.
@@ -349,6 +353,7 @@ DISPLAY: digital|dial|bar
 CLEAR: yes|no
 ISSUE: none|too_far|too_dark|blurry|glare
 CONFIDENCE: <0 to 1>
+TENTHS: sure|unsure|none
 ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
   const itemContext = itemName ? ` The item being measured is: "${String(itemName).slice(0, 200)}" (context only — read the thermometer, not the food).` : '';
   const userPrompt = `Read the temperature on this thermometer.${itemContext}`;
@@ -356,19 +361,48 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
   // Download the photo ourselves and send it inline: the AI provider often
   // can't fetch storage links directly ("Cannot fetch content from URL").
   let imagePayload = imageUrl;
+  let photoBytes: Uint8Array | null = null;
+  let photoType = 'image/jpeg';
   try {
     const imgRes = await fetch(imageUrl);
     if (imgRes.ok) {
-      const buf = new Uint8Array(await imgRes.arrayBuffer());
+      photoBytes = new Uint8Array(await imgRes.arrayBuffer());
+      photoType = imgRes.headers.get('content-type') || 'image/jpeg';
       let bin = '';
-      for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
-      imagePayload = `data:${imgRes.headers.get('content-type') || 'image/jpeg'};base64,${btoa(bin)}`;
+      for (let i = 0; i < photoBytes.length; i += 0x8000) bin += String.fromCharCode(...photoBytes.subarray(i, i + 0x8000));
+      imagePayload = `data:${photoType};base64,${btoa(bin)}`;
     } else {
       console.error('[extract-temperature] photo download failed', imgRes.status);
       return jsonResponse({ temperature: null, isValid: null, unconfirmed: false, extractedText: 'NONE', unreadable: true, reason: 'read_failed', coaching: null });
     }
   } catch (e) {
     console.error('[extract-temperature] photo download error', String(e));
+  }
+
+  // Upright pick: show the photo turned 0/90/180/270 and read the upright copy.
+  // Any failure here falls back to reading the photo as taken.
+  let rotation: Rotation | null = null;
+  if (photoBytes) {
+    try {
+      const rot = await rotations(photoBytes);
+      if (rot) {
+        const range = possibleRange(equipmentType);
+        const band = equipmentType ? TEMP_BANDS[equipmentType] : null;
+        const rangeHint = band
+          ? ` This is a ${band.label.toLowerCase()} unit; its thermometer should read somewhere between ${range.min} and ${range.max}°F. Use that only to break a tie between orientations.`
+          : '';
+        const orientPrompt = `These are 4 copies of ONE thermometer photo, each turned a different way (Image 1, Image 2, Image 3, Image 4 in order). Pick the image where the thermometer's display reads UPRIGHT, the way you'd read it normally: digits standing upright left-to-right, the decimal point at the BOTTOM of the digits, the °F/°C legend and any printed text upright. For a dial, pick the one where the printed numbers are upright.${rangeHint} Never decide from the food. Reply with one short reason, then the final line exactly: UPRIGHT: <1-4>`;
+        const content: any[] = [{ type: 'text', text: orientPrompt }];
+        rot.thumbs.forEach((url, i) => { content.push({ type: 'text', text: `Image ${i + 1}:` }); content.push({ type: 'image_url', image_url: { url } }); });
+        const data = await callAI([{ role: 'user', content }], undefined, undefined, 'openai/gpt-6-luna');
+        rotation = parseOrientReply(data?.choices?.[0]?.message?.content || '');
+        if (rotation) imagePayload = await rot.full(rotation);
+        console.log('[extract-temperature] upright pick', rotation);
+      }
+    } catch (e: any) {
+      console.error('[extract-temperature] upright pick failed', e?.status, e?.message ?? String(e));
+      rotation = null;
+    }
   }
   const msgs = [
     { role: 'system', content: systemPrompt },
@@ -389,7 +423,7 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
   const c = needsTiebreak(a, b) ? await readOnce() : null;
   const reads = c ? [a, b, c] : [a, b];
   console.log('[extract-temperature] reads', JSON.stringify(reads));
-  const d = decideReads(a, b, c);
+  const d = applyBands(decideReads(a, b, c), equipmentType);
   if (d.reason || d.tiebreak) console.warn('[extract-temperature] not a clean pair', d.reason, d.tiebreak, JSON.stringify(reads));
   const display = (c && d.tiebreak ? c.display : null) ?? a.display ?? b.display ?? null;
   return jsonResponse({
@@ -399,6 +433,11 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
     reason: d.reason,
     coaching: d.coaching,
     tiebreak: d.tiebreak,
+    // pass | fail | borderline (hot tags: one retake) | null; implausible → reason 'implausible'.
+    verdict: d.verdict,
+    implausibleValue: d.implausibleValue ?? null,
+    equipmentType,
+    rotation,
     displayType: display,
     unreadable: d.temperature == null,
     extractedText: d.temperature == null ? 'NONE' : String(d.temperature),
@@ -902,7 +941,7 @@ async function handleRescanTemperatures(payload: any) {
       response_image_url,
       extracted_temperature,
       item_id,
-      checklist_items(question)
+      checklist_items(question, equipment_type)
     `)
     .not('response_image_url', 'is', null)
     .gte('created_at', `${scanDate}T00:00:00`)
@@ -926,7 +965,7 @@ async function handleRescanTemperatures(payload: any) {
       const item = (response.checklist_items as any)?.[0] || (response.checklist_items as any);
       const question = item?.question || 'Unknown';
 
-      const extractResult = await handleExtractTemperature({ imageUrl: response.response_image_url });
+      const extractResult = await handleExtractTemperature({ imageUrl: response.response_image_url, itemName: question, equipmentType: item?.equipment_type ?? null });
       const extractData = await extractResult.json();
 
       if (extractResult.status !== 200) {
