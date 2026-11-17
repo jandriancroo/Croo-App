@@ -152,6 +152,7 @@ export function useCloneLocationSettings() {
           reference_notes: item.reference_notes,
           requires_temperature_validation: item.requires_temperature_validation,
           temperature_alert_enabled: item.temperature_alert_enabled,
+          equipment_type: item.equipment_type ?? null,
         }));
         await supabase.from('checklist_items').insert(itemRows);
       }

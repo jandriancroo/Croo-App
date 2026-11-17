@@ -2201,6 +2201,7 @@ export type Database = {
           reference_video_url: string | null
           requires_temperature_validation: boolean
           station_id: string | null
+          equipment_type: string | null
           temperature_alert_enabled: boolean
         }
         Insert: {
@@ -2227,6 +2228,7 @@ export type Database = {
           reference_video_url?: string | null
           requires_temperature_validation?: boolean
           station_id?: string | null
+          equipment_type?: string | null
           temperature_alert_enabled?: boolean
         }
         Update: {
@@ -2253,6 +2255,7 @@ export type Database = {
           reference_video_url?: string | null
           requires_temperature_validation?: boolean
           station_id?: string | null
+          equipment_type?: string | null
           temperature_alert_enabled?: boolean
         }
         Relationships: [

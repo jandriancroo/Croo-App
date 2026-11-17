@@ -58,6 +58,8 @@ interface ChecklistItem {
   manager_shift: "am" | "pm" | null;
   options: any;
   forked_from_item_id: string | null;
+  temperature_alert_enabled: boolean;
+  equipment_type: string | null;
 }
 
 const normalizeItem = (row: any): ChecklistItem => ({
@@ -72,6 +74,8 @@ const normalizeItem = (row: any): ChecklistItem => ({
   manager_shift: row.manager_shift === "am" || row.manager_shift === "pm" ? row.manager_shift : null,
   options: row.options ?? null,
   forked_from_item_id: row.forked_from_item_id ?? null,
+  temperature_alert_enabled: !!row.temperature_alert_enabled,
+  equipment_type: row.equipment_type ?? null,
 });
 
 /** Mon=0 .. Sun=6 — matches getDateDayOfWeekInTimezone */
@@ -469,6 +473,8 @@ export default function DynamicChecklistCalendar() {
         manager_shift: item.manager_shift,
         ...referencePhotoFields(item),
         reference_notes: item.reference_notes,
+        temperature_alert_enabled: item.temperature_alert_enabled,
+        equipment_type: item.equipment_type,
         forked_from_item_id: item.id,
       })
       .select()
@@ -936,7 +942,7 @@ function LibraryPanel({
 /* ------------------------------------------------------------------ */
 
 const DYNAMIC_TYPES = EDITOR_TYPES.map((t) => t.value as string);
-const SAVE_KEYS = ["question", "item_type", "options", "manager_shift", "reference_image_url", "reference_image_urls", "reference_link", "reference_video_url", "reference_notes", "temperature_alert_enabled"] as const;
+const SAVE_KEYS = ["question", "item_type", "options", "manager_shift", "reference_image_url", "reference_image_urls", "reference_link", "reference_video_url", "reference_notes", "temperature_alert_enabled", "equipment_type"] as const;
 const DAY_PILLS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].map((label, value) => ({ value, label }));
 
 /** Same task editor as standard lists, plus the days row. Saves quietly as you go. */

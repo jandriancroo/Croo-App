@@ -268,6 +268,7 @@ export default function EditChecklist() {
           item_type: itemType as ChecklistItem['item_type'],
           is_required: item.is_required,
           temperature_alert_enabled: (item as any).temperature_alert_enabled || false,
+          equipment_type: (item as any).equipment_type ?? null,
           options: item.options as string[] | undefined,
           reference_image_url: getPrimaryReferencePhoto(item as any) || undefined,
           reference_image_urls: ((item as any).reference_image_urls as string[] | null) ?? [],

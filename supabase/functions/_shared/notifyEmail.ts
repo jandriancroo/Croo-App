@@ -1,6 +1,7 @@
 import { escapeEmailHtml, renderEmailHeader, resolveEmailLogo } from './emailHeader.ts';
 import { defaultEmailEnabled, emailSettingsKey, EMAIL_FALLBACK_KEYS } from './notificationDefaults.ts';
 import { DateTime } from 'https://esm.sh/luxon@3.7.2';
+import { equipmentAlertCopy } from './equipmentCheck.ts';
 
 export const EMAIL_ALWAYS_KEYS = new Set(['late_arrival_self', 'no_call_no_show_self', 'cert_expiring_self', 'read_and_sign']);
 
@@ -56,6 +57,7 @@ const LABELS: Record<string, string> = {
   task_assigned: 'Task assigned', quick_task: 'Quick task', alarm_task: 'Task reminder',
   late_arrival_self: 'Your late arrival', no_call_no_show_self: 'Please contact your manager',
   cert_expiring_self: 'Your certification',
+  equipment_check: 'Equipment check',
 };
 
 // Record values are used only after scope verification; no request title/body/html reaches this module.
@@ -123,6 +125,18 @@ async function template(client: any, i: NotifyEmailInput, key: string) {
       path = '/schedule';
     }
     if (!owner || !i.eligible_user_ids.includes(owner)) return null;
+  } else if (i.notification_type === 'equipment_check') {
+    // Same unit failed its temp check on 2 separate days. Copy comes from the
+    // stored alert row (store-scoped by load), never from the request.
+    const alert = await load('equipment_check_alerts', String(d.equipment_alert_id ?? ''));
+    if (!alert) return null;
+    const store = await load('locations', i.location_id ?? '');
+    const copy = equipmentAlertCopy({ ...alert, location_name: store?.name ?? alert.location_name });
+    ref = `equipment_check:${alert.id}`;
+    paragraph = copy.paragraph;
+    subject = copy.subject;
+    headerTitle = copy.title;
+    path = '/dashboard';
   } else if (postId) {
     const post = await load('announcement_posts', postId);
     if (!post || post.deleted_at) return null;

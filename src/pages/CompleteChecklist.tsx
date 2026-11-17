@@ -2,7 +2,9 @@ import { placeSectionHeaders } from '@/lib/checklistSectionGroups';
 import { tempCoachingTip } from '@/lib/temperatureCoaching';
 import { referencePhotoFields, getPrimaryReferencePhoto } from '@/lib/checklistReferencePhotos';
 import { canUndoChecklistItem, CHECKLIST_UNDO_ANY_ROLES } from '@/lib/checklistUndo';
-import { planManualTemperature, isTempPhotoRequiredError, TEMP_PHOTO_FIRST_MESSAGE } from '@/lib/checklistTemperature';
+import { planManualTemperature, planPhotoReading, isTempPhotoRequiredError, TEMP_PHOTO_FIRST_MESSAGE } from '@/lib/checklistTemperature';
+import { asEquipmentType } from '../../supabase/functions/_shared/tempBands';
+import { EquipmentCheckBanners } from '@/components/equipment-check/EquipmentCheckLayer';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -55,6 +57,8 @@ interface ChecklistItem {
   options: any;
   is_required: boolean;
   requires_temperature_validation?: boolean;
+  /** freezer / refrigerator / walk_in / line / hot_holding / reheating, or null. */
+  equipment_type?: string | null;
   reference_image_url?: string;
   reference_link?: string;
   reference_video_url?: string;
@@ -128,6 +132,8 @@ export default function CompleteChecklist() {
   const [manualTempOpen, setManualTempOpen] = useState<Record<string, boolean>>({});
   // Tip for a thermometer photo that was too unclear to read (that photo is not saved).
   const [tempRetakeTip, setTempRetakeTip] = useState<Record<string, string>>({});
+  // Hot tags: a reading just under the line gets ONE retake per task.
+  const borderlineRetakeUsed = useRef<Record<string, boolean>>({});
   const [manualTempValue, setManualTempValue] = useState<Record<string, string>>({});
   const [uploadingItems, setUploadingItems] = useState<Record<string, boolean>>({});
   const notesTimeoutRef = useRef<NodeJS.Timeout>();
@@ -871,6 +877,7 @@ export default function CompleteChecklist() {
         tempText,
         existing,
         canFixLegacy: !!role && (CHECKLIST_UNDO_ANY_ROLES as readonly string[]).includes(role),
+        equipmentType: asEquipmentType(manualItem?.equipment_type),
       });
       if (plan.kind !== 'update') {
         toast.error(plan.message);
@@ -1015,16 +1022,42 @@ export default function CompleteChecklist() {
       if (shouldValidateTemp) {
         const { data: tempData, error: tempError } = await supabase.functions.invoke(
           'ai-extraction-service?action=extract-temperature',
-          { body: { imageUrl: data.publicUrl, itemName: item?.question ?? null } }
+          { body: { imageUrl: data.publicUrl, itemName: item?.question ?? null, equipmentType: asEquipmentType(item?.equipment_type) } }
         );
         const taskLocationId = currentLocation?.id || checklist?.location_id;
         // A disagreement settled by the third read is still logged (with all reads).
         const reason: string | null = tempError || !tempData ? 'function_error' : (tempData.reason ?? (tempData.tiebreak ? 'tiebreak_confirmed' : null));
-        if (!tempError && tempData && tempData.temperature != null) {
-          extractedTemp = tempData.temperature;
-          tempValid = tempData.isValid;
+        const equipmentType = asEquipmentType(item?.equipment_type);
+        const readingPlan = !tempError && tempData && tempData.reason !== 'unclear'
+          ? planPhotoReading({ temperature: tempData.temperature, reason: tempData.reason, equipmentType, borderlineRetakeUsed: !!borderlineRetakeUsed.current[itemId] })
+          : null;
+        if (readingPlan?.kind === 'save') {
+          extractedTemp = readingPlan.tempF;
+          // Bands from the shared config (_shared/tempBands.ts) decide pass/fail.
+          tempValid = readingPlan.valid;
           tempUnconfirmed = !!tempData.unconfirmed;
           hasNewReading = true;
+          delete borderlineRetakeUsed.current[itemId];
+        }
+        // Hot holding / reheating just under the line: one retake, nothing saved yet.
+        if (readingPlan?.kind === 'retake_borderline') {
+          borderlineRetakeUsed.current[itemId] = true;
+          void supabase.from('temperature_read_issues').insert({
+            reason: 'borderline_retake',
+            reads: tempData?.readDetails ?? tempData?.reads ?? null,
+            saved_temperature: null,
+            image_url: data.publicUrl,
+            item_id: itemId,
+            submission_id: submissionId || null,
+            location_id: taskLocationId || null,
+            user_id: user?.id,
+          } as any).then(({ error }) => { if (error) console.warn('[temp-read-issue] log failed', error.message); });
+          setResponses(previousResponses);
+          setResponsesWithCompleters(previousResponsesWithCompleters);
+          revokeBlob();
+          setTempRetakeTip(prev => ({ ...prev, [itemId]: readingPlan.message }));
+          toast.warning('Close to the line', { description: readingPlan.message });
+          return;
         }
         // Evidence for every photo that didn't get a clean reading.
         if (reason) {
@@ -1050,7 +1083,7 @@ export default function CompleteChecklist() {
           return;
         }
         if (!hasNewReading) {
-          toast.warning("Couldn't get a sure reading", { description: 'Retake the photo, or tap Fix the number and type what the thermometer shows.' });
+          toast.warning("Couldn't get a sure reading", { description: readingPlan?.kind === 'no_number' ? readingPlan.message : 'Retake the photo, or tap Fix the number and type what the thermometer shows.' });
           setManualTempOpen(prev => ({ ...prev, [itemId]: true }));
         }
 
@@ -1473,6 +1506,7 @@ export default function CompleteChecklist() {
 
   return <Layout>
       <div className="-mx-1 md:-mx-3 lg:mx-auto max-w-[1200px]">
+        <EquipmentCheckBanners locationId={currentLocation?.id || checklist?.location_id} />
         <ChecklistRunView ctx={runCtx} />
 
         <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>

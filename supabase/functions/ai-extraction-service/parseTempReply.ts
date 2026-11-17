@@ -10,6 +10,8 @@ export function parseTempReply(text: string): TempRead {
   const issue = asCoaching(line('ISSUE')?.toLowerCase().split(/[\s|,.]/)[0]);
   const confRaw = parseFloat(line('CONFIDENCE') ?? '');
   const confidence = Number.isFinite(confRaw) ? Math.min(1, Math.max(0, confRaw)) : null;
+  const tenthsRaw = line('TENTHS')?.toLowerCase() ?? '';
+  const tenthsSure = /^(unsure|no\b)/.test(tenthsRaw) ? false : /^(sure|yes\b)/.test(tenthsRaw) ? true : null;
   const m = text.match(/ANSWER:\s*\**\s*(-?\d+(?:\.\d+)?|NONE)/i);
   let value: number | null = null;
   if (m && m[1].toUpperCase() !== 'NONE') {
@@ -18,6 +20,6 @@ export function parseTempReply(text: string): TempRead {
   }
   // Unclear only when the model explicitly says so; a missing CLEAR line is
   // treated as clear so a well-read dial never gets rejected by format drift.
-  if (clearRaw.startsWith('no')) return { value: null, unclear: issue ?? 'blurry', display, confidence };
-  return { value, unclear: null, display, confidence };
+  if (clearRaw.startsWith('no')) return { value: null, unclear: issue ?? 'blurry', display, confidence, tenthsSure };
+  return { value, unclear: null, display, confidence, tenthsSure };
 }

@@ -1,6 +1,7 @@
 // Keep byte-identical to src/lib/notificationDefaults.ts.
 const EMAIL_ON = new Set(['announcements', 'shift_reminders', 'certification_expiring',
-  'new_job_application', 'time_off_weekly_digest', 'hiring_interview_response', 'hiring_doc_uploaded']);
+  'new_job_application', 'time_off_weekly_digest', 'hiring_interview_response', 'hiring_doc_uploaded',
+  'equipment_check']);
 export const defaultEmailEnabled = (key: string): boolean => EMAIL_ON.has(key);
 export const EMAIL_ALIASES: Record<string, string> = {
   late_arrival: 'late_arrivals', toast_late_clock_in: 'late_arrivals', no_call_no_show: 'late_arrivals',

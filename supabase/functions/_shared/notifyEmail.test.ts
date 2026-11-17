@@ -190,3 +190,19 @@ Deno.test('late_arrival_self wording is unchanged and still names the store and 
   assert(!f.rows.email_queue[0].subject.startsWith('Late arrival: Hayward ·'));
   assertEquals(f.rows.email_queue[0].subject, 'Your late arrival — Hayward');
 });
+Deno.test('equipment_check: email on by default, subject + both readings from the stored alert row, other store refused',async()=>{
+  const f=fixture();
+  f.rows.equipment_check_alerts=[{id:REF,location_id:STORE,unit_name:'TEMP - Walk-In Cooler',location_name:'Seeded Store',equipment_type:'walk_in',timezone:'America/Los_Angeles',
+    readings:[{temp:46.2,at:'2026-11-16T22:10:00Z'},{temp:44.8,at:'2026-11-17T16:05:00Z'}]}];
+  f.input.notification_type='equipment_check';f.input.data={type:'equipment_check',equipment_alert_id:REF,title:'ignored',body:'ignored'};f.input.tokenUsers.add(USER);
+  assert(defaultEmailEnabled('equipment_check'));
+  assertEquals((await f.run()).emailed,1);
+  const mail=f.rows.email_queue[0];
+  assertEquals(mail.subject,'Please check equipment: TEMP - Walk-In Cooler, Seeded Store');
+  assert(mail.html.includes('46.2°F on Mon Nov 16, 2:10 PM and 44.8°F on Tue Nov 17, 8:05 AM'));
+  assert(mail.html.includes('Safe range for walk-ins: 30–41°F'));
+  assert(!mail.html.includes('ignored'));
+  const g=fixture();g.rows.equipment_check_alerts=[{...f.rows.equipment_check_alerts[0],location_id:'10000000-0000-0000-0000-000000000009'}];
+  g.input.notification_type='equipment_check';g.input.data={equipment_alert_id:REF};
+  assertEquals((await g.run()).emailed,0);
+});
