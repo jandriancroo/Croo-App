@@ -11,6 +11,7 @@
 
 import { chromium } from 'playwright';
 import crypto from 'crypto';
+import { writeFileSync } from 'fs';
 
 // ── PFG Azure AD B2C Configuration ──────────────────────────────
 const PFG_B2C_TENANT = 'pfgcustomerfirst';
@@ -250,7 +251,12 @@ async function main() {
       console.log(`   • ${f.locationId}: ${f.error}`);
     }
 
-    // Report failures to edge function
+    // Report failures to edge function: a status code and the run link only.
+    // Error text can carry page content or token-exchange responses, so it
+    // stays in this job's log and is never sent.
+    const runUrl = process.env.GITHUB_RUN_ID
+      ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+      : null;
     for (const f of failed) {
       await fetch(
         `${SUPABASE_URL}/functions/v1/pfg-service?action=headless_login_failed`,
@@ -263,11 +269,15 @@ async function main() {
           },
           body: JSON.stringify({
             locationId: f.locationId,
-            error: f.error,
+            status: 'login_failed',
+            runUrl,
           }),
         }
       ).catch(() => {});
     }
+    // Tells the workflow's failure step that per-store tickets are already
+    // filed, so it does not also flag the stores that logged in fine.
+    writeFileSync('reported-failures', String(failed.length));
 
     // Exit with error if any failed
     process.exit(1);

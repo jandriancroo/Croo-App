@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { isInventoryEnabled, filterEnabledLocations, inventoryDisabledResponse } from "../_shared/inventoryGate.ts";
-import { requireAuthorizedCaller } from '../_shared/callerAuth.ts';
+import { isInventoryEnabled, filterEnabledLocations, filterNonTestLocations, inventoryDisabledResponse } from "../_shared/inventoryGate.ts";
+import { requireAuthorizedCaller, requireInternalCaller } from '../_shared/callerAuth.ts';
+import { openHeadlessLoginTicket } from '../_shared/pfgHeadlessAlert.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -75,9 +76,6 @@ interface PFGCredentials {
   access_token?: string;
   token_expires_at?: string;
   refresh_token_updated_at?: string;
-  ropc_last_success?: string;
-  ropc_last_failure?: string;
-  ropc_failure_reason?: string;
 }
 
 interface TokenResponse {
@@ -195,7 +193,7 @@ async function logRefreshAudit(supabase: any, row: {
   outcome:
     | 'swapped' | 'lost_race' | 'b2c_error' | 'b2c_timeout'
     | 'no_token' | 'network_error'
-    | 'ropc_recovery' | 'ropc_failed' | 'no_ropc_credentials';
+    | 'refresh_failed';
   b2c_error_code?: string | null;
   b2c_error_message?: string | null;
   duration_ms?: number;
@@ -216,7 +214,7 @@ const SYSTEM_TICKET_OWNER_ID = 'a2e81a39-0e0b-47b1-a1aa-0e53f3869d37';
 // Auto-create a deduped support ticket when a PFG refresh chain breaks.
 // One open ticket per location at a time — close/resolve it to allow a new one.
 // Gated by a failure-streak check so a single transient failure does not
-// open a ticket. Requires N consecutive ropc_failed outcomes inside a window.
+// open a ticket. Requires N refresh_failed outcomes inside a window.
 const CHAIN_BROKEN_MIN_FAILURES = 3;
 const CHAIN_BROKEN_WINDOW_MIN = 30;
 
@@ -237,7 +235,7 @@ async function maybeCreateChainBrokenTicket(
       .limit(20);
 
     const failCount = (recent || []).filter((r: any) =>
-      r.outcome === 'ropc_failed' || r.outcome === 'refresh_failed'
+      r.outcome === 'refresh_failed'
     ).length;
 
     if (failCount < CHAIN_BROKEN_MIN_FAILURES) {
@@ -272,9 +270,9 @@ async function maybeCreateChainBrokenTicket(
       ``,
       `🚨 PFG token refresh chain BROKEN for ${locName}.`,
       ``,
-      `Both the standard refresh AND the ROPC password fallback failed`,
-      `${CHAIN_BROKEN_MIN_FAILURES}+ times in the last ${CHAIN_BROKEN_WINDOW_MIN} minutes.`,
-      `A manager needs to manually reconnect PFG in Settings → Integrations.`,
+      `The token refresh failed ${CHAIN_BROKEN_MIN_FAILURES}+ times in the last ${CHAIN_BROKEN_WINDOW_MIN} minutes.`,
+      `The scheduled headless login normally restarts the chain; if it does not,`,
+      `a manager needs to reconnect PFG in Settings → Integrations.`,
       ``,
       `Failure detail: ${failReason}`,
       ``,
@@ -327,40 +325,6 @@ async function autoResolveChainBrokenTicket(
     }
   } catch (e) {
     console.error('[PFG Ticket] Auto-resolve unexpected error:', e);
-  }
-}
-
-// ROPC (Resource Owner Password Credentials) — re-authenticate using stored username/password
-async function ropcAuthenticate(username: string, password: string): Promise<TokenResponse | null> {
-  try {
-    console.log('[PFG ROPC] Attempting password grant for user:', username);
-    const params = new URLSearchParams({
-      client_id: PFG_CLIENT_ID,
-      scope: PFG_SCOPE,
-      grant_type: 'password',
-      username,
-      password,
-      response_type: 'token',
-    });
-
-    const response = await fetch(PFG_TOKEN_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString(),
-    });
-
-    const text = await response.text();
-    if (!response.ok) {
-      console.error('[PFG ROPC] Failed:', response.status, text.slice(0, 500));
-      return null;
-    }
-
-    const tokenData = JSON.parse(text);
-    console.log('[PFG ROPC] Success! expires_in:', tokenData.expires_in);
-    return tokenData;
-  } catch (error) {
-    console.error('[PFG ROPC] Error:', error);
-    return null;
   }
 }
 
@@ -2173,15 +2137,17 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
 
   if (error) throw new Error(`Failed to fetch PFG integrations: ${error.message}`);
 
-  // Gate: drop integrations whose location has inventory disabled
-  const enabledIds = await filterEnabledLocations(
+  // Keep every real store's token chain alive, including stores with
+  // inventory turned off (their token still backs price/catalog fetches and
+  // must not lapse between headless logins). Only test/QA stores are skipped.
+  const realIds = await filterNonTestLocations(
     supabase,
     (integrationsRaw || []).map((i: any) => i.location_id),
   );
-  const integrations = (integrationsRaw || []).filter((i: any) => enabledIds.has(i.location_id));
+  const integrations = (integrationsRaw || []).filter((i: any) => realIds.has(i.location_id));
   const keepAliveSkipped = (integrationsRaw?.length || 0) - integrations.length;
   if (keepAliveSkipped > 0) {
-    console.log(`[PFG Keep-Alive] Skipped ${keepAliveSkipped} integration(s) — inventory_enabled=false`);
+    console.log(`[PFG Keep-Alive] Skipped ${keepAliveSkipped} test/QA integration(s)`);
   }
 
   if (!integrations || integrations.length === 0) {
@@ -2221,106 +2187,38 @@ async function handleRefreshKeepAlive(supabase: any, body: any): Promise<Respons
           old_token_prefix: tokenFingerprint(oldRefresh),
         });
 
-        const pfgUser = creds.pfg_username;
-        const pfgPass = creds.pfg_password;
+        // No password fallback: PFG's B2C policy rejects password grants
+        // (server_error every time). A dead chain is restarted by the scheduled
+        // headless login (.github/workflows/pfg-token-refresh.yml).
         const refreshSummary = `${refreshResult.outcome}${refreshResult.errorCode ? ` (${refreshResult.errorCode})` : ''}`;
+        const failReason = `Refresh failed: ${refreshSummary}`;
 
-        // No stored ROPC creds — log it instead of silently skipping.
-        if (!pfgUser || !pfgPass) {
-          await logRefreshAudit(supabase, {
-            integration_id: integration.id,
-            location_id: integration.location_id,
-            handler: 'keep_alive_cron',
-            caller_action: CRON_CALLER,
-            outcome: 'no_ropc_credentials',
-            b2c_error_code: refreshResult.errorCode ?? null,
-            b2c_error_message: 'B2C refresh failed and no ROPC username/password on file',
-            old_token_prefix: tokenFingerprint(oldRefresh),
-          });
-          results.push({ locationId: integration.location_id, success: false, error: `Refresh failed (${refreshSummary}); no ROPC credentials stored` });
-          continue;
-        }
-
-        console.log(`[PFG Keep-Alive] Refresh failed for ${integration.location_id} (${refreshSummary}), attempting ROPC fallback...`);
-        const ropcStart = Date.now();
-        const ropcData = await ropcAuthenticate(pfgUser, pfgPass);
-
-        if (ropcData) {
-          const ropcNow = new Date();
-          const updatedCreds: PFGCredentials = {
-            ...creds,
-            refresh_token: ropcData.refresh_token,
-            access_token: ropcData.access_token,
-            token_expires_at: new Date(ropcNow.getTime() + ropcData.expires_in * 1000).toISOString(),
-            refresh_token_updated_at: ropcNow.toISOString(),
-            ropc_last_success: ropcNow.toISOString(),
-          };
-
-          // LOCKED ROPC WRITE. ROPC generates a fresh grant chain unrelated to
-          // the (now-dead) old refresh token, so the token-match CAS would always
-          // fail. This RPC takes a FOR UPDATE lock without the match — two
-          // concurrent ROPC writers serialize, last writer wins, both equally valid.
-          const { data: ropcSwapped, error: ropcSwapErr } = await supabase.rpc(
-            'pfg_swap_credentials_ropc',
-            { p_integration_id: integration.id, p_new_credentials: updatedCreds },
-          );
-          if (ropcSwapErr) console.error('[PFG Keep-Alive] ROPC swap error:', ropcSwapErr);
-
-          await logRefreshAudit(supabase, {
-            integration_id: integration.id,
-            location_id: integration.location_id,
-            handler: 'keep_alive_cron',
-            caller_action: CRON_CALLER,
-            outcome: 'ropc_recovery',
-            duration_ms: Date.now() - ropcStart,
-            old_token_prefix: tokenFingerprint(oldRefresh),
-            new_token_prefix: tokenFingerprint(ropcData.refresh_token),
-          });
-
-          results.push({ locationId: integration.location_id, success: true, error: 'Recovered via ROPC' });
-          console.log(`[PFG Keep-Alive] ✓ ROPC recovery successful for ${integration.location_id} (swap=${ropcSwapped})`);
-          await autoResolveChainBrokenTicket(supabase, integration.location_id);
-          continue;
-        }
-
-        // ROPC also failed — record reason on the integration row + audit
-        const failNow = new Date();
-        const failReason = `ROPC failed: refresh returned ${refreshSummary}`;
-
-        // Build update payload. If this integration had auto_revert_on_failure
-        // set (i.e. it's running an experimental cadence), reset to safe 5-min.
-        const failureUpdate: Record<string, unknown> = {
-          credentials: { ...creds, ropc_last_failure: failNow.toISOString(), ropc_failure_reason: failReason },
-        };
+        // If this integration was running an experimental cadence, reset to safe 5-min.
         if ((integration as any).pfg_auto_revert_on_failure === true) {
-          failureUpdate.pfg_keep_alive_minutes = 5;
-          failureUpdate.pfg_auto_revert_on_failure = false;
-          console.warn(`[PFG Keep-Alive] Auto-reverting ${integration.location_id} to 5-min cadence after ropc_failed`);
+          console.warn(`[PFG Keep-Alive] Auto-reverting ${integration.location_id} to 5-min cadence after refresh_failed`);
+          await supabase
+            .from('location_integrations')
+            .update({ pfg_keep_alive_minutes: 5, pfg_auto_revert_on_failure: false })
+            .eq('id', integration.id);
         }
-
-        await supabase
-          .from('location_integrations')
-          .update(failureUpdate)
-          .eq('id', integration.id);
 
         await logRefreshAudit(supabase, {
           integration_id: integration.id,
           location_id: integration.location_id,
           handler: 'keep_alive_cron',
           caller_action: CRON_CALLER,
-          outcome: 'ropc_failed',
-          duration_ms: Date.now() - ropcStart,
+          outcome: 'refresh_failed',
+          duration_ms: Date.now() - startedAt,
           b2c_error_code: refreshResult.errorCode ?? null,
           b2c_error_message: failReason,
           old_token_prefix: tokenFingerprint(oldRefresh),
         });
 
-        // Auto-create a deduped support ticket so the chain break is visible
-        // in the support inbox without flooding (one ticket per 24h per location).
+        // Deduped support ticket after a failure streak (one open per location).
         await maybeCreateChainBrokenTicket(supabase, integration.location_id, failReason);
 
-        results.push({ locationId: integration.location_id, success: false, error: `Both refresh and ROPC failed (${refreshSummary})` });
-        console.error(`[PFG Keep-Alive] ✗ ROPC also failed for ${integration.location_id}`);
+        results.push({ locationId: integration.location_id, success: false, error: failReason });
+        console.error(`[PFG Keep-Alive] ✗ Refresh failed for ${integration.location_id} (${refreshSummary})`);
         continue;
       }
 
@@ -3947,65 +3845,15 @@ serve(async (req) => {
 
     switch (action) {
       case 'test_ropc': {
-        // Test ROPC with real credentials for a specific location
-        const { locationId: testLocId } = body;
-        if (!testLocId) {
-          return new Response(JSON.stringify({ error: 'Missing locationId' }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        const { data: testInt } = await supabase
-          .from('location_integrations')
-          .select('id, credentials')
-          .eq('location_id', testLocId)
-          .eq('integration_type', 'pfg')
-          .eq('is_active', true)
-          .maybeSingle();
-        if (!testInt) {
-          return new Response(JSON.stringify({ error: 'No PFG integration found' }), {
-            status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        const testCreds = testInt.credentials as any;
-        if (!testCreds?.pfg_username || !testCreds?.pfg_password) {
-          return new Response(JSON.stringify({ error: 'No PFG credentials stored — save username/password first', ropc_supported: false }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-        console.log('[PFG ROPC Test] Testing real credentials for location:', testLocId);
-        const ropcResult = await ropcAuthenticate(testCreds.pfg_username, testCreds.pfg_password);
-        if (ropcResult) {
-          // Save the new tokens
-          const now = new Date();
-          const updatedCreds = {
-            ...testCreds,
-            refresh_token: ropcResult.refresh_token,
-            access_token: ropcResult.access_token,
-            token_expires_at: new Date(now.getTime() + ropcResult.expires_in * 1000).toISOString(),
-            refresh_token_updated_at: now.toISOString(),
-            ropc_last_success: now.toISOString(),
-          };
-          await supabase
-            .from('location_integrations')
-            .update({ credentials: updatedCreds })
-            .eq('id', testInt.id);
-          return new Response(JSON.stringify({ 
-            success: true, 
-            ropc_supported: true,
-            message: 'ROPC authentication successful! Tokens refreshed.',
-            expires_in: ropcResult.expires_in,
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        } else {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            ropc_supported: false,
-            message: 'ROPC failed — credentials may be wrong or ROPC not supported for this account.',
-          }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
+        // Password-grant sign-in was removed: PFG's B2C policy rejects it.
+        // Kept as an action so the existing Settings button gets a clear answer.
+        return new Response(JSON.stringify({
+          success: false,
+          ropc_supported: false,
+          message: 'PFG does not support password sign-in. The saved login is used by the scheduled headless login instead, which keeps PFG connected.',
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
       case 'save_pfg_credentials': {
@@ -4032,7 +3880,7 @@ serve(async (req) => {
           .from('location_integrations')
           .update({ credentials: merged })
           .eq('id', credInt.id);
-        console.log('[PFG] Saved ROPC credentials for location:', credLocId);
+        console.log('[PFG] Saved PFG login for location:', credLocId);
         return new Response(JSON.stringify({ success: true, message: 'PFG credentials saved' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -4078,20 +3926,19 @@ serve(async (req) => {
       }
       
       case 'headless_login_failed': {
-        // GitHub Actions headless login failed — create deduped support ticket
-        const failLocationId = body?.locationId;
-        const failError = body?.error || 'Unknown headless login failure';
-        console.error('[PFG Headless] Login failed for location:', failLocationId, failError);
-        
-        if (failLocationId) {
-          await maybeCreateChainBrokenTicket(
-            supabase,
-            failLocationId,
-            `Headless login failure: ${failError}`,
-          );
+        // Posted by the GitHub Actions headless login. Internal callers only
+        // (service role or x-cron-secret); a signed-in user token is not enough.
+        const internalDenied = requireInternalCaller(req, corsHeaders);
+        if (internalDenied) return internalDenied;
+
+        const alert = await openHeadlessLoginTicket(supabase, body, SYSTEM_TICKET_OWNER_ID);
+        if (!alert.ok) {
+          return new Response(JSON.stringify({ success: false, error: alert.error }), {
+            status: alert.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
-        
-        return new Response(JSON.stringify({ success: true, message: 'Failure logged' }), {
+        console.error(`[PFG Headless] Login failed for ${body?.locationId}: ticket ${alert.ticket} #${alert.ticketNumber ?? '?'}`);
+        return new Response(JSON.stringify({ success: true, ticket: alert.ticket, ticket_number: alert.ticketNumber }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }

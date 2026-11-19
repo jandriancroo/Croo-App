@@ -60,15 +60,17 @@ jobs:
         run: node pfg-headless-login.mjs
 
       # A broken run (e.g. install failure before any login) reports itself so
-      # the chain break is visible before the 24h tokens lapse. Carries only the
-      # failed step name and the run URL.
+      # the chain break is visible before the 24h tokens lapse. Opens one ticket
+      # per store right away (deduped server-side). Carries only a status code
+      # and the run URL.
       - name: Report failed run
         if: ${{ failure() }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          FAILED_STEP: ${{ steps.install.outcome == 'failure' && 'Install Playwright (isolated)' || steps.login.outcome == 'failure' && 'Run PFG Login Script' || 'setup' }}
+          # Fixed status code (not free text); the edge function maps it to a label.
+          FAILED_STATUS: ${{ steps.install.outcome == 'failure' && 'workflow_failed_install' || steps.login.outcome == 'failure' && 'workflow_failed_login' || 'workflow_failed_setup' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           # Active PFG integrations (location IDs only; not secret).
           PFG_LOCATION_IDS: >-
@@ -80,8 +82,13 @@ jobs:
             037bcf8d-84ef-4c3e-b4e1-a1d9ae65bc3b
             2d309714-f808-4c98-b612-10909e569fac
         run: |
+          # The login script already filed tickets for the stores that failed.
+          if [ -f "$RUNNER_TEMP/pfg-login/reported-failures" ]; then
+            echo "Per-store failures already reported by the login script"
+            exit 0
+          fi
           for loc in $PFG_LOCATION_IDS; do
-            body=$(jq -nc --arg l "$loc" --arg e "GitHub Actions PFG login run failed at step: $FAILED_STEP. Run: $RUN_URL" '{locationId:$l, error:$e}')
+            body=$(jq -nc --arg l "$loc" --arg s "$FAILED_STATUS" --arg u "$RUN_URL" '{locationId:$l, status:$s, runUrl:$u}')
             curl -sS -o /dev/null -w "headless_login_failed $loc -> %{http_code}\n" \
               -X POST "$SUPABASE_URL/functions/v1/pfg-service?action=headless_login_failed" \
               -H "Content-Type: application/json" \

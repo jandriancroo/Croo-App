@@ -79,6 +79,25 @@ export async function filterEnabledLocations(
   return new Set((data || []).map((r: any) => r.id));
 }
 
+/**
+ * Returns the subset of locationIds that are real stores (not test/QA),
+ * regardless of inventory_enabled. For upkeep that is not inventory work,
+ * e.g. keeping a vendor token chain alive.
+ */
+export async function filterNonTestLocations(
+  supabase: any,
+  locationIds: string[],
+): Promise<Set<string>> {
+  const candidates = (locationIds || []).filter((id) => !isExcludedLocation(id));
+  if (candidates.length === 0) return new Set();
+  const { data } = await supabase
+    .from("locations")
+    .select("id")
+    .eq("is_test_location", false)
+    .in("id", candidates);
+  return new Set((data || []).map((r: any) => r.id));
+}
+
 /** Standard skip response — 200 with explicit skip reason. */
 export function inventoryDisabledResponse(
   gate: InventoryGateResult,
