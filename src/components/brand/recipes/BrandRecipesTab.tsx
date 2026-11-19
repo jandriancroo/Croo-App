@@ -3,20 +3,15 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Layers, Plus, Search } from "lucide-react";
+import { ChevronDown, FlaskConical, Layers, Plus, Search } from "lucide-react";
 import PriceOutliersCard from "./PriceOutliersCard";
 import BrandRecipeDialog from "./BrandRecipeDialog";
 import { useBrandRecipes, useBrandPriceOutliers, type BrandRecipe } from "./useBrandRecipes";
 import PosLinkIndicator from "@/components/inventory/recipe-catalog/PosLinkIndicator";
 import { usePosMapping } from "@/components/inventory/recipe-catalog/usePosMapping";
+import { buildCatalogSections } from "@/components/inventory/recipe-catalog/buildCatalogSections";
+import { SECTION_ICONS } from "@/components/inventory/recipe-catalog/sectionIcons";
 
-const GROUPS: { key: string; label: string }[] = [
-  { key: "MI", label: "Menu items" },
-  { key: "CORE", label: "Cores" },
-  { key: "BASE", label: "Bases" },
-  { key: "CATERING", label: "Catering" },
-  { key: "PREP", label: "Prep & sub-recipes" },
-];
 
 /** Brand Recipes tab: brand records only, no store picker. */
 const BrandRecipesTab = ({ brandId }: { brandId: string }) => {
@@ -33,19 +28,46 @@ const BrandRecipesTab = ({ brandId }: { brandId: string }) => {
     return s;
   }, [outliers]);
 
-  const grouped = useMemo(() => {
+  // Same section layout as the store Build tab (shared buildCatalogSections),
+  // fed brand-only records. PREP recipes get their own block at the bottom.
+  const { sections, prep } = useMemo(() => {
     const list = (recipes || []).filter(r => !q || r.name.toLowerCase().includes(q.toLowerCase()));
-    const m = new Map<string, BrandRecipe[]>();
-    for (const r of list) {
-      const c = (r.category || "").toUpperCase();
-      const k = GROUPS.some(g => g.key === c) ? c : "PREP";
-      if (!m.has(k)) m.set(k, []);
-      m.get(k)!.push(r);
-    }
-    return GROUPS.map(g => ({ ...g, items: m.get(g.key) || [] })).filter(g => g.items.length);
+    const isPrep = (r: BrandRecipe) => (r.category || "").toUpperCase() === "PREP";
+    return {
+      sections: buildCatalogSections(list.filter(r => !isPrep(r))),
+      prep: list.filter(isPrep),
+    };
   }, [recipes, q]);
 
   const openEdit = (id: string | null) => { setEditId(id); setOpen(true); };
+
+  const renderRow = (r: BrandRecipe, posCategory: string | null) => (
+    <div key={r.id} className="flex items-center gap-2 px-4 pl-10 py-2">
+      <button className="flex-1 min-w-0 text-left" onClick={() => openEdit(r.id)}>
+        <p className="text-sm truncate">
+          {r.name}
+          {flaggedRecipes.has(r.name) && <span className="ml-1" title="Has a price outlier">⚠️</span>}
+        </p>
+        <p className="text-[11px] text-muted-foreground">
+          Yield {r.yield_qty ?? "—"} {r.yield_unit ?? ""}
+        </p>
+      </button>
+      {r.is_countable && <Badge variant="secondary" className="text-[10px]">Counted</Badge>}
+      {posCategory && (
+        <PosLinkIndicator
+          blueprintId={r.id}
+          blueprintName={r.name}
+          blueprintCategory={posCategory}
+          mapping={pos.mappedBlueprints.get(r.id)}
+          posItems={pos.posItems}
+          onLink={pos.linkBlueprint}
+          onUnlink={pos.unlinkBlueprint}
+          onUpdateMeta={pos.updateMappingMeta}
+          isLinking={pos.isLinking}
+        />
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-4">
@@ -72,48 +94,58 @@ const BrandRecipesTab = ({ brandId }: { brandId: string }) => {
           <p className="p-4 text-sm text-muted-foreground">Loading recipes…</p>
         ) : (
           <div className="divide-y divide-border">
-            {grouped.map((g, gi) => (
-              <Collapsible key={g.key + (q ? "-q" : "")} defaultOpen={gi === 0 || !!q}>
+            {sections.map(sec => (
+              <Collapsible key={sec.key + (q ? "-q" : "")} defaultOpen={!!q}>
                 <CollapsibleTrigger asChild>
-                  <button className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-muted/30">
-                    <span className="text-sm font-medium">{g.label}</span>
-                    <Badge variant="outline" className="text-[10px] tabular-nums">{g.items.length}</Badge>
-                    <ChevronDown className="h-4 w-4 ml-auto text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+                  <button className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-muted/30">
+                    <ChevronDown className="h-4 w-4 text-muted-foreground -rotate-90 transition-transform [[data-state=open]>&]:rotate-0" />
+                    {SECTION_ICONS[sec.key]}
+                    <span className="text-sm font-medium">{sec.label}</span>
+                    <Badge variant="outline" className="ml-auto text-[10px] tabular-nums">
+                      {sec.bases.length + sec.cores.length + sec.menuItems.length}
+                    </Badge>
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  {([
+                    ["Bases", "base", sec.bases],
+                    ["Cores", "core", sec.cores],
+                    ["Menu items", "mi", sec.menuItems],
+                  ] as const).filter(([, , items]) => items.length > 0).map(([label, posCat, items]) => (
+                    <div key={label} className="pb-1">
+                      <p className="px-6 pt-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        {label} <span className="tabular-nums">({items.length})</span>
+                      </p>
+                      <div className="divide-y divide-border/60">
+                        {items.map(r => renderRow(r, posCat))}
+                      </div>
+                    </div>
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            ))}
+
+            {prep.length > 0 && (
+              <Collapsible key={"prep" + (q ? "-q" : "")} defaultOpen={!!q}>
+                <CollapsibleTrigger asChild>
+                  <button className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-muted/30">
+                    <ChevronDown className="h-4 w-4 text-muted-foreground -rotate-90 transition-transform [[data-state=open]>&]:rotate-0" />
+                    <FlaskConical className="h-4 w-4" />
+                    <span className="text-sm font-medium">Prep Recipes</span>
+                    <Badge variant="outline" className="ml-auto text-[10px] tabular-nums">{prep.length}</Badge>
                   </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="divide-y divide-border/60">
-                    {g.items.map(r => (
-                      <div key={r.id} className="flex items-center gap-2 px-4 py-2">
-                        <button className="flex-1 min-w-0 text-left" onClick={() => openEdit(r.id)}>
-                          <p className="text-sm truncate">
-                            {r.name}
-                            {flaggedRecipes.has(r.name) && <span className="ml-1" title="Has a price outlier">⚠️</span>}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">
-                            Yield {r.yield_qty ?? "—"} {r.yield_unit ?? ""}
-                          </p>
-                        </button>
-                        {r.is_countable && <Badge variant="secondary" className="text-[10px]">Counted</Badge>}
-                        {(g.key === "MI" || g.key === "CORE" || g.key === "BASE" || g.key === "CATERING") && (
-                          <PosLinkIndicator
-                            blueprintId={r.id}
-                            blueprintName={r.name}
-                            blueprintCategory={g.key.toLowerCase()}
-                            mapping={pos.mappedBlueprints.get(r.id)}
-                            posItems={pos.posItems}
-                            onLink={pos.linkBlueprint}
-                            onUnlink={pos.unlinkBlueprint}
-                            onUpdateMeta={pos.updateMappingMeta}
-                            isLinking={pos.isLinking}
-                          />
-                        )}
-                      </div>
-                    ))}
+                    {prep.map(r => renderRow(r, null))}
                   </div>
                 </CollapsibleContent>
               </Collapsible>
-            ))}
+            )}
+
+            {sections.length === 0 && prep.length === 0 && (
+              <p className="p-4 text-sm text-muted-foreground">No recipes match.</p>
+            )}
           </div>
         )}
       </Card>

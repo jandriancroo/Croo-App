@@ -6,9 +6,10 @@ import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 
-import { Pizza, Salad, UtensilsCrossed, Package, Layers, ArrowRightLeft, Link2, Plus, ChevronDown, Shield } from "lucide-react";
+import { Layers, ArrowRightLeft, Link2, Plus, ChevronDown, Shield } from "lucide-react";
 import type { MenuItem, CatalogSection } from "./recipe-catalog/types";
-import { getCoreSortPriority, getSizeFromName } from "./recipe-catalog/utils";
+import { buildCatalogSections } from "./recipe-catalog/buildCatalogSections";
+import { SECTION_ICONS } from "./recipe-catalog/sectionIcons";
 import CatalogSectionComponent from "./recipe-catalog/CatalogSection";
 import PrepRecipesSection from "./recipe-catalog/PrepRecipesSection";
 import IngredientsSection from "./recipe-catalog/IngredientsSection";
@@ -16,6 +17,7 @@ const RecipeBuilderDialog = lazyWithRetry(() => import("./RecipeBuilderDialog"))
 import BulkReassignBar from "./recipe-catalog/BulkReassignBar";
 import { usePosMapping } from "./recipe-catalog/usePosMapping";
 import UnmappedPosBanner from "./recipe-catalog/UnmappedPosBanner";
+
 
 interface RecipeCatalogProps {
   locationId: string;
@@ -63,92 +65,9 @@ const RecipeCatalog = ({ locationId, readOnly = false, brandId }: RecipeCatalogP
     });
   }, []);
 
-  const sections = useMemo(() => {
+  const sections = useMemo<CatalogSection[]>(() => {
     if (!blueprints) return [];
-
-    const result: CatalogSection[] = [
-      { key: "md_pizza", label: '11" Pizzas', icon: <Pizza className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
-      { key: "lg_pizza", label: '14" Pizzas', icon: <Pizza className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
-      { key: "half_pizza", label: "Half Pizzas", icon: <Pizza className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
-      { key: "detroit", label: "Detroit Pizzas", icon: <Pizza className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
-      { key: "salads", label: "Salads", icon: <Salad className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
-      { key: "sides", label: "Sides & Extras", icon: <UtensilsCrossed className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
-      { key: "catering", label: "Catering", icon: <Package className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
-      { key: "drinks", label: "Drinks", icon: <UtensilsCrossed className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
-      { key: "other", label: "Other", icon: <Layers className="h-4 w-4" />, bases: [], cores: [], menuItems: [] },
-    ];
-
-    const sectionMap = new Map(result.map(s => [s.key, s]));
-
-    for (const item of blueprints) {
-      const name = item.name;
-      const lower = name.toLowerCase();
-      const cat = item.category?.toUpperCase() || "";
-
-      // Manual override takes priority
-      if (item.catalog_section && sectionMap.has(item.catalog_section as any)) {
-        const section = sectionMap.get(item.catalog_section as any)!;
-        if (cat === "BASE") section.bases.push(item);
-        else if (cat === "CORE") section.cores.push(item);
-        else section.menuItems.push(item);
-        continue;
-      }
-
-      let section: CatalogSection | undefined;
-
-      if (cat === "BASE") {
-        if (lower.includes("detroit")) section = sectionMap.get("detroit");
-        else if (lower.includes('11"') || lower.includes("md pizza")) section = sectionMap.get("md_pizza");
-        else if (lower.includes('14"') || lower.includes("lg pizza")) section = sectionMap.get("lg_pizza");
-        else if (lower.includes("half")) section = sectionMap.get("half_pizza");
-        else if (lower.includes("salad")) section = sectionMap.get("salads");
-        else if (lower.includes("cheesy bread") || lower.includes("fold") || lower.includes("drizzle")) section = sectionMap.get("sides");
-        else section = sectionMap.get("other");
-        section?.bases.push(item);
-        continue;
-      }
-
-      if (cat === "CORE") {
-        if (lower.includes("detroit")) {
-          section = sectionMap.get("detroit");
-        } else if (lower.includes("salad")) {
-          section = sectionMap.get("salads");
-        } else {
-          const size = getSizeFromName(name);
-          if (size === "LG") section = sectionMap.get("lg_pizza");
-          else if (size === "HALF") section = sectionMap.get("half_pizza");
-          else section = sectionMap.get("md_pizza");
-        }
-        section?.cores.push(item);
-        continue;
-      }
-
-      if (cat === "CATERING") {
-        sectionMap.get("catering")?.menuItems.push(item);
-        continue;
-      }
-
-      if (cat === "MI") {
-        if (lower.includes("detroit")) section = sectionMap.get("detroit");
-        else if (lower.includes("salad")) section = sectionMap.get("salads");
-        else if (lower.includes("half ")) section = sectionMap.get("half_pizza");
-        else if (lower.includes("large") || lower.includes("lg ") || lower.includes("14")) section = sectionMap.get("lg_pizza");
-        else if (lower.includes("drink") || lower.includes("juice") || lower.includes("water") || lower.includes("lemonade") || lower.includes("tea") || lower.includes("beer") || lower.includes("wine") || lower.includes("bubbles") || lower.includes("orchard") || lower.includes("aranciata") || lower.includes("limonata") || lower.includes("pellegrino") || lower.includes("fountain") || lower.includes("izze")) section = sectionMap.get("drinks");
-        else if (lower.includes("cheesy bread") || lower.includes("meatball") || lower.includes("brownie") || lower.includes("cookie") || lower.includes("s'more") || lower.includes("cinnamon") || lower.includes("fold") || lower.includes("sandwich") || lower.includes("garlic & sausage")) section = sectionMap.get("sides");
-        else if (lower.includes("catering") || lower.includes("cat -") || lower.includes("boxed lunch")) section = sectionMap.get("catering");
-        else section = sectionMap.get("md_pizza");
-        section?.menuItems.push(item);
-        continue;
-      }
-
-      sectionMap.get("other")?.menuItems.push(item);
-    }
-
-    for (const s of result) {
-      s.cores.sort((a, b) => getCoreSortPriority(a.name) - getCoreSortPriority(b.name));
-    }
-
-    return result.filter(s => s.bases.length > 0 || s.cores.length > 0 || s.menuItems.length > 0);
+    return buildCatalogSections(blueprints).map(s => ({ ...s, icon: SECTION_ICONS[s.key] }));
   }, [blueprints]);
 
   // POS mapping progress
