@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, FlaskConical, Layers, Plus, Search } from "lucide-react";
+import { ChevronDown, Layers, Plus, Search } from "lucide-react";
 import PriceOutliersCard from "./PriceOutliersCard";
 import BrandRecipeDialog from "./BrandRecipeDialog";
 import { useBrandRecipes, useBrandPriceOutliers, type BrandRecipe } from "./useBrandRecipes";
@@ -28,15 +28,25 @@ const BrandRecipesTab = ({ brandId }: { brandId: string }) => {
     return s;
   }, [outliers]);
 
-  // Same section layout as the store Build tab (shared buildCatalogSections),
-  // fed brand-only records. PREP recipes get their own block at the bottom.
-  const { sections, prep } = useMemo(() => {
+  // Top level = recipe type (Menu items / Cores / Bases / Prep), each split
+  // into menu sections using the same rules as the store Build tab
+  // (shared buildCatalogSections). Prep has no sections.
+  const typeGroups = useMemo(() => {
     const list = (recipes || []).filter(r => !q || r.name.toLowerCase().includes(q.toLowerCase()));
     const isPrep = (r: BrandRecipe) => (r.category || "").toUpperCase() === "PREP";
-    return {
-      sections: buildCatalogSections(list.filter(r => !isPrep(r))),
-      prep: list.filter(isPrep),
-    };
+    const sections = buildCatalogSections(list.filter(r => !isPrep(r)));
+    const pick = (field: "menuItems" | "cores" | "bases") =>
+      sections
+        .map(sec => ({ key: sec.key, label: sec.label, items: sec[field] }))
+        .filter(sec => sec.items.length > 0);
+    const groups = [
+      { key: "mi", label: "Menu items", posCat: "mi" as string | null, sections: pick("menuItems") },
+      { key: "core", label: "Cores", posCat: "core" as string | null, sections: pick("cores") },
+      { key: "base", label: "Bases", posCat: "base" as string | null, sections: pick("bases") },
+    ].map(g => ({ ...g, count: g.sections.reduce((n, sec) => n + sec.items.length, 0), prep: [] as BrandRecipe[] }));
+    const prep = list.filter(isPrep);
+    groups.push({ key: "prep", label: "Prep & sub-recipes", posCat: null, sections: [], count: prep.length, prep });
+    return groups.filter(g => g.count > 0);
   }, [recipes, q]);
 
   const openEdit = (id: string | null) => { setEditId(id); setOpen(true); };
@@ -94,56 +104,46 @@ const BrandRecipesTab = ({ brandId }: { brandId: string }) => {
           <p className="p-4 text-sm text-muted-foreground">Loading recipes…</p>
         ) : (
           <div className="divide-y divide-border">
-            {sections.map(sec => (
-              <Collapsible key={sec.key + (q ? "-q" : "")} defaultOpen={!!q}>
+            {typeGroups.map(g => (
+              <Collapsible key={g.key + (q ? "-q" : "")} defaultOpen={!!q}>
                 <CollapsibleTrigger asChild>
                   <button className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-muted/30">
-                    <ChevronDown className="h-4 w-4 text-muted-foreground -rotate-90 transition-transform [[data-state=open]>&]:rotate-0" />
-                    {SECTION_ICONS[sec.key]}
-                    <span className="text-sm font-medium">{sec.label}</span>
-                    <Badge variant="outline" className="ml-auto text-[10px] tabular-nums">
-                      {sec.bases.length + sec.cores.length + sec.menuItems.length}
-                    </Badge>
+                    <span className="text-sm font-medium">{g.label}</span>
+                    <Badge variant="outline" className="text-[10px] tabular-nums">{g.count}</Badge>
+                    <ChevronDown className="h-4 w-4 ml-auto text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
                   </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  {([
-                    ["Bases", "base", sec.bases],
-                    ["Cores", "core", sec.cores],
-                    ["Menu items", "mi", sec.menuItems],
-                  ] as const).filter(([, , items]) => items.length > 0).map(([label, posCat, items]) => (
-                    <div key={label} className="pb-1">
-                      <p className="px-6 pt-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        {label} <span className="tabular-nums">({items.length})</span>
-                      </p>
-                      <div className="divide-y divide-border/60">
-                        {items.map(r => renderRow(r, posCat))}
-                      </div>
+                  {g.key === "prep" ? (
+                    <div className="divide-y divide-border/60 border-t border-border/60">
+                      {g.prep.map(r => renderRow(r, null))}
                     </div>
-                  ))}
+                  ) : (
+                    <div className="divide-y divide-border/60 border-t border-border/60">
+                      {g.sections.map(sec => (
+                        <Collapsible key={sec.key + (q ? "-q" : "")} defaultOpen={!!q}>
+                          <CollapsibleTrigger asChild>
+                            <button className="w-full flex items-center gap-2 pl-6 pr-4 py-2.5 text-left bg-muted/20 hover:bg-muted/40">
+                              <ChevronDown className="h-4 w-4 text-muted-foreground -rotate-90 transition-transform [[data-state=open]>&]:rotate-0" />
+                              {SECTION_ICONS[sec.key]}
+                              <span className="text-sm">{sec.label}</span>
+                              <Badge variant="outline" className="ml-auto text-[10px] tabular-nums">{sec.items.length}</Badge>
+                            </button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="divide-y divide-border/60">
+                              {sec.items.map(r => renderRow(r, g.posCat))}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      ))}
+                    </div>
+                  )}
                 </CollapsibleContent>
               </Collapsible>
             ))}
 
-            {prep.length > 0 && (
-              <Collapsible key={"prep" + (q ? "-q" : "")} defaultOpen={!!q}>
-                <CollapsibleTrigger asChild>
-                  <button className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-muted/30">
-                    <ChevronDown className="h-4 w-4 text-muted-foreground -rotate-90 transition-transform [[data-state=open]>&]:rotate-0" />
-                    <FlaskConical className="h-4 w-4" />
-                    <span className="text-sm font-medium">Prep Recipes</span>
-                    <Badge variant="outline" className="ml-auto text-[10px] tabular-nums">{prep.length}</Badge>
-                  </button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="divide-y divide-border/60">
-                    {prep.map(r => renderRow(r, null))}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            )}
-
-            {sections.length === 0 && prep.length === 0 && (
+            {typeGroups.length === 0 && (
               <p className="p-4 text-sm text-muted-foreground">No recipes match.</p>
             )}
           </div>
