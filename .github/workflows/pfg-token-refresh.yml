@@ -1,75 +1,92 @@
-name: PFG Token Refresh + PA Price Sync (REST API)
+name: PFG Token Refresh (headless login)
 
+# PFG B2C sign-ins give a refresh-token chain that hard-expires ~24h after
+# login. This job starts a fresh chain per store; run it every 6h so one late
+# or failed run can't let the chain lapse.
 on:
   schedule:
-    # Run every 20 hours (cycles through different times)
-    - cron: '0 */20 * * *'
-  workflow_dispatch: # Allow manual trigger for testing
+    - cron: '17 */6 * * *'
+  workflow_dispatch: # Allow manual trigger
     inputs:
       skip_pfg:
         description: 'Skip PFG token refresh'
         required: false
         default: 'false'
       skip_pa:
-        description: 'Skip PA catalog sync'
+        description: 'Unused (PA catalog job removed; kept so old dispatch calls still work)'
         required: false
         default: 'false'
+
+permissions:
+  contents: read
 
 jobs:
   refresh-pfg-token:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: ${{ github.event.inputs.skip_pfg != 'true' }}
-    
+    permissions:
+      contents: read
+
     steps:
-      - uses: actions/checkout@v4
-      
-      - uses: actions/setup-node@v4
+      # Only check out the login script, never the app (its package.json pulls
+      # in heavy deps like onnxruntime-node whose install broke this job).
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
-      
-      - name: Install Playwright
-        run: |
-          npm init -y
-          npm install playwright
-          npx playwright install chromium
-      
-      - name: Run PFG Login Script
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: node .github/scripts/pfg-headless-login.mjs
 
-  sync-pa-catalog:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    if: ${{ github.event.inputs.skip_pa != 'true' }}
-    
-    steps:
-      - name: Sync PA Catalog via Edge Function
+      - name: Install Playwright (isolated)
+        id: install
+        run: |
+          mkdir -p "$RUNNER_TEMP/pfg-login"
+          cp .github/scripts/pfg-headless-login.mjs "$RUNNER_TEMP/pfg-login/"
+          cd "$RUNNER_TEMP/pfg-login"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund playwright@1.65.1
+          npx playwright install chromium
+
+      - name: Run PFG Login Script
+        id: login
+        working-directory: ${{ runner.temp }}/pfg-login
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: node pfg-headless-login.mjs
+
+      # A broken run (e.g. install failure before any login) reports itself so
+      # the chain break is visible before the 24h tokens lapse. Carries only the
+      # failed step name and the run URL.
+      - name: Report failed run
+        if: ${{ failure() }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          FAILED_STEP: ${{ steps.install.outcome == 'failure' && 'Install Playwright (isolated)' || steps.login.outcome == 'failure' && 'Run PFG Login Script' || 'setup' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # Active PFG integrations (location IDs only; not secret).
+          PFG_LOCATION_IDS: >-
+            12c977c7-1786-4131-90f5-1eef3f96e2c6
+            01a87b8b-fb29-4734-8d1b-4a47307f843c
+            d667741f-6d4c-433e-bb22-307e817ea7f1
+            6eda7b4b-dab1-435c-89b3-38a7a5ac0a3e
+            32379593-8255-427b-8ebf-96502f69ca8f
+            037bcf8d-84ef-4c3e-b4e1-a1d9ae65bc3b
+            2d309714-f808-4c98-b612-10909e569fac
         run: |
-          echo "🍅 Syncing PA catalog via edge function (no browser needed)..."
-          RESPONSE=$(curl -s -w "\n%{http_code}" \
-            -X POST "$SUPABASE_URL/functions/v1/produce-alliance-service" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-            -H "x-cron-secret: $CRON_SECRET" \
-            -d '{"action":"scrape_all_catalogs"}')
-          
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          
-          echo "Status: $HTTP_CODE"
-          echo "$BODY" | python3 -m json.tool 2>/dev/null || echo "$BODY"
-          
-          if [ "$HTTP_CODE" -ne 200 ]; then
-            echo "❌ PA catalog sync failed with status $HTTP_CODE"
-            exit 1
-          fi
-          
-          echo "✅ PA catalog sync complete"
+          for loc in $PFG_LOCATION_IDS; do
+            body=$(jq -nc --arg l "$loc" --arg e "GitHub Actions PFG login run failed at step: $FAILED_STEP. Run: $RUN_URL" '{locationId:$l, error:$e}')
+            curl -sS -o /dev/null -w "headless_login_failed $loc -> %{http_code}\n" \
+              -X POST "$SUPABASE_URL/functions/v1/pfg-service?action=headless_login_failed" \
+              -H "Content-Type: application/json" \
+              -H @- <<HDR --data "$body" || true
+          Authorization: Bearer $SUPABASE_ANON_KEY
+          x-cron-secret: $CRON_SECRET
+          HDR
+          done
