@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { uniqueChannelName } from '@/lib/realtimeChannelName';
 
 export interface EquipmentCheckAlert {
   id: string;
@@ -36,18 +37,26 @@ export function useEquipmentChecks(locationId: string | null | undefined) {
       .gte('created_at', since)
       .order('created_at', { ascending: false })
       .limit(10);
-    if (!error && data) setAlerts(data as EquipmentCheckAlert[]);
+    if (!error) setAlerts(Array.isArray(data) ? (data as EquipmentCheckAlert[]) : []);
   }, [user?.id, locationId]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
   useEffect(() => {
     if (!user?.id || !locationId) return;
-    const channel = supabase
-      .channel(`equipment-checks-${locationId}-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment_check_alerts', filter: `location_id=eq.${locationId}` }, () => { void refresh(); })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    // Unique per mount: the global layer and the checklist banners both use this
+    // hook for the same store, and a shared name makes the second listener throw.
+    // Name is built from the store id plus a random suffix only.
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase
+        .channel(uniqueChannelName(`equipment-checks-${locationId}`))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment_check_alerts', filter: `location_id=eq.${locationId}` }, () => { void refresh(); })
+        .subscribe();
+    } catch (e) {
+      console.warn('[useEquipmentChecks] realtime subscribe failed', e);
+    }
+    return () => { if (channel) supabase.removeChannel(channel); };
   }, [user?.id, locationId, refresh]);
 
   const acknowledge = useCallback(async (id: string) => {
