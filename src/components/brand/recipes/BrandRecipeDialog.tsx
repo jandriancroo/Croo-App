@@ -299,7 +299,7 @@ const BrandRecipeDialog = ({ open, onOpenChange, brandId, blueprintId }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-0 gap-0 max-h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="max-w-lg p-0 gap-0 max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader className="px-5 pt-5 pb-3 border-b border-border space-y-1 text-left">
           <div className="flex items-center gap-2 pr-8">
             <DialogTitle className="text-lg">{isNew ? "New brand recipe" : `Edit ${categoryTitle}`}</DialogTitle>
@@ -404,7 +404,7 @@ const BrandRecipeDialog = ({ open, onOpenChange, brandId, blueprintId }: Props) 
                           <Popover open={openWarn === ing.key} onOpenChange={o => setOpenWarn(o ? ing.key : null)}>
                             <PopoverTrigger asChild>
                               <button type="button"
-                                className="min-w-0 max-w-[190px] truncate inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-900 dark:text-amber-300 px-2 py-0.5 text-[11px] font-semibold">
+                                className="min-w-0 max-w-[220px] truncate inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-900 dark:text-amber-300 px-2 py-0.5 text-[11px] font-semibold">
                                 <AlertTriangle className="h-3 w-3 shrink-0" />
                                 <span className="truncate">{chip}</span>
                                 {outliers.length > 1 && <ChevronDown className="h-3 w-3 shrink-0" />}
@@ -424,7 +424,7 @@ const BrandRecipeDialog = ({ open, onOpenChange, brandId, blueprintId }: Props) 
                         )}
                         <Input type="number" inputMode="decimal" aria-label={`${ing.name} quantity`} value={ing.quantity}
                           onChange={e => setIngs(prev => prev.map((x, i) => i === idx ? { ...x, quantity: parseFloat(e.target.value) || 0 } : x))}
-                          className="ml-auto w-16 h-8 text-xs rounded-lg" />
+                          className="ml-auto w-20 h-8 text-xs rounded-lg" />
                         <Select value={ing.unit} onValueChange={v => setIngs(prev => prev.map((x, i) => i === idx ? { ...x, unit: v } : x))}>
                           <SelectTrigger className="w-20 h-8 text-xs rounded-lg" aria-label={`${ing.name} unit`}><SelectValue /></SelectTrigger>
                           <SelectContent>
