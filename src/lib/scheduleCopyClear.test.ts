@@ -4,7 +4,8 @@ import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 
-const sql = readFileSync('drizzle/migrations/0103_schedule_week_unique_copy_clear.sql', 'utf8');
+const sql = readFileSync('drizzle/migrations/0103_schedule_week_unique_copy_clear.sql', 'utf8')
+  + '\n' + readFileSync('drizzle/migrations/0105_schedule_history_12_weeks.sql', 'utf8');
 const U = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const ids = { mgr: U(1), loc: U(2), other: U(3), src: U(10), tgt: U(11), a: U(20), b: U(21), st: U(30), stOther: U(31), live: U(12) };
 
@@ -196,7 +197,7 @@ describe('clear_schedule_drafts', () => {
 });
 
 describe('purge_completed_week_change_log', () => {
-  it('purges every week whose last shift ended more than 14 days ago (overnight by its end), keeps the rest', async () => {
+  it('purges every week whose last shift ended more than 84 days (12 weeks) ago (overnight by its end), keeps the rest', async () => {
     const db = await setup();
     try {
       const mk = async (id: string, ws: string, shifts: [string, string, string][]) => {
@@ -205,28 +206,30 @@ describe('purge_completed_week_change_log', () => {
         await db.query(`INSERT INTO schedule_change_log (schedule_id, change_type, note) VALUES ($1, 'published', 'x')`, [id]);
       };
       const day = (n: number) => (new Date(Date.now() + n * 86400000)).toISOString().slice(0, 10);
-      await mk(U(100), day(-60), [[day(-58), '09:00', '17:00']]);         // long done
-      await mk(U(101), day(-40), [[day(-36), '09:00', '17:00']]);         // also done: older weeks go in the same run
-      await mk(U(102), day(-27), []);                                      // empty: week_start + 7 = 20 days ago -> purge
-      await mk(U(103), day(-20), []);                                      // empty: week_start + 7 = 13 days ago -> keep
-      await mk(U(104), day(-23), [[day(-16), '22:00', '21:00']]);         // overnight, ends next day 21:00 (~15 days ago) -> purge
+      await mk(U(100), day(-120), [[day(-118), '09:00', '17:00']]);       // long done
+      await mk(U(101), day(-110), [[day(-105), '09:00', '17:00']]);       // also done: older weeks go in the same run
+      await mk(U(102), day(-92), []);                                      // empty: week_start + 7 = 85 days ago -> purge
+      await mk(U(103), day(-90), []);                                      // empty: week_start + 7 = 83 days ago -> keep
+      await mk(U(104), day(-93), [[day(-86), '22:00', '21:00']]);         // overnight, ends next day 21:00 (~85 days ago) -> purge
       await mk(U(105), day(-2), [[day(1), '09:00', '17:00']]);            // current/future -> keep
+      await mk(U(106), day(-30), [[day(-25), '09:00', '17:00']]);         // ended 25 days ago: inside 12 weeks -> keep
       await db.query(`INSERT INTO schedule_change_log (schedule_id, change_type, user_id, shift_id, note) VALUES ($1, 'reassigned', $2, gen_random_uuid(), 'stats')`, [U(101), ids.a]);
       const before = await one<any>(db, `SELECT count(*)::int n FROM scheduled_shifts`);
       const n = await one<{ n: number }>(db, `SELECT purge_completed_week_change_log() AS n`);
       const left = (await db.query<{ schedule_id: string; note: string }>(`SELECT schedule_id, note FROM schedule_change_log ORDER BY schedule_id`)).rows;
       expect(left.find(r => r.schedule_id === U(100))).toBeUndefined();
-      expect(left.filter(r => r.schedule_id === U(101)).map(r => r.note)).toEqual(['stats']); // employee-profile stats rows wait 90 days
+      expect(left.some(r => r.schedule_id === U(101))).toBe(false); // no separate exception: reassigned/removed rows go too
       expect(left.some(r => r.schedule_id === U(102))).toBe(false);
       expect(left.some(r => r.schedule_id === U(104))).toBe(false);
       expect(left.some(r => r.schedule_id === U(103))).toBe(true);
       expect(left.some(r => r.schedule_id === U(105))).toBe(true);
-      expect(n.n).toBe(4);
+      expect(left.some(r => r.schedule_id === U(106))).toBe(true);
+      expect(n.n).toBe(5);
       expect((await one<any>(db, `SELECT count(*)::int n FROM scheduled_shifts`)).n).toBe(before.n);
       expect((await one<{ c: boolean }>(db, `SELECT _schedule_week_completed($1) c`, [U(105)])).c).toBe(false);
       // Overnight shifts count by their end, in the store's time zone.
       const end = await one<{ t: string }>(db, `SELECT (_schedule_week_completed_at($1) AT TIME ZONE 'America/Los_Angeles')::text t`, [U(104)]);
-      expect(end.t).toBe(`${day(-15)} 21:00:00`);
+      expect(end.t).toBe(`${day(-85)} 21:00:00`);
     } finally { await db.close(); }
   }, 30000);
 });
