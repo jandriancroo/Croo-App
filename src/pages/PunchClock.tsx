@@ -39,7 +39,8 @@ import {
 } from '@/lib/punchDevicePairing';
 import { LOADED_VERSION, fetchServerVersion, reloadToVersion } from '@/utils/buildVersion';
 import { subscribeUniversalUpdate } from '@/lib/universalUpdate';
-import { parsePinLookup, lockoutMessage, lockoutSecondsLeft, type PinLookupResult } from '@/lib/punchPinLookup';
+import { parsePinLookup, lockoutMessage, lockoutSecondsLeft, type PinLookupResult, type PinLookupMatch } from '@/lib/punchPinLookup';
+import { SixDigitPinPrompt } from '@/components/punchclock/SixDigitPinPrompt';
 
 
 // Function to calculate average brightness of an image
@@ -173,6 +174,8 @@ export default function PunchClock() {
   const [pinLockedUntil, setPinLockedUntil] = useState<number | null>(null);
   // One-line notice on the PIN screen for non-"wrong PIN" failures.
   const [pinNotice, setPinNotice] = useState<string | null>(null);
+  // Matched with a 4-digit PIN but no 6-digit PIN yet → blocking prompt. currentPin stays in memory only.
+  const [pinUpgrade, setPinUpgrade] = useState<{ match: PinLookupMatch; token: string | null; currentPin: string } | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [todayShift, setTodayShift] = useState<any>(null);
@@ -250,7 +253,7 @@ export default function PunchClock() {
   // Track whether a human is mid-session (PIN entered) so nothing reloads or
   // repairs underneath them.
   const onPinScreenRef = useRef(true);
-  onPinScreenRef.current = !currentUser;
+  onPinScreenRef.current = !currentUser && !pinUpgrade;
 
   // Last touch/tap/keypress — used only to decide "this kiosk is idle".
   const lastInteractionRef = useRef(Date.now());
@@ -975,6 +978,17 @@ export default function PunchClock() {
     const data = result.match;
     setPinLockedUntil(null);
     setPinNotice(null);
+
+    // No 6-digit PIN yet: blocking prompt first; the punch screen opens only after it's saved.
+    if (result.upgrade.needed) {
+      setPinUpgrade({ match: data, token: result.upgrade.token, currentPin: pinValue });
+      return;
+    }
+
+    await openPunchScreen(data);
+  };
+
+  const openPunchScreen = async (data: PinLookupMatch) => {
     playSuccessSound();
     
     // Fetch user role for event filtering
@@ -984,6 +998,29 @@ export default function PunchClock() {
     setCurrentUser(data);
     setCurrentUserRole(role);
   };
+
+  const handlePinUpgradeSaved = () => {
+    const u = pinUpgrade;
+    setPinUpgrade(null);
+    if (!u) return;
+    toast.success('New 6-digit PIN saved');
+    void openPunchScreen(u.match);
+  };
+
+  const handlePinUpgradeAbandon = useCallback((notice?: string) => {
+    setPinUpgrade(null);
+    setPin('');
+    if (notice) {
+      setPinNotice(notice);
+      setTimeout(() => setPinNotice(null), 6000);
+    }
+  }, []);
+
+  const handlePinUpgradeLocked = useCallback((retryAfterSeconds: number) => {
+    setPinUpgrade(null);
+    setPin('');
+    setPinLockedUntil(Date.now() + retryAfterSeconds * 1000);
+  }, []);
 
 
   const checkTodayShift = async () => {
@@ -1513,6 +1550,18 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
   return (
     <>
       
+      {pinUpgrade && (
+        <SixDigitPinPrompt
+          firstName={(pinUpgrade.match.full_name || '').trim().split(/\s+/)[0] || ''}
+          currentPin={pinUpgrade.currentPin}
+          token={pinUpgrade.token}
+          isDayMode={isDayMode}
+          onSaved={handlePinUpgradeSaved}
+          onAbandon={handlePinUpgradeAbandon}
+          onLocked={handlePinUpgradeLocked}
+        />
+      )}
+
       {/* Alarm Task Overlay */}
       {currentLocation?.id && (
         <AlarmTaskOverlay locationId={currentLocation.id} />

@@ -18216,6 +18216,10 @@ export type Database = {
         }[]
       }
       punch_clock_device_lookup_pin: { Args: { _pin: string }; Returns: Json }
+      punch_clock_set_six_digit_pin: {
+        Args: { _pin: string; _token: string }
+        Returns: Json
+      }
       punch_device_location: { Args: { _user_id: string }; Returns: string }
       purge_old_client_debug_logs: { Args: never; Returns: undefined }
       queue_nightly_emails: { Args: never; Returns: undefined }
