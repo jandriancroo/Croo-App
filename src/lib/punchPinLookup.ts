@@ -6,8 +6,11 @@
  */
 export type PinLookupMatch = { id: string; full_name: string | null; profile_photo_url: string | null };
 
+/** On a match with no 6-digit PIN yet, the server asks for one before the punch screen. */
+export type SixDigitUpgrade = { needed: boolean; token: string | null };
+
 export type PinLookupResult =
-  | { status: 'ok'; match: PinLookupMatch }
+  | { status: 'ok'; match: PinLookupMatch; upgrade: SixDigitUpgrade }
   | { status: 'miss' }
   | { status: 'locked'; retryAfterSeconds: number }
   | { status: 'not_paired' }
@@ -23,6 +26,10 @@ export function parsePinLookup(data: unknown): PinLookupResult {
         id: r.id,
         full_name: typeof r.full_name === 'string' ? r.full_name : null,
         profile_photo_url: typeof r.profile_photo_url === 'string' ? r.profile_photo_url : null,
+      },
+      upgrade: {
+        needed: r.needs_six_digit === true,
+        token: typeof r.upgrade_token === 'string' && r.upgrade_token ? r.upgrade_token : null,
       },
     };
   }

@@ -6,7 +6,14 @@ describe('parsePinLookup', () => {
     expect(parsePinLookup({ status: 'ok', id: 'u1', full_name: 'A B', profile_photo_url: null })).toEqual({
       status: 'ok',
       match: { id: 'u1', full_name: 'A B', profile_photo_url: null },
+      upgrade: { needed: false, token: null },
     });
+  });
+  it('reads the 6-digit upgrade ask', () => {
+    const r = parsePinLookup({ status: 'ok', id: 'u1', full_name: 'A', profile_photo_url: null, needs_six_digit: true, upgrade_token: 'abc' });
+    expect(r.status === 'ok' && r.upgrade).toEqual({ needed: true, token: 'abc' });
+    const capped = parsePinLookup({ status: 'ok', id: 'u1', needs_six_digit: true, upgrade_token: null });
+    expect(capped.status === 'ok' && capped.upgrade).toEqual({ needed: true, token: null });
   });
   it('treats ok without an id as an error', () => {
     expect(parsePinLookup({ status: 'ok' })).toEqual({ status: 'error' });

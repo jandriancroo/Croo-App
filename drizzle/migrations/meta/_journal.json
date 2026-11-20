@@ -743,6 +743,13 @@
       "when": 1794615667000,
       "tag": "0105_schedule_history_12_weeks",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1794615668000,
+      "tag": "0106_punch_six_digit_pin_collection",
+      "breakpoints": true
     }
   ]
 }
