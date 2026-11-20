@@ -11747,7 +11747,7 @@ export type Database = {
           id: string
           location_id: string | null
           matched_user_id: string | null
-          pin_entered: string
+          pin_entered: string | null
           success: boolean
         }
         Insert: {
@@ -11758,7 +11758,7 @@ export type Database = {
           id?: string
           location_id?: string | null
           matched_user_id?: string | null
-          pin_entered: string
+          pin_entered?: string | null
           success?: boolean
         }
         Update: {
@@ -11769,7 +11769,7 @@ export type Database = {
           id?: string
           location_id?: string | null
           matched_user_id?: string | null
-          pin_entered?: string
+          pin_entered?: string | null
           success?: boolean
         }
         Relationships: [
@@ -18215,6 +18215,7 @@ export type Database = {
           profile_photo_url: string
         }[]
       }
+      punch_clock_device_lookup_pin: { Args: { _pin: string }; Returns: Json }
       punch_device_location: { Args: { _user_id: string }; Returns: string }
       purge_old_client_debug_logs: { Args: never; Returns: undefined }
       queue_nightly_emails: { Args: never; Returns: undefined }

@@ -39,6 +39,7 @@ import {
 } from '@/lib/punchDevicePairing';
 import { LOADED_VERSION, fetchServerVersion, reloadToVersion } from '@/utils/buildVersion';
 import { subscribeUniversalUpdate } from '@/lib/universalUpdate';
+import { parsePinLookup, lockoutMessage, lockoutSecondsLeft, type PinLookupResult } from '@/lib/punchPinLookup';
 
 
 // Function to calculate average brightness of an image
@@ -168,6 +169,10 @@ export default function PunchClock() {
 
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState(false);
+  // Server-side wrong-PIN lockout (per iPad / per store). Keypad pauses until it ends.
+  const [pinLockedUntil, setPinLockedUntil] = useState<number | null>(null);
+  // One-line notice on the PIN screen for non-"wrong PIN" failures.
+  const [pinNotice, setPinNotice] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [todayShift, setTodayShift] = useState<any>(null);
@@ -880,6 +885,7 @@ export default function PunchClock() {
       return;
     }
     lastKeyPressRef.current = now;
+    if (lockoutSecondsLeft(pinLockedUntil, now) > 0) return;
 
     if (pin.length < 4) {
       const newPin = pin + num;
@@ -900,51 +906,7 @@ export default function PunchClock() {
     setPin(pin.slice(0, -1));
   };
 
-  // Log attempt to database with shift-based guessing
-  const logPunchAttempt = async (pinEntered: string, success: boolean, matchedUserId: string | null) => {
-    if (!currentLocation?.id) return;
-    
-    try {
-      // Get employees scheduled around this time (±2 hours)
-      const now = new Date();
-      const today = format(now, 'yyyy-MM-dd');
-      const currentHour = now.getHours();
-      const twoHoursBefore = `${String(Math.max(0, currentHour - 2)).padStart(2, '0')}:00:00`;
-      const twoHoursAfter = `${String(Math.min(23, currentHour + 2)).padStart(2, '0')}:59:59`;
-      
-      const { data: scheduledShifts } = await supabase
-        .from('scheduled_shifts')
-        .select('user_id, profiles!inner(id, full_name)')
-        .eq('shift_date', today)
-        .gte('start_time', twoHoursBefore)
-        .lte('start_time', twoHoursAfter);
-      
-      const guessedUserIds: string[] = [];
-      const guessedUserNames: string[] = [];
-      
-      if (scheduledShifts) {
-        scheduledShifts.forEach((shift: any) => {
-          if (shift.profiles && shift.profiles.id) {
-            guessedUserIds.push(shift.profiles.id);
-            guessedUserNames.push(shift.profiles.full_name || 'Unknown');
-          }
-        });
-      }
-      
-      await supabase.from('punch_clock_attempts').insert({
-        location_id: currentLocation.id,
-        pin_entered: pinEntered,
-        success,
-        matched_user_id: matchedUserId,
-        guessed_user_ids: guessedUserIds,
-        guessed_user_names: guessedUserNames,
-        attempt_time: now.toISOString()
-      });
-    } catch (err) {
-      console.error('Failed to log punch attempt:', err);
-    }
-  };
-
+  // Attempts are logged by the server (punch_clock_device_lookup_pin), without the PIN.
   const verifyPin = async (pinToVerify?: string) => {
     const pinValue = pinToVerify || pin;
     
@@ -952,58 +914,67 @@ export default function PunchClock() {
       toast.error('Please enter a 4-digit PIN');
       return;
     }
+    if (lockoutSecondsLeft(pinLockedUntil) > 0) {
+      setPin('');
+      return;
+    }
 
-    // Privacy-safe lookup. The RPC runs inside the database and returns only
-    // id / full_name / profile_photo_url — never wage, phone, birthday, email
-    // or the PIN itself. The kiosk has no direct read access to those columns.
-    let data: any = null;
-    let error: any = null;
-
-    // GUARD: repair a missing location before the lookup, otherwise the RPC is
-    // scoped to null and downstream screens falsely report "Not scheduled today".
+    // Privacy-safe lookup, paired iPads only. The server uses this device's own
+    // store and returns only id / full_name / profile_photo_url on a match.
     if (!currentLocation?.id) {
       await ensureLocationLoaded();
     }
 
-    const rpc = await (supabase as any).rpc('punch_clock_lookup_pin', {
-      _pin: pinValue,
-      _location_id: currentLocationRef.current?.id ?? null,
-    });
-    if (rpc.error) {
-      error = rpc.error;
-    } else if (rpc.data && rpc.data.length > 0) {
-      data = rpc.data[0];
+    const lookup = async (): Promise<PinLookupResult> => {
+      const rpc = await supabase.rpc('punch_clock_device_lookup_pin', { _pin: pinValue });
+      if (rpc.error) return { status: 'error' };
+      return parsePinLookup(rpc.data);
+    };
+
+    let result = await lookup();
+    // Stale / missing device session: repair once, then retry the same PIN.
+    if ((result.status === 'not_paired' || result.status === 'error') && isPaired()) {
+      const repaired = await repairDeviceSession().catch(() => false);
+      if (repaired) result = await lookup();
     }
 
-
-    if (error || !data) {
-      // Log failed attempt with shift-based guessing
-      logPunchAttempt(pinValue, false, null);
-      
-      console.error('[PunchClock] PIN verification failed:', {
-        pin_entered: pinValue,
-        location: currentLocation?.name,
+    if (result.status !== 'ok') {
+      // Never log the typed PIN.
+      console.warn('[PunchClock] PIN check did not match:', {
+        status: result.status,
         location_id: currentLocation?.id,
         timestamp: new Date().toISOString(),
-        error: error?.message || 'No matching profile found'
       });
-      
-      // Visual and audio feedback for wrong PIN
+
+      setPin('');
+      playErrorSound();
+      if (result.status === 'locked') {
+        setPinLockedUntil(Date.now() + result.retryAfterSeconds * 1000);
+        setPinNotice(null);
+        setPinError(false);
+        return;
+      }
+      if (result.status === 'not_paired') {
+        setPinNotice('This punch clock needs re-pairing. Ask a manager.');
+        setTimeout(() => setPinNotice(null), 6000);
+        return;
+      }
+      if (result.status === 'error') {
+        setPinNotice("Couldn't check PIN. Try again.");
+        setTimeout(() => setPinNotice(null), 4000);
+        return;
+      }
+      // Wrong PIN: visual and audio feedback
       setPinError(true);
       setPinShake(true);
-      playErrorSound();
-      setPin('');
-      
-      // Clear shake after animation completes
       setTimeout(() => setPinShake(false), 500);
-      // Clear error message after 3 seconds
       setTimeout(() => setPinError(false), 3000);
       return;
     }
 
-
-    // Log successful attempt and play success sound
-    logPunchAttempt(pinValue, true, data.id);
+    const data = result.match;
+    setPinLockedUntil(null);
+    setPinNotice(null);
     playSuccessSound();
     
     // Fetch user role for event filtering
@@ -1752,9 +1723,18 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in' || lastPunch?.punch_typ
                   </div>
                   
                   <div>
-                    <h3 className={`text-base font-medium mb-3 text-center transition-colors duration-200 ${pinError ? 'text-destructive font-semibold' : isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
-                      {pinError ? 'Wrong PIN - Try Again' : 'Enter Your PIN'}
-                    </h3>
+                    {(() => {
+                      const lockLeft = lockoutSecondsLeft(pinLockedUntil, currentTime.getTime());
+                      const warn = pinError || lockLeft > 0 || !!pinNotice;
+                      const label = lockLeft > 0
+                        ? lockoutMessage(lockLeft)
+                        : pinNotice ?? (pinError ? 'Wrong PIN - Try Again' : 'Enter Your PIN');
+                      return (
+                        <h3 role="status" aria-live="polite" className={`text-base font-medium mb-3 text-center transition-colors duration-200 ${warn ? 'text-destructive font-semibold' : isDayMode ? 'text-muted-foreground' : 'text-neutral-400'}`}>
+                          {label}
+                        </h3>
+                      );
+                    })()}
                     <div className="text-center mb-4">
                       <div 
                         className={`flex items-center justify-center gap-3 h-14 ${pinShake ? 'animate-shake' : ''}`}

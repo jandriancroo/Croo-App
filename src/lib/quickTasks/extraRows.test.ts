@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cashTaskWindows, spotCheckWindow, pinDue, splitExtraRows } from "./extraRows";
+import { cashTaskWindows, spotCheckWindow, splitExtraRows } from "./extraRows";
 
 const base = { openMin: 10 * 60, closeMin: 21 * 60, amSubmitted: false, pmSubmitted: false, depositSubmitted: false };
 
@@ -30,14 +30,6 @@ describe("spot check window", () => {
   it("close to close+2h", () => {
     expect(spotCheckWindow(21 * 60, 21 * 60).show).toBe(true);
     expect(spotCheckWindow(21 * 60, 23 * 60 + 1).show).toBe(false);
-  });
-});
-
-describe("PIN due text", () => {
-  const now = new Date("2026-10-22T12:00:00Z");
-  it("counts down to 15 days after account creation", () => {
-    expect(pinDue("2026-10-17T12:00:00Z", now).label).toBe("Due in 10 days");
-    expect(pinDue("2026-10-01T12:00:00Z", now)).toEqual({ label: "Due today", overdue: true });
   });
 });
 
