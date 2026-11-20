@@ -11987,6 +11987,66 @@ export type Database = {
           },
         ]
       }
+      punch_pin_lockouts: {
+        Row: {
+          locked_until: string | null
+          miss_count: number
+          scope: string
+          scope_id: string
+          updated_at: string
+          window_start: string
+        }
+        Insert: {
+          locked_until?: string | null
+          miss_count?: number
+          scope: string
+          scope_id: string
+          updated_at?: string
+          window_start?: string
+        }
+        Update: {
+          locked_until?: string | null
+          miss_count?: number
+          scope?: string
+          scope_id?: string
+          updated_at?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
+      punch_pin_upgrade_tokens: {
+        Row: {
+          created_at: string
+          device_id: string
+          expires_at: string
+          location_id: string
+          token_hash: string
+          tries: number
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          expires_at: string
+          location_id: string
+          token_hash: string
+          tries?: number
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          expires_at?: string
+          location_id?: string
+          token_hash?: string
+          tries?: number
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       push_notification_tokens: {
         Row: {
           created_at: string
@@ -13553,7 +13613,7 @@ export type Database = {
           last_status_action: string | null
           last_status_changed_at: string | null
           last_status_changed_by: string | null
-          location_id: string | null
+          location_id: string
           original_published_at: string | null
           original_published_by: string | null
           original_replace_on_next_post: boolean
@@ -13578,7 +13638,7 @@ export type Database = {
           last_status_action?: string | null
           last_status_changed_at?: string | null
           last_status_changed_by?: string | null
-          location_id?: string | null
+          location_id: string
           original_published_at?: string | null
           original_published_by?: string | null
           original_replace_on_next_post?: boolean
@@ -13603,7 +13663,7 @@ export type Database = {
           last_status_action?: string | null
           last_status_changed_at?: string | null
           last_status_changed_by?: string | null
-          location_id?: string | null
+          location_id?: string
           original_published_at?: string | null
           original_published_by?: string | null
           original_replace_on_next_post?: boolean
@@ -16967,6 +17027,10 @@ export type Database = {
         Args: { _by: string; _schedule_id: string }
         Returns: number
       }
+      _punch_pin_lookup: {
+        Args: { _log: boolean; _pin: string }
+        Returns: Json
+      }
       _punch_shift_segments: {
         Args: { _from: string; _location: string; _to: string; _user: string }
         Returns: {
@@ -17033,6 +17097,14 @@ export type Database = {
       _schedule_decider_check: {
         Args: { _sc: Database["public"]["Tables"]["schedules"]["Row"] }
         Returns: undefined
+      }
+      _schedule_week_completed: {
+        Args: { _keep?: string; _schedule_id: string }
+        Returns: boolean
+      }
+      _schedule_week_completed_at: {
+        Args: { _schedule_id: string }
+        Returns: string
       }
       _schedule_week_labor_check: {
         Args: { _schedule_id: string }
@@ -17393,6 +17465,10 @@ export type Database = {
         Args: { _location_id: string; _reason?: string; _sale_date: string }
         Returns: undefined
       }
+      clear_schedule_drafts: {
+        Args: { _dry_run?: boolean; _schedule_id: string }
+        Returns: Json
+      }
       clone_count_to_sandbox: {
         Args: { _source_count_id: string; _source_location_id: string }
         Returns: string
@@ -17421,6 +17497,15 @@ export type Database = {
       convert_recipe_unit_to_count: {
         Args: { p_count_unit: string; p_recipe_unit: string }
         Returns: number
+      }
+      copy_schedule_week: {
+        Args: {
+          _from?: string
+          _mode?: string
+          _source_schedule_id: string
+          _target_week_start: string
+        }
+        Returns: Json
       }
       create_dashboard_widget: {
         Args: {
@@ -18206,6 +18291,7 @@ export type Database = {
       }
       prune_visual_alert_queue: { Args: never; Returns: undefined }
       publish_schedule: { Args: { _schedule_id: string }; Returns: number }
+      punch_clock_device_lookup_pin: { Args: { _pin: string }; Returns: Json }
       punch_clock_get_role: { Args: { _user_id: string }; Returns: string }
       punch_clock_lookup_pin: {
         Args: { _location_id: string; _pin: string }
@@ -18215,12 +18301,12 @@ export type Database = {
           profile_photo_url: string
         }[]
       }
-      punch_clock_device_lookup_pin: { Args: { _pin: string }; Returns: Json }
       punch_clock_set_six_digit_pin: {
         Args: { _pin: string; _token: string }
         Returns: Json
       }
       punch_device_location: { Args: { _user_id: string }; Returns: string }
+      purge_completed_week_change_log: { Args: never; Returns: number }
       purge_old_client_debug_logs: { Args: never; Returns: undefined }
       queue_nightly_emails: { Args: never; Returns: undefined }
       queue_nightly_maintenance: { Args: never; Returns: undefined }
@@ -18319,19 +18405,6 @@ export type Database = {
       resolve_goal: {
         Args: { _date: string; _location_id: string }
         Returns: number
-      }
-      clear_schedule_drafts: {
-        Args: { _dry_run?: boolean; _schedule_id: string }
-        Returns: Json
-      }
-      copy_schedule_week: {
-        Args: {
-          _from?: string
-          _mode?: string
-          _source_schedule_id: string
-          _target_week_start: string
-        }
-        Returns: Json
       }
       restore_schedule: {
         Args: { _dry_run?: boolean; _schedule_id: string; _target: string }
