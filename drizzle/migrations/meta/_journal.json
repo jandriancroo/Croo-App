@@ -736,6 +736,13 @@
       "when": 1794615607000,
       "tag": "0104_punch_pin_device_lockdown",
       "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1794615667000,
+      "tag": "0105_schedule_history_12_weeks",
+      "breakpoints": true
     }
   ]
 }
