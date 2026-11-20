@@ -7,6 +7,8 @@ export interface DuoPageAction {
   icon: LucideIcon;
   run: () => void | Promise<void>;
   disabled?: boolean;
+  /** Optional short tip shown by a ? next to the action (hover or tap); it never runs the action. */
+  info?: string;
 }
 
 let current: DuoPageAction[] = [];

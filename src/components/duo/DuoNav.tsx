@@ -21,6 +21,7 @@ const DuoAutoIcon = ({ size = 16 }: { size?: number }) => (
   </svg>
 );
 import './duo-dash.css';
+import { ScheduleActionInfo } from '@/components/schedule/ScheduleActionInfo';
 
 /** Duo-only left-edge slide-out navigation. Rendered by Layout on every Duo page. */
 export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; brandName?: string | null }) {
@@ -165,7 +166,7 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
       ...(onProfile ? [{ label: 'Save changes', icon: Save, action: () => fire('profile-save') }] : []),
       ...(onDash ? [{ label: 'Edit layout', icon: SlidersHorizontal, action: () => fire('open-edit-layout') }] : []),
   ];
-  const actions = [...baseActions, ...pageActions.map(a => ({ label: a.label, icon: a.icon, disabled: a.disabled, action: () => { if (a.disabled) return; setFan(false); void a.run(); } }))];
+  const actions: { label: string; icon: any; action: () => void; disabled?: boolean; info?: string }[] = [...baseActions, ...pageActions.map(a => ({ label: a.label, icon: a.icon, disabled: a.disabled, info: a.info, action: () => { if (a.disabled) return; setFan(false); void a.run(); } }))];
   const onTwoPane = onChat || onDash || onTasks || onLogs || onUsers || onProfile || onLocationEdit || onOrgEdit || /^\/(settings|library|hiring)/.test(route.pathname);
   return <div className="duo-navroot" data-duo-theme={theme}>
     {onTwoPane && <div className={`duo-crease${onDash ? ' duo-crease-dash' : ''}`} aria-hidden />}
@@ -176,7 +177,7 @@ export function DuoNav({ brandLogo, brandName }: { brandLogo?: string | null; br
       {!onDash && pageName && <div className="duo-pageline"><b>{pageName}</b>{pageStatus && <span>{pageStatus}</span>}</div>}
     </div>
     {fan && <Button variant="ghost" aria-label="Close actions" className="duo-dim" onClick={() => setFan(false)} />}
-    {fan && <div className="duo-actions">{actions.map(a => <div key={a.label}><span className="duo-glass">{a.label}</span><Button variant="ghost" className={`duo-glass${a.disabled ? ' duo-act-off' : ''}`} aria-label={a.label} aria-disabled={a.disabled} onClick={a.action}><a.icon size={22} />{a.label === 'Nudge' && late > 0 && <b className="duo-badge">{late}</b>}</Button></div>)}</div>}
+    {fan && <div className="duo-actions">{actions.map(a => <div key={a.label}>{a.info && <ScheduleActionInfo text={a.info} className="duo-glass duo-info" />}<span className="duo-glass">{a.label}</span><Button variant="ghost" className={`duo-glass${a.disabled ? ' duo-act-off' : ''}`} aria-label={a.label} aria-disabled={a.disabled} onClick={a.action}><a.icon size={22} />{a.label === 'Nudge' && late > 0 && <b className="duo-badge">{late}</b>}</Button></div>)}</div>}
     <DuoOvation open={ovOpen} onOpenChange={setOvOpen} anchorTop={ovTop} />
     <div className="duo-wordmark-global" aria-hidden><img src="/croohq-wordmark.png" alt="" /></div>
     {hint && <span className="duo-orb-hint duo-glass">Hold to talk to Theo</span>}

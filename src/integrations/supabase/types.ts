@@ -18315,6 +18315,19 @@ export type Database = {
         Args: { _date: string; _location_id: string }
         Returns: number
       }
+      clear_schedule_drafts: {
+        Args: { _dry_run?: boolean; _schedule_id: string }
+        Returns: Json
+      }
+      copy_schedule_week: {
+        Args: {
+          _from?: string
+          _mode?: string
+          _source_schedule_id: string
+          _target_week_start: string
+        }
+        Returns: Json
+      }
       restore_schedule: {
         Args: { _dry_run?: boolean; _schedule_id: string; _target: string }
         Returns: Json

@@ -22,6 +22,8 @@ import { DateNavigator } from "@/components/ui/date-navigator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuCheckboxItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 
+import { ScheduleActionInfo, SCHEDULE_ACTION_INFO } from "@/components/schedule/ScheduleActionInfo";
+import { copyConfirmText } from "@/lib/scheduleCopy";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -67,7 +69,7 @@ export default function Schedule() {
     events, profiles, templates, availabilityRequests, lastStatusChangedByName, lastStatusAction,
     loading, hasPendingChanges, pendingChangesCount, canViewAllWages, isAdmin, isManager, canEditSchedule, currentLocation,
     fetchScheduleData, checkForConflicts, executeShiftOperation, handleClearSchedule,
-    handleCopySchedule, handlePreviousWeek, handleNextWeek, handleGoLive, handleUpdate,
+    handleCopySchedule, prepareCopySchedule, isCopying, ensureScheduleId, handlePreviousWeek, handleNextWeek, handleGoLive, handleUpdate,
     handleWithdrawSchedule, handleRoleChange, handleDragReorder, handleSmartTap,
     getWeekLabel, isCurrentWeek, queryClient, scheduleQueryKey, getTodayInTimezone,
     lastStatusChangedAt,
@@ -117,6 +119,25 @@ export default function Schedule() {
   const [clearScheduleDialogOpen, setClearScheduleDialogOpen] = useState(false);
   const [copyScheduleDialogOpen, setCopyScheduleDialogOpen] = useState(false);
   const [weeksToAdd, setWeeksToAdd] = useState(1);
+  // Copy into a week that already has drafts: Cancel or Merge only (no Replace).
+  const [copyMergeConfirm, setCopyMergeConfirm] = useState<{ weeks: number; count: number; range: string } | null>(null);
+  const copyRange = (weeks: number) => { const ws = addWeeks(currentWeekStart, weeks); return `${format(ws, "MMM d")}–${format(endOfWeek(ws, { weekStartsOn: 1 }), "MMM d")}`; };
+  const runCopy = async (weeks: number) => {
+    if (isCopying) return; // double-clicks are ignored
+    let plan;
+    try { plan = await prepareCopySchedule(weeks); } catch { toast.error("Failed to copy schedule"); return; }
+    if (!plan) return;
+    setCopyScheduleDialogOpen(false);
+    setWeeksToAdd(1);
+    if (plan.decision === 'blocked') return; // posted week: no popup, no write
+    if (plan.decision === 'confirm') { setCopyMergeConfirm({ weeks, count: plan.shiftCount, range: copyRange(weeks) }); return; }
+    const result = await handleCopySchedule(weeks, 'copy');
+    if (result === 'confirm') {
+      // Drafts landed there a moment ago: ask instead of stacking.
+      const again = await prepareCopySchedule(weeks).catch(() => null);
+      if (again?.decision === 'confirm') setCopyMergeConfirm({ weeks, count: again.shiftCount, range: copyRange(weeks) });
+    }
+  };
   const [isCreatingShift, setIsCreatingShift] = useState(false);
   const [newShiftPreset, setNewShiftPreset] = useState<{ userId: string; dayIndex: number; shiftDate: string } | null>(null);
   const [autoScheduleOpen, setAutoScheduleOpen] = useState(false);
@@ -225,7 +246,9 @@ export default function Schedule() {
       return;
     }
 
-    if (!scheduleId) return;
+    // A blank week has no schedule row until the first shift lands (opening a week never creates one).
+    const sid = scheduleId ?? (active.data.current?.isTemplate ? await ensureScheduleId().catch(() => null) : null);
+    if (!sid) return;
     const overId = stripRowIdSuffix(over.id as string);
     const lastHyphenIndex = overId.lastIndexOf("-");
     const dayIndex = parseInt(overId.substring(lastHyphenIndex + 1));
@@ -318,9 +341,9 @@ export default function Schedule() {
     list.push({ label: 'Croo AI', icon: Sparkles, run: () => setAutoScheduleOpen(true) });
     list.push({ label: 'Share PDF', icon: FileDown, run: () => handleSharePdfRef.current?.(), disabled: !isPublished });
     list.push({ label: 'View Availability', icon: Calendar, run: () => navigate('/availability') });
-    list.push({ label: 'Copy to Future Week', icon: Copy, run: () => setCopyScheduleDialogOpen(true), disabled: !scheduleId });
-    list.push({ label: 'Clear Schedule', icon: Trash2, run: () => wrapEditActionRef.current?.(() => setClearScheduleDialogOpen(true)), disabled: !scheduleId });
-    if (isPublished) list.push({ label: 'Withdraw Schedule', icon: AlertTriangle, run: () => setWithdrawDialogOpen(true) });
+    list.push({ label: 'Copy to Future Week', icon: Copy, run: () => setCopyScheduleDialogOpen(true), disabled: !scheduleId, info: SCHEDULE_ACTION_INFO.copy });
+    list.push({ label: 'Clear drafts', icon: Trash2, run: () => wrapEditActionRef.current?.(() => setClearScheduleDialogOpen(true)), disabled: !scheduleId, info: SCHEDULE_ACTION_INFO.clear });
+    if (isPublished) list.push({ label: 'Withdraw Schedule', icon: AlertTriangle, run: () => setWithdrawDialogOpen(true), info: SCHEDULE_ACTION_INFO.withdraw });
     list.push({ label: 'Schedule Settings', icon: Settings, run: () => navigate('/schedule-settings') });
     setDuoPageActions('schedule', list);
     return () => clearDuoPageActions('schedule');
@@ -354,6 +377,7 @@ export default function Schedule() {
           isPublished={isPublished}
           publishedSnapshot={publishedSnapshot}
           scheduleId={scheduleId}
+          ensureScheduleId={canEditSchedule ? ensureScheduleId : undefined}
           templates={templates}
           onGoLive={handleGoLive}
           onSendUpdate={requestUpdate}
@@ -434,15 +458,15 @@ export default function Schedule() {
                       <DropdownMenuItem onClick={() => navigate("/availability")} className="gap-2 cursor-pointer">
                         <Calendar className="h-4 w-4" />View Availability
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setCopyScheduleDialogOpen(true)} className="gap-2 cursor-pointer">
-                        <Copy className="h-4 w-4" />Copy Schedule to Future Week
+                      <DropdownMenuItem onClick={() => setCopyScheduleDialogOpen(true)} disabled={!scheduleId} className="gap-2 cursor-pointer">
+                        <Copy className="h-4 w-4" /><span className="flex-1">Copy Schedule to Future Week</span><ScheduleActionInfo text={SCHEDULE_ACTION_INFO.copy} />
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => wrapEditAction(() => setClearScheduleDialogOpen(true))} className="gap-2 cursor-pointer text-destructive">
-                        <Trash2 className="h-4 w-4" />Clear Schedule
+                      <DropdownMenuItem onClick={() => wrapEditAction(() => setClearScheduleDialogOpen(true))} disabled={!scheduleId} className="gap-2 cursor-pointer text-destructive">
+                        <Trash2 className="h-4 w-4" /><span className="flex-1">Clear drafts</span><ScheduleActionInfo text={SCHEDULE_ACTION_INFO.clear} />
                       </DropdownMenuItem>
                       {isPublished && (
                         <DropdownMenuItem onClick={() => setWithdrawDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
-                          <AlertTriangle className="h-4 w-4" />Withdraw Schedule
+                          <AlertTriangle className="h-4 w-4" /><span className="flex-1">Withdraw Schedule</span><ScheduleActionInfo text={SCHEDULE_ACTION_INFO.withdraw} />
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem onClick={() => navigate("/schedule-settings")} className="gap-2 cursor-pointer">
@@ -552,7 +576,7 @@ export default function Schedule() {
 
             {!isCompactMode && (
             <div className="border-b border-border">
-              <EventRow events={events} scheduleId={scheduleId} isEditable={canEditSchedule} onUpdate={fetchScheduleData} locationId={currentLocation?.id} />
+              <EventRow events={events} scheduleId={scheduleId} isEditable={canEditSchedule} onUpdate={fetchScheduleData} locationId={currentLocation?.id} ensureScheduleId={ensureScheduleId} />
             </div>
             )}
             </div>
@@ -852,7 +876,7 @@ export default function Schedule() {
               profiles={profiles} isAdmin={canEditSchedule}
               onShiftUpdated={fetchScheduleData} isCreating={true}
               scheduleId={scheduleId} templates={templates} locationId={currentLocation?.id}
-              currentWeekStart={currentWeekStart}
+              currentWeekStart={currentWeekStart} ensureScheduleId={ensureScheduleId}
             />
           </Suspense>
         )}
@@ -862,12 +886,16 @@ export default function Schedule() {
           <AlertDialog open={clearScheduleDialogOpen} onOpenChange={setClearScheduleDialogOpen}>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Clear Schedule</AlertDialogTitle>
-                <AlertDialogDescription>This will remove all shifts from the current week's schedule. This action cannot be undone.</AlertDialogDescription>
+                <AlertDialogTitle>Clear drafts</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {isPublished
+                    ? "This week is posted. Clearing discards unpublished changes and restores the last posted schedule. Posted shifts stay. Shifts that were already worked or already punched are left alone. To unpublish this week, use Withdraw."
+                    : "This will delete the draft shifts in this week. This week is not posted, so every shift here is a draft. Shifts that were already worked or already punched are left alone. This cannot be undone."}
+                </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => { handleClearSchedule(); setClearScheduleDialogOpen(false); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Clear Schedule</AlertDialogAction>
+                <AlertDialogAction onClick={() => { handleClearSchedule(); setClearScheduleDialogOpen(false); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Clear drafts</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -904,10 +932,25 @@ export default function Schedule() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setCopyScheduleDialogOpen(false)}>Cancel</Button>
-                <Button onClick={() => { handleCopySchedule(weeksToAdd); setCopyScheduleDialogOpen(false); setWeeksToAdd(1); }}>Copy Schedule</Button>
+                <Button disabled={isCopying} onClick={() => { void runCopy(weeksToAdd); }}>{isCopying ? 'Copying…' : 'Copy Schedule'}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
+        )}
+
+        {canEditSchedule && (
+          <AlertDialog open={!!copyMergeConfirm} onOpenChange={(o) => { if (!o && !isCopying) setCopyMergeConfirm(null); }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>That week already has shifts</AlertDialogTitle>
+                <AlertDialogDescription>{copyMergeConfirm ? copyConfirmText(copyMergeConfirm.range, copyMergeConfirm.count) : ''}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isCopying}>Cancel</AlertDialogCancel>
+                <AlertDialogAction disabled={isCopying} onClick={async (e) => { e.preventDefault(); if (!copyMergeConfirm || isCopying) return; const r = await handleCopySchedule(copyMergeConfirm.weeks, 'merge'); if (r !== 'busy') setCopyMergeConfirm(null); }}>{isCopying ? 'Merging…' : 'Merge'}</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
 
         <AlertDialog open={roleChangeDialogOpen} onOpenChange={setRoleChangeDialogOpen}>
@@ -951,7 +994,7 @@ export default function Schedule() {
       )}
 
       {currentLocation && autoScheduleOpen && (
-        <Suspense fallback={null}><AutoScheduleWizard open={autoScheduleOpen} onOpenChange={setAutoScheduleOpen} currentWeekStart={currentWeekStart} locationId={currentLocation.id} scheduleId={scheduleId} onScheduleGenerated={() => fetchScheduleData(false)} /></Suspense>
+        <Suspense fallback={null}><AutoScheduleWizard open={autoScheduleOpen} onOpenChange={setAutoScheduleOpen} currentWeekStart={currentWeekStart} locationId={currentLocation.id} scheduleId={scheduleId} ensureScheduleId={ensureScheduleId} onScheduleGenerated={() => fetchScheduleData(false)} /></Suspense>
       )}
 
       {historyOpen && (

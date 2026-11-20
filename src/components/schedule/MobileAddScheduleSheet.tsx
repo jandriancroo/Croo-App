@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, ChevronRight, Trash2, Check, Eye, CalendarOff, Clock, AlertTriangle, Plus, X as XIcon, Sparkles, MapPin } from 'lucide-react';
+import { ensureDraftSchedule } from '@/lib/scheduleActions';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -393,20 +394,8 @@ export function MobileAddScheduleSheet({
     if (!locationId) return null;
     const weekStartStr = format(mondayStart, 'yyyy-MM-dd');
     const weekEndStr = format(addDays(mondayStart, 6), 'yyyy-MM-dd');
-    const { data: existing } = await supabase
-      .from('schedules')
-      .select('id')
-      .eq('week_start_date', weekStartStr)
-      .eq('location_id', locationId)
-      .maybeSingle();
-    if (existing?.id) return existing.id;
-    const { data: created, error } = await supabase
-      .from('schedules')
-      .insert({ week_start_date: weekStartStr, week_end_date: weekEndStr, location_id: locationId })
-      .select('id')
-      .single();
-    if (error) throw error;
-    return created.id;
+    // Shared lookup: one schedule per store per week, never a second row.
+    return (await ensureDraftSchedule(locationId, weekStartStr, weekEndStr)).id;
   };
 
   const handleSaveShift = async () => {

@@ -42,6 +42,8 @@ interface MobileEventDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   scheduleId: string | null;
+  /** Blank week: creates the week's draft schedule on the first saved event (opening a week never does). */
+  ensureScheduleId?: () => Promise<string | null>;
   locationId?: string;
   selectedDayOfWeek: number;
   onEventCreated: () => void;
@@ -63,7 +65,8 @@ const PRESET_COLORS = [
 export function MobileEventDialog({
   open,
   onOpenChange,
-  scheduleId,
+  scheduleId: scheduleIdProp,
+  ensureScheduleId,
   locationId,
   selectedDayOfWeek,
   onEventCreated,
@@ -155,6 +158,7 @@ export function MobileEventDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const scheduleId = scheduleIdProp ?? (ensureScheduleId ? await ensureScheduleId().catch(() => null) : null);
     if (!scheduleId || !locationId) {
       toast.error("Missing schedule or location");
       return;

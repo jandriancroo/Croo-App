@@ -4,6 +4,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { endOfWeek } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
+import { pickCanonicalSchedule } from './scheduleCopy';
 
 /** Add one shift (the Schedule page's desktop drag-add, and Theo's Add shift). No breaks. Returns the row with its template. */
 /** station_id: set only when the shift's station differs from its template's (null = inherit via effectiveStationId). */
@@ -37,15 +38,39 @@ export async function readShiftRow(shiftId: string) {
   return data as Record<string, any>;
 }
 
-/** The week's schedule row: find it, or create it as a draft (the phone Add sheet's find-or-create). */
+/**
+ * The ONE week lookup (Schedule page, phone Add sheet, Build Week wizard, Theo).
+ * One schedule per store per week (unique index). Never .single(): 0 rows = none, never insert here.
+ * If duplicates ever exist, pick the canonical row (published, most shifts, oldest) and never add another.
+ */
+export async function findScheduleForWeek(locationId: string, weekStart: string): Promise<{ id: string; is_published: boolean } | null> {
+  const { data, error } = await supabase.from('schedules')
+    .select('id, is_published, created_at, scheduled_shifts(count)')
+    .eq('location_id', locationId).eq('week_start_date', weekStart)
+    .order('created_at', { ascending: true }).limit(5);
+  if (error) throw error;
+  const rows = ((data || []) as any[]).map((r) => ({ id: r.id as string, is_published: !!r.is_published, created_at: r.created_at as string, shift_count: Number(r.scheduled_shifts?.[0]?.count ?? 0) }));
+  if (rows.length > 1) console.warn('[schedule] duplicate week rows', locationId, weekStart, rows.map(r => r.id));
+  const pick = pickCanonicalSchedule(rows);
+  return pick ? { id: pick.id, is_published: pick.is_published } : null;
+}
+
+/** The week's schedule row: find it, or create it as a draft. Only callers that are about to write use this. */
 export async function ensureDraftSchedule(locationId: string, weekStart: string, weekEnd: string) {
-  const { data: existing } = await supabase.from('schedules').select('id, is_published').eq('week_start_date', weekStart).eq('location_id', locationId).maybeSingle();
-  if (existing?.id) return existing as { id: string; is_published: boolean };
+  const existing = await findScheduleForWeek(locationId, weekStart);
+  if (existing) return existing;
   const { data: created, error } = await supabase.from('schedules')
     .insert({ week_start_date: weekStart, week_end_date: weekEnd, location_id: locationId, is_published: false })
     .select('id, is_published').single();
-  if (error) throw error;
-  return created as { id: string; is_published: boolean };
+  if (error) {
+    // Someone else created it a moment ago (unique week rule): use theirs.
+    if ((error as any).code === '23505') {
+      const again = await findScheduleForWeek(locationId, weekStart);
+      if (again) return again;
+    }
+    throw error;
+  }
+  return { id: created.id as string, is_published: !!created.is_published };
 }
 
 /** Move a shift to a person/day (the Schedule page's drag reassign). */

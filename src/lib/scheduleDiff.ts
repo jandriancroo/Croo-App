@@ -2,6 +2,8 @@
 // A "pending change" is any add/remove/edit made to a Live (published) schedule
 // after the snapshot was taken. Drafts on never-posted weeks are NOT pending changes.
 
+import { shiftDiffers } from './scheduleCopy';
+
 export interface DiffShift {
   id: string;
   user_id: string | null;
@@ -9,6 +11,7 @@ export interface DiffShift {
   end_time: string | null;
   shift_date: string | null;
   day_of_week: number | null;
+  station_id?: string | null;
 }
 
 export function countPendingChanges(
@@ -26,13 +29,8 @@ export function countPendingChanges(
   for (const [id, n] of curMap) {
     const o = snapMap.get(id);
     if (!o) { count++; continue; }
-    if (
-      o.user_id !== n.user_id ||
-      o.start_time !== n.start_time ||
-      o.end_time !== n.end_time ||
-      o.shift_date !== n.shift_date ||
-      o.day_of_week !== n.day_of_week
-    ) count++;
+    // Station belongs to the shift: a station-only edit is a pending change (Clear agrees).
+    if (shiftDiffers(o, n)) count++;
   }
   return count;
 }

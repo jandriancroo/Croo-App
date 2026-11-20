@@ -13,7 +13,9 @@ import { formatInTimeZone } from "date-fns-tz";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 import { filterEventsByRole } from "@/utils/eventRoleFilter";
 import { mergeScheduleEvents } from "@/lib/todaysScheduleEvents";
-import { reassignShift, addShift, sendScheduleUpdate, publishSchedule, detectScheduleChanges as detectScheduleChangesShared } from "@/lib/scheduleActions";
+import { reassignShift, addShift, sendScheduleUpdate, publishSchedule, detectScheduleChanges as detectScheduleChangesShared, ensureDraftSchedule, findScheduleForWeek } from "@/lib/scheduleActions";
+import { pickCanonicalSchedule, decideCopy, type CopyDecision } from "@/lib/scheduleCopy";
+import { countPendingChanges } from "@/lib/scheduleDiff";
 
 // Cache time constants
 const SCHEDULE_STALE_TIME = 15 * 60 * 1000;
@@ -249,35 +251,19 @@ export function useScheduleData() {
 
       const SCHEDULE_COLUMNS = "id, is_published, published_shifts_snapshot, last_status_changed_at, last_status_changed_by, last_status_action, week_start_date, week_end_date, location_id, approval_status, approval_requested_by, approval_requested_at, approval_decided_by, approval_decided_at, approval_message";
 
-      let { data: schedule, error: scheduleError } = await supabase
+      // One schedule per store per week (unique index). Opening a week never creates one:
+      // 0 rows = blank week (scheduleId null); the first real write goes through ensureDraftSchedule.
+      const { data: weekRows, error: scheduleError } = await supabase
         .from("schedules")
-        .select(SCHEDULE_COLUMNS)
+        .select(`${SCHEDULE_COLUMNS}, created_at, scheduled_shifts(count)`)
         .eq("week_start_date", format(currentWeekStart, "yyyy-MM-dd"))
         .eq("location_id", currentLocation.id)
+        .order("created_at", { ascending: true })
+        .limit(5);
+      if (scheduleError) throw scheduleError;
+      const schedule = pickCanonicalSchedule(((weekRows || []) as any[]).map((r) => ({ ...r, shift_count: Number(r.scheduled_shifts?.[0]?.count ?? 0) }))) as any;
 
-        .eq("week_start_date", format(currentWeekStart, "yyyy-MM-dd"))
-        .eq("location_id", currentLocation.id)
-        .single();
-
-      if (scheduleError && scheduleError.code === "PGRST116") {
-        if (canEditSchedule) {
-          const { data: newSchedule, error: createError } = await supabase
-            .from("schedules")
-            .insert({
-              week_start_date: format(currentWeekStart, "yyyy-MM-dd"),
-              week_end_date: format(weekEnd, "yyyy-MM-dd"),
-              location_id: currentLocation.id,
-            })
-            .select(SCHEDULE_COLUMNS)
-
-            .single();
-
-          if (createError) throw createError;
-          schedule = newSchedule;
-        }
-      }
-
-      if (!schedule) {
+      if (!schedule && !canEditSchedule) {
         return {
           scheduleId: null,
           isPublished: false,
@@ -296,14 +282,14 @@ export function useScheduleData() {
         shiftsResult, eventsResult, recurringEventsResult, availabilityResult,
         salesResult, holidaysResult, locationSettingsResult, lastWeekScheduleResult
       ] = await Promise.all([
-        supabase.from("scheduled_shifts").select(`*, template:shift_templates(*)`).eq("schedule_id", schedule.id),
-        supabase.from("schedule_events").select("*, event_categories(name, color)").eq("schedule_id", schedule.id),
+        schedule ? supabase.from("scheduled_shifts").select(`*, template:shift_templates(*)`).eq("schedule_id", schedule.id) : Promise.resolve({ data: [] as any[], error: null }),
+        schedule ? supabase.from("schedule_events").select("*, event_categories(name, color)").eq("schedule_id", schedule.id) : Promise.resolve({ data: [] as any[], error: null }),
         supabase.from("schedule_events").select("*, event_categories(name, color)").eq("is_recurring", true).is("schedule_id", null).eq("location_id", currentLocation.id),
         supabase.from("availability_requests").select("*").eq("location_id", currentLocation.id).eq("request_type", "unpaid").in("status", ["pending", "approved"]).lte("start_date", format(weekEnd, "yyyy-MM-dd")).or(`end_date.gte.${format(currentWeekStart, "yyyy-MM-dd")},and(end_date.is.null,start_date.gte.${format(currentWeekStart, "yyyy-MM-dd")})`),
         supabase.from("sales_cache").select("sale_date, override_projection, living_projection, initial_projection").eq("location_id", currentLocation.id).gte("sale_date", format(currentWeekStart, "yyyy-MM-dd")).lte("sale_date", format(weekEnd, "yyyy-MM-dd")),
         supabase.from("holidays").select("*").or(`location_id.eq.${currentLocation.id},location_id.is.null`).gte("holiday_date", format(currentWeekStart, "yyyy-MM-dd")).lte("holiday_date", format(weekEnd, "yyyy-MM-dd")),
         supabase.from("location_settings").select("blackout_dates, hours_open, hours_close, stations_enabled, break_coverage_enabled").eq("location_id", currentLocation.id).single(),
-        supabase.from("schedules").select("id").eq("week_start_date", lastWeekDate).eq("location_id", currentLocation.id).single(),
+        supabase.from("schedules").select("id").eq("week_start_date", lastWeekDate).eq("location_id", currentLocation.id).order("is_published", { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
       ]);
 
       const lastWeekSchedule = lastWeekScheduleResult.data;
@@ -314,7 +300,7 @@ export function useScheduleData() {
       if (shiftsResult.error) throw shiftsResult.error;
       // Draft (unpublished) schedules must never be visible to non-managers
       const canSeeDrafts = canEditSchedule;
-      const shifts = (!schedule.is_published && !canSeeDrafts) ? [] : (shiftsResult.data || []);
+      const shifts = (!schedule?.is_published && !canSeeDrafts) ? [] : (shiftsResult.data || []);
       const lastWeekShifts = (lastWeekShiftsResult as any)?.data || [];
 
 
@@ -383,17 +369,17 @@ export function useScheduleData() {
       setLocationSettings(processedLocationSettings);
 
       return {
-        scheduleId: schedule.id,
-        isPublished: schedule.is_published || false,
-        publishedSnapshot: (Array.isArray(schedule.published_shifts_snapshot) ? schedule.published_shifts_snapshot : []) as unknown as ScheduledShift[],
+        scheduleId: (schedule?.id ?? null) as string | null,
+        isPublished: schedule?.is_published || false,
+        publishedSnapshot: (Array.isArray(schedule?.published_shifts_snapshot) ? schedule.published_shifts_snapshot : []) as unknown as ScheduledShift[],
         shifts,
         events: roleFilteredEvents,
         profiles: profilesWithRoles,
         templates,
         availabilityRequests,
-        lastStatusChangedAt: schedule.last_status_changed_at,
-        lastStatusChangedBy: schedule.last_status_changed_by,
-        lastStatusAction: schedule.last_status_action,
+        lastStatusChangedAt: schedule?.last_status_changed_at ?? null,
+        lastStatusChangedBy: schedule?.last_status_changed_by ?? null,
+        lastStatusAction: schedule?.last_status_action ?? null,
         lastWeekShifts,
       };
     },
@@ -421,7 +407,9 @@ export function useScheduleData() {
             .select("id, is_published, published_shifts_snapshot, last_status_changed_at, last_status_changed_by, last_status_action")
             .eq("week_start_date", format(weekStart, "yyyy-MM-dd"))
             .eq("location_id", currentLocation.id)
-            .single();
+            .order("is_published", { ascending: false, nullsFirst: false })
+            .limit(1)
+            .maybeSingle();
 
           if (!schedule) return null;
 
@@ -465,6 +453,11 @@ export function useScheduleData() {
 
   // Extract data from query result with defaults
   const scheduleId = scheduleData?.scheduleId ?? null;
+  // Blank week: the id created by the first write (ensureScheduleId), kept only for this store + week.
+  const weekKey = `${currentLocation?.id ?? ''}|${format(currentWeekStart, "yyyy-MM-dd")}`;
+  const ensuredRef = useRef<{ key: string; id: string } | null>(null);
+  const scheduleIdRef = useRef<string | null>(null);
+  scheduleIdRef.current = scheduleId ?? (ensuredRef.current?.key === weekKey ? ensuredRef.current.id : null);
   const isPublished = scheduleData?.isPublished ?? false;
   const publishedSnapshot = scheduleData?.publishedSnapshot ?? [];
   const shifts = scheduleData?.shifts ?? [];
@@ -522,7 +515,9 @@ export function useScheduleData() {
   }, [profiles, availabilityRequests]);
 
   // Execute shift operation (create from template or move existing)
-  const executeShiftOperation = useCallback(async (active: any, userId: string, dayIndex: number, shiftDate: string) => {
+  const executeShiftOperation = useCallback(async (active: any, userId: string, dayIndex: number, shiftDate: string, sidOverride?: string) => {
+    const scheduleId = sidOverride ?? scheduleIdRef.current;
+    if (!scheduleId) return;
     if (userId === "unassigned") {
       toast.error("Shifts must be assigned to an employee");
       return;
@@ -570,61 +565,92 @@ export function useScheduleData() {
       queryClient.setQueryData(scheduleQueryKey, previousData);
       toast.error("Failed to update shift");
     }
-  }, [scheduleId, queryClient, scheduleQueryKey]);
+  }, [queryClient, scheduleQueryKey]);
 
-  // Clear schedule
+  // Clear drafts (server): a live week goes back to its posted version, an unposted week loses its drafts.
+  // Never touches worked/punched shifts and never changes publish state (that's Withdraw). One batch: Undo reverses it.
   const handleClearSchedule = useCallback(async () => {
     if (!scheduleId) return;
     try {
-      const { error } = await supabase.from("scheduled_shifts").delete().eq("schedule_id", scheduleId);
+      const { data, error } = await supabase.rpc('clear_schedule_drafts', { _schedule_id: scheduleId, _dry_run: false });
       if (error) throw error;
-      await supabase.from("schedules").update({ is_published: false, published_shifts_snapshot: null }).eq("id", scheduleId);
       await refetchSchedule();
-      toast.success("Schedule cleared successfully");
-      fetchScheduleData(false);
+      const r = (data || {}) as { shifts_affected?: number; skipped_past?: number; skipped_punched?: number };
+      const n = Number(r.shifts_affected ?? 0);
+      const skipped = Number(r.skipped_past ?? 0) + Number(r.skipped_punched ?? 0);
+      const msg = n === 0 ? "No drafts to clear" : `Cleared ${n} draft change${n === 1 ? '' : 's'}`;
+      toast.success(skipped > 0 ? `${msg}. Skipped ${skipped} worked or punched shift${skipped === 1 ? '' : 's'}.` : msg);
     } catch (error: any) {
-      console.error("Error clearing schedule:", error);
-      toast.error("Failed to clear schedule");
+      console.error("Error clearing drafts:", error);
+      toast.error("Failed to clear drafts");
     }
-  }, [scheduleId, refetchSchedule, fetchScheduleData]);
+  }, [scheduleId, refetchSchedule]);
 
-  // Copy schedule
-  const handleCopySchedule = useCallback(async (weeksToAdd: number) => {
-    if (!scheduleId || weeksToAdd < 1 || !currentLocation?.id) return;
+  // Copy week (server RPC copy_schedule_week, one logged batch). Decide first:
+  // posted target = blocked (no popup, no write); target with drafts = Cancel/Merge popup; else copy now.
+  const copyInFlight = useRef(false);
+  const [isCopying, setIsCopying] = useState(false);
+  const targetWeekOf = useCallback((weeksToAdd: number) => addWeeks(currentWeekStart, weeksToAdd), [currentWeekStart]);
+
+  const prepareCopySchedule = useCallback(async (weeksToAdd: number): Promise<{ decision: CopyDecision; shiftCount: number; targetWeekStart: Date } | null> => {
+    if (!scheduleId || weeksToAdd < 1 || !currentLocation?.id) return null;
+    const targetWeekStart = targetWeekOf(weeksToAdd);
+    const target = await findScheduleForWeek(currentLocation.id, format(targetWeekStart, "yyyy-MM-dd"));
+    let shiftCount = 0;
+    if (target && !target.is_published) {
+      const { count, error } = await supabase.from("scheduled_shifts").select("id", { count: "exact", head: true }).eq("schedule_id", target.id).eq("is_phantom", false);
+      if (error) throw error;
+      shiftCount = count ?? 0;
+    }
+    return { decision: decideCopy({ exists: !!target, isPublished: !!target?.is_published, shiftCount }), shiftCount, targetWeekStart };
+  }, [scheduleId, currentLocation?.id, targetWeekOf]);
+
+  const handleCopySchedule = useCallback(async (weeksToAdd: number, mode: 'copy' | 'merge' = 'copy'): Promise<'done' | 'blocked' | 'confirm' | 'failed' | 'busy'> => {
+    if (!scheduleId || weeksToAdd < 1 || !currentLocation?.id) return 'failed';
+    if (copyInFlight.current) return 'busy'; // double-clicks are ignored
+    copyInFlight.current = true;
+    setIsCopying(true);
     try {
-      const targetWeekStart = addWeeks(currentWeekStart, weeksToAdd);
-      const targetWeekEnd = endOfWeek(targetWeekStart, { weekStartsOn: 1 });
-
-      const { data: existingSchedule } = await supabase.from("schedules").select("id").eq("week_start_date", format(targetWeekStart, "yyyy-MM-dd")).eq("location_id", currentLocation.id).single();
-      let targetScheduleId = existingSchedule?.id;
-
-      if (!targetScheduleId) {
-        const { data: newSchedule, error: createError } = await supabase.from("schedules").insert({ week_start_date: format(targetWeekStart, "yyyy-MM-dd"), week_end_date: format(targetWeekEnd, "yyyy-MM-dd"), location_id: currentLocation.id, is_published: false }).select().single();
-        if (createError) throw createError;
-        targetScheduleId = newSchedule.id;
-      }
-
-      const shiftsToCopy = shifts.map((shift) => {
-        const shiftDate = parseDateStringInTimezone(shift.shift_date, timezone);
-        const dayOffset = Math.floor((shiftDate.getTime() - currentWeekStart.getTime()) / (1000 * 60 * 60 * 24));
-        const newShiftDate = addDays(targetWeekStart, dayOffset);
-        return {
-          schedule_id: targetScheduleId, user_id: shift.user_id, day_of_week: shift.day_of_week,
-          start_time: shift.start_time, end_time: shift.end_time, is_time_off: shift.is_time_off,
-          template_id: shift.template_id, shift_date: format(newShiftDate, "yyyy-MM-dd"),
-        };
+      const targetWeekStart = targetWeekOf(weeksToAdd);
+      const { data, error } = await supabase.rpc('copy_schedule_week', {
+        _source_schedule_id: scheduleId, _target_week_start: format(targetWeekStart, "yyyy-MM-dd"), _mode: mode, _from: 'current',
       });
-
-      if (shiftsToCopy.length > 0) {
-        const { error: copyError } = await supabase.from("scheduled_shifts").insert(shiftsToCopy);
-        if (copyError) throw copyError;
+      if (error) {
+        const m = String(error.message ?? '');
+        if (m.includes('target_is_live')) return 'blocked';
+        if (m.includes('target_has_shifts')) return 'confirm';
+        throw error;
       }
-      toast.success(`Schedule copied to week of ${formatInTimeZone(targetWeekStart, timezone, "MMM d, yyyy")}`);
+      const r = (data || {}) as { added?: number; skipped?: number };
+      const label = formatInTimeZone(targetWeekStart, timezone, "MMM d, yyyy");
+      toast.success(mode === 'merge'
+        ? `Merged into week of ${label}: ${r.added ?? 0} added, ${r.skipped ?? 0} duplicate${(r.skipped ?? 0) === 1 ? '' : 's'} skipped`
+        : `Schedule copied to week of ${label}`);
+      queryClient.invalidateQueries({ queryKey: ['schedule', currentLocation.id, format(targetWeekStart, 'yyyy-MM-dd')] });
+      return 'done';
     } catch (error: any) {
       console.error("Error copying schedule:", error);
       toast.error("Failed to copy schedule");
+      return 'failed';
+    } finally {
+      copyInFlight.current = false;
+      setIsCopying(false);
     }
-  }, [scheduleId, currentLocation?.id, currentWeekStart, shifts, timezone]);
+  }, [scheduleId, currentLocation?.id, targetWeekOf, timezone, queryClient]);
+
+  // First real write on a blank week creates its (draft) schedule row. Opening a week never does.
+  const ensureScheduleId = useCallback(async (): Promise<string | null> => {
+    if (scheduleIdRef.current) return scheduleIdRef.current;
+    if (!currentLocation?.id || !canEditSchedule) return null;
+    const ws = format(currentWeekStart, "yyyy-MM-dd");
+    const we = format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "yyyy-MM-dd");
+    const row = await ensureDraftSchedule(currentLocation.id, ws, we);
+    ensuredRef.current = { key: `${currentLocation.id}|${ws}`, id: row.id };
+    scheduleIdRef.current = row.id;
+    queryClient.setQueryData(scheduleQueryKey, (old: any) => old ? { ...old, scheduleId: row.id } : old);
+    queryClient.invalidateQueries({ queryKey: scheduleQueryKey });
+    return row.id;
+  }, [currentLocation?.id, canEditSchedule, currentWeekStart, queryClient, scheduleQueryKey]);
 
   // Week navigation
   const handlePreviousWeek = useCallback(() => {
@@ -647,16 +673,7 @@ export function useScheduleData() {
   const pendingChangesCount = useMemo(() => {
     if (!isPublished) return 0;
     if (!publishedSnapshot || publishedSnapshot.length === 0) return 0;
-    const snapshotMap = new Map(publishedSnapshot.map((s: any) => [s.id, s]));
-    const currentMap = new Map(shifts.map(s => [s.id, s]));
-    let n = 0;
-    for (const [id] of snapshotMap) { if (!currentMap.has(id)) n++; }
-    for (const [id, shift] of currentMap) {
-      const snapshotShift = snapshotMap.get(id) as any;
-      if (!snapshotShift) { n++; continue; }
-      if (snapshotShift.user_id !== shift.user_id || snapshotShift.start_time !== shift.start_time || snapshotShift.end_time !== shift.end_time || snapshotShift.shift_date !== shift.shift_date || snapshotShift.day_of_week !== shift.day_of_week) n++;
-    }
-    return n;
+    return countPendingChanges(publishedSnapshot as any, shifts as any);
   }, [isPublished, publishedSnapshot, shifts]);
   const hasPendingChanges = pendingChangesCount > 0;
 
@@ -806,18 +823,19 @@ export function useScheduleData() {
 
   // Smart Tap handler
   const handleSmartTap = useCallback(async (userId: string, dayIndex: number, shiftDate: string, template: any, stationId?: string | null) => {
-    if (!scheduleId) return;
+    const sid = scheduleIdRef.current ?? await ensureScheduleId().catch(() => null);
+    if (!sid) return;
     const fakeActive = { data: { current: { isTemplate: true, template, stationId: stationId ?? null } }, isTemplate: true, template };
     const detectedConflicts = checkForConflicts(userId, dayIndex, shiftDate);
     if (detectedConflicts.length > 0) {
       return { type: 'conflict' as const, fakeActive, userId, dayIndex, shiftDate, conflicts: detectedConflicts };
     }
     if (isCurrentWeek() && isPublished) {
-      return { type: 'current_week_warning' as const, action: () => executeShiftOperation(fakeActive, userId, dayIndex, shiftDate) };
+      return { type: 'current_week_warning' as const, action: () => executeShiftOperation(fakeActive, userId, dayIndex, shiftDate, sid) };
     }
-    await executeShiftOperation(fakeActive, userId, dayIndex, shiftDate);
+    await executeShiftOperation(fakeActive, userId, dayIndex, shiftDate, sid);
     return null;
-  }, [scheduleId, checkForConflicts, isCurrentWeek, isPublished, executeShiftOperation]);
+  }, [ensureScheduleId, checkForConflicts, isCurrentWeek, isPublished, executeShiftOperation]);
 
   return {
     // State
@@ -865,6 +883,9 @@ export function useScheduleData() {
     executeShiftOperation,
     handleClearSchedule,
     handleCopySchedule,
+    prepareCopySchedule,
+    isCopying,
+    ensureScheduleId,
     handlePreviousWeek,
     handleNextWeek,
     handleGoLive,

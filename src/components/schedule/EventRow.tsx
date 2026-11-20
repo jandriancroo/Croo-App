@@ -65,6 +65,8 @@ interface EventRowProps {
   isEditable: boolean;
   onUpdate: () => void;
   locationId?: string;
+  /** Blank week: creates the week's draft schedule on the first saved event (opening a week never does). */
+  ensureScheduleId?: () => Promise<string | null>;
 }
 
 const PRESET_COLORS = [
@@ -80,7 +82,8 @@ const PRESET_COLORS = [
   "#6366f1", // indigo
 ];
 
-function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationId }: EventRowProps) {
+function EventRowComponent({ events, scheduleId: scheduleIdProp, isEditable, onUpdate, locationId, ensureScheduleId }: EventRowProps) {
+  const scheduleId = scheduleIdProp;
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<ScheduleEvent | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -144,6 +147,7 @@ function EventRowComponent({ events, scheduleId, isEditable, onUpdate, locationI
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const scheduleId = scheduleIdProp ?? (ensureScheduleId ? await ensureScheduleId().catch(() => null) : null);
     if (!scheduleId || !locationId) return;
 
     try {

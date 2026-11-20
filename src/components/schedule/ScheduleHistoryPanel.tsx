@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
   Plus, Minus, Clock, CalendarDays, ArrowRightLeft, PenLine, Send, EyeOff, RefreshCw, RotateCcw,
-  ClipboardCheck, CheckCircle2, CornerUpLeft, Loader2,
+  ClipboardCheck, CheckCircle2, CornerUpLeft, Loader2, Copy, Eraser, ChevronDown,
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -29,7 +29,25 @@ interface Props {
 interface LogRow {
   id: string; change_type: string; old_shift_data: any; new_shift_data: any; created_at: string;
   changed_by: string | null; user_id: string | null; is_draft: boolean; week_live: boolean; note: string | null;
-  source: string; undone_at: string | null; undone_by: string | null;
+  source: string; undone_at: string | null; undone_by: string | null; batch_id: string | null;
+}
+
+/** Copy / Clear drafts write one header row plus the shift rows of the same batch; show them as one entry. */
+const BATCH_HEADERS: Record<string, string> = { copied: 'copy', cleared_drafts: 'clear_drafts' };
+const SHIFT_TYPES = ['added', 'removed', 'time_changed', 'date_changed', 'reassigned', 'details_changed'];
+export function groupHistoryRows<T extends { id: string; change_type: string; source: string; batch_id: string | null }>(rows: T[]) {
+  const headerSource = new Map<string, string>();
+  rows.forEach((r) => { if (r.batch_id && BATCH_HEADERS[r.change_type]) headerSource.set(r.batch_id, BATCH_HEADERS[r.change_type]); });
+  const children = new Map<string, T[]>();
+  const top: T[] = [];
+  rows.forEach((r) => {
+    const src = r.batch_id ? headerSource.get(r.batch_id) : undefined;
+    if (src && SHIFT_TYPES.includes(r.change_type) && r.source === src) {
+      const list = children.get(r.batch_id!) ?? [];
+      list.push(r); children.set(r.batch_id!, list);
+    } else top.push(r);
+  });
+  return { top, children };
 }
 
 const LIVE_TIP = 'This week is live. Edit and tap Update; every change is tracked. To revert, withdraw the week first.';
@@ -56,6 +74,8 @@ const TYPE: Record<string, { label: string; icon: any; cls: string }> = {
   approval_requested: { label: 'Sent for approval', icon: ClipboardCheck, cls: 'text-foreground' },
   approved: { label: 'Approved', icon: CheckCircle2, cls: 'text-primary' },
   sent_back: { label: 'Sent back', icon: CornerUpLeft, cls: 'text-destructive' },
+  copied: { label: 'Copied', icon: Copy, cls: 'text-primary' },
+  cleared_drafts: { label: 'Cleared drafts', icon: Eraser, cls: 'text-destructive' },
 };
 
 /** Schedule history (every change, draft and live) + Revert tools for draft weeks. */
@@ -63,6 +83,7 @@ export function ScheduleHistoryPanel({ open, onOpenChange, scheduleId, weekStart
   const { restorePreview, restore } = useScheduleRestore(scheduleId, { onChanged });
   const [confirm, setConfirm] = useState<{ target: RestoreTarget; preview: RestorePreview } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [openBatch, setOpenBatch] = useState<string | null>(null);
 
   const schedQ = useQuery({
     queryKey: ['schedule-history', scheduleId, 'schedule'],
@@ -80,7 +101,7 @@ export function ScheduleHistoryPanel({ open, onOpenChange, scheduleId, weekStart
     enabled: open && !!scheduleId,
     queryFn: async () => {
       const { data, error } = await supabase.from('schedule_change_log')
-        .select('id, change_type, old_shift_data, new_shift_data, created_at, changed_by, user_id, is_draft, week_live, note, source, undone_at, undone_by')
+        .select('id, change_type, old_shift_data, new_shift_data, created_at, changed_by, user_id, is_draft, week_live, note, source, undone_at, undone_by, batch_id')
         .eq('schedule_id', scheduleId!)
         .order('created_at', { ascending: false })
         .limit(300);
@@ -127,7 +148,7 @@ export function ScheduleHistoryPanel({ open, onOpenChange, scheduleId, weekStart
       case 'date_changed': return `${nm(n?.user_id)} — ${fmtDay(o?.shift_date)} → ${fmtDay(n?.shift_date)}`;
       case 'reassigned': return `${nm(o?.user_id)} → ${nm(n?.user_id)} — ${fmtShift(n)}`;
       case 'details_changed': return `${nm(n?.user_id)} — ${fmtShift(n)}`;
-      case 'withdrawn': return r.note === 'Cleared' ? 'Cleared' : null;
+      case 'withdrawn': return r.note === 'Cleared' ? 'Week was empty' : null;
       default: return r.note && r.note !== 'Original' ? r.note : null;
     }
   };
@@ -173,15 +194,16 @@ export function ScheduleHistoryPanel({ open, onOpenChange, scheduleId, weekStart
           ) : (
             <ScrollArea className="flex-1 -mr-4 pr-4">
               <div className="space-y-2 pb-6">
-                {logQ.data.rows.map((r) => {
+                {(() => { const g = groupHistoryRows(logQ.data.rows); return g.top.map((r) => {
                   const t = TYPE[r.change_type] || { label: r.change_type, icon: PenLine, cls: '' };
                   const Icon = t.icon;
                   const d = detail(r);
+                  const kids = r.batch_id && BATCH_HEADERS[r.change_type] ? g.children.get(r.batch_id) ?? [] : [];
                   return (
                     <div key={r.id} className={cn('rounded-lg border bg-card p-3', r.undone_at && 'opacity-50')}>
                       <div className="flex flex-wrap items-center gap-1.5 text-sm">
                         <Icon className={cn('h-4 w-4', t.cls)} />
-                        <span className="font-medium">{r.change_type === 'withdrawn' && r.note === 'Cleared' ? 'Cleared' : t.label}</span>
+                        <span className="font-medium">{t.label}</span>
                         {r.change_type === 'published' && r.note === 'Original' && <Badge variant="secondary" className="text-xs">Original</Badge>}
                         {r.source === 'shift_offer' && <Badge variant="outline" className="text-xs">Shift swap</Badge>}
                         {r.source === 'undo' && <Badge variant="outline" className="text-xs">Undo</Badge>}
@@ -194,13 +216,26 @@ export function ScheduleHistoryPanel({ open, onOpenChange, scheduleId, weekStart
                         )}
                       </div>
                       {d && <p className="mt-1 text-sm text-muted-foreground">{d}</p>}
+                      {kids.length > 0 && (
+                        <>
+                          <Button variant="ghost" size="sm" className="mt-1 h-7 gap-1 px-2 text-xs" onClick={() => setOpenBatch(openBatch === r.batch_id ? null : r.batch_id)}>
+                            <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', openBatch === r.batch_id && 'rotate-180')} />
+                            {openBatch === r.batch_id ? 'Hide' : 'Show'} {kids.length} shift change{kids.length === 1 ? '' : 's'}
+                          </Button>
+                          {openBatch === r.batch_id && (
+                            <ul className="mt-1 space-y-1 border-l pl-3 text-sm text-muted-foreground">
+                              {kids.map((k) => <li key={k.id}>{(TYPE[k.change_type]?.label || k.change_type)}: {detail(k)}</li>)}
+                            </ul>
+                          )}
+                        </>
+                      )}
                       <p className="mt-1.5 text-xs text-muted-foreground">
                         {r.changed_by ? `Changed by ${names[r.changed_by] || 'Unknown'}` : 'System'} • {format(new Date(r.created_at), "MMM d 'at' h:mm a")}
                         {r.undone_at && ` • Undone by ${names[r.undone_by || ''] || 'someone'}`}
                       </p>
                     </div>
                   );
-                })}
+                }); })()}
               </div>
             </ScrollArea>
           )}
