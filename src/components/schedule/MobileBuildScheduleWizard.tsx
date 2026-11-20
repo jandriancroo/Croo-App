@@ -101,7 +101,7 @@ export function MobileBuildScheduleWizard({
           const snapshot = Array.isArray(s.published_shifts_snapshot) ? s.published_shifts_snapshot as any[] : [];
           const { data: current } = await supabase
             .from('scheduled_shifts')
-            .select('id, user_id, start_time, end_time, shift_date, day_of_week')
+            .select('id, user_id, start_time, end_time, shift_date, day_of_week, station_id')
             .eq('schedule_id', s.id);
           const { countPendingChanges } = await import('@/lib/scheduleDiff');
           pendingCount = countPendingChanges(snapshot as any, (current || []) as any);

@@ -160,7 +160,7 @@ export function useTheoWizard({ onRecord }: { onRecord?: (text: string) => void 
         for (const sid of pubWeeks) {
           const [{ data: sch }, { data: cur }] = await Promise.all([
             supabase.from('schedules').select('published_shifts_snapshot').eq('id', sid).single(),
-            supabase.from('scheduled_shifts').select('id, user_id, start_time, end_time, shift_date, day_of_week').eq('schedule_id', sid),
+            supabase.from('scheduled_shifts').select('id, user_id, start_time, end_time, shift_date, day_of_week, station_id').eq('schedule_id', sid),
           ]);
           const snap = Array.isArray(sch?.published_shifts_snapshot) ? (sch!.published_shifts_snapshot as any[]) : [];
           n += countPendingChanges(snap, cur as any[]);
