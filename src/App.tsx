@@ -22,7 +22,6 @@ import { FEATURE_FLAGS } from "@/config/featureFlags";
 import { DockToastProvider } from "@/contexts/DockToastContext";
 import { DiagnosticMode } from "@/components/DiagnosticMode";
 import BreakOverlay from "@/components/BreakOverlay";
-import PinMigrationOverlay from "@/components/PinMigrationOverlay";
 import { VisualAlertStack } from "@/components/visual-alerts/VisualAlertStack";
 import { EquipmentCheckLayer } from "@/components/equipment-check/EquipmentCheckLayer";
 import { VISUAL_ALERTS_ENABLED } from "@/components/visual-alerts/visualAlertsConfig";
@@ -324,7 +323,6 @@ const App = () => (
                   {VISUAL_ALERTS_ENABLED && <VisualAlertStack />}
                   <EquipmentCheckLayer />
                   <AppWithSplash />
-                  <PinMigrationOverlay />
                 </DockToastProvider>
             </LocationProvider>
           </AuthProvider>

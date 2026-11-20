@@ -58,15 +58,6 @@ export function spotCheckWindow(closeMin: number | null, nowMin: number) {
   return { show, overdue: show && inLastHalfHour(nowMin, closeMin + 120) };
 }
 
-/** PIN reminder due 15 days after account creation (the old "Required" point). */
-export function pinDue(createdAt: string | null | undefined, now: Date = new Date()) {
-  if (!createdAt) return { label: "Due in 15 days", overdue: false };
-  const due = new Date(createdAt).getTime() + 15 * 86400000;
-  const days = Math.ceil((due - now.getTime()) / 86400000);
-  if (days <= 0) return { label: "Due today", overdue: true };
-  return { label: days === 1 ? "Due in 1 day" : `Due in ${days} days`, overdue: false };
-}
-
 /** Red rows first, then amber, then the existing rows, then teal. */
 export function splitExtraRows(rows: QuickExtraRow[]) {
   return {

@@ -17,6 +17,7 @@
 - Settings mode uses useStationMode + ScheduleOrganizeBy for one query/save; sales goal display stays separate from labor denominators. Why: prevent drift.
 <!-- LOVABLE:END -->
 - Manager duplicate punches (2nd clock-out, overlapping break) are blocked only by trigger trg_zz_guard_manager_duplicate_punch (skips kiosk/self/auto); edit screens use src/lib/punchEditGuard.ts. Why: no double-punched shifts.
+- Punch clock PIN lookup goes only through punch_clock_device_lookup_pin (lib/punchPinLookup.ts parses it): the caller must be a live paired device, the store comes from the device row, misses lock the iPad (5/5 min → 2 min) and store (10/5 min → 3 min) in punch_pin_lockouts, and the server writes punch_clock_attempts with pin_entered NULL (trigger strips it); the old punch_clock_lookup_pin is a device-only shim for cached bundles, not for new code. Never log or store a typed PIN on the client. Why: anon PIN guessing exposed names and photos.
 - Dashboard daily-task events use todaysScheduleEvents for local-day selection and the same mergeScheduleEvents deduplication as the schedule hook. Why: prevent cross-date events and duplicate template rows without changing schedule screens.
 - SpookifiedEffects is theme/Dashboard-scoped; lightning stays in TheoVoiceOrb. Why: isolate decorations from data and other themes.
 - Lovable never edits watch/, ios/ or widgets/ (Mac Studio Xcode only); watch/widget data rules live in supabase/functions/watch-device-service/AGENTS.md. Why: no merge clashes.

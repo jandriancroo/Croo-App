@@ -729,6 +729,13 @@
       "when": 1794615606000,
       "tag": "0103_schedule_week_unique_copy_clear",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1794615607000,
+      "tag": "0104_punch_pin_device_lockdown",
+      "breakpoints": true
     }
   ]
 }
