@@ -8,6 +8,11 @@ Plain-language notes for meaningful changes. SupaCRM ingests this file via the G
 
 ---
 
+2026-11-19 [schedule] — Copy Week will not copy onto a posted week; if the target week already has drafts, a Cancel or Merge popup appears.
+2026-11-19 [schedule] — Clear removes drafts only. Withdraw never deletes shifts and no longer writes a "Cleared" note.
+2026-11-19 [schedule] — Copy, Clear, and Withdraw have info tips. Opening a week no longer auto-creates a schedule. Each store has one schedule per week.
+2026-11-19 [schedule] — Schedule history is grouped with Undo for a whole Copy or Clear. History is kept for 12 weeks (84 days) and cleaned up daily at 3:40 AM PT.
+
 2026-10-14 [theo-ai] - Theo answers task, checklist and checklist-item questions from the same data as Tasks > History; open quick tasks show as not done.
 
 2026-04-24 [crm-pattern] — Established CHANGELOG convention so SupaCRM can show plain-language notes alongside per-page commit feeds.
