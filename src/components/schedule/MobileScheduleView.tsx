@@ -97,6 +97,8 @@ interface MobileScheduleViewProps {
   isPublished?: boolean;
   publishedSnapshot?: any[];
   scheduleId?: string | null;
+  /** Blank week: the first New Shift / New Event creates the week's draft schedule (opening a week never does). */
+  ensureScheduleId?: () => Promise<string | null>;
   templates?: Array<{
     id: string;
     template_name: string;
@@ -156,6 +158,7 @@ export function MobileScheduleView({
   isPublished = false,
   publishedSnapshot,
   scheduleId,
+  ensureScheduleId,
   templates = [],
   onGoLive,
   onSendUpdate,
@@ -742,13 +745,13 @@ export function MobileScheduleView({
     if (!document.documentElement.classList.contains('duo') || !canEditSchedule) return;
     const list: DuoPageAction[] = [];
     if (!isToastLaborStore && canEditPunches) list.push({ label: 'Punch', icon: ClockIcon, run: () => setQuickPunchOpen(true), disabled: !isSelectedDateToday });
-    if (scheduleId) list.push({ label: 'New Shift', icon: CalendarPlusIcon, run: () => { setAddSheetTab('shift'); setAddSheetLockTab(true); setAddSheetWeekOverride(null); setAddSheetOpen(true); } });
+    if (scheduleId || ensureScheduleId) list.push({ label: 'New Shift', icon: CalendarPlusIcon, run: () => { setAddSheetTab('shift'); setAddSheetLockTab(true); setAddSheetWeekOverride(null); setAddSheetOpen(true); } });
     list.push({ label: 'Build Week', icon: LayoutGridIcon, run: () => setBuildWizardOpen(true) });
-    if (scheduleId) list.push({ label: 'New Event', icon: CalendarDaysIcon, run: () => setEventDialogOpen(true) });
+    if (scheduleId || ensureScheduleId) list.push({ label: 'New Event', icon: CalendarDaysIcon, run: () => setEventDialogOpen(true) });
     if (onSharePdf) list.push({ label: 'Share PDF', icon: FileDownIcon, run: () => onSharePdf(), disabled: !isPublished });
     setDuoPageActions('schedule-mobile', list);
     return () => clearDuoPageActions('schedule-mobile');
-  }, [canEditSchedule, canEditPunches, isToastLaborStore, isSelectedDateToday, scheduleId, isPublished, onSharePdf]);
+  }, [canEditSchedule, canEditPunches, isToastLaborStore, isSelectedDateToday, scheduleId, ensureScheduleId, isPublished, onSharePdf]);
   const isPastDate = selectedDateStr && todayStr && selectedDateStr < todayStr;
 
 
@@ -1021,7 +1024,7 @@ export function MobileScheduleView({
                   <div className="duo-sched-split"><ScheduleActionSplitButton
                     isToastLaborStore={isToastLaborStore || !canEditPunches}
                     isToday={isSelectedDateToday}
-                    hasSchedule={!!scheduleId}
+                    hasSchedule={!!scheduleId || (canEditSchedule && !!ensureScheduleId)}
                     isPublished={isPublished}
                     onQuickPunch={() => setQuickPunchOpen(true)}
                     onNewShift={() => {
@@ -1586,11 +1589,12 @@ export function MobileScheduleView({
         />
       )}
 
-      {currentLocation?.id && scheduleId && (
+      {currentLocation?.id && (scheduleId || ensureScheduleId) && (
         <MobileEventDialog
           open={eventDialogOpen}
           onOpenChange={setEventDialogOpen}
-          scheduleId={scheduleId}
+          scheduleId={scheduleId ?? null}
+          ensureScheduleId={ensureScheduleId}
           locationId={currentLocation.id}
           selectedDayOfWeek={selectedDayOfWeek}
           onEventCreated={() => {

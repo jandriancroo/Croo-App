@@ -1,11 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
-import { format, addWeeks, addDays, startOfWeek, endOfWeek, differenceInCalendarDays } from 'date-fns';
+import { format, addWeeks, addDays, startOfWeek, endOfWeek } from 'date-fns';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Calendar, Check, Copy, FilePlus2, LayoutGrid, Loader2, Sparkles, Trash2, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { ensureDraftSchedule, findScheduleForWeek } from '@/lib/scheduleActions';
+import { copyConfirmText } from '@/lib/scheduleCopy';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -133,12 +136,7 @@ export function MobileBuildScheduleWizard({
   // ---------- helpers ----------
   const fetchScheduleAndDrafts = async (weekStart: Date): Promise<DraftSummary> => {
     if (!locationId) return { scheduleId: null, isPublished: false, totalDrafts: 0, byUser: [] };
-    const { data: sched } = await supabase
-      .from('schedules')
-      .select('id, is_published')
-      .eq('location_id', locationId)
-      .eq('week_start_date', fmtDate(weekStart))
-      .maybeSingle();
+    const sched = await findScheduleForWeek(locationId, fmtDate(weekStart));
 
     if (!sched) return { scheduleId: null, isPublished: false, totalDrafts: 0, byUser: [] };
 
@@ -225,7 +223,9 @@ export function MobileBuildScheduleWizard({
           if (error) throw error;
         }
       } else {
-        const { error } = await q;
+        // Whole week: the server clears drafts as one logged batch (skips worked/punched shifts).
+        void q;
+        const { error } = await (supabase.rpc as any)('clear_schedule_drafts', { _schedule_id: draftSummary.scheduleId, _dry_run: false });
         if (error) throw error;
       }
     } finally {
@@ -271,26 +271,9 @@ export function MobileBuildScheduleWizard({
   // ---------- Step 3: Source (copy / blank) ----------
   const ensureSchedule = async (weekStart: Date): Promise<string | null> => {
     if (!locationId) return null;
-    const existing = await supabase
-      .from('schedules')
-      .select('id')
-      .eq('location_id', locationId)
-      .eq('week_start_date', fmtDate(weekStart))
-      .maybeSingle();
-    if (existing.data?.id) return existing.data.id;
     const we = endOfWeek(weekStart, { weekStartsOn: 1 });
-    const { data: created, error } = await supabase
-      .from('schedules')
-      .insert({
-        week_start_date: fmtDate(weekStart),
-        week_end_date: fmtDate(we),
-        location_id: locationId,
-        is_published: false,
-      })
-      .select('id')
-      .single();
-    if (error) throw error;
-    return created.id;
+    // Shared lookup: one schedule per store per week, never a second row.
+    return (await ensureDraftSchedule(locationId, fmtDate(weekStart), fmtDate(we))).id;
   };
 
   const handleStartBlank = async () => {
@@ -313,14 +296,38 @@ export function MobileBuildScheduleWizard({
     }
   };
 
+  // Copy the most recent posted week (its posted version) through the server, as one logged batch.
+  // Posted target: blocked, no write. Target with drafts: Cancel or Merge (skips exact duplicates); never Replace.
+  const [copyMerge, setCopyMerge] = useState<{ sourceId: string; sourceWeekStart: Date; count: number } | null>(null);
+  const runCopyFromPrior = async (sourceId: string, sourceWeekStart: Date, mode: 'copy' | 'merge') => {
+    if (!targetWeek) return 'failed' as const;
+    const { data, error } = await (supabase.rpc as any)('copy_schedule_week', {
+      _source_schedule_id: sourceId, _target_week_start: fmtDate(targetWeek), _mode: mode, _from: 'published',
+    });
+    if (error) {
+      const m = String(error.message ?? '');
+      if (m.includes('target_is_live')) return 'blocked' as const;
+      if (m.includes('target_has_shifts')) return 'confirm' as const;
+      throw error;
+    }
+    const r = (data || {}) as { added?: number; skipped?: number };
+    onWeekChange?.(targetWeek);
+    onCompleted?.();
+    onOpenWeekEditor?.(targetWeek);
+    toast.success(mode === 'merge'
+      ? `Merged from week of ${format(sourceWeekStart, 'MMM d')}: ${r.added ?? 0} added, ${r.skipped ?? 0} duplicates skipped.`
+      : `Copied ${r.added ?? 0} shifts from week of ${format(sourceWeekStart, 'MMM d')} as drafts.`);
+    onOpenChange(false);
+    return 'done' as const;
+  };
+
   const handleCopyFromPrior = async () => {
-    if (!targetWeek || !locationId) return;
+    if (!targetWeek || !locationId || working) return; // in-flight guard: double taps are ignored
     setStep('applying');
     setWorking(true);
     try {
       // Walk back up to 8 weeks looking for the most recent PUBLISHED week
-      let sourceSnapshot: any[] | null = null;
-      let sourceWeekStart: Date | null = null;
+      let source: { id: string; weekStart: Date } | null = null;
       for (let back = 1; back <= 8; back++) {
         const candidate = addWeeks(targetWeek, -back);
         const { data: sched } = await supabase
@@ -328,53 +335,50 @@ export function MobileBuildScheduleWizard({
           .select('id, is_published, published_shifts_snapshot')
           .eq('location_id', locationId)
           .eq('week_start_date', fmtDate(candidate))
+          .order('is_published', { ascending: false, nullsFirst: false })
+          .limit(1)
           .maybeSingle();
         if (sched?.is_published && Array.isArray(sched.published_shifts_snapshot) && sched.published_shifts_snapshot.length > 0) {
-          sourceSnapshot = sched.published_shifts_snapshot as any[];
-          sourceWeekStart = candidate;
+          source = { id: sched.id, weekStart: candidate };
           break;
         }
       }
 
-      if (!sourceSnapshot || !sourceWeekStart) {
+      if (!source) {
         toast.error('No published week found in the last 8 weeks to copy from.');
         setStep('source');
         return;
       }
 
-      const targetScheduleId = await ensureSchedule(targetWeek);
-      if (!targetScheduleId) throw new Error('Schedule create failed');
-
-      const weekShift = differenceInCalendarDays(targetWeek, sourceWeekStart);
-      const newRows = sourceSnapshot.map((s: any) => {
-        const oldDate = s.shift_date ? new Date(s.shift_date + 'T00:00:00') : null;
-        const newDate = oldDate ? addDays(oldDate, weekShift) : addDays(targetWeek, s.day_of_week ?? 0);
-        return {
-          schedule_id: targetScheduleId,
-          user_id: s.user_id ?? null,
-          day_of_week: s.day_of_week,
-          start_time: s.start_time,
-          end_time: s.end_time,
-          is_time_off: s.is_time_off ?? false,
-          template_id: s.template_id ?? null,
-          shift_date: fmtDate(newDate),
-        };
-      });
-
-      if (newRows.length > 0) {
-        const { error } = await supabase.from('scheduled_shifts').insert(newRows);
-        if (error) throw error;
+      const result = await runCopyFromPrior(source.id, source.weekStart, 'copy');
+      if (result === 'blocked') {
+        // That week is posted: nothing is copied. Just open it.
+        onWeekChange?.(targetWeek);
+        onOpenWeekEditor?.(targetWeek);
+        onOpenChange(false);
+      } else if (result === 'confirm') {
+        const fresh = await fetchScheduleAndDrafts(targetWeek);
+        setCopyMerge({ sourceId: source.id, sourceWeekStart: source.weekStart, count: fresh.totalDrafts });
+        setStep('source');
       }
-
-      onWeekChange?.(targetWeek);
-      onCompleted?.();
-      onOpenWeekEditor?.(targetWeek);
-      toast.success(`Copied ${newRows.length} shifts from week of ${format(sourceWeekStart, 'MMM d')} as drafts.`);
-      onOpenChange(false);
     } catch (e: any) {
       console.error(e);
       toast.error('Failed to copy from prior week.');
       setStep('source');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const handleConfirmMerge = async () => {
+    if (!copyMerge || working) return;
+    setWorking(true);
+    try {
+      const r = await runCopyFromPrior(copyMerge.sourceId, copyMerge.sourceWeekStart, 'merge');
+      if (r !== 'confirm') setCopyMerge(null);
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to copy from prior week.');
     } finally {
       setWorking(false);
     }
@@ -389,6 +393,7 @@ export function MobileBuildScheduleWizard({
 
   // ---------- render ----------
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
@@ -626,5 +631,20 @@ export function MobileBuildScheduleWizard({
         )}
       </SheetContent>
     </Sheet>
+    <AlertDialog open={!!copyMerge} onOpenChange={(o) => { if (!o && !working) setCopyMerge(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>That week already has shifts</AlertDialogTitle>
+          <AlertDialogDescription>
+            {copyMerge && targetWeek ? copyConfirmText(`${format(targetWeek, 'MMM d')}–${format(endOfWeek(targetWeek, { weekStartsOn: 1 }), 'MMM d')}`, copyMerge.count) : ''}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={working}>Cancel</AlertDialogCancel>
+          <AlertDialogAction disabled={working} onClick={(e) => { e.preventDefault(); void handleConfirmMerge(); }}>{working ? 'Merging…' : 'Merge'}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

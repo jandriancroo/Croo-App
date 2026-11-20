@@ -65,6 +65,8 @@ interface MobileShiftDialogProps {
   }>;
   locationId?: string | null;
   currentWeekStart?: Date;
+  /** Blank week: creates the week's draft schedule on the first save (opening a week never does). */
+  ensureScheduleId?: () => Promise<string | null>;
 }
 
 export function MobileShiftDialog({ 
@@ -78,6 +80,7 @@ export function MobileShiftDialog({
   scheduleId,
   templates = [],
   locationId,
+  ensureScheduleId,
   currentWeekStart
 }: MobileShiftDialogProps) {
   const queryClient = useQueryClient();
@@ -205,7 +208,8 @@ export function MobileShiftDialog({
 
       if (isCreating) {
         // Create new shift
-        if (!scheduleId) {
+        const createSid = scheduleId ?? (ensureScheduleId ? await ensureScheduleId() : null);
+        if (!createSid) {
           throw new Error('Schedule ID is required to create a shift');
         }
         
@@ -216,7 +220,7 @@ export function MobileShiftDialog({
         const { error: shiftError } = await supabase
           .from('scheduled_shifts')
           .insert({
-            schedule_id: scheduleId,
+            schedule_id: createSid,
             start_time: startTime,
             end_time: endTime,
             user_id: selectedUserId === 'unassigned' ? null : selectedUserId,

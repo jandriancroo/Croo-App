@@ -43,6 +43,8 @@ interface AutoScheduleWizardProps {
   currentWeekStart: Date;
   locationId: string;
   scheduleId: string | null;
+  /** Blank week: creates the week's draft schedule when the generated shifts are applied. */
+  ensureScheduleId?: () => Promise<string | null>;
   onScheduleGenerated: () => void;
 }
 
@@ -121,9 +123,11 @@ export function AutoScheduleWizard({
   onOpenChange,
   currentWeekStart,
   locationId,
-  scheduleId,
+  scheduleId: scheduleIdProp,
+  ensureScheduleId,
   onScheduleGenerated,
 }: AutoScheduleWizardProps) {
+  const scheduleId = scheduleIdProp;
   const { timezone } = useLocationTimezone(locationId);
   const [step, setStep] = useState(1);
   const [sourceType, setSourceType] = useState<"template" | "last_week">("template");
@@ -342,6 +346,7 @@ export function AutoScheduleWizard({
   };
 
   const applySchedule = async () => {
+    const scheduleId = scheduleIdProp ?? (ensureScheduleId ? await ensureScheduleId().catch(() => null) : null);
     if (!scheduleId) {
       toast.error("No schedule found for this week");
       return;
