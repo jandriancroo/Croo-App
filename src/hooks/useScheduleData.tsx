@@ -572,7 +572,7 @@ export function useScheduleData() {
   const handleClearSchedule = useCallback(async () => {
     if (!scheduleId) return;
     try {
-      const { data, error } = await (supabase.rpc as any)('clear_schedule_drafts', { _schedule_id: scheduleId, _dry_run: false });
+      const { data, error } = await supabase.rpc('clear_schedule_drafts', { _schedule_id: scheduleId, _dry_run: false });
       if (error) throw error;
       await refetchSchedule();
       const r = (data || {}) as { shifts_affected?: number; skipped_past?: number; skipped_punched?: number };
@@ -612,7 +612,7 @@ export function useScheduleData() {
     setIsCopying(true);
     try {
       const targetWeekStart = targetWeekOf(weeksToAdd);
-      const { data, error } = await (supabase.rpc as any)('copy_schedule_week', {
+      const { data, error } = await supabase.rpc('copy_schedule_week', {
         _source_schedule_id: scheduleId, _target_week_start: format(targetWeekStart, "yyyy-MM-dd"), _mode: mode, _from: 'current',
       });
       if (error) {

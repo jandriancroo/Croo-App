@@ -225,7 +225,7 @@ export function MobileBuildScheduleWizard({
       } else {
         // Whole week: the server clears drafts as one logged batch (skips worked/punched shifts).
         void q;
-        const { error } = await (supabase.rpc as any)('clear_schedule_drafts', { _schedule_id: draftSummary.scheduleId, _dry_run: false });
+        const { error } = await supabase.rpc('clear_schedule_drafts', { _schedule_id: draftSummary.scheduleId, _dry_run: false });
         if (error) throw error;
       }
     } finally {
@@ -301,7 +301,7 @@ export function MobileBuildScheduleWizard({
   const [copyMerge, setCopyMerge] = useState<{ sourceId: string; sourceWeekStart: Date; count: number } | null>(null);
   const runCopyFromPrior = async (sourceId: string, sourceWeekStart: Date, mode: 'copy' | 'merge') => {
     if (!targetWeek) return 'failed' as const;
-    const { data, error } = await (supabase.rpc as any)('copy_schedule_week', {
+    const { data, error } = await supabase.rpc('copy_schedule_week', {
       _source_schedule_id: sourceId, _target_week_start: fmtDate(targetWeek), _mode: mode, _from: 'published',
     });
     if (error) {
