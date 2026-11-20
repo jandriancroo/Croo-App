@@ -1,15 +1,16 @@
-# Find the metrics in the Blaze daily sales summary report
+# punch_clock_lookup_pin log check (read-only, nothing changed)
 
-## What the logs show today
-- `fetch-qubeyond-sales`: no recent log lines contain `FULL RESPONSE`. That log line only prints when `fetchPeriodSales` runs, and none of the recent calls reached it.
-- `sales-service`: it calls the same summary report, but only reads Net Sales (metricTypeId 1) and Check Count (metricTypeId 2). It never logs the full response, so no other metric names or ids appear.
-- Answer for now: the metric list and whether "Gross Sales" is present **cannot be confirmed from the logs**.
+## Result
+- Logs available: about 10 minutes only (2026-11-20 06:37 to 06:47 UTC, ~4,700 requests). Not days.
+- Requests to /rest/v1/rpc/punch_clock_lookup_pin in that window: 0.
 
-## Proposed next step (needs your OK, read-only toward the sales feed)
-Make one read-only call, run once from the sandbox through an existing admin check path, to `/api/v4/data/reports/summary/sections/sales` for one Blaze store and yesterday. Print only each item's `metric` and `metricTypeId`, with no dollar amounts.
-- No code changes, no deploys, no database writes, nothing published.
-- If a one-off call can't be made without the stored login details for the sales feed (they stay server-side), the fallback is a tiny temporary log line in `sales-service`. That would need a deploy, so I would ask you separately first.
+| role | sub | count | first_seen | last_seen | user_agent |
+|------|-----|-------|------------|-----------|------------|
+| (none) | (none) | 0 | - | - | - |
 
-## Reply format
-1. A list of metric name = metricTypeId pairs.
-2. Gross Sales present: yes/no.
+## Why
+The request log keeps only a short rolling window here, so a 30-day grouping is not possible from these logs.
+
+## Options (pick one if wanted)
+1. Re-run this same check at a set time each day and save the grouped counts (needs approval to build).
+2. Add a small audit table filled by the lookup function itself (role, sub, user agent, time; never the PIN) — needs code + migration approval.
