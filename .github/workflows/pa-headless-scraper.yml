@@ -11,22 +11,31 @@ on:
         required: false
         default: ''
 
+permissions:
+  contents: read
+
 jobs:
   scrape-pa:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
+      # Install ONLY Playwright, isolated in .github/scripts, so the app's
+      # dependency tree (and onnxruntime-node's postinstall, whose binary was
+      # removed upstream) is never installed. Version pinned to last good run.
       - name: Install Playwright
+        working-directory: .github/scripts
         run: |
-          npm init -y
-          npm install playwright
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund playwright@1.65.1
           npx playwright install --with-deps chromium
 
       - name: Run PA Headless Scraper
