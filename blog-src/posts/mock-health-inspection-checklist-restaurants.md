@@ -24,38 +24,38 @@ I'm giving you a general structure. Your health department's form is the authori
 
 Start at the front door and move toward the back. Take your phone or clipboard and write down what you see, not what you hope is true.
 
-### 1. People and hygiene (3 minutes)
+**1. People and hygiene (3 minutes)**
 - Handwashing sinks are accessible, stocked with soap and paper towels, and not used for anything else.
 - Crew members are following your hair, glove, and jewelry rules.
 - Anyone who is sick is not working food. Ask your managers to tell you how they handle this.
 - Manager on duty can explain your illness-reporting policy.
 
-### 2. Temperatures (4 minutes)
+**2. Temperatures (4 minutes)**
 - Walk-in, reach-ins, and prep coolers have working thermometers, and you've checked them against the temperature log.
 - Hot-held items and cold-held items are checked with a probe, and the probe itself is clean and calibrated.
 - Anything that's out of range is logged with what you did about it.
 - The temperature log is filled in for today, not backfilled.
 
-### 3. Storage (4 minutes)
+**3. Storage (4 minutes)**
 - Everything is labeled and dated.
 - Raw proteins are stored below ready-to-eat foods.
 - Nothing is stored on the floor.
 - First in, first out is visible: older product in front.
 - Chemicals are stored away from food and prep surfaces.
 
-### 4. Cleaning and sanitizing (4 minutes)
+**4. Cleaning and sanitizing (4 minutes)**
 - Sanitizer buckets or dispensers are at the right strength. Check with test strips.
 - Food-contact surfaces look and feel clean, including slicers, prep boards, and the inside of ice machines where visible.
 - Wiping cloths are in sanitizer between uses.
 - The three-compartment sink or dish machine is set up correctly.
 
-### 5. Facility and pests (3 minutes)
+**5. Facility and pests (3 minutes)**
 - Floors, walls, and ceiling tiles are in good repair and clean.
 - Back door closes fully, with no gaps.
 - No signs of pests: droppings, gnaw marks, or live insects.
 - Trash is covered and taken out on schedule.
 
-### 6. Paperwork (2 minutes)
+**6. Paperwork (2 minutes)**
 - Food handler cards or required certifications are current for the crew, and you can find them in a minute.
 - Your last inspection report is on hand.
 - Temperature, cleaning, and any other logs are where the manager can pull them quickly.

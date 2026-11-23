@@ -44,13 +44,11 @@ You pick a short list of items and count only those, often daily or several time
 
 ## Side by side
 
-| | Full count | Spot-check |
-|---|---|---|
-| Time per count | Long | Short |
-| Coverage | Everything | A chosen list |
-| Frequency that's realistic | Weekly or less | Daily or several times weekly |
-| Biggest risk | Skipped or rushed | Missing what's off the list |
-| Best for | Anchoring your numbers | Catching problems early |
+- **Time per count:** a full count takes a long time; a spot-check is short.
+- **Coverage:** a full count covers everything; a spot-check covers a chosen list.
+- **Realistic frequency:** weekly or less for a full count; daily or several times a week for a spot-check.
+- **Biggest risk:** a full count gets skipped or rushed; a spot-check misses what's off the list.
+- **Best for:** a full count anchors your numbers; a spot-check catches problems early.
 
 ## The hybrid I'd start with
 

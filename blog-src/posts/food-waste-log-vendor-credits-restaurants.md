@@ -28,13 +28,11 @@ It's not for catching people. If crew members think the log is a trap, they'll s
 
 Keep the entry down to five fields:
 
-| Field | Example |
-|---|---|
-| Date and time | Tue, 2:15 PM |
-| Item and amount | Sliced tomatoes, one full pan |
-| Reason | Spoiled, over-prepped, dropped, wrong order, quality problem from delivery |
-| Where it came from | Prep, line, delivery, walk-in |
-| Who logged it | Initials |
+- **Date and time:** for example, Tue, 2:15 PM.
+- **Item and amount:** for example, sliced tomatoes, one full pan.
+- **Reason:** spoiled, over-prepped, dropped, wrong order, or quality problem from delivery.
+- **Where it came from:** prep, line, delivery, or walk-in.
+- **Who logged it:** initials.
 
 The "reason" field is the one that pays off. Use a short fixed list so people can pick instead of write. Free text turns into "idk" within a week.
 
