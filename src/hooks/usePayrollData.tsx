@@ -117,6 +117,12 @@ export function usePayrollData() {
     }
   }, [laborRules, timezone, timezoneLoading]);
 
+  // Pay period statuses are per store: refetch whenever the store changes.
+  useEffect(() => {
+    fetchPeriodStatuses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLocation?.id]);
+
 
   useEffect(() => {
     if (selectedPeriod && currentLocation && timezone) {
@@ -506,11 +512,34 @@ export function usePayrollData() {
     setPayPeriods(periods);
     await fetchPeriodSummaries(periods.slice(0, visiblePeriodCount + 1));
 
-    const { data: statuses } = await supabase.from('pay_periods').select('*');
+    await fetchPeriodStatuses();
+  };
+
+  // Latest requested store, so a slow response for a previous store is ignored.
+  const statusLocationRef = useRef<string | null>(null);
+
+  const fetchPeriodStatuses = async () => {
+    const locationId = currentLocation?.id ?? null;
+    statusLocationRef.current = locationId;
+    if (!locationId) {
+      setPeriodStatuses({});
+      return;
+    }
+
+    // This store's rows plus legacy (pre store-scoping) rows with no store.
+    const { data: statuses } = await supabase
+      .from('pay_periods')
+      .select('*')
+      .or(`location_id.eq.${locationId},location_id.is.null`);
+
+    if (statusLocationRef.current !== locationId) return;
 
     const statusMap: Record<string, any> = {};
     statuses?.forEach((status) => {
       const key = `${status.start_date}_${status.end_date}`;
+      const existing = statusMap[key];
+      // A row for this store always wins over a legacy null-store row.
+      if (existing && existing.location_id === locationId && status.location_id !== locationId) return;
       statusMap[key] = status;
     });
     setPeriodStatuses(statusMap);
@@ -1240,13 +1269,13 @@ export function usePayrollData() {
     // history — only an explicit resyncTips request may do that.
     let hasBeenClosedBefore = false;
     try {
-      const { data: existingPeriod } = await supabase
+      const { data: existingPeriods } = await supabase
         .from('pay_periods')
         .select('closed_at')
         .eq('start_date', startDate)
         .eq('end_date', endDate)
-        .maybeSingle();
-      hasBeenClosedBefore = !!existingPeriod?.closed_at;
+        .or(`location_id.eq.${currentLocation.id},location_id.is.null`);
+      hasBeenClosedBefore = (existingPeriods ?? []).some((p) => !!p.closed_at);
     } catch { /* non-blocking */ }
 
     const shouldSyncTips = opts?.resyncTips === true || !hasBeenClosedBefore;
@@ -1311,19 +1340,28 @@ export function usePayrollData() {
       .from('pay_periods')
       .upsert(
         {
+          location_id: currentLocation.id,
           start_date: startDate,
           end_date: endDate,
           status: 'closed',
           closed_at: new Date().toISOString(),
           closed_by: user.id,
         },
-        { onConflict: 'start_date,end_date' }
+        { onConflict: 'location_id,start_date,end_date' }
       );
 
     setClosingPeriod(false);
 
     if (error) {
-      toast.error('Failed to close pay period');
+      // The close guard explains what's blocking in plain words; show only that.
+      // Anything else (policy/SQL text) stays out of the toast.
+      const message = typeof error.message === 'string' ? error.message : '';
+      if (message.startsWith('Cannot close pay period:')) {
+        toast.error(message.slice(0, 500));
+      } else {
+        console.error('[PayrollReview] Close pay period failed:', error);
+        toast.error('Failed to close pay period');
+      }
       return;
     }
 
@@ -1334,8 +1372,10 @@ export function usePayrollData() {
   const handleReopenPeriod = async () => {
     if (!selectedPeriod) return;
 
-    const startDate = selectedPeriod.startDate;
-    const endDate = selectedPeriod.endDate;
+    // Reopen exactly the record shown for this store (its own row, or the
+    // legacy null-store row) — never every row that shares these dates.
+    const record = getPeriodStatus(selectedPeriod);
+    if (!record?.id) return;
 
     const { error } = await supabase
       .from('pay_periods')
@@ -1344,8 +1384,7 @@ export function usePayrollData() {
         closed_at: null,
         closed_by: null,
       })
-      .eq('start_date', startDate)
-      .eq('end_date', endDate);
+      .eq('id', record.id);
 
     if (error) {
       toast.error('Failed to reopen pay period');
