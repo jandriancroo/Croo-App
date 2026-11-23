@@ -10512,6 +10512,7 @@ export type Database = {
           created_at: string
           end_date: string
           id: string
+          location_id: string | null
           start_date: string
           status: string
         }
@@ -10521,6 +10522,7 @@ export type Database = {
           created_at?: string
           end_date: string
           id?: string
+          location_id?: string | null
           start_date: string
           status?: string
         }
@@ -10530,6 +10532,7 @@ export type Database = {
           created_at?: string
           end_date?: string
           id?: string
+          location_id?: string | null
           start_date?: string
           status?: string
         }
@@ -10539,6 +10542,13 @@ export type Database = {
             columns: ["closed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pay_periods_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
@@ -16994,20 +17004,40 @@ export type Database = {
       _osc_caller_ok: { Args: { _location_id: string }; Returns: boolean }
       _pace_hour: { Args: { _e: Json }; Returns: number }
       _pace_num: { Args: { _v: Json }; Returns: number }
-      _pay_period_open_issues: {
-        Args: { _end: string; _start: string; _user: string }
-        Returns: {
-          blocking: boolean
-          business_date: string
-          clock_in: string
-          clock_in_punch_id: string
-          kind: string
-          location_id: string
-          location_name: string
-          user_id: string
-          user_name: string
-        }[]
-      }
+      _pay_period_open_issues:
+        | {
+            Args: { _end: string; _start: string; _user: string }
+            Returns: {
+              blocking: boolean
+              business_date: string
+              clock_in: string
+              clock_in_punch_id: string
+              kind: string
+              location_id: string
+              location_name: string
+              user_id: string
+              user_name: string
+            }[]
+          }
+        | {
+            Args: {
+              _end: string
+              _location: string
+              _start: string
+              _user: string
+            }
+            Returns: {
+              blocking: boolean
+              business_date: string
+              clock_in: string
+              clock_in_punch_id: string
+              kind: string
+              location_id: string
+              location_name: string
+              user_id: string
+              user_name: string
+            }[]
+          }
       _payroll_classify: {
         Args: { _rules: Json; _shifts: Json; _wage: number }
         Returns: Json
