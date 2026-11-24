@@ -187,6 +187,3 @@ verify_jwt = false
 
 [functions.intake-questionnaire]
 verify_jwt = false
-
-[functions.temp-benchmark-test]
-verify_jwt = false
