@@ -1042,7 +1042,8 @@ export default function CompleteChecklist() {
         // Hot holding / reheating just under the line: one retake, nothing saved yet.
         if (readingPlan?.kind === 'retake_borderline') {
           borderlineRetakeUsed.current[itemId] = true;
-          void supabase.from('temperature_read_issues').insert({
+          // Read-issue logs must carry a store (RLS requires location access).
+          if (taskLocationId) void supabase.from('temperature_read_issues').insert({
             reason: 'borderline_retake',
             reads: tempData?.readDetails ?? tempData?.reads ?? null,
             saved_temperature: null,
@@ -1060,7 +1061,7 @@ export default function CompleteChecklist() {
           return;
         }
         // Evidence for every photo that didn't get a clean reading.
-        if (reason) {
+        if (reason && taskLocationId) {
           void supabase.from('temperature_read_issues').insert({
             reason,
             reads: tempData?.readDetails ?? tempData?.reads ?? null,

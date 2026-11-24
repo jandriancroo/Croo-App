@@ -442,6 +442,7 @@ export default function Settings() {
         return (
           <div className="space-y-3">
             <CardDescription className="text-xs">Admin tools and data management</CardDescription>
+{isSuperAdmin && (
             <Button
               variant="outline"
               size="sm"
@@ -451,6 +452,7 @@ export default function Settings() {
               <Thermometer className="w-4 h-4 mr-2" />
               Temperature Validation
             </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
