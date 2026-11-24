@@ -174,16 +174,19 @@ export default function TemperatureValidation() {
     setStore('all'); setTimeframe('7d'); setDay(''); setCustomFrom(''); setCustomTo(''); setStatus('all');
   };
 
-  const handleConfirm = async (readingId: string) => {
+  const handleConfirm = async (entry: Entry) => {
     try {
+      // Never overwrite an existing override/confirm record (who + previous value).
+      // Only an untouched AI reading gets stamped as confirmed by you (server-side
+      // actor). temperature_validated_at is left alone: changing it would look
+      // like a new AI scan.
+      const alreadyStamped = !!entry.edited_at;
       const { error } = await supabase
         .from('checklist_responses')
-        .update({
-          temperature_validated_at: new Date().toISOString(),
-          temperature_unconfirmed: false,
-          temperature_edited_at: new Date().toISOString(), // server stamps who/when/replaced value
-        })
-        .eq('id', readingId);
+        .update(alreadyStamped
+          ? { temperature_unconfirmed: false }
+          : { temperature_unconfirmed: false, temperature_edited_at: new Date().toISOString() })
+        .eq('id', entry.id);
       if (error) throw error;
       toast.success('Temperature confirmed');
       fetchReadings();
@@ -459,7 +462,7 @@ export default function TemperatureValidation() {
                           </div>
                         ) : (
                           <div className="flex gap-2 flex-wrap">
-                            <Button size="sm" variant="outline" onClick={() => handleConfirm(e.id)} disabled={e.extracted_temperature === null}>
+                            <Button size="sm" variant="outline" onClick={() => handleConfirm(e)} disabled={e.extracted_temperature === null || e.is_override || e.is_confirmed}>
                               <CheckCircle2 className="w-4 h-4 mr-1" />Confirm
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => { setEditingId(e.id); setEditValue(e.extracted_temperature?.toString() || ''); }}>
