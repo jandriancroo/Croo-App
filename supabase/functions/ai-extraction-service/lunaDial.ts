@@ -129,8 +129,10 @@ export interface LunaDialResult {
   ms: number;
   /** True when no read returned at all (every call errored or timed out). */
   failed: boolean;
+  /** Background mode: one read only (b mirrors a, c is null). */
+  single?: boolean;
 }
-type CallAI = (messages: any[], tools?: any[], toolChoice?: any, modelOverride?: string, signal?: AbortSignal) => Promise<any>;
+type CallAI = (messages: any[], tools?: any[], toolChoice?: any, modelOverride?: string, signal?: AbortSignal, extraBody?: Record<string, unknown>) => Promise<any>;
 
 export async function readDialWithLuna(opts: {
   photoBytes: Uint8Array | null;
@@ -138,9 +140,30 @@ export async function readDialWithLuna(opts: {
   equipmentType: EquipmentType | null;
   userPrompt: string;
   callAI: CallAI;
+  /** 'background' (extract-temperature-bg only): reasoning_effort low, no orient, ONE read, no tie-break,
+   *  no per-call cap (the caller's overall budget applies). Default = today's live behaviour. */
+  mode?: 'live' | 'background';
 }): Promise<LunaDialResult> {
   const { photoBytes, imagePayload, equipmentType, userPrompt, callAI } = opts;
   const t0 = Date.now();
+  if (opts.mode === 'background') {
+    const msgsBg = [
+      { role: 'system', content: LUNA_DIAL_SYSTEM_PROMPT },
+      { role: 'user', content: [{ type: 'text', text: userPrompt }, { type: 'image_url', image_url: { url: imagePayload } }] },
+    ];
+    let a: LunaRead;
+    try {
+      const data = await callAI(msgsBg, undefined, undefined, LUNA_DIAL_MODEL, undefined, { reasoning_effort: 'low' });
+      const text: string = data?.choices?.[0]?.message?.content || '';
+      const parsed = parseTempReply(text);
+      const displayRaw: DisplayRaw = parsed.display ?? (/^\s*\**DISPLAY\**:\s*\**\s*bar/im.test(text) ? 'bar' : null);
+      a = /ISSUE:\s*\**\s*defrost_or_error/i.test(text) ? { ...parsed, value: null, defrost: true, displayRaw } : { ...parsed, displayRaw };
+    } catch (e: any) {
+      console.error('[extract-temperature-bg] dial read failed', e?.status ?? null);
+      a = { value: null, errored: true };
+    }
+    return { a, b: a, c: null, rotation: null, ms: Date.now() - t0, failed: a.errored === true, single: true };
+  }
   const remaining = () => LUNA_BUDGET_MS - (Date.now() - t0);
   // One Luna call with its own AbortController: min(60 s, remaining budget).
   const callLuna = async (messages: any[]): Promise<string> => {

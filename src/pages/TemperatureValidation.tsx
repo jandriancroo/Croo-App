@@ -51,10 +51,26 @@ interface Entry {
   is_override: boolean;
   is_confirmed: boolean;
   total_count: number;
+  /** Background reads only, read separately (display-only). */
+  jump_flag?: boolean | null;
+  jump_baseline?: number | null;
+}
+
+/** Attach the 4°F jump flag to rows (display-only read of checklist_responses). */
+async function withJumpFlags(rows: Entry[]): Promise<Entry[]> {
+  const ids = rows.map((r) => r.id);
+  if (!ids.length) return rows;
+  const { data, error } = await (supabase.from('checklist_responses') as any)
+    .select('id, temperature_jump_flag, temperature_jump_baseline')
+    .in('id', ids)
+    .eq('temperature_jump_flag', true);
+  if (error) return rows;
+  const m = new Map<string, { f: boolean; b: number | null }>((data ?? []).map((d: any) => [d.id, { f: !!d.temperature_jump_flag, b: d.temperature_jump_baseline != null ? Number(d.temperature_jump_baseline) : null }]));
+  return rows.map((r) => (m.has(r.id) ? { ...r, jump_flag: m.get(r.id)!.f, jump_baseline: m.get(r.id)!.b } : r));
 }
 
 type Timeframe = 'today' | 'yesterday' | '2d' | '7d' | '30d' | 'all' | 'custom';
-type Status = 'all' | 'original' | 'rescan' | 'override' | 'confirmed' | 'no_reading';
+type Status = 'all' | 'original' | 'rescan' | 'override' | 'confirmed' | 'no_reading' | 'jump';
 
 const TIMEFRAMES: { value: Timeframe; label: string }[] = [
   { value: 'today', label: 'Today' },
@@ -73,6 +89,7 @@ const STATUSES: { value: Status; label: string }[] = [
   { value: 'override', label: 'Override' },
   { value: 'confirmed', label: 'Confirmed (no change)' },
   { value: 'no_reading', label: 'No reading' },
+  { value: 'jump', label: 'Jump >4°F' },
 ];
 
 const PAGE = 500;
@@ -165,12 +182,14 @@ export default function TemperatureValidation() {
       p_location_id: store === 'all' ? null : store,
       p_from: range.from,
       p_to: range.to,
-      p_status: status,
+      // 'Jump >4°F' is filtered here from all entries (the server filter doesn't know it).
+      p_status: status === 'jump' ? 'all' : status,
       p_limit: PAGE,
       p_offset: offset,
     });
     if (error) throw error;
-    return (data ?? []) as Entry[];
+    const rows = await withJumpFlags((data ?? []) as Entry[]);
+    return status === 'jump' ? rows.filter((r) => r.jump_flag) : rows;
   }, [store, range.from, range.to, status]);
 
   const fetchReadings = useCallback(async () => {
@@ -178,7 +197,7 @@ export default function TemperatureValidation() {
     try {
       const rows = await fetchPage(0);
       setEntries(rows);
-      setTotal(rows[0]?.total_count ? Number(rows[0].total_count) : 0);
+      setTotal(status === 'jump' ? rows.length : rows[0]?.total_count ? Number(rows[0].total_count) : 0);
     } catch (error) {
       console.error('Error fetching temperature readings:', error);
       toast.error('Failed to load temperature readings');
@@ -438,6 +457,11 @@ export default function TemperatureValidation() {
                             <Badge variant="destructive"><AlertTriangle className="w-3 h-3 mr-1" />Out of range</Badge>
                           ))}
                           {e.temperature_unconfirmed && <Badge variant="outline">Unconfirmed read</Badge>}
+                          {e.jump_flag && e.extracted_temperature !== null && e.jump_baseline != null && (
+                            <Badge className="bg-amber-500 text-white hover:bg-amber-500">
+                              Jumped {Number(e.extracted_temperature) - e.jump_baseline >= 0 ? '+' : '−'}{Math.abs(Math.round((Number(e.extracted_temperature) - e.jump_baseline) * 10) / 10)}°F vs usual {e.jump_baseline}°F
+                            </Badge>
+                          )}
                           {!e.tracked && <Badge variant="outline" className="text-muted-foreground">Before scan tracking</Badge>}
                         </div>
 

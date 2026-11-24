@@ -2,6 +2,9 @@ import { decideReads, needsTiebreak, applyBands, type TempRead } from './tempera
 import { parseTempReply } from './parseTempReply.ts';
 import { asEquipmentType } from '../_shared/tempBands.ts';
 import { readDialWithLuna, LUNA_DIAL_MODEL, type LunaRead } from './lunaDial.ts';
+import { planBackgroundOutcome, jumpCheck, isCurrentReadToken, BG_READ_BUDGET_MS } from '../_shared/bgTempRead.ts';
+
+declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -27,7 +30,7 @@ function getLovableApiKey(): string {
   return key;
 }
 
-async function callAI(messages: any[], tools?: any[], toolChoice?: any, modelOverride?: string, signal?: AbortSignal) {
+async function callAI(messages: any[], tools?: any[], toolChoice?: any, modelOverride?: string, signal?: AbortSignal, extraBody?: Record<string, unknown>) {
   const apiKey = getLovableApiKey();
   const body: any = {
     model: modelOverride || 'google/gemini-2.5-flash',
@@ -35,6 +38,8 @@ async function callAI(messages: any[], tools?: any[], toolChoice?: any, modelOve
   };
   if (tools) body.tools = tools;
   if (toolChoice) body.tool_choice = toolChoice;
+  // Background temp path only (e.g. reasoning_effort); every other call sends nothing extra.
+  if (extraBody) Object.assign(body, extraBody);
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
@@ -309,10 +314,23 @@ async function handleParseResume(payload: any) {
 // Every thermometer read (both parallel reads and the tie-break) uses this model, all stores.
 const TEMP_READ_MODEL = 'google/gemini-3.1-flash-lite';
 
+type CallAIFn = typeof callAI;
+
 async function handleExtractTemperature(payload: any) {
+  if (!payload?.imageUrl) return errorResponse('Image URL is required', 400);
+  return jsonResponse(await readTemperature(payload));
+}
+
+/**
+ * The thermometer read itself. The live action (extract-temperature) calls it
+ * with no options, exactly as before. The background action passes
+ * { background: true, ai } : same Flash-Lite triage, and dials go to Luna's
+ * background mode (low effort, no orient, one read).
+ */
+async function readTemperature(payload: any, opts: { background?: boolean; ai?: CallAIFn } = {}): Promise<any> {
   const { imageUrl, itemName } = payload;
   const equipmentType = asEquipmentType(payload?.equipmentType);
-  if (!imageUrl) return errorResponse('Image URL is required', 400);
+  const ai: CallAIFn = opts.ai ?? callAI;
 
   // Thermometer reader: Gemini 3.1 Flash-Lite (TEMP_READ_MODEL), read TWICE in
   // parallel on the photo as taken (no rotation pre-pass). Agreeing reads are
@@ -385,7 +403,7 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
       imagePayload = `data:${photoType};base64,${btoa(bin)}`;
     } else {
       console.error('[extract-temperature] photo download failed', imgRes.status);
-      return jsonResponse({ temperature: null, isValid: null, unconfirmed: false, extractedText: 'NONE', unreadable: true, reason: 'read_failed', coaching: null });
+      return { temperature: null, isValid: null, unconfirmed: false, extractedText: 'NONE', unreadable: true, reason: 'read_failed', coaching: null };
     }
   } catch (e) {
     console.error('[extract-temperature] photo download error', String(e));
@@ -402,7 +420,7 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
     raw === 'digital' ? 'digital' : raw === 'dial' || raw === 'bar' ? 'analog' : null;
   const readOnce = async (): Promise<ReadOut> => {
     try {
-      const data = await callAI(msgs, undefined, undefined, TEMP_READ_MODEL);
+      const data = await ai(msgs, undefined, undefined, TEMP_READ_MODEL);
       const text: string = data?.choices?.[0]?.message?.content || '';
       const parsed = parseTempReply(text);
       // parseTempReply only knows digital/dial; keep a glass-tube "bar" tag too.
@@ -439,13 +457,13 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
     const tDial = Date.now();
     let luna: Awaited<ReturnType<typeof readDialWithLuna>> | null = null;
     try {
-      luna = await readDialWithLuna({ photoBytes, imagePayload, equipmentType, userPrompt, callAI });
+      luna = await readDialWithLuna({ photoBytes, imagePayload, equipmentType, userPrompt, callAI: ai, ...(opts.background ? { mode: 'background' as const } : {}) });
     } catch (e: any) {
       console.error('[extract-temperature] dial reader threw', e?.status ?? null);
       luna = null;
     }
     const dialMs = luna?.ms ?? (Date.now() - tDial);
-    const lunaReads: LunaRead[] = luna ? (luna.c ? [luna.a, luna.b, luna.c] : [luna.a, luna.b]) : [];
+    const lunaReads: LunaRead[] = luna ? (luna.single ? [luna.a] : luna.c ? [luna.a, luna.b, luna.c] : [luna.a, luna.b]) : [];
     const readDetails = [...triageDetails, ...lunaReads.map(toDetail(LUNA_DIAL_MODEL, 'dial'))];
     if (luna && !luna.failed) {
       fin = { decision: applyBands(decideReads(luna.a, luna.b, luna.c), equipmentType), model: LUNA_DIAL_MODEL, readerRoute: 'dial_luna', rotation: luna.rotation, finalReads: lunaReads, readDetails, dialMs };
@@ -462,7 +480,7 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
   const fd = fin.decision;
   console.log('[extract-temperature] reads', JSON.stringify({ route: fin.readerRoute, model: fin.model, displayType, dialMs: fin.dialMs, reads: fin.finalReads.map(r => r.value) }));
   if (fd.reason || fd.tiebreak) console.warn('[extract-temperature] not a clean pair', fd.reason, fd.tiebreak, JSON.stringify(fin.readDetails));
-  return jsonResponse({
+  return {
     temperature: fd.temperature,
     isValid: fd.isValid,
     unconfirmed: false,
@@ -488,7 +506,213 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
     readDetails: fin.readDetails,
     readerRoute: fin.readerRoute,
     dialMs: fin.dialMs,
+  };
+}
+
+// ============================================================================
+// BACKGROUND TEMPERATURE READ (per-store switch, default off)
+// The phone saves the photo row as 'reading' with a fresh token and does not
+// wait. We read it here and write the result with the service role, only while
+// the row still carries the same token (newest photo wins).
+// ============================================================================
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Gateway call with one short retry on 429 / 5xx, bounded by the overall budget signal. */
+function bgCallAI(overall: AbortSignal): CallAIFn {
+  return async (messages, tools, toolChoice, modelOverride, signal, extraBody) => {
+    const sig = signal ? AbortSignal.any([signal, overall]) : overall;
+    try {
+      return await callAI(messages, tools, toolChoice, modelOverride, sig, extraBody);
+    } catch (e: any) {
+      const s = Number(e?.status);
+      if (sig.aborted || !(s === 429 || s >= 500)) throw e;
+      await sleep(1500);
+      if (sig.aborted) throw e;
+      return await callAI(messages, tools, toolChoice, modelOverride, sig, extraBody);
+    }
+  };
+}
+
+function photoFromRow(row: any, wanted?: unknown): string | null {
+  const list: string[] = [];
+  if (typeof row?.response_image_url === 'string' && row.response_image_url) list.push(row.response_image_url);
+  const t = typeof row?.response_text === 'string' ? row.response_text.trim() : '';
+  if (t.startsWith('[')) {
+    try { const a = JSON.parse(t); if (Array.isArray(a)) for (const u of a) if (typeof u === 'string' && u) list.push(u); } catch { /* ignore */ }
+  }
+  if (typeof wanted === 'string' && list.includes(wanted)) return wanted;
+  return list.length ? list[list.length - 1] : null;
+}
+
+/** Same manager alert the phone sends today for an out-of-range reading. */
+async function alertUnsafeTemperatureServer(svc: any, locationId: string, itemId: string, question: string, temp: number) {
+  const { data: managerUsers } = await svc
+    .from('user_locations')
+    .select('user_id, user_roles!inner(role)')
+    .eq('location_id', locationId)
+    .in('user_roles.role', ['super_admin', 'org_admin', 'admin', 'manager', 'general_manager', 'shift_manager', 'shift_manager_in_training']);
+  const managerIds = [...new Set((managerUsers ?? []).map((u: any) => u.user_id))];
+  if (managerIds.length === 0) return;
+  const { error } = await svc.from('alert_queue').insert({
+    alert_type: 'unsafe_temperature',
+    dedup_key: `temp_alert_${locationId}_${itemId}_${new Date().toISOString().split('T')[0]}_${Date.now()}`,
+    location_id: locationId,
+    payload: {
+      user_ids: managerIds,
+      title: `🌡️ Unsafe Temp: ${question}`,
+      body: `${temp}°F is out of safe zone. Verify and take corrective action.`,
+      notification_type: 'unsafe_temperature',
+      data: { type: 'unsafe_temperature', location_id: locationId, checklist_item: question, temperature: temp, unconfirmed: false },
+    },
   });
+  if (error) console.warn('[extract-temperature-bg] alert insert failed', error.code ?? null);
+}
+
+async function handleExtractTemperatureBg(req: Request, payload: any) {
+  const authHeader = req.headers.get('Authorization') ?? '';
+  if (!authHeader.startsWith('Bearer ')) return errorResponse('Unauthorized', 401);
+  const responseId = String(payload?.responseId ?? '');
+  const token = String(payload?.token ?? '');
+  if (!UUID_RE.test(responseId) || !UUID_RE.test(token)) return errorResponse('responseId and token are required', 400);
+
+  const userClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: authHeader } } });
+  const { data: who, error: whoErr } = await userClient.auth.getUser();
+  if (whoErr || !who?.user) return errorResponse('Unauthorized', 401);
+  // The caller must be able to see this answer under their own access.
+  const { data: visible } = await userClient.from('checklist_responses').select('id').eq('id', responseId).maybeSingle();
+  if (!visible) return errorResponse('Not found', 404);
+
+  const svc = getSupabaseClient();
+  const { data: row } = await svc.from('checklist_responses')
+    .select('id, item_id, submission_id, response_image_url, response_text, temperature_read_token')
+    .eq('id', responseId).maybeSingle();
+  if (!row) return errorResponse('Not found', 404);
+  if (!isCurrentReadToken(row.temperature_read_token, token)) return errorResponse('stale_token', 409);
+
+  const [{ data: sub }, { data: item }] = await Promise.all([
+    svc.from('checklist_submissions').select('location_id').eq('id', row.submission_id).maybeSingle(),
+    svc.from('checklist_items').select('id, question, equipment_type, checklist_id').eq('id', row.item_id).maybeSingle(),
+  ]);
+  let locationId: string | null = sub?.location_id ?? null;
+  if (!locationId && item?.checklist_id) {
+    const { data: cl } = await svc.from('checklists').select('location_id').eq('id', item.checklist_id).maybeSingle();
+    locationId = cl?.location_id ?? null;
+  }
+  if (!locationId) return errorResponse('background_reads_off', 409);
+  const { data: ls } = await svc.from('location_settings').select('background_temp_reads_enabled').eq('location_id', locationId).maybeSingle();
+  if (!(ls as any)?.background_temp_reads_enabled) return errorResponse('background_reads_off', 409);
+
+  const imageUrl = photoFromRow(row, payload?.imageUrl);
+  if (!imageUrl) return errorResponse('No photo on this answer', 400);
+  const equipmentType = asEquipmentType(item?.equipment_type ?? payload?.equipmentType);
+  const itemName = item?.question ?? (typeof payload?.itemName === 'string' ? payload.itemName : null);
+
+  const job = runBackgroundRead({
+    svc, responseId, token, imageUrl, itemName, equipmentType, locationId,
+    itemId: row.item_id, submissionId: row.submission_id, userId: who.user.id,
+    borderlineRetakeUsed: payload?.borderlineRetakeUsed === true,
+  }).catch((e) => console.error('[extract-temperature-bg] job failed', e?.status ?? null));
+  if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(job);
+  return jsonResponse({ accepted: true }, 202);
+}
+
+async function runBackgroundRead(j: {
+  svc: any; responseId: string; token: string; imageUrl: string; itemName: string | null;
+  equipmentType: ReturnType<typeof asEquipmentType>; locationId: string; itemId: string;
+  submissionId: string; userId: string; borderlineRetakeUsed: boolean;
+}) {
+  const t0 = Date.now();
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), BG_READ_BUDGET_MS);
+  let result: any = null;
+  try {
+    result = await Promise.race([
+      readTemperature({ imageUrl: j.imageUrl, itemName: j.itemName, equipmentType: j.equipmentType }, { background: true, ai: bgCallAI(ctl.signal) }),
+      new Promise<null>((r) => ctl.signal.addEventListener('abort', () => r(null))),
+    ]);
+  } catch (e: any) {
+    console.error('[extract-temperature-bg] read threw', e?.status ?? null);
+    result = null;
+  } finally {
+    clearTimeout(timer);
+  }
+  const timedOut = result == null && ctl.signal.aborted;
+  // Token-conditional write: a stale read never overwrites a newer photo.
+  const write = async (fields: Record<string, unknown>) => {
+    const { data, error } = await j.svc.from('checklist_responses').update(fields)
+      .eq('id', j.responseId).eq('temperature_read_token', j.token).select('id');
+    if (error) console.error('[extract-temperature-bg] write failed', error.code ?? null);
+    return !error && Array.isArray(data) && data.length > 0;
+  };
+  const logIssue = (reason: string, saved: number | null) =>
+    j.svc.from('temperature_read_issues').insert({
+      reason,
+      reads: result?.readDetails ?? result?.reads ?? (typeof result?.temperature === 'number' ? [result.temperature] : null),
+      saved_temperature: saved,
+      image_url: j.imageUrl,
+      item_id: j.itemId,
+      submission_id: j.submissionId,
+      location_id: j.locationId,
+      user_id: j.userId,
+    }).then(({ error }: any) => { if (error) console.warn('[extract-temperature-bg] issue log failed', error.code ?? null); });
+
+  if (!result) {
+    const reason = timedOut ? 'timeout' : 'read_failed';
+    if (await write({ temperature_read_status: 'failed', temperature_read_reason: reason, temperature_read_coaching: null })) await logIssue(reason, null);
+    console.log('[extract-temperature-bg] done', JSON.stringify({ status: 'failed', reason, ms: Date.now() - t0 }));
+    return;
+  }
+
+  const outcome = planBackgroundOutcome({
+    temperature: result.temperature, reason: result.reason, coaching: result.coaching,
+    defrostOrError: result.defrostOrError === true, equipmentType: j.equipmentType,
+    borderlineRetakeUsed: j.borderlineRetakeUsed,
+  });
+  const serverReason: string | null = result.reason ?? (result.tiebreak ? 'tiebreak_confirmed' : null);
+
+  if (outcome.status === 'saved') {
+    // 4°F jump: median of this item's last 5 valid readings at this store (14 days).
+    let jump = { flag: false, baseline: null as number | null };
+    try {
+      const since = new Date(Date.now() - 14 * 86400_000).toISOString();
+      const { data: prior } = await j.svc.from('checklist_responses')
+        .select('extracted_temperature, submission_id, temperature_validated_at')
+        .eq('item_id', j.itemId).eq('temperature_valid', true).not('extracted_temperature', 'is', null)
+        .neq('id', j.responseId).gte('temperature_validated_at', since)
+        .order('temperature_validated_at', { ascending: false }).limit(25);
+      const subIds = [...new Set((prior ?? []).map((p: any) => p.submission_id))];
+      const { data: subs } = subIds.length
+        ? await j.svc.from('checklist_submissions').select('id, location_id').in('id', subIds)
+        : { data: [] };
+      const here = new Set((subs ?? []).filter((s: any) => s.location_id === j.locationId).map((s: any) => s.id));
+      jump = jumpCheck(outcome.tempF, (prior ?? []).filter((p: any) => here.has(p.submission_id)).map((p: any) => Number(p.extracted_temperature)));
+    } catch (e: any) {
+      console.warn('[extract-temperature-bg] jump check skipped', e?.status ?? null);
+    }
+    const ok = await write({
+      extracted_temperature: outcome.tempF,
+      temperature_valid: outcome.valid,
+      temperature_unconfirmed: false,
+      temperature_validated_at: new Date().toISOString(),
+      temperature_read_status: 'saved',
+      temperature_read_reason: null,
+      temperature_read_coaching: null,
+      temperature_jump_flag: jump.flag,
+      temperature_jump_baseline: jump.baseline,
+    });
+    if (ok) {
+      if (serverReason) await logIssue(serverReason, outcome.tempF);
+      if (!outcome.valid) await alertUnsafeTemperatureServer(j.svc, j.locationId, j.itemId, j.itemName ?? 'Temperature check', outcome.tempF);
+    }
+  } else {
+    const ok = await write({ temperature_read_status: 'failed', temperature_read_reason: outcome.reason, temperature_read_coaching: outcome.coaching });
+    if (ok) {
+      const logReason = outcome.reason === 'borderline_retake' ? 'borderline_retake' : (serverReason ?? (outcome.reason === 'implausible' ? 'implausible' : outcome.reason));
+      await logIssue(logReason, null);
+    }
+  }
+  console.log('[extract-temperature-bg] done', JSON.stringify({ status: outcome.status, reason: outcome.status === 'failed' ? outcome.reason : null, route: result.readerRoute ?? null, ms: Date.now() - t0 }));
 }
 
 async function handleExtractAuditDate(payload: any) {
@@ -1267,6 +1491,8 @@ serve(async (req) => {
         return await handleParseInventoryAudio(payload);
       case 'parse-inventory-voice':
         return await handleParseInventoryVoice(payload);
+      case 'extract-temperature-bg':
+        return await handleExtractTemperatureBg(req, payload);
       case 'rescan-temperatures':
         return await handleRescanTemperatures(payload);
       case 'batch-analyze-applications':

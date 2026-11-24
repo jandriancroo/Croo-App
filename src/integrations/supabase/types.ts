@@ -2627,8 +2627,15 @@ export type Database = {
           temperature_ai_original: number | null
           temperature_edited_at: string | null
           temperature_edited_by: string | null
+          temperature_jump_baseline: number | null
+          temperature_jump_flag: boolean | null
           temperature_last_scan_at: string | null
           temperature_previous: number | null
+          temperature_read_coaching: string | null
+          temperature_read_reason: string | null
+          temperature_read_started_at: string | null
+          temperature_read_status: string | null
+          temperature_read_token: string | null
           temperature_scan_count: number | null
           temperature_unconfirmed: boolean
           temperature_valid: boolean | null
@@ -2649,8 +2656,15 @@ export type Database = {
           temperature_ai_original?: number | null
           temperature_edited_at?: string | null
           temperature_edited_by?: string | null
+          temperature_jump_baseline?: number | null
+          temperature_jump_flag?: boolean | null
           temperature_last_scan_at?: string | null
           temperature_previous?: number | null
+          temperature_read_coaching?: string | null
+          temperature_read_reason?: string | null
+          temperature_read_started_at?: string | null
+          temperature_read_status?: string | null
+          temperature_read_token?: string | null
           temperature_scan_count?: number | null
           temperature_unconfirmed?: boolean
           temperature_valid?: boolean | null
@@ -2671,8 +2685,15 @@ export type Database = {
           temperature_ai_original?: number | null
           temperature_edited_at?: string | null
           temperature_edited_by?: string | null
+          temperature_jump_baseline?: number | null
+          temperature_jump_flag?: boolean | null
           temperature_last_scan_at?: string | null
           temperature_previous?: number | null
+          temperature_read_coaching?: string | null
+          temperature_read_reason?: string | null
+          temperature_read_started_at?: string | null
+          temperature_read_status?: string | null
+          temperature_read_token?: string | null
           temperature_scan_count?: number | null
           temperature_unconfirmed?: boolean
           temperature_valid?: boolean | null
@@ -8897,6 +8918,7 @@ export type Database = {
         Row: {
           am_safe_count_window_minutes: number
           average_pizza_price: number | null
+          background_temp_reads_enabled: boolean
           bank_verification_enabled: boolean
           birthday_events_enabled: boolean | null
           blackout_dates: string[] | null
@@ -8937,6 +8959,7 @@ export type Database = {
         Insert: {
           am_safe_count_window_minutes?: number
           average_pizza_price?: number | null
+          background_temp_reads_enabled?: boolean
           bank_verification_enabled?: boolean
           birthday_events_enabled?: boolean | null
           blackout_dates?: string[] | null
@@ -8977,6 +9000,7 @@ export type Database = {
         Update: {
           am_safe_count_window_minutes?: number
           average_pizza_price?: number | null
+          background_temp_reads_enabled?: boolean
           bank_verification_enabled?: boolean
           birthday_events_enabled?: boolean | null
           blackout_dates?: string[] | null

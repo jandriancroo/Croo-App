@@ -750,6 +750,13 @@
       "when": 1794615668000,
       "tag": "0106_punch_six_digit_pin_collection",
       "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1795555986124,
+      "tag": "0107_background_temp_reads_switch",
+      "breakpoints": true
     }
   ]
 }

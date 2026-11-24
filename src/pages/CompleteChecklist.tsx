@@ -3,7 +3,8 @@ import { tempCoachingTip } from '@/lib/temperatureCoaching';
 import { referencePhotoFields, getPrimaryReferencePhoto } from '@/lib/checklistReferencePhotos';
 import { canUndoChecklistItem, CHECKLIST_UNDO_ANY_ROLES } from '@/lib/checklistUndo';
 import { planManualTemperature, planPhotoReading, isTempPhotoRequiredError, TEMP_PHOTO_FIRST_MESSAGE } from '@/lib/checklistTemperature';
-import { asEquipmentType } from '../../supabase/functions/_shared/tempBands';
+import { asEquipmentType, TEMP_BANDS } from '../../supabase/functions/_shared/tempBands';
+import { isBgRejected, isCurrentReadToken, BG_CLIENT_TIMEOUT_MS, type BgReadStatus } from '../../supabase/functions/_shared/bgTempRead';
 import { EquipmentCheckBanners } from '@/components/equipment-check/EquipmentCheckLayer';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
@@ -95,6 +96,12 @@ interface ResponseWithCompleter {
   temperatureUnconfirmed?: boolean;
   /** Short name of whoever last typed over the reading ("Maya R."). */
   tempEditedBy?: string | null;
+  /** Background read (store switch on only). null/undefined = the old phone-side flow. */
+  readStatus?: BgReadStatus | null;
+  readToken?: string | null;
+  readStartedAt?: string | null;
+  readReason?: string | null;
+  readCoaching?: string | null;
   completedBy?: {
     userId: string;
     fullName: string;
@@ -136,12 +143,39 @@ export default function CompleteChecklist() {
   const borderlineRetakeUsed = useRef<Record<string, boolean>>({});
   const [manualTempValue, setManualTempValue] = useState<Record<string, string>>({});
   const [uploadingItems, setUploadingItems] = useState<Record<string, boolean>>({});
+  // ---------- background temp reads (location_settings.background_temp_reads_enabled, default off) ----------
+  const [bgEnabled, setBgEnabled] = useState(false);
+  const bgEnabledRef = useRef(false);
+  bgEnabledRef.current = bgEnabled;
+  // Short-lived PREVIOUSLY strip states: 'saved' (landed) / 'hand' (typed), ~4 s.
+  const [bgFlash, setBgFlash] = useState<Record<string, { kind: 'saved' | 'hand'; at: number }>>({});
+  // What the item held before a background photo, so a rejected photo can be put back.
+  const bgPrev = useRef<Record<string, { hadRow: boolean; value: any; saved?: ResponseWithCompleter }>>({});
+  const bgHandled = useRef<Set<string>>(new Set());
+  const kickQueue = useRef<Array<() => Promise<void>>>([]);
+  const kickActive = useRef(0);
+  const [finishWait, setFinishWait] = useState<null | { stage: 'waiting' | 'confirm'; proceed: () => void }>(null);
   const notesTimeoutRef = useRef<NodeJS.Timeout>();
+  const rwcRef = useRef(responsesWithCompleters);
+  rwcRef.current = responsesWithCompleters;
   const {
     user
   } = useAuth();
   const { role, isAdmin, isManager, isShiftManager } = useUserRole();
   const { currentLocation } = useLocation();
+
+  // Background temp reads switch for this store (missing row = off).
+  const switchLocationId = currentLocation?.id || checklist?.location_id || null;
+  useEffect(() => {
+    let live = true;
+    if (!switchLocationId) { setBgEnabled(false); return; }
+    (supabase.from('location_settings') as any)
+      .select('background_temp_reads_enabled')
+      .eq('location_id', switchLocationId)
+      .maybeSingle()
+      .then(({ data, error }: any) => { if (live) setBgEnabled(!error && data?.background_temp_reads_enabled === true); });
+    return () => { live = false; };
+  }, [switchLocationId]);
 
   // Checklist reload guard: app updates wait until she leaves this page.
   useEffect(() => {
@@ -478,7 +512,12 @@ export default function CompleteChecklist() {
             extracted_temperature,
             temperature_valid,
             temperature_unconfirmed,
-            temperature_edited_by
+            temperature_edited_by,
+            temperature_read_status,
+            temperature_read_token,
+            temperature_read_started_at,
+            temperature_read_reason,
+            temperature_read_coaching
           `)
           .eq('submission_id', submissionId);
 
@@ -534,6 +573,11 @@ export default function CompleteChecklist() {
             extractedTemperature: resp.extracted_temperature,
             temperatureValid: resp.temperature_valid,
             temperatureUnconfirmed: !!resp.temperature_unconfirmed,
+            readStatus: resp.temperature_read_status ?? null,
+            readToken: resp.temperature_read_token ?? null,
+            readStartedAt: resp.temperature_read_started_at ?? null,
+            readReason: resp.temperature_read_reason ?? null,
+            readCoaching: resp.temperature_read_coaching ?? null,
             completedBy: undefined,
           } as any;
 
@@ -901,6 +945,7 @@ export default function CompleteChecklist() {
         [itemId]: { ...prev[itemId], extractedTemperature: plan.tempF, temperatureValid: plan.valid, temperatureUnconfirmed: false, tempEditedBy: shortName(profile?.full_name) },
       }));
       setManualTempOpen(prev => ({ ...prev, [itemId]: false }));
+      if (rwcRef.current[itemId]?.readStatus) flashBg(itemId, 'hand');
       toast.success(`Saved ${plan.tempF}°F`);
       if (!plan.valid && manualItem) await alertUnsafeTemperature(manualItem, plan.tempF, false);
     } catch (error: any) {
@@ -909,7 +954,7 @@ export default function CompleteChecklist() {
     }
   };
 
-  const handleImageUpload = async (itemId: string, file: File, photoIndex?: number) => {
+  const handleImageUpload = async (itemId: string, file: File, photoIndex?: number): Promise<{ becameDone: boolean } | void> => {
     // Guard: if an upload is already in flight for this item, ignore the second tap.
     // Prevents duplicate photos when users tap again thinking nothing happened.
     if (uploadingItems[itemId]) {
@@ -1019,7 +1064,11 @@ export default function CompleteChecklist() {
 
       let tempUnconfirmed = false;
       let hasNewReading = false;
-      if (shouldValidateTemp) {
+      // Store switch on: the server reads the photo in the background; the phone doesn't wait.
+      const bgMode = shouldValidateTemp && bgEnabledRef.current;
+      const bgToken = bgMode ? crypto.randomUUID() : null;
+      const bgStartedAt = bgMode ? new Date().toISOString() : null;
+      if (shouldValidateTemp && !bgMode) {
         const { data: tempData, error: tempError } = await supabase.functions.invoke(
           'ai-extraction-service?action=extract-temperature',
           { body: { imageUrl: data.publicUrl, itemName: item?.question ?? null, equipmentType: asEquipmentType(item?.equipment_type) } }
@@ -1162,7 +1211,20 @@ export default function CompleteChecklist() {
                 temperature_validated_at: new Date().toISOString(),
               }
             : {}),
+          // Background read: photo + 'reading' + a fresh token, never temperature fields.
+          ...(bgMode
+            ? {
+                temperature_read_status: 'reading',
+                temperature_read_token: bgToken,
+                temperature_read_started_at: bgStartedAt,
+                temperature_read_reason: null,
+                temperature_read_coaching: null,
+              }
+            : {}),
         };
+        if (bgMode) {
+          bgPrev.current[itemId] = { hadRow: !!existing, value: previousResponses[itemId], saved: previousResponsesWithCompleters[itemId] };
+        }
 
         if (existing) {
           const { error: updateError } = await supabase
@@ -1217,6 +1279,10 @@ export default function CompleteChecklist() {
               extractedTemperature: hasNewReading ? extractedTemp : (prev[itemId]?.extractedTemperature ?? null),
               temperatureValid: hasNewReading ? tempValid : (prev[itemId]?.temperatureValid ?? null),
               temperatureUnconfirmed: hasNewReading ? tempUnconfirmed : !!prev[itemId]?.temperatureUnconfirmed,
+              ...(bgMode ? { tempEditedBy: prev[itemId]?.tempEditedBy } : {}),
+              ...(bgMode
+                ? { readStatus: 'reading' as const, readToken: bgToken, readStartedAt: bgStartedAt, readReason: null, readCoaching: null }
+                : { readStatus: prev[itemId]?.readStatus, readToken: prev[itemId]?.readToken, readStartedAt: prev[itemId]?.readStartedAt, readReason: prev[itemId]?.readReason, readCoaching: prev[itemId]?.readCoaching }),
               completedBy: profile ? {
                 userId: user.id,
                 fullName: profile.full_name || 'Unknown',
@@ -1230,6 +1296,16 @@ export default function CompleteChecklist() {
 
       // Silent success — the user already saw the photo appear optimistically.
       revokeBlob();
+      if (bgMode && responseId && bgToken) {
+        enqueueBgKick({ itemId, responseId, token: bgToken, imageUrl: data.publicUrl, itemName: item?.question ?? null, equipmentType: asEquipmentType(item?.equipment_type) });
+      }
+      // Auto-advance: only when this save made the item done for the first time.
+      if (!item || !responseId) return { becameDone: false };
+      const prevTemp = previousResponsesWithCompleters[itemId]?.extractedTemperature;
+      const prevVal = previousResponses[itemId];
+      const wasDone = prevVal != null && isMultiPhotoComplete(item, prevVal) && (!shouldValidateTemp || prevTemp != null);
+      const nowDone = isMultiPhotoComplete(item, newValue) && (!shouldValidateTemp || bgMode || hasNewReading || prevTemp != null);
+      return { becameDone: !wasDone && nowDone };
     } catch (error: any) {
       // Revert the optimistic update so the user knows to retry.
       setResponses(previousResponses);
@@ -1253,6 +1329,190 @@ export default function CompleteChecklist() {
         return next;
       });
     }
+  };
+
+  // ---------- background temp reads: kick-off, pick-up, timeout ----------
+  const READ_COLS = 'id, item_id, extracted_temperature, temperature_valid, temperature_unconfirmed, temperature_read_status, temperature_read_token, temperature_read_started_at, temperature_read_reason, temperature_read_coaching';
+
+  const flashBg = (itemId: string, kind: 'saved' | 'hand') => {
+    const at = Date.now();
+    setBgFlash(prev => ({ ...prev, [itemId]: { kind, at } }));
+    window.setTimeout(() => setBgFlash(prev => (prev[itemId]?.at === at ? (({ [itemId]: _gone, ...rest }) => rest)(prev) : prev)), 4000);
+  };
+
+  const pumpBgKicks = () => {
+    while (kickActive.current < 2 && kickQueue.current.length > 0) {
+      const job = kickQueue.current.shift()!;
+      kickActive.current += 1;
+      job().finally(() => { kickActive.current -= 1; pumpBgKicks(); });
+    }
+  };
+
+  /** Token-conditional: only the read that still owns the row can mark it failed. */
+  const markBgFailed = async (itemId: string, responseId: string, token: string, reason: string) => {
+    const { data, error } = await (supabase.from('checklist_responses') as any)
+      .update({ temperature_read_status: 'failed', temperature_read_reason: reason, temperature_read_coaching: null })
+      .eq('id', responseId)
+      .eq('temperature_read_token', token)
+      .select(READ_COLS);
+    if (!error && Array.isArray(data) && data[0]) applyReadRowRef.current(data[0]);
+    else if (error) applyReadRowRef.current({ id: responseId, item_id: itemId, temperature_read_token: token, temperature_read_status: 'failed', temperature_read_reason: reason, temperature_read_coaching: null });
+  };
+
+  const enqueueBgKick = (k: { itemId: string; responseId: string; token: string; imageUrl: string; itemName: string | null; equipmentType: string | null }) => {
+    kickQueue.current.push(async () => {
+      const delays = [0, 1000, 3000];
+      for (let i = 0; i < delays.length; i++) {
+        if (delays[i]) await new Promise(r => setTimeout(r, delays[i]));
+        // A newer photo took over: drop this kick-off.
+        if (rwcRef.current[k.itemId]?.readToken !== k.token) return;
+        const { error } = await supabase.functions.invoke('ai-extraction-service?action=extract-temperature-bg', {
+          body: { responseId: k.responseId, token: k.token, itemName: k.itemName, equipmentType: k.equipmentType, imageUrl: k.imageUrl, borderlineRetakeUsed: !!borderlineRetakeUsed.current[k.itemId] },
+        });
+        if (!error) return;
+        const status = Number((error as any)?.context?.status);
+        const retryable = !Number.isFinite(status) || status >= 500;
+        if (!retryable) break;
+      }
+      if (rwcRef.current[k.itemId]?.readToken === k.token) await markBgFailed(k.itemId, k.responseId, k.token, 'function_error');
+    });
+    pumpBgKicks();
+  };
+
+  /** A rejected background photo (unclear / dEF / borderline) is not kept: put back what was there. */
+  const revertBgPhoto = async (itemId: string, responseId: string) => {
+    const prev = bgPrev.current[itemId];
+    delete bgPrev.current[itemId];
+    if (!prev) return;
+    if (!prev.hadRow) {
+      const { error } = await supabase.from('checklist_responses').delete().eq('id', responseId);
+      if (error) return;
+      setResponses(p => { const n = { ...p }; delete n[itemId]; return n; });
+      setResponsesWithCompleters(p => { const n = { ...p }; delete n[itemId]; return n; });
+      clearChecklistDraftValue(draftKeysRef.current, itemId);
+      return;
+    }
+    const v = prev.value;
+    const isArr = Array.isArray(v);
+    if (v == null) return;
+    const { error } = await (supabase.from('checklist_responses') as any)
+      .update({ response_image_url: isArr ? null : v, response_text: isArr ? JSON.stringify(v) : null, temperature_read_status: prev.saved?.readStatus ?? null })
+      .eq('id', responseId);
+    if (error) return;
+    setResponses(p => ({ ...p, [itemId]: v }));
+    setResponsesWithCompleters(p => ({ ...p, [itemId]: { ...(p[itemId] ?? prev.saved!), ...(prev.saved ?? {}), responseId, value: v, readToken: p[itemId]?.readToken, readStatus: prev.saved?.readStatus ?? null } as ResponseWithCompleter }));
+  };
+
+  const applyReadRow = (row: any) => {
+    if (!row?.item_id) return;
+    const local = rwcRef.current[row.item_id];
+    if (!local || local.responseId !== row.id) return;
+    if (!isCurrentReadToken(row.temperature_read_token, local.readToken)) return;
+    const status = row.temperature_read_status as BgReadStatus | null;
+    if (status !== 'saved' && status !== 'failed') return;
+    const key = `${row.temperature_read_token}:${status}`;
+    if (bgHandled.current.has(key)) return;
+    bgHandled.current.add(key);
+    const item = items.find(i => i.id === row.item_id);
+    const tag = asEquipmentType(item?.equipment_type);
+    const reason: string | null = row.temperature_read_reason ?? null;
+    const temp = row.extracted_temperature != null ? Number(row.extracted_temperature) : null;
+    setResponsesWithCompleters(prev => {
+      const cur = prev[row.item_id];
+      if (!cur || cur.readToken !== row.temperature_read_token) return prev;
+      return {
+        ...prev,
+        [row.item_id]: {
+          ...cur,
+          readStatus: status,
+          readReason: reason,
+          readCoaching: row.temperature_read_coaching ?? null,
+          ...(status === 'saved' && temp != null
+            ? { extractedTemperature: temp, temperatureValid: row.temperature_valid ?? null, temperatureUnconfirmed: !!row.temperature_unconfirmed, tempEditedBy: null }
+            : {}),
+        },
+      };
+    });
+    if (status === 'saved') {
+      delete borderlineRetakeUsed.current[row.item_id];
+      delete bgPrev.current[row.item_id];
+      flashBg(row.item_id, 'saved');
+      if (row.temperature_valid === false && temp != null) {
+        // The server already queued the manager alert; same toast as today.
+        toast.warning('Temperature out of range — managers notified', { description: `${temp}°F on ${item?.question ?? 'this item'}` });
+      }
+      return;
+    }
+    if (isBgRejected(status, reason)) {
+      let tip: string;
+      if (reason === 'borderline_retake') {
+        borderlineRetakeUsed.current[row.item_id] = true;
+        const min = tag ? TEMP_BANDS[tag].compliance.min : null;
+        tip = min != null ? `Read just under ${min}°F. Take one more photo to be sure.` : 'Take one more photo to be sure.';
+        toast.warning('Close to the line', { description: tip });
+      } else {
+        tip = tempCoachingTip(row.temperature_read_coaching);
+        toast.warning("We couldn't read that photo", { description: tip });
+      }
+      setTempRetakeTip(prev => ({ ...prev, [row.item_id]: tip }));
+      void revertBgPhoto(row.item_id, row.id);
+      return;
+    }
+    delete bgPrev.current[row.item_id];
+    const plan = reason === 'implausible' ? planPhotoReading({ temperature: null, reason: 'implausible', equipmentType: tag, borderlineRetakeUsed: true }) : null;
+    toast.warning("Couldn't get a sure reading", { description: plan?.kind === 'no_number' ? plan.message : 'Retake the photo, or tap Fix the number and type what the thermometer shows.' });
+    // Opens the number box for that item; it only takes focus when that item is on screen.
+    setManualTempOpen(prev => ({ ...prev, [row.item_id]: true }));
+  };
+  const applyReadRowRef = useRef(applyReadRow);
+  applyReadRowRef.current = applyReadRow;
+
+  const readingKey = Object.values(responsesWithCompleters).filter(r => r?.readStatus === 'reading' && r.responseId).map(r => r.responseId).sort().join(',');
+  useEffect(() => {
+    if (!readingKey || !submissionId) return;
+    let stopped = false;
+    const fetchRows = async () => {
+      const ids = Object.values(rwcRef.current).filter(r => r?.readStatus === 'reading' && r.responseId).map(r => r.responseId);
+      if (ids.length === 0) return;
+      const { data } = await (supabase.from('checklist_responses') as any).select(READ_COLS).in('id', ids);
+      if (!stopped) (data ?? []).forEach((r: any) => applyReadRowRef.current(r));
+    };
+    const checkTimeouts = () => {
+      for (const [itemId, r] of Object.entries(rwcRef.current)) {
+        if (r?.readStatus !== 'reading' || !r.readToken || !r.readStartedAt || !r.responseId) continue;
+        if (Date.now() - new Date(r.readStartedAt).getTime() > BG_CLIENT_TIMEOUT_MS) void markBgFailed(itemId, r.responseId, r.readToken, 'timeout');
+      }
+    };
+    const channel = supabase
+      .channel(`bg-temp-${submissionId}`)
+      .on('postgres_changes' as any, { event: 'UPDATE', schema: 'public', table: 'checklist_responses', filter: `submission_id=eq.${submissionId}` }, (payload: any) => applyReadRowRef.current(payload.new))
+      .subscribe();
+    const iv = window.setInterval(() => { void fetchRows(); checkTimeouts(); }, 3000);
+    const onWake = () => { if (document.visibilityState === 'visible') { void fetchRows(); checkTimeouts(); } };
+    document.addEventListener('visibilitychange', onWake);
+    window.addEventListener('focus', onWake);
+    void fetchRows();
+    checkTimeouts();
+    return () => {
+      stopped = true;
+      window.clearInterval(iv);
+      document.removeEventListener('visibilitychange', onWake);
+      window.removeEventListener('focus', onWake);
+      supabase.removeChannel(channel);
+    };
+  }, [readingKey, submissionId]);
+
+  const pendingReadCount = () => Object.values(rwcRef.current).filter(r => r?.readStatus === 'reading').length;
+  /** Leaving the list while a background read is still pending: wait up to 10 s, then ask. */
+  const guardFinish = async (proceed: () => void) => {
+    if (!bgEnabledRef.current || pendingReadCount() === 0) { proceed(); return; }
+    setFinishWait({ stage: 'waiting', proceed });
+    const t0 = Date.now();
+    while (Date.now() - t0 < 10_000) {
+      await new Promise(r => setTimeout(r, 500));
+      if (pendingReadCount() === 0) { setFinishWait(null); proceed(); return; }
+    }
+    setFinishWait({ stage: 'confirm', proceed });
   };
 
   if (loading) {
@@ -1322,7 +1582,12 @@ export default function CompleteChecklist() {
   const isItemDone = (item: ChecklistItem): boolean => {
     if (item.item_type === 'section_header' || item.item_type === 'manager_approval') return false;
     const isImg = item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature';
-    if (isImg) return isMultiPhotoComplete(item, responses[item.id]);
+    if (isImg) {
+      // Background read rejected the photo (unclear / dEF / borderline): not done until a retake.
+      const saved = responsesWithCompleters[item.id];
+      if (isTempItem(item) && isBgRejected(saved?.readStatus, saved?.readReason) && saved?.extractedTemperature == null) return false;
+      return isMultiPhotoComplete(item, responses[item.id]);
+    }
     if (item.item_type === 'text' || item.item_type === 'number') {
       const v = responsesWithCompleters[item.id]?.value;
       return v !== undefined && v !== '' && v !== null;
@@ -1506,6 +1771,25 @@ export default function CompleteChecklist() {
       </div>
     ),
     onBack: () => navigate(-1),
+    guardFinish: (proceed) => { void guardFinish(proceed); },
+    bgStrip: () => {
+      const out: NonNullable<ReturnType<NonNullable<RunCtx['bgStrip']>>> = [];
+      const now = Date.now();
+      for (const it of items) {
+        const r = responsesWithCompleters[it.id];
+        const flash = bgFlash[it.id];
+        const photo = photosFor(it)[0] ?? null;
+        const temp = r?.extractedTemperature ?? null;
+        if (flash && now - flash.at < 4000 && temp != null) {
+          out.push({ id: it.id, name: it.question, kind: flash.kind, temp, photo, at: flash.at });
+        } else if (r?.readStatus === 'reading') {
+          out.push({ id: it.id, name: it.question, kind: 'reading', temp: null, photo, at: r.readStartedAt ? new Date(r.readStartedAt).getTime() : now });
+        } else if (r?.readStatus === 'failed' && temp == null && !isBgRejected(r.readStatus, r.readReason) && photo) {
+          out.push({ id: it.id, name: it.question, kind: 'failed', temp: null, photo, at: r.readStartedAt ? new Date(r.readStartedAt).getTime() : now });
+        }
+      }
+      return out;
+    },
   };
 
   return <Layout>
@@ -1538,6 +1822,24 @@ export default function CompleteChecklist() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {finishWait?.stage === 'waiting' && (
+          <div role="status" className="fixed inset-x-0 top-[calc(env(safe-area-inset-top)+72px)] z-50 mx-auto w-fit rounded-full border bg-card px-4 py-2 text-sm font-semibold shadow">
+            Waiting for {pendingReadCount() === 1 ? '1 temp reading' : `${pendingReadCount()} temp readings`}…
+          </div>
+        )}
+        <AlertDialog open={finishWait?.stage === 'confirm'} onOpenChange={(o) => { if (!o) setFinishWait(null); }}>
+          <AlertDialogContent className="duo-popup">
+            <AlertDialogHeader>
+              <AlertDialogTitle>A temp is still reading</AlertDialogTitle>
+              <AlertDialogDescription>A temp is still reading. Finish anyway? It will save when it's done.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setFinishWait(null)}>Wait</AlertDialogCancel>
+              <AlertDialogAction onClick={() => { const go = finishWait?.proceed; setFinishWait(null); go?.(); }}>Finish anyway</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Undo Confirmation Dialog */}
         <AlertDialog open={!!undoConfirmItemId} onOpenChange={(open) => !open && setUndoConfirmItemId(null)}>

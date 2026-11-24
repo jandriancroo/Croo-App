@@ -2,7 +2,7 @@
 // Presentation only: every save goes through the handlers the page passes in.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, Check, ChevronLeft, ChevronRight, Eye, FileText, Image as ImageIcon, Link as LinkIcon, BookOpen, Pencil, Video, RotateCcw, PlayCircle } from 'lucide-react';
+import { ArrowLeft, Camera, Check, ChevronLeft, ChevronRight, Eye, FileText, Image as ImageIcon, Link as LinkIcon, BookOpen, Pencil, Video, RotateCcw, PlayCircle, Loader2 } from 'lucide-react';
 import { cn, formatTime12Hour } from '@/lib/utils';
 import { useDuo } from '@/hooks/useDuo';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -59,7 +59,8 @@ export interface RunCtx {
   check: (id: string) => void;
   choose: (id: string, v: string) => void;
   submit: (id: string, v: string) => void;
-  upload: (id: string, file: File, index?: number) => void;
+  /** Resolves with becameDone when the photo save made the item done for the first time (auto-advance). */
+  upload: (id: string, file: File, index?: number) => void | Promise<{ becameDone: boolean } | void>;
   reading: (id: string) => { temp: number | null | undefined; valid: boolean | null | undefined; editedBy?: string | null; unconfirmed?: boolean };
   tempOpen: (id: string) => boolean;
   setTempOpen: (id: string, open: boolean) => void;
@@ -83,6 +84,40 @@ export interface RunCtx {
   prepStatus: (it: RunItem, skip: boolean) => ReactNode;
   footer?: ReactNode;
   onBack: () => void;
+  /** Leaving the checklist: waits for pending background temp reads first (switch on only). */
+  guardFinish?: (proceed: () => void) => void;
+  /** Background temp reads for the PREVIOUSLY strip (empty when the store switch is off). */
+  bgStrip?: () => BgStripEntry[];
+}
+
+export interface BgStripEntry { id: string; name: string; kind: 'reading' | 'saved' | 'failed' | 'hand'; temp: number | null; photo: string | null; at: number }
+
+/** Design B: one thin strip for the most recent earlier item with a background read. */
+function PreviouslyStrip({ entry, onEnterTemp }: { entry: BgStripEntry; onEnterTemp: () => void }) {
+  const tone = entry.kind === 'reading' ? 'border-primary text-primary'
+    : entry.kind === 'failed' ? 'border-[hsl(var(--warning))] text-[hsl(var(--warning))]'
+    : 'border-[hsl(var(--success))] text-[hsl(var(--success))]';
+  const t = entry.temp != null ? `${Number(entry.temp).toFixed(1)}°F` : '';
+  const text = entry.kind === 'reading' ? 'Reading dial…' : entry.kind === 'saved' ? `${t} saved` : entry.kind === 'hand' ? `${t} entered by hand` : "Couldn't read";
+  const body = (
+    <>
+      {entry.photo ? <img src={entry.photo} alt="" className="h-[26px] w-[26px] shrink-0 rounded-md object-cover" /> : <span className="h-[26px] w-[26px] shrink-0 rounded-md bg-muted" />}
+      <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold">{entry.name} · {text}</span>
+      {entry.kind === 'reading' && <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />}
+      {(entry.kind === 'saved' || entry.kind === 'hand') && <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--success))] text-primary-foreground"><Check className="h-3 w-3" strokeWidth={3} /></span>}
+      {entry.kind === 'failed' && <span className="shrink-0 text-sm font-semibold">Enter temp ›</span>}
+    </>
+  );
+  return (
+    <div className="space-y-1">
+      <div className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Previously</div>
+      {entry.kind === 'failed' ? (
+        <button type="button" onClick={onEnterTemp} className={cn('flex min-h-11 w-full items-center gap-2.5 rounded-xl border bg-card px-3 py-2', tone)}>{body}</button>
+      ) : (
+        <div role="status" className={cn('flex min-h-11 w-full items-center gap-2.5 rounded-xl border bg-card px-3 py-2', tone)}>{body}</div>
+      )}
+    </div>
+  );
 }
 
 // ---------- type helpers ----------
@@ -877,7 +912,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
   const [flashId, setFlashId] = useState<string | null>(null);
   // The header arrow always lands on the Dash, whatever brought you here.
   const navigate = useNavigate();
-  const goDash = () => navigate('/');
+  const goDash = () => (ctx.guardFinish ? ctx.guardFinish(() => navigate('/')) : navigate('/'));
 
   const sectionOf = useMemo(() => {
     const m = new Map<string, string>();
@@ -925,8 +960,26 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
     else open(it.id);
   };
 
+  // Auto-advance after a photo save: once per item per run, only while that item is still open.
+  const guidedIdRef = useRef(guidedId);
+  guidedIdRef.current = guidedId;
+  const goNextRef = useRef(goNext);
+  goNextRef.current = goNext;
+  const advancedOnce = useRef<Set<string>>(new Set());
+  const onPhotoSaved = (id: string, becameDone: boolean) => {
+    if (!becameDone || advancedOnce.current.has(id)) return;
+    advancedOnce.current.add(id);
+    if (guidedIdRef.current !== id) return;
+    window.setTimeout(() => { if (guidedIdRef.current === id) goNextRef.current(); }, 450);
+  };
+
   const ctxWithFlash: RunCtx = {
     ...ctx,
+    upload: (id, file, index) => {
+      const r = ctx.upload(id, file, index);
+      void Promise.resolve(r).then((res) => { if (res && typeof res === 'object') onPhotoSaved(id, !!res.becameDone); }).catch(() => {});
+      return r;
+    },
     check: (id) => {
       ctx.check(id);
       setFlashId(id);
@@ -1069,8 +1122,19 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
         <div className="text-xs text-muted-foreground">{nextTodo ? 'Next not done' : 'No more after this'}</div>
         <div className="break-words text-sm font-bold">{nextTodo?.question ?? 'Back to the list after this'}</div>
       </div>
-      <Button type="button" variant="outline" className="h-12 shrink-0 border border-border bg-card px-4" onClick={goNext}>Skip<ChevronRight className="ml-1 h-4 w-4" /></Button>
+      <Button type="button" variant="outline" className="h-12 shrink-0 border border-border bg-card px-4" onClick={goNext}>{ctx.isDone(current) && !ctx.needsTemp(current) ? 'Next' : 'Skip'}<ChevronRight className="ml-1 h-4 w-4" /></Button>
     </div>
+  );
+
+  // PREVIOUSLY strip: most recent EARLIER item with a background read (never the current one).
+  const stripEntry = (() => {
+    if (atEnd || !current || !ctx.bgStrip) return null;
+    const list = ctx.bgStrip().filter((e) => e.id !== current.id);
+    if (!list.length) return null;
+    return list.reduce((best, e) => (e.at > best.at ? e : best));
+  })();
+  const strip = stripEntry && (
+    <PreviouslyStrip entry={stripEntry} onEnterTemp={() => { ctx.setTempValue(stripEntry.id, ''); ctx.setTempOpen(stripEntry.id, true); open(stripEntry.id); }} />
   );
 
   const sideList = (
@@ -1112,6 +1176,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
         <div className="grid grid-cols-[270px_minmax(0,1fr)] items-start gap-4">
           <div className="sticky top-16 max-h-[calc(100vh-6rem)] overflow-y-auto">{sideList}</div>
           <div className="space-y-3">
+            {strip}
             {card}
             {navRow}
             <p className="text-center text-sm text-muted-foreground">Tap any task on the left to jump to it. Skipped tasks stay on your list.</p>
@@ -1119,6 +1184,7 @@ export function ChecklistRunView({ ctx }: { ctx: RunCtx }) {
         </div>
       ) : (
         <>
+          {strip}
           {card}
           <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+88px)] z-20 -mx-1 rounded-2xl border bg-background/95 p-2 backdrop-blur">{navRow}</div>
           <p className="pb-24 text-center text-sm text-muted-foreground">Skipped tasks stay on your list.</p>
