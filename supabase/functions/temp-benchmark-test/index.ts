@@ -149,6 +149,16 @@ CONFIDENCE: <0 to 1>
 TENTHS: sure|unsure|none
 ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
 
+// Test-only (benchmark): tightened 5-rule analog dial block, appended only when payload.dialRules === true.
+const DIAL_5RULE = `
+
+TIGHTENED ANALOG DIAL RULES (these override the DIAL section above when they disagree):
+1. Read the OUTER Fahrenheit (°F) ring ONLY.
+2. Ignore the inner Celsius (°C) ring and ALL unlabeled inner ticks completely, even when no °C symbol is printed.
+3. Name the two adjacent labeled major °F numbers the tip sits between. Work out the exact degrees per minor tick in THAT interval (e.g. 4 short ticks between 10°F majors = 2°F per tick; never assume 1°F or 5°F; never estimate by clock angle, because vapor-tension dials are often non-linear/compressed below 0°F). Count ticks clockwise from the LOWER major mark.
+4. Follow the tapered/pointed pointer TIP, NOT the chunky counterweight tail behind the centre hub and NOT any mechanical stop pin.
+5. Cross-check against the green/red or blue/pink/red coloured zone band under the tip. Ignore glass glare, needle shadow, water/condensation and sideways rotation. If it is genuinely unreadable, answer NONE rather than guessing.`;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -162,6 +172,7 @@ serve(async (req) => {
   const equipmentType = asEquipmentType(payload?.equipmentType);
   const itemName = typeof payload?.itemName === "string" ? payload.itemName.slice(0, 200) : "";
   const skipOrient = payload?.skipOrient === true;
+  const dialRules = payload?.dialRules === true; // test-only: append DIAL_5RULE to the read prompt
 
   const usage = { prompt_tokens: 0, completion_tokens: 0, reasoning_tokens: 0, total_tokens: 0, orient_prompt_tokens: 0, orient_completion_tokens: 0, read_calls: 0 };
   const add = (u: Usage) => { usage.prompt_tokens += u.prompt_tokens; usage.completion_tokens += u.completion_tokens; usage.reasoning_tokens += u.reasoning_tokens; usage.total_tokens += u.prompt_tokens + u.completion_tokens; };
@@ -214,7 +225,7 @@ serve(async (req) => {
 
   const userPrompt = `Read the temperature on this thermometer.${itemName ? ` The item being measured is: "${itemName}" (context only — read the thermometer, not the food).` : ""}`;
   const msgs = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: dialRules ? SYSTEM_PROMPT + DIAL_5RULE : SYSTEM_PROMPT },
     { role: "user", content: [{ type: "text", text: userPrompt }, { type: "image_url", image_url: { url: readUrl } }] },
   ];
   const readDetails: any[] = [];
@@ -240,6 +251,7 @@ serve(async (req) => {
 
   return json({
     model,
+    dialRules,
     temperature: d.temperature,
     isValid: d.isValid,
     verdict: d.verdict,
