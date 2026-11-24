@@ -15,10 +15,9 @@ describe('saveManualTemperature plan', () => {
       extracted_temperature: 38,
       temperature_valid: true,
       temperature_unconfirmed: false,
-      temperature_validated_at: '2026-11-12T19:00:00.000Z',
       temperature_edited_at: '2026-11-12T19:00:00.000Z',
     });
-    for (const k of ['response_image_url', 'response_text', 'completed_by']) expect(plan.fields).not.toHaveProperty(k);
+    for (const k of ['response_image_url', 'response_text', 'completed_by', 'temperature_validated_at']) expect(plan.fields).not.toHaveProperty(k);
   });
 
   it('flags an out-of-range reading', () => {

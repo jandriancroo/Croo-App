@@ -164,16 +164,16 @@ export default function CompleteChecklist() {
   const { role, isAdmin, isManager, isShiftManager } = useUserRole();
   const { currentLocation } = useLocation();
 
-  // Background temp reads switch for this store (missing row = off).
+  // Background temp reads switch for this store (missing row = on).
   const switchLocationId = currentLocation?.id || checklist?.location_id || null;
   useEffect(() => {
     let live = true;
-    if (!switchLocationId) { setBgEnabled(false); return; }
+    if (!switchLocationId) { setBgEnabled(true); return; }
     (supabase.from('location_settings') as any)
       .select('background_temp_reads_enabled')
       .eq('location_id', switchLocationId)
       .maybeSingle()
-      .then(({ data, error }: any) => { if (live) setBgEnabled(!error && data?.background_temp_reads_enabled === true); });
+      .then(({ data, error }: any) => { if (live) setBgEnabled(error ? true : data?.background_temp_reads_enabled !== false); });
     return () => { live = false; };
   }, [switchLocationId]);
 
@@ -1065,86 +1065,11 @@ export default function CompleteChecklist() {
       let tempUnconfirmed = false;
       let hasNewReading = false;
       // Store switch on: the server reads the photo in the background; the phone doesn't wait.
-      const bgMode = shouldValidateTemp && bgEnabledRef.current;
+      const bgMode = shouldValidateTemp;
       const bgToken = bgMode ? crypto.randomUUID() : null;
       const bgStartedAt = bgMode ? new Date().toISOString() : null;
-      if (shouldValidateTemp && !bgMode) {
-        const { data: tempData, error: tempError } = await supabase.functions.invoke(
-          'ai-extraction-service?action=extract-temperature',
-          { body: { imageUrl: data.publicUrl, itemName: item?.question ?? null, equipmentType: asEquipmentType(item?.equipment_type), locationId: currentLocation?.id || checklist?.location_id || undefined } }
-        );
-        const taskLocationId = currentLocation?.id || checklist?.location_id;
-        // A disagreement settled by the third read is still logged (with all reads).
-        const serverReason: string | null = tempError || !tempData ? 'function_error' : (tempData.reason ?? (tempData.tiebreak ? 'tiebreak_confirmed' : null));
-        const equipmentType = asEquipmentType(item?.equipment_type);
-        const readingPlan = !tempError && tempData && tempData.reason !== 'unclear'
-          ? planPhotoReading({ temperature: tempData.temperature, reason: tempData.reason, equipmentType, borderlineRetakeUsed: !!borderlineRetakeUsed.current[itemId] })
-          : null;
-        // The app's own band check can reject a number the server returned
-        // cleanly; log those raw reads too so no AI output is ever lost.
-        const reason: string | null = serverReason ?? (readingPlan?.kind === 'no_number' ? 'implausible' : null);
-        if (readingPlan?.kind === 'save') {
-          extractedTemp = readingPlan.tempF;
-          // Bands from the shared config (_shared/tempBands.ts) decide pass/fail.
-          tempValid = readingPlan.valid;
-          tempUnconfirmed = !!tempData.unconfirmed;
-          hasNewReading = true;
-          delete borderlineRetakeUsed.current[itemId];
-        }
-        // Hot holding / reheating just under the line: one retake, nothing saved yet.
-        if (readingPlan?.kind === 'retake_borderline') {
-          borderlineRetakeUsed.current[itemId] = true;
-          // Read-issue logs must carry a store (RLS requires location access).
-          if (taskLocationId) void supabase.from('temperature_read_issues').insert({
-            reason: 'borderline_retake',
-            reads: tempData?.readDetails ?? tempData?.reads ?? null,
-            saved_temperature: null,
-            image_url: data.publicUrl,
-            item_id: itemId,
-            submission_id: submissionId || null,
-            location_id: taskLocationId || null,
-            user_id: user?.id,
-          } as any).then(({ error }) => { if (error) console.warn('[temp-read-issue] log failed', error.message); });
-          setResponses(previousResponses);
-          setResponsesWithCompleters(previousResponsesWithCompleters);
-          revokeBlob();
-          setTempRetakeTip(prev => ({ ...prev, [itemId]: readingPlan.message }));
-          toast.warning('Close to the line', { description: readingPlan.message });
-          return;
-        }
-        // Evidence for every photo that didn't get a clean reading.
-        if (reason && taskLocationId) {
-          void supabase.from('temperature_read_issues').insert({
-            reason,
-            reads: tempData?.readDetails ?? tempData?.reads ?? (typeof tempData?.temperature === 'number' ? [tempData.temperature] : null),
-            saved_temperature: hasNewReading ? extractedTemp : null,
-            image_url: data.publicUrl,
-            item_id: itemId,
-            submission_id: submissionId || null,
-            location_id: taskLocationId || null,
-            user_id: user?.id,
-          } as any).then(({ error }) => { if (error) console.warn('[temp-read-issue] log failed', error.message); });
-        }
-        // Too unclear to read: reject this photo (nothing saved) and coach a retake.
-        if (!tempError && tempData?.reason === 'unclear') {
-          const tip = tempCoachingTip(tempData.coaching);
-          setResponses(previousResponses);
-          setResponsesWithCompleters(previousResponsesWithCompleters);
-          revokeBlob();
-          setTempRetakeTip(prev => ({ ...prev, [itemId]: tip }));
-          toast.warning("We couldn't read that photo", { description: tip });
-          return;
-        }
-        if (!hasNewReading) {
-          toast.warning("Couldn't get a sure reading", { description: readingPlan?.kind === 'no_number' ? readingPlan.message : 'Retake the photo, or tap Fix the number and type what the thermometer shows.' });
-          setManualTempOpen(prev => ({ ...prev, [itemId]: true }));
-        }
-
-        // Alert managers if temperature is out of safe zone (unconfirmed still alerts).
-        if (hasNewReading && tempValid === false && extractedTemp !== null && item) {
-          await alertUnsafeTemperature(item, extractedTemp, tempUnconfirmed);
-        }
-      }
+      // Every temperature photo is read by the server (ai-extraction-service, service role);
+      // the phone never writes AI temperature fields.
 
       // Swap the blob URL for the real public URL. IMPORTANT: use the
       // optimisticValue we just computed — NOT `responses[itemId]` from
@@ -1202,15 +1127,6 @@ export default function CompleteChecklist() {
           response_image_url: isMultiPhoto ? null : data.publicUrl,
           response_text: isMultiPhoto ? JSON.stringify(newValue) : null,
           completed_by: user.id,
-          // A retake never erases a saved reading unless it produced a new one.
-          ...(hasNewReading
-            ? {
-                extracted_temperature: extractedTemp,
-                temperature_valid: tempValid,
-                temperature_unconfirmed: tempUnconfirmed,
-                temperature_validated_at: new Date().toISOString(),
-              }
-            : {}),
           // Background read: photo + 'reading' + a fresh token, never temperature fields.
           ...(bgMode
             ? {
@@ -1351,7 +1267,7 @@ export default function CompleteChecklist() {
   /** Token-conditional: only the read that still owns the row can mark it failed. */
   const markBgFailed = async (itemId: string, responseId: string, token: string, reason: string) => {
     const { data, error } = await (supabase.from('checklist_responses') as any)
-      .update({ temperature_read_status: 'failed', temperature_read_reason: reason, temperature_read_coaching: null })
+      .update({ temperature_read_status: 'failed', temperature_read_reason: reason })
       .eq('id', responseId)
       .eq('temperature_read_token', token)
       .select(READ_COLS);

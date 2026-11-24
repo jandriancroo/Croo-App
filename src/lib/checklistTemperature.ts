@@ -40,7 +40,6 @@ export type ManualTemperaturePlan =
         extracted_temperature: number;
         temperature_valid: boolean;
         temperature_unconfirmed: false;
-        temperature_validated_at: string;
         temperature_edited_at: string;
       };
     };
@@ -86,7 +85,6 @@ export function planManualTemperature(input: {
       extracted_temperature: tempF,
       temperature_valid: valid,
       temperature_unconfirmed: false,
-      temperature_validated_at: now,
       temperature_edited_at: now, // server stamps who/when/replaced value
     },
   };

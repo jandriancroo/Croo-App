@@ -331,7 +331,7 @@ async function handleExtractTemperature(payload: any) {
   if (locationId) {
     try {
       const { data: ls } = await getSupabaseClient().from('location_settings').select('digital_orient_reads_enabled').eq('location_id', locationId).maybeSingle();
-      digitalOrient = (ls as any)?.digital_orient_reads_enabled === true;
+      digitalOrient = (ls as any)?.digital_orient_reads_enabled !== false; // missing row = on
     } catch { digitalOrient = false; }
   }
   if (!digitalOrient) return jsonResponse(await readTemperature(payload));
@@ -700,7 +700,7 @@ async function handleExtractTemperatureBg(req: Request, payload: any) {
   }
   if (!locationId) return errorResponse('background_reads_off', 409);
   const { data: ls } = await svc.from('location_settings').select('background_temp_reads_enabled, digital_orient_reads_enabled').eq('location_id', locationId).maybeSingle();
-  if (!(ls as any)?.background_temp_reads_enabled) return errorResponse('background_reads_off', 409);
+  if ((ls as any)?.background_temp_reads_enabled === false) return errorResponse('background_reads_off', 409); // missing row = on
 
   const imageUrl = photoFromRow(row, payload?.imageUrl);
   if (!imageUrl) return errorResponse('No photo on this answer', 400);
@@ -711,7 +711,7 @@ async function handleExtractTemperatureBg(req: Request, payload: any) {
     svc, responseId, token, imageUrl, itemName, equipmentType, locationId,
     itemId: row.item_id, submissionId: row.submission_id, userId: who.user.id,
     borderlineRetakeUsed: payload?.borderlineRetakeUsed === true,
-    digitalOrient: (ls as any)?.digital_orient_reads_enabled === true,
+    digitalOrient: (ls as any)?.digital_orient_reads_enabled !== false,
   }).catch((e) => console.error('[extract-temperature-bg] job failed', e?.status ?? null));
   if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(job);
   return jsonResponse({ accepted: true }, 202);
