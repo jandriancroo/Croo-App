@@ -3,8 +3,8 @@
 // Locked down: only 4 models, only CrooHQ public checklist-images URLs. Safe to delete this folder + its config.toml block anytime.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { Image, decode } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
-import { decideReads, needsTiebreak, applyBands, type TempRead } from "../ai-extraction-service/temperatureDecision.ts";
-import { parseTempReply } from "../ai-extraction-service/parseTempReply.ts";
+import { decideReads, needsTiebreak, applyBands, type TempRead } from "./temperatureDecision.ts";
+import { parseTempReply } from "./parseTempReply.ts";
 import { asEquipmentType, possibleRange, TEMP_BANDS } from "../_shared/tempBands.ts";
 
 const corsHeaders = {
