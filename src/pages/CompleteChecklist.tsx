@@ -1071,7 +1071,7 @@ export default function CompleteChecklist() {
       if (shouldValidateTemp && !bgMode) {
         const { data: tempData, error: tempError } = await supabase.functions.invoke(
           'ai-extraction-service?action=extract-temperature',
-          { body: { imageUrl: data.publicUrl, itemName: item?.question ?? null, equipmentType: asEquipmentType(item?.equipment_type) } }
+          { body: { imageUrl: data.publicUrl, itemName: item?.question ?? null, equipmentType: asEquipmentType(item?.equipment_type), locationId: currentLocation?.id || checklist?.location_id || undefined } }
         );
         const taskLocationId = currentLocation?.id || checklist?.location_id;
         // A disagreement settled by the third read is still logged (with all reads).

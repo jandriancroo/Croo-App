@@ -1,7 +1,7 @@
 import { decideReads, needsTiebreak, applyBands, type TempRead } from './temperatureDecision.ts';
 import { parseTempReply } from './parseTempReply.ts';
 import { asEquipmentType, possibleRange, TEMP_BANDS } from '../_shared/tempBands.ts';
-import { rotations, parseOrientReply } from './orient.ts';
+import { straightener, parseOrientTilt, totalCcw, ORIENT_TILT_PROMPT } from './orient.ts';
 import { readDialWithLuna, LUNA_DIAL_MODEL, type LunaRead } from './lunaDial.ts';
 import { planBackgroundOutcome, jumpCheck, isCurrentReadToken, BG_READ_BUDGET_MS } from '../_shared/bgTempRead.ts';
 
@@ -317,18 +317,69 @@ const TEMP_READ_MODEL = 'google/gemini-3.1-flash-lite';
 
 type CallAIFn = typeof callAI;
 
+// The one line that differs between today's read prompt and the benchmark's
+// 'already turned' prompt (used only after the digital orient pass turned the photo).
+const TAKEN_AS_IS_LINE = '- The photo is exactly as the crew took it: the display may be rotated 90°, 180° or 270°, tilted, or mirrored by the angle. Before reading, work out which way is UP.';
+const ALREADY_TURNED_LINE = '- The photo has usually already been turned and straightened so the display is upright, but check: it may still be rotated or tilted. Before reading, work out which way is UP.';
+
 async function handleExtractTemperature(payload: any) {
   if (!payload?.imageUrl) return errorResponse('Image URL is required', 400);
-  return jsonResponse(await readTemperature(payload));
+  // digital_orient_reads_enabled (default off). Missing locationId (old
+  // clients), a failed lookup or the switch off → exactly today's read.
+  const locationId = typeof payload?.locationId === 'string' && UUID_RE.test(payload.locationId) ? payload.locationId : null;
+  let digitalOrient = false;
+  if (locationId) {
+    try {
+      const { data: ls } = await getSupabaseClient().from('location_settings').select('digital_orient_reads_enabled').eq('location_id', locationId).maybeSingle();
+      digitalOrient = (ls as any)?.digital_orient_reads_enabled === true;
+    } catch { digitalOrient = false; }
+  }
+  if (!digitalOrient) return jsonResponse(await readTemperature(payload));
+  const t0 = Date.now();
+  const usage: BgUsage[] = [];
+  const result = await readTemperature(payload, { digitalOrient: true, ai: recordingCallAI(usage) });
+  console.log('[extract-temperature] usage', JSON.stringify({ path: 'live_orient', route: result?.readerRoute ?? null, ms: Date.now() - t0, calls: usage }));
+  return jsonResponse(result);
+}
+
+/** Live digital-orient path only: same callAI (no retry), records per-call usage for the cost log. */
+function recordingCallAI(usage: BgUsage[]): CallAIFn {
+  return async (messages, tools, toolChoice, modelOverride, signal, extraBody) => {
+    const { __stage, ...rest } = (extraBody ?? {}) as Record<string, unknown>;
+    const body = Object.keys(rest).length ? rest : undefined;
+    const model = modelOverride || 'google/gemini-2.5-flash';
+    const stage = model === LUNA_DIAL_MODEL ? 'dial' : typeof __stage === 'string' ? __stage : 'read';
+    const t = Date.now();
+    try {
+      const data = await callAI(messages, tools, toolChoice, modelOverride, signal, body);
+      usage.push(usageEntry(model, stage, data, true, Date.now() - t));
+      return data;
+    } catch (e) {
+      usage.push(usageEntry(model, stage, null, false, Date.now() - t));
+      throw e;
+    }
+  };
+}
+
+function usageEntry(model: string, stage: string, data: any, ok: boolean, ms: number): BgUsage {
+  const u = data?.usage;
+  return {
+    model, stage, ok, ms,
+    prompt_tokens: typeof u?.prompt_tokens === 'number' ? u.prompt_tokens : null,
+    completion_tokens: typeof u?.completion_tokens === 'number' ? u.completion_tokens : null,
+    reasoning_tokens: typeof u?.completion_tokens_details?.reasoning_tokens === 'number' ? u.completion_tokens_details.reasoning_tokens : null,
+  };
 }
 
 /**
  * The thermometer read itself. The live action (extract-temperature) calls it
  * with no options, exactly as before. The background action passes
- * { background: true, ai } : same Flash-Lite triage, and dials go to Luna's
- * background mode (low effort, no orient, one read).
+ * { background: true, ai }: dials go to Luna's background mode (low effort,
+ * no orient, 2 reads + one tie-break). digitalOrient (its own store switch,
+ * either path): Flash-Lite 4-copy orient + straighten before the triage reads;
+ * dials always go to the dial reader with the ORIGINAL photo.
  */
-async function readTemperature(payload: any, opts: { background?: boolean; ai?: CallAIFn; onDial?: () => void } = {}): Promise<any> {
+async function readTemperature(payload: any, opts: { background?: boolean; digitalOrient?: boolean; ai?: CallAIFn; onDial?: () => void } = {}): Promise<any> {
   const { imageUrl, itemName } = payload;
   const equipmentType = asEquipmentType(payload?.equipmentType);
   const ai: CallAIFn = opts.ai ?? callAI;
@@ -410,41 +461,43 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
     console.error('[extract-temperature] photo download error', String(e));
   }
 
-  // Background path only: Flash-Lite four-copy upright pick, then the triage reads run on
-  // the upright copy. Dials still go to Luna with the photo as taken. Any failure → as taken.
+  // digital_orient_reads_enabled only: Flash-Lite four-copy orient pick + tilt,
+  // then the triage reads run on the turned/straightened copy with the
+  // 'already turned' prompt. Decode/orient failure or no pick → as taken with
+  // today's prompt. Dials always use the original photo (below).
   const originalPayload = imagePayload;
   let readPayload = imagePayload;
-  let bgRotation: number | null = null;
-  if (opts.background && photoBytes) {
+  let readSystemPrompt = systemPrompt;
+  let orientRotation: number | null = null;
+  if (opts.digitalOrient && photoBytes) {
     try {
-      const rot = await rotations(photoBytes);
-      if (rot) {
+      const st = await straightener(photoBytes);
+      if (st) {
         const range = possibleRange(equipmentType);
         const band = equipmentType ? TEMP_BANDS[equipmentType] : null;
         const rangeHint = band
           ? ` This is a ${band.label.toLowerCase()} unit; its thermometer should read somewhere between ${range.min} and ${range.max}°F. Use that only to break a tie between orientations.`
           : '';
-        const orientPrompt = `These are 4 copies of ONE thermometer photo, each turned a different way (Image 1, Image 2, Image 3, Image 4 in order). Exactly one shows the thermometer's display UPRIGHT. Zoom in on the display in each image and pick the upright one.
-Upright means ALL of these:
-- every character is a normal digit standing upright and reading left-to-right;
-- the decimal point sits at the BOTTOM of the digits, just before the last digit (e.g. 36.1);
-- the °F / °C legend and any printed words (brand, HOLD, MAX) read normally, not upside down or mirrored.
-An upside-down 7-segment display still looks like digits but gives it away: a 3 turns into an E, 1 and 7 sit at the wrong edge, and the decimal point floats at the TOP. If an image shows an E, an h, an L, a backwards digit or a top decimal point, it is NOT upright. Two images will be sideways; of the other two, one is the 180° flip of the other — compare those two carefully.${rangeHint} Never decide from the food.
-Reply with one short reason naming the digits you see in the upright image, then the final line exactly: UPRIGHT: <1-4>`;
-        const content: any[] = [{ type: 'text', text: orientPrompt }];
-        rot.thumbs.forEach((url, i) => { content.push({ type: 'text', text: `Image ${i + 1}:` }); content.push({ type: 'image_url', image_url: { url } }); });
+        const content: any[] = [{ type: 'text', text: ORIENT_TILT_PROMPT(rangeHint) }];
+        st.thumbs.forEach((url, i) => { content.push({ type: 'text', text: `Image ${i + 1}:` }); content.push({ type: 'image_url', image_url: { url } }); });
         const data = await ai([{ role: 'user', content }], undefined, undefined, TEMP_READ_MODEL, undefined, { __stage: 'orient' });
-        const r = parseOrientReply(data?.choices?.[0]?.message?.content || '');
-        if (r != null) { bgRotation = r; if (r !== 0) readPayload = await rot.full(r); }
+        const p = parseOrientTilt(data?.choices?.[0]?.message?.content || '');
+        if (p.base != null) {
+          const ccw = totalCcw(p.base, p.tiltCw);
+          readPayload = await st.turned(ccw);
+          readSystemPrompt = systemPrompt.replace(TAKEN_AS_IS_LINE, ALREADY_TURNED_LINE);
+          orientRotation = ccw;
+        }
       }
     } catch (e: any) {
-      console.warn('[extract-temperature-bg] upright pick failed; reading as taken', e?.status ?? null);
+      console.warn('[extract-temperature] orient failed; reading as taken', e?.status ?? null);
       readPayload = originalPayload;
-      bgRotation = null;
+      readSystemPrompt = systemPrompt;
+      orientRotation = null;
     }
   }
   const msgs = [
-    { role: 'system', content: systemPrompt },
+    { role: 'system', content: readSystemPrompt },
     { role: 'user', content: [ { type: 'text', text: userPrompt }, { type: 'image_url', image_url: { url: readPayload } } ] },
   ];
   type DisplayRaw = 'digital' | 'dial' | 'bar' | null;
@@ -454,7 +507,7 @@ Reply with one short reason naming the digits you see in the upright image, then
     raw === 'digital' ? 'digital' : raw === 'dial' || raw === 'bar' ? 'analog' : null;
   const readOnce = async (stage: 'read' | 'tiebreak' = 'read'): Promise<ReadOut> => {
     try {
-      const data = await ai(msgs, undefined, undefined, TEMP_READ_MODEL, undefined, opts.background ? { __stage: stage } : undefined);
+      const data = await ai(msgs, undefined, undefined, TEMP_READ_MODEL, undefined, opts.background || opts.digitalOrient ? { __stage: stage } : undefined);
       const text: string = data?.choices?.[0]?.message?.content || '';
       const parsed = parseTempReply(text);
       // parseTempReply only knows digital/dial; keep a glass-tube "bar" tag too.
@@ -510,7 +563,7 @@ Reply with one short reason naming the digits you see in the upright image, then
       };
     }
   } else {
-    fin = { decision: d, model: TEMP_READ_MODEL, readerRoute: displayRaw === 'digital' ? 'digital_fast' : 'other_fast', rotation: opts.background ? bgRotation : null, finalReads: reads, readDetails: triageDetails, dialMs: null };
+    fin = { decision: d, model: TEMP_READ_MODEL, readerRoute: displayRaw === 'digital' ? 'digital_fast' : 'other_fast', rotation: orientRotation, finalReads: reads, readDetails: triageDetails, dialMs: null };
   }
   const fd = fin.decision;
   console.log('[extract-temperature] reads', JSON.stringify({ route: fin.readerRoute, model: fin.model, displayType, dialMs: fin.dialMs, reads: fin.finalReads.map(r => r.value) }));
@@ -554,25 +607,18 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Gateway call with one short retry on 429 / 5xx, bounded by the overall budget signal. */
-type BgUsage = { model: string; stage: string; prompt_tokens: number | null; completion_tokens: number | null; reasoning_tokens: number | null; ok: boolean };
+type BgUsage = { model: string; stage: string; prompt_tokens: number | null; completion_tokens: number | null; reasoning_tokens: number | null; ok: boolean; ms: number };
 function bgCallAI(overall: AbortSignal, usage: BgUsage[]): CallAIFn {
   return async (messages, tools, toolChoice, modelOverride, signal, extraBody) => {
     const sig = signal ? AbortSignal.any([signal, overall]) : overall;
     // __stage is a local label for the cost log; it is never sent to the gateway.
     const { __stage, ...rest } = (extraBody ?? {}) as Record<string, unknown>;
     const body = Object.keys(rest).length ? rest : undefined;
-    const stage = typeof __stage === 'string' ? __stage : 'read';
+    let stage = typeof __stage === 'string' ? __stage : 'read';
     const model = modelOverride || 'google/gemini-2.5-flash';
-    const record = (data: any, ok: boolean) => {
-      const u = data?.usage;
-      usage.push({
-        model, stage, ok,
-        prompt_tokens: typeof u?.prompt_tokens === 'number' ? u.prompt_tokens : null,
-        completion_tokens: typeof u?.completion_tokens === 'number' ? u.completion_tokens : null,
-        reasoning_tokens: typeof u?.completion_tokens_details?.reasoning_tokens === 'number' ? u.completion_tokens_details.reasoning_tokens : null,
-      });
-      return data;
-    };
+    if (model === LUNA_DIAL_MODEL) stage = 'dial';
+    let t = Date.now();
+    const record = (data: any, ok: boolean) => { usage.push(usageEntry(model, stage, data, ok, Date.now() - t)); return data; };
     try {
       return record(await callAI(messages, tools, toolChoice, modelOverride, sig, body), true);
     } catch (e: any) {
@@ -580,6 +626,7 @@ function bgCallAI(overall: AbortSignal, usage: BgUsage[]): CallAIFn {
       if (sig.aborted || !(s === 429 || s >= 500)) { record(null, false); throw e; }
       await sleep(1500);
       if (sig.aborted) { record(null, false); throw e; }
+      t = Date.now();
       try { return record(await callAI(messages, tools, toolChoice, modelOverride, sig, body), true); }
       catch (e2) { record(null, false); throw e2; }
     }
@@ -652,7 +699,7 @@ async function handleExtractTemperatureBg(req: Request, payload: any) {
     locationId = cl?.location_id ?? null;
   }
   if (!locationId) return errorResponse('background_reads_off', 409);
-  const { data: ls } = await svc.from('location_settings').select('background_temp_reads_enabled').eq('location_id', locationId).maybeSingle();
+  const { data: ls } = await svc.from('location_settings').select('background_temp_reads_enabled, digital_orient_reads_enabled').eq('location_id', locationId).maybeSingle();
   if (!(ls as any)?.background_temp_reads_enabled) return errorResponse('background_reads_off', 409);
 
   const imageUrl = photoFromRow(row, payload?.imageUrl);
@@ -664,6 +711,7 @@ async function handleExtractTemperatureBg(req: Request, payload: any) {
     svc, responseId, token, imageUrl, itemName, equipmentType, locationId,
     itemId: row.item_id, submissionId: row.submission_id, userId: who.user.id,
     borderlineRetakeUsed: payload?.borderlineRetakeUsed === true,
+    digitalOrient: (ls as any)?.digital_orient_reads_enabled === true,
   }).catch((e) => console.error('[extract-temperature-bg] job failed', e?.status ?? null));
   if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(job);
   return jsonResponse({ accepted: true }, 202);
@@ -672,7 +720,7 @@ async function handleExtractTemperatureBg(req: Request, payload: any) {
 async function runBackgroundRead(j: {
   svc: any; responseId: string; token: string; imageUrl: string; itemName: string | null;
   equipmentType: ReturnType<typeof asEquipmentType>; locationId: string; itemId: string;
-  submissionId: string; userId: string; borderlineRetakeUsed: boolean;
+  submissionId: string; userId: string; borderlineRetakeUsed: boolean; digitalOrient: boolean;
 }) {
   const t0 = Date.now();
   const ctl = new AbortController();
@@ -687,7 +735,7 @@ async function runBackgroundRead(j: {
   };
   try {
     result = await Promise.race([
-      readTemperature({ imageUrl: j.imageUrl, itemName: j.itemName, equipmentType: j.equipmentType }, { background: true, ai: bgCallAI(ctl.signal, usage), onDial }),
+      readTemperature({ imageUrl: j.imageUrl, itemName: j.itemName, equipmentType: j.equipmentType }, { background: true, digitalOrient: j.digitalOrient, ai: bgCallAI(ctl.signal, usage), onDial }),
       new Promise<null>((r) => ctl.signal.addEventListener('abort', () => r(null))),
     ]);
   } catch (e: any) {

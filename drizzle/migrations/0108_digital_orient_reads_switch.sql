@@ -1,0 +1,1 @@
+ALTER TABLE public.location_settings ADD COLUMN IF NOT EXISTS digital_orient_reads_enabled boolean NOT NULL DEFAULT false;

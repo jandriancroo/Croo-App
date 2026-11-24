@@ -8925,6 +8925,7 @@ export type Database = {
           break_coverage_enabled: boolean
           created_at: string
           day_part_am_cutoff: string
+          digital_orient_reads_enabled: boolean
           drawer_bank: number
           drawer_count_notifications_enabled: boolean
           hours_close: string | null
@@ -8966,6 +8967,7 @@ export type Database = {
           break_coverage_enabled?: boolean
           created_at?: string
           day_part_am_cutoff?: string
+          digital_orient_reads_enabled?: boolean
           drawer_bank?: number
           drawer_count_notifications_enabled?: boolean
           hours_close?: string | null
@@ -9007,6 +9009,7 @@ export type Database = {
           break_coverage_enabled?: boolean
           created_at?: string
           day_part_am_cutoff?: string
+          digital_orient_reads_enabled?: boolean
           drawer_bank?: number
           drawer_count_notifications_enabled?: boolean
           hours_close?: string | null
