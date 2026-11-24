@@ -1,6 +1,7 @@
 import { decideReads, needsTiebreak, applyBands, type TempRead } from './temperatureDecision.ts';
 import { parseTempReply } from './parseTempReply.ts';
 import { asEquipmentType } from '../_shared/tempBands.ts';
+import { readDialWithLuna, LUNA_DIAL_MODEL, type LunaRead } from './lunaDial.ts';
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -26,7 +27,7 @@ function getLovableApiKey(): string {
   return key;
 }
 
-async function callAI(messages: any[], tools?: any[], toolChoice?: any, modelOverride?: string) {
+async function callAI(messages: any[], tools?: any[], toolChoice?: any, modelOverride?: string, signal?: AbortSignal) {
   const apiKey = getLovableApiKey();
   const body: any = {
     model: modelOverride || 'google/gemini-2.5-flash',
@@ -42,6 +43,7 @@ async function callAI(messages: any[], tools?: any[], toolChoice?: any, modelOve
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
+    signal,
   });
 
   if (!response.ok) {
@@ -372,10 +374,11 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
   // can't fetch storage links directly ("Cannot fetch content from URL").
   let imagePayload = imageUrl;
   let photoType = 'image/jpeg';
+  let photoBytes: Uint8Array | null = null;
   try {
     const imgRes = await fetch(imageUrl);
     if (imgRes.ok) {
-      const photoBytes = new Uint8Array(await imgRes.arrayBuffer());
+      photoBytes = new Uint8Array(await imgRes.arrayBuffer());
       photoType = imgRes.headers.get('content-type') || 'image/jpeg';
       let bin = '';
       for (let i = 0; i < photoBytes.length; i += 0x8000) bin += String.fromCharCode(...photoBytes.subarray(i, i + 0x8000));
@@ -420,31 +423,71 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
   const displayRaw: DisplayRaw = (c && d.tiebreak ? c.displayRaw : null) ?? a.displayRaw ?? b.displayRaw ?? null;
   const displayType = toDisplayType(displayRaw);
   const defrostOrError = reads.some(r => r.defrost === true);
-  const readDetails = reads.map(({ displayRaw: raw, ...r }) => ({ ...r, displayType: toDisplayType(raw ?? null) }));
-  console.log('[extract-temperature] reads', JSON.stringify({ model: TEMP_READ_MODEL, displayType, reads: readDetails }));
-  if (d.reason || d.tiebreak) console.warn('[extract-temperature] not a clean pair', d.reason, d.tiebreak, JSON.stringify(readDetails));
+  const toDetail = (model: string, stage: 'triage' | 'dial') =>
+    ({ displayRaw: raw, errored: _e, ...r }: LunaRead) => ({ ...r, displayType: toDisplayType(raw ?? null), model, stage });
+  const triageDetails = reads.map(toDetail(TEMP_READ_MODEL, 'triage'));
+
+  // Ship 4 hybrid router: any triage read tagged DISPLAY: dial → re-read by
+  // GPT-6 Luna (lunaDial.ts). Luna decides dials; if Luna fails, no number —
+  // never the Flash-Lite dial number. Glass tubes (bar) and no-thermometer
+  // photos stay on Flash-Lite. Rescan passes dialRouter:false.
+  const dialRouter = payload?.dialRouter !== false;
+  const isDial = reads.some(r => r.displayRaw === 'dial');
+  type Final = { decision: typeof d; model: string; readerRoute: string; rotation: number | null; finalReads: LunaRead[]; readDetails: any[]; dialMs: number | null };
+  let fin: Final;
+  if (dialRouter && isDial) {
+    const tDial = Date.now();
+    let luna: Awaited<ReturnType<typeof readDialWithLuna>> | null = null;
+    try {
+      luna = await readDialWithLuna({ photoBytes, imagePayload, equipmentType, userPrompt, callAI });
+    } catch (e: any) {
+      console.error('[extract-temperature] dial reader threw', e?.status ?? null);
+      luna = null;
+    }
+    const dialMs = luna?.ms ?? (Date.now() - tDial);
+    const lunaReads: LunaRead[] = luna ? (luna.c ? [luna.a, luna.b, luna.c] : [luna.a, luna.b]) : [];
+    const readDetails = [...triageDetails, ...lunaReads.map(toDetail(LUNA_DIAL_MODEL, 'dial'))];
+    if (luna && !luna.failed) {
+      fin = { decision: applyBands(decideReads(luna.a, luna.b, luna.c), equipmentType), model: LUNA_DIAL_MODEL, readerRoute: 'dial_luna', rotation: luna.rotation, finalReads: lunaReads, readDetails, dialMs };
+    } else {
+      fin = {
+        decision: { temperature: null, isValid: null, unconfirmed: false, reason: 'read_failed', coaching: null, tiebreak: false, verdict: null } as typeof d,
+        model: LUNA_DIAL_MODEL, readerRoute: 'dial_luna_failed', rotation: luna?.rotation ?? null,
+        finalReads: lunaReads.length ? lunaReads : [{ value: null }, { value: null }], readDetails, dialMs,
+      };
+    }
+  } else {
+    fin = { decision: d, model: TEMP_READ_MODEL, readerRoute: displayRaw === 'digital' ? 'digital_fast' : 'other_fast', rotation: null, finalReads: reads, readDetails: triageDetails, dialMs: null };
+  }
+  const fd = fin.decision;
+  console.log('[extract-temperature] reads', JSON.stringify({ route: fin.readerRoute, model: fin.model, displayType, dialMs: fin.dialMs, reads: fin.finalReads.map(r => r.value) }));
+  if (fd.reason || fd.tiebreak) console.warn('[extract-temperature] not a clean pair', fd.reason, fd.tiebreak, JSON.stringify(fin.readDetails));
   return jsonResponse({
-    temperature: d.temperature,
-    isValid: d.isValid,
+    temperature: fd.temperature,
+    isValid: fd.isValid,
     unconfirmed: false,
-    reason: d.reason,
-    coaching: d.coaching,
-    tiebreak: d.tiebreak,
+    reason: fd.reason,
+    coaching: fd.coaching,
+    tiebreak: fd.tiebreak,
     // pass | fail | borderline (hot tags: one retake) | null; implausible → reason 'implausible'.
-    verdict: d.verdict,
-    implausibleValue: d.implausibleValue ?? null,
+    verdict: fd.verdict,
+    implausibleValue: fd.implausibleValue ?? null,
     equipmentType,
-    // No rotation pre-pass any more; kept so the response shape doesn't change.
-    rotation: null,
+    // Flash-Lite never rotates (null); Luna dial reads report their CCW turn.
+    rotation: fin.rotation,
+    // Display tags always come from the Flash-Lite triage.
     displayType,
     displayRaw,
     defrostOrError,
-    model: TEMP_READ_MODEL,
-    unreadable: d.temperature == null,
-    extractedText: d.temperature == null ? 'NONE' : String(d.temperature),
-    // Raw numbers stay in `reads` (old shape); the full read detail is in readDetails.
-    reads: reads.map(r => r.value),
-    readDetails,
+    // The model that made the final decision.
+    model: fin.model,
+    unreadable: fd.temperature == null,
+    extractedText: fd.temperature == null ? 'NONE' : String(fd.temperature),
+    // Raw numbers stay in `reads` (old shape, final decider's reads); readDetails has triage + dial evidence.
+    reads: fin.finalReads.map(r => r.value),
+    readDetails: fin.readDetails,
+    readerRoute: fin.readerRoute,
+    dialMs: fin.dialMs,
   });
 }
 
@@ -966,7 +1009,8 @@ async function handleRescanTemperatures(payload: any) {
       const item = (response.checklist_items as any)?.[0] || (response.checklist_items as any);
       const question = item?.question || 'Unknown';
 
-      const extractResult = await handleExtractTemperature({ imageUrl: response.response_image_url, itemName: question, equipmentType: item?.equipment_type ?? null });
+      // dialRouter:false keeps rescans fast (Flash-Lite only, inside the 150 s limit).
+      const extractResult = await handleExtractTemperature({ imageUrl: response.response_image_url, itemName: question, equipmentType: item?.equipment_type ?? null, dialRouter: false });
       const extractData = await extractResult.json();
 
       if (extractResult.status !== 200) {
@@ -977,6 +1021,12 @@ async function handleRescanTemperatures(payload: any) {
           error: extractData.error || 'Extraction failed',
           previousTemp: response.extracted_temperature
         });
+        continue;
+      }
+
+      // Flash-Lite must never overwrite a dial reading (dials are decided by Luna).
+      if (extractData.displayRaw === 'dial') {
+        results.push({ id: response.id, question, success: false, error: 'Dial — kept the saved value', previousTemp: response.extracted_temperature });
         continue;
       }
 

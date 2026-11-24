@@ -1,63 +1,20 @@
-// temp-benchmark-test — ISOLATED, READ-ONLY benchmark endpoint (Nov 23 2026, approved by Jordan for the Sparks 5-day benchmark).
-// Not used by the app. Stateless: no database reads or writes. Live crew scans keep using ai-extraction-service unchanged.
-// Locked down: only 4 models, only CrooHQ public checklist-images URLs. Safe to delete this folder + its config.toml block anytime.
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// lunaDial.ts — Ship 4 (Nov 23 2026) dial re-read for extract-temperature.
+// When the Flash-Lite triage says DISPLAY: dial, the photo is re-read here by
+// openai/gpt-6-luna with the benchmark prompt + the 5-rule dial block: one orient
+// call (4 cardinal copies + TILT_CW, rotated in code), two parallel reads, at
+// most one tie-break. 100 s budget, 60 s per call. Ported verbatim from the
+// retired temp-benchmark-test function (prompts unchanged).
+// Logging: fixed messages + status codes only — never orient text, model
+// replies, prompts, image data, response bodies or keys.
 import { Image, decode } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
-import { decideReads, needsTiebreak, applyBands, type TempRead } from "./temperatureDecision.ts";
-import { parseTempReply } from "./parseTempReply.ts";
-import { asEquipmentType, possibleRange, TEMP_BANDS } from "../_shared/tempBands.ts";
+import { needsTiebreak, type TempRead } from './temperatureDecision.ts';
+import { parseTempReply } from './parseTempReply.ts';
+import { possibleRange, TEMP_BANDS, type EquipmentType } from '../_shared/tempBands.ts';
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-const json = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
-const ALLOWED_MODELS = new Set(["openai/gpt-6-luna", "openai/gpt-5.4-mini", "google/gemini-3-flash-preview", "google/gemini-3.1-flash-lite"]);
-const IMAGE_ORIGIN = "https://lmodeiyrpwvgyqcvjkjr.supabase.co";
-const IMAGE_PATH_PREFIX = "/storage/v1/object/public/checklist-images/";
-const MAX_BYTES = 15 * 1024 * 1024;
-
-function imageUrlAllowed(raw: unknown): raw is string {
-  if (typeof raw !== "string" || !raw.startsWith(IMAGE_ORIGIN + IMAGE_PATH_PREFIX)) return false;
-  try {
-    const u = new URL(raw);
-    return u.protocol === "https:" && u.origin === IMAGE_ORIGIN && u.pathname.startsWith(IMAGE_PATH_PREFIX) && !u.pathname.includes("..") && !u.username && !u.password;
-  } catch { return false; }
-}
-
-type Usage = { prompt_tokens: number; completion_tokens: number; reasoning_tokens: number };
-async function callAI(model: string, messages: unknown[]): Promise<{ text: string; usage: Usage; ms: number }> {
-  const key = Deno.env.get("LOVABLE_API_KEY");
-  if (!key) throw { status: 500, message: "LOVABLE_API_KEY is not configured" };
-  const t0 = Date.now();
-  const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), 90_000);
-  try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model, messages }),
-      signal: ctl.signal,
-    });
-    if (!res.ok) {
-      const body = (await res.text()).slice(0, 300);
-      throw { status: res.status, message: `gateway ${res.status}: ${body}` };
-    }
-    const data = await res.json();
-    const u = data?.usage ?? {};
-    return {
-      text: data?.choices?.[0]?.message?.content ?? "",
-      usage: {
-        prompt_tokens: Number(u.prompt_tokens) || 0,
-        completion_tokens: Number(u.completion_tokens) || 0,
-        reasoning_tokens: Number(u.completion_tokens_details?.reasoning_tokens) || 0,
-      },
-      ms: Date.now() - t0,
-    };
-  } finally { clearTimeout(timer); }
-}
+export const LUNA_DIAL_MODEL = 'openai/gpt-6-luna';
+export const LUNA_BUDGET_MS = 100_000;
+const PER_CALL_MS = 60_000;
+const TIEBREAK_MIN_MS = 30_000;
 
 const toDataUrl = (bytes: Uint8Array) => {
   let bin = "";
@@ -149,7 +106,7 @@ CONFIDENCE: <0 to 1>
 TENTHS: sure|unsure|none
 ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
 
-// Test-only (benchmark): tightened 5-rule analog dial block, appended only when payload.dialRules === true.
+// Tightened 5-rule analog dial block (benchmark dialRules=true), always appended for Luna dial reads.
 const DIAL_5RULE = `
 
 TIGHTENED ANALOG DIAL RULES (these override the DIAL section above when they disagree):
@@ -159,41 +116,53 @@ TIGHTENED ANALOG DIAL RULES (these override the DIAL section above when they dis
 4. Follow the tapered/pointed pointer TIP, NOT the chunky counterweight tail behind the centre hub and NOT any mechanical stop pin.
 5. Cross-check against the green/red or blue/pink/red coloured zone band under the tip. Ignore glass glare, needle shadow, water/condensation and sideways rotation. If it is genuinely unreadable, answer NONE rather than guessing.`;
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method !== "POST") return json({ error: "POST only" }, 405);
+export const LUNA_DIAL_SYSTEM_PROMPT = SYSTEM_PROMPT + DIAL_5RULE;
+
+type DisplayRaw = 'digital' | 'dial' | 'bar' | null;
+export type LunaRead = TempRead & { defrost?: boolean; displayRaw?: DisplayRaw; errored?: boolean };
+export interface LunaDialResult {
+  a: LunaRead;
+  b: LunaRead;
+  c: LunaRead | null;
+  /** Total counter-clockwise turn applied before reading, or null when read as taken. */
+  rotation: number | null;
+  ms: number;
+  /** True when no read returned at all (every call errored or timed out). */
+  failed: boolean;
+}
+type CallAI = (messages: any[], tools?: any[], toolChoice?: any, modelOverride?: string, signal?: AbortSignal) => Promise<any>;
+
+export async function readDialWithLuna(opts: {
+  photoBytes: Uint8Array | null;
+  imagePayload: string;
+  equipmentType: EquipmentType | null;
+  userPrompt: string;
+  callAI: CallAI;
+}): Promise<LunaDialResult> {
+  const { photoBytes, imagePayload, equipmentType, userPrompt, callAI } = opts;
   const t0 = Date.now();
-  let payload: any;
-  try { payload = await req.json(); } catch { return json({ error: "invalid JSON" }, 400); }
-  const model = payload?.model;
-  if (typeof model !== "string" || !ALLOWED_MODELS.has(model)) return json({ error: "model not allowed" }, 400);
-  const imageUrl = payload?.imageUrl;
-  if (!imageUrlAllowed(imageUrl)) return json({ error: "imageUrl not allowed" }, 400);
-  const equipmentType = asEquipmentType(payload?.equipmentType);
-  const itemName = typeof payload?.itemName === "string" ? payload.itemName.slice(0, 200) : "";
-  const skipOrient = payload?.skipOrient === true;
-  const dialRules = payload?.dialRules === true; // test-only: append DIAL_5RULE to the read prompt
-
-  const usage = { prompt_tokens: 0, completion_tokens: 0, reasoning_tokens: 0, total_tokens: 0, orient_prompt_tokens: 0, orient_completion_tokens: 0, read_calls: 0 };
-  const add = (u: Usage) => { usage.prompt_tokens += u.prompt_tokens; usage.completion_tokens += u.completion_tokens; usage.reasoning_tokens += u.reasoning_tokens; usage.total_tokens += u.prompt_tokens + u.completion_tokens; };
-
-  // Download (redirects not followed, size capped).
-  let bytes: Uint8Array;
-  try {
-    const r = await fetch(imageUrl, { redirect: "error" });
-    if (!r.ok) return json({ error: `photo download failed ${r.status}` }, 502);
-    const len = Number(r.headers.get("content-length") || 0);
-    if (len > MAX_BYTES) return json({ error: "photo too large" }, 413);
-    bytes = new Uint8Array(await r.arrayBuffer());
-    if (bytes.length > MAX_BYTES) return json({ error: "photo too large" }, 413);
-  } catch (e) { return json({ error: `photo download error ${String(e).slice(0, 120)}` }, 502); }
+  const remaining = () => LUNA_BUDGET_MS - (Date.now() - t0);
+  // One Luna call with its own AbortController: min(60 s, remaining budget).
+  const callLuna = async (messages: any[]): Promise<string> => {
+    const timeout = Math.min(PER_CALL_MS, remaining());
+    if (timeout <= 0) throw { status: 408, message: 'dial budget used up' };
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), timeout);
+    try {
+      const data = await callAI(messages, undefined, undefined, LUNA_DIAL_MODEL, ctl.signal);
+      return data?.choices?.[0]?.message?.content || '';
+    } finally { clearTimeout(timer); }
+  };
 
   let img: Image | null = null;
-  try { const d = await decode(bytes); if (d instanceof Image) img = d; } catch { img = null; }
+  if (photoBytes) {
+    try { const d = await decode(photoBytes); if (d instanceof Image) img = d; } catch { img = null; }
+  }
 
-  let baseRotation: number | null = null, tiltCw = 0, orientText = "", orientMs = 0, orientError: string | null = null;
-  let readUrl = toDataUrl(bytes);
-  if (img && !skipOrient) {
+  // a) Orient: one call on 4 cardinal copies; any failure → read the photo as taken.
+  let readUrl = imagePayload;
+  let rotation: number | null = null;
+  if (img) {
     try {
       const small = fit(img.clone(), 1200);
       const content: any[] = [];
@@ -206,72 +175,42 @@ serve(async (req) => {
         content.push({ type: "text", text: `Image ${i + 1}:` });
         content.push({ type: "image_url", image_url: { url: toDataUrl(await c.encodeJPEG(80)) } });
       }
-      const o = await callAI(model, [{ role: "user", content }]);
-      add(o.usage); usage.orient_prompt_tokens = o.usage.prompt_tokens; usage.orient_completion_tokens = o.usage.completion_tokens;
-      orientText = o.text.slice(-400); orientMs = o.ms;
-      const p = parseOrient(o.text);
-      baseRotation = p.base; tiltCw = p.base == null ? 0 : p.tiltCw;
-      if (baseRotation != null) {
-        const ccw = (((baseRotation - tiltCw) % 360) + 360) % 360;
+      const text = await callLuna([{ role: "user", content }]);
+      const p = parseOrient(text);
+      if (p.base != null) {
+        const ccw = (((p.base - p.tiltCw) % 360) + 360) % 360;
         const turned = (ccw === 0 ? img.clone() : img.clone().rotate(ccw)) as Image;
         readUrl = toDataUrl(await fit(turned, 1400).encodeJPEG(88));
+        rotation = ccw;
+      } else {
+        console.warn('[extract-temperature] dial orient unparseable; reading as taken');
       }
     } catch (e: any) {
-      orientError = String(e?.message ?? e).slice(0, 200);
-      baseRotation = null; tiltCw = 0;
+      console.warn('[extract-temperature] dial orient failed; reading as taken', e?.status ?? null);
+      readUrl = imagePayload;
+      rotation = null;
     }
   }
-  const totalRotationCcw = baseRotation == null ? 0 : (((baseRotation - tiltCw) % 360) + 360) % 360;
 
-  const userPrompt = `Read the temperature on this thermometer.${itemName ? ` The item being measured is: "${itemName}" (context only — read the thermometer, not the food).` : ""}`;
+  // b) Two parallel reads, c) at most one tie-break if ≥30 s of budget remain.
   const msgs = [
-    { role: "system", content: dialRules ? SYSTEM_PROMPT + DIAL_5RULE : SYSTEM_PROMPT },
-    { role: "user", content: [{ type: "text", text: userPrompt }, { type: "image_url", image_url: { url: readUrl } }] },
+    { role: 'system', content: LUNA_DIAL_SYSTEM_PROMPT },
+    { role: 'user', content: [{ type: 'text', text: userPrompt }, { type: 'image_url', image_url: { url: readUrl } }] },
   ];
-  const readDetails: any[] = [];
-  const readOnce = async (): Promise<TempRead> => {
+  const readOnce = async (): Promise<LunaRead> => {
     try {
-      const r = await callAI(model, msgs);
-      add(r.usage); usage.read_calls++;
-      const parsed = parseTempReply(r.text);
-      const defrost = /ISSUE:\s*\**\s*defrost_or_error/i.test(r.text);
-      readDetails.push({ ...parsed, defrost, ms: r.ms, usage: r.usage, tail: r.text.slice(-260) });
-      return defrost ? { ...parsed, value: null } : parsed;
+      const text = await callLuna(msgs);
+      const parsed = parseTempReply(text);
+      const displayRaw: DisplayRaw = parsed.display ?? (/^\s*\**DISPLAY\**:\s*\**\s*bar/im.test(text) ? 'bar' : null);
+      if (/ISSUE:\s*\**\s*defrost_or_error/i.test(text)) return { ...parsed, value: null, defrost: true, displayRaw };
+      return { ...parsed, displayRaw };
     } catch (e: any) {
-      readDetails.push({ value: null, error: String(e?.message ?? e).slice(0, 200) });
-      return { value: null };
+      console.error('[extract-temperature] dial read failed', e?.status ?? null);
+      return { value: null, errored: true };
     }
   };
   const [a, b] = await Promise.all([readOnce(), readOnce()]);
-  const c = needsTiebreak(a, b) ? await readOnce() : null;
-  const reads = c ? [a, b, c] : [a, b];
-  const d = applyBands(decideReads(a, b, c), equipmentType);
-  const defrostOrError = readDetails.some((r) => r.defrost);
-  const display = (c && d.tiebreak ? c.display : null) ?? a.display ?? b.display ?? null;
-
-  return json({
-    model,
-    dialRules,
-    temperature: d.temperature,
-    isValid: d.isValid,
-    verdict: d.verdict,
-    reason: d.reason ?? (defrostOrError ? "defrost_or_error" : null),
-    defrostOrError,
-    coaching: d.coaching,
-    tiebreak: d.tiebreak,
-    implausibleValue: d.implausibleValue ?? null,
-    reads: reads.map((r) => r.value),
-    readDetails,
-    rotation: totalRotationCcw,
-    baseRotation,
-    tiltCw,
-    orientText,
-    orientMs,
-    orientError,
-    displayType: display,
-    equipmentType,
-    usage,
-    elapsedMs: Date.now() - t0,
-  });
-});
-
+  const c = needsTiebreak(a, b) && remaining() >= TIEBREAK_MIN_MS ? await readOnce() : null;
+  const all = c ? [a, b, c] : [a, b];
+  return { a, b, c, rotation, ms: Date.now() - t0, failed: all.every(r => r.errored === true) };
+}
