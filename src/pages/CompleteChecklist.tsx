@@ -157,6 +157,10 @@ export default function CompleteChecklist() {
   const [finishWait, setFinishWait] = useState<null | { stage: 'waiting' | 'confirm'; proceed: () => void }>(null);
   const notesTimeoutRef = useRef<NodeJS.Timeout>();
   const rwcRef = useRef(responsesWithCompleters);
+  // Newest read token per item, set synchronously (state lags a render behind).
+  const bgTokenRef = useRef<Record<string, string>>({});
+  // Tokens this page already kicked (or timed out) this session: never double-kick.
+  const bgKickedRef = useRef<Set<string>>(new Set());
   rwcRef.current = responsesWithCompleters;
   const {
     user
@@ -566,6 +570,7 @@ export default function CompleteChecklist() {
           loadedResponses[resp.item_id] = value;
 
           // Always track the response so undo works even without completed_by
+          if (resp.temperature_read_token) bgTokenRef.current[resp.item_id] = resp.temperature_read_token;
           loadedWithCompleters[resp.item_id] = {
             responseId: resp.id,
             value,
@@ -1067,6 +1072,7 @@ export default function CompleteChecklist() {
       // Store switch on: the server reads the photo in the background; the phone doesn't wait.
       const bgMode = shouldValidateTemp;
       const bgToken = bgMode ? crypto.randomUUID() : null;
+      if (bgToken) bgTokenRef.current[itemId] = bgToken;
       const bgStartedAt = bgMode ? new Date().toISOString() : null;
       // Every temperature photo is read by the server (ai-extraction-service, service role);
       // the phone never writes AI temperature fields.
@@ -1276,12 +1282,13 @@ export default function CompleteChecklist() {
   };
 
   const enqueueBgKick = (k: { itemId: string; responseId: string; token: string; imageUrl: string; itemName: string | null; equipmentType: string | null }) => {
+    bgKickedRef.current.add(k.token);
     kickQueue.current.push(async () => {
       const delays = [0, 1000, 3000];
       for (let i = 0; i < delays.length; i++) {
         if (delays[i]) await new Promise(r => setTimeout(r, delays[i]));
         // A newer photo took over: drop this kick-off.
-        if (rwcRef.current[k.itemId]?.readToken !== k.token) return;
+        if (bgTokenRef.current[k.itemId] !== k.token) return;
         const { error } = await supabase.functions.invoke('ai-extraction-service?action=extract-temperature-bg', {
           body: { responseId: k.responseId, token: k.token, itemName: k.itemName, equipmentType: k.equipmentType, imageUrl: k.imageUrl, borderlineRetakeUsed: !!borderlineRetakeUsed.current[k.itemId] },
         });
@@ -1290,7 +1297,7 @@ export default function CompleteChecklist() {
         const retryable = !Number.isFinite(status) || status >= 500;
         if (!retryable) break;
       }
-      if (rwcRef.current[k.itemId]?.readToken === k.token) await markBgFailed(k.itemId, k.responseId, k.token, 'function_error');
+      if (bgTokenRef.current[k.itemId] === k.token) await markBgFailed(k.itemId, k.responseId, k.token, 'function_error');
     });
     pumpBgKicks();
   };
@@ -1305,6 +1312,7 @@ export default function CompleteChecklist() {
       if (error) return;
       setResponses(p => { const n = { ...p }; delete n[itemId]; return n; });
       setResponsesWithCompleters(p => { const n = { ...p }; delete n[itemId]; return n; });
+      delete bgTokenRef.current[itemId];
       clearChecklistDraftValue(draftKeysRef.current, itemId);
       return;
     }
@@ -1393,6 +1401,36 @@ export default function CompleteChecklist() {
     setManualTempOpen(prev => ({ ...prev, [row.item_id]: true }));
   };
   const applyReadRowRef = useRef(applyReadRow);
+  /** Rows still 'reading' that this page never kicked: kick if fresh, else mark timed out. */
+  const recoverBgReads = async () => {
+    if (!submissionId) return;
+    const { data } = await (supabase.from('checklist_responses') as any)
+      .select('id, item_id, temperature_read_token, temperature_read_started_at, response_image_url, response_text')
+      .eq('submission_id', submissionId)
+      .eq('temperature_read_status', 'reading');
+    for (const row of data ?? []) {
+      const token: string | null = row.temperature_read_token;
+      if (!token || !row.item_id || bgKickedRef.current.has(token)) continue;
+      const known = bgTokenRef.current[row.item_id];
+      if (known && known !== token) continue;
+      bgTokenRef.current[row.item_id] = token;
+      const startedMs = row.temperature_read_started_at ? new Date(row.temperature_read_started_at).getTime() : 0;
+      if (Date.now() - startedMs >= BG_CLIENT_TIMEOUT_MS) {
+        bgKickedRef.current.add(token);
+        void markBgFailed(row.item_id, row.id, token, 'timeout');
+        continue;
+      }
+      let imageUrl: string | null = row.response_image_url ?? null;
+      if (!imageUrl && row.response_text) {
+        try { const arr = JSON.parse(row.response_text); if (Array.isArray(arr) && arr.length) imageUrl = String(arr[arr.length - 1]); } catch { /* not a photo list */ }
+      }
+      if (!imageUrl) continue;
+      const item = items.find(i => i.id === row.item_id);
+      enqueueBgKick({ itemId: row.item_id, responseId: row.id, token, imageUrl, itemName: item?.question ?? null, equipmentType: asEquipmentType(item?.equipment_type) });
+    }
+  };
+  const recoverBgReadsRef = useRef(recoverBgReads);
+  recoverBgReadsRef.current = recoverBgReads;
   applyReadRowRef.current = applyReadRow;
 
   const readingKey = Object.values(responsesWithCompleters).filter(r => r?.readStatus === 'reading' && r.responseId).map(r => r.responseId).sort().join(',');
@@ -1404,6 +1442,7 @@ export default function CompleteChecklist() {
       if (ids.length === 0) return;
       const { data } = await (supabase.from('checklist_responses') as any).select(READ_COLS).in('id', ids);
       if (!stopped) (data ?? []).forEach((r: any) => applyReadRowRef.current(r));
+      if (!stopped) await recoverBgReadsRef.current();
     };
     const checkTimeouts = () => {
       for (const [itemId, r] of Object.entries(rwcRef.current)) {
