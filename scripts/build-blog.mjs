@@ -6,10 +6,14 @@ import fs from "node:fs"; import path from "node:path";
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const SRC = path.join(ROOT, "blog-src"), OUT = path.join(ROOT, "public/blog"), A = path.join(OUT, "assets");
 const SITE = "https://croohq.com", DEMO = "/demo";
-// Front matter dates stay as written (they are staggered on purpose). Crawler
-// "last changed" signals must not sit after the day this file is generated.
-const buildDate = new Date().toISOString().slice(0, 10);
+// Front matter dates stay staggered and are the only sort key. A live page
+// publishes on min(scheduled date, the America/Los_Angeles build date): that
+// value is datePublished, the byline, the index, posts.json, and RSS pubDate.
+// dateModified is floored at that published date and capped on the same day.
+const buildDate = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 const asOfBuild = (d) => (d > buildDate ? buildDate : d);
+const publishedOn = (p) => asOfBuild(p.date);
+const modifiedOn = (p) => asOfBuild((p.updated || p.date) < publishedOn(p) ? publishedOn(p) : (p.updated || p.date));
 const BIO = "Ran four restaurant locations over 12 years before building CrooHQ.";
 const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 const inl = s => esc(s).replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2">$1</a>').replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");
@@ -54,10 +58,11 @@ for (const p of posts) {
   for (const s of ["1600x900","1200x627"]) fs.copyFileSync(path.join(SRC,"heroes",`${p.hero}-${s}.png`), path.join(A,`${p.slug}-${s}.png`));
   const parts = p.body.trim().split(/\n\s*\n/), cta = parts.slice(-2), main = parts.slice(0,-2).join("\n\n");
   p.excerpt = p.excerpt || p.meta_description;
+  const published = publishedOn(p), modified = modifiedOn(p);
   const url = `${SITE}/blog/${p.slug}/`, img = `${SITE}/blog/assets/${p.slug}-1200x627.png`, alt = p.hero_alt || p.title;
   const ctah = cta.map((c,i)=>`<a class="btn${i?" alt":""}" href="${esc(c.match(/\]\(([^)]+)\)/)[1])}">${esc(c.replace(/\*\*|\[|\]|\([^)]*\)/g,"").trim())}</a>`).join("");
   const ld = [
-    {"@context":"https://schema.org","@type":"BlogPosting",headline:p.title,description:p.meta_description,image:[img],datePublished:p.date,dateModified:asOfBuild(p.updated||p.date),
+    {"@context":"https://schema.org","@type":"BlogPosting",headline:p.title,description:p.meta_description,image:[img],datePublished:published,dateModified:modified,
       author:{"@type":"Person",name:"Jordan Andrian",jobTitle:"Founder, CrooHQ",url:SITE},publisher:{"@type":"Organization",name:"CrooHQ",url:SITE,logo:{"@type":"ImageObject",url:`${SITE}/croohq-logo.png`}},mainEntityOfPage:url},
     {"@context":"https://schema.org","@type":"BreadcrumbList",itemListElement:[
       {"@type":"ListItem",position:1,name:"Home",item:`${SITE}/`},
@@ -68,19 +73,19 @@ for (const p of posts) {
   const mins = Math.max(1, Math.round(main.split(/\s+/).length/230));
   const html = head({title:p.seo_title,desc:p.meta_description,url,img,type:"article",ld}) + `${HEADER}
 <main class="wrap art"><div class="kicker">CrooHQ Blog · Operator notes</div><h1>${esc(p.title)}</h1>
-<div class="by"><img src="/blog/assets/jordan-avatar.png" alt="Jordan Andrian" width="56" height="56"><div><b>Jordan Andrian</b>, Founder, CrooHQ<br><span><time datetime="${p.date}">${fmtDate(p.date)}</time> · ${mins} min read</span></div></div>
+<div class="by"><img src="/blog/assets/jordan-avatar.png" alt="Jordan Andrian" width="56" height="56"><div><b>Jordan Andrian</b>, Founder, CrooHQ<br><span><time datetime="${published}">${fmtDate(published)}</time> · ${mins} min read</span></div></div>
 <img class="hero" src="/blog/assets/${p.slug}-1600x900.png" alt="${esc(alt)}" width="1600" height="900">
 <article>${conv(main)}</article>
 <section class="cta"><h3>Run the shift, not the spreadsheet.</h3><p>Your crew's HQ, built for operators, by operators.</p><div class="btns">${ctah}</div><div class="by sm"><img src="/blog/assets/jordan-avatar.png" alt="Jordan Andrian" width="44" height="44"><div><b>Jordan Andrian</b>, Founder, CrooHQ<br><span>${BIO}</span></div></div></section></main>
 ${FOOTER}</body></html>\n`;
-  fs.mkdirSync(path.join(OUT,p.slug),{recursive:true}); fs.writeFileSync(path.join(OUT,p.slug,"index.html"),html); console.log("post", p.slug, p.date); }
-const cards = posts.map(p=>`<a class="card" href="/blog/${p.slug}/"><img src="/blog/assets/${p.slug}-1200x627.png" alt="${esc(p.hero_alt||p.title)}" width="1200" height="627" loading="lazy"><div><time datetime="${p.date}">${fmtDate(p.date)}</time><h2>${esc(p.title)}</h2><p>${esc(p.excerpt)}</p></div></a>`).join("\n");
+  fs.mkdirSync(path.join(OUT,p.slug),{recursive:true}); fs.writeFileSync(path.join(OUT,p.slug,"index.html"),html); console.log("post", p.slug, published === p.date ? p.date : `${p.date} -> ${published}`); }
+const cards = posts.map(p=>`<a class="card" href="/blog/${p.slug}/"><img src="/blog/assets/${p.slug}-1200x627.png" alt="${esc(p.hero_alt||p.title)}" width="1200" height="627" loading="lazy"><div><time datetime="${publishedOn(p)}">${fmtDate(publishedOn(p))}</time><h2>${esc(p.title)}</h2><p>${esc(p.excerpt)}</p></div></a>`).join("\n");
 const desc = "Operator notes from CrooHQ founder Jordan Andrian on restaurant scheduling, time punches, labor, and running a calmer shift.";
 fs.writeFileSync(path.join(OUT,"index.html"), head({title:"CrooHQ Blog: Operator Notes on Running Restaurant Shifts",desc,url:`${SITE}/blog/`,img:`${SITE}/blog/assets/${posts[0].slug}-1200x627.png`,type:"website",
-  ld:{"@context":"https://schema.org","@type":"Blog",name:"CrooHQ Blog",url:`${SITE}/blog/`,blogPost:posts.map(p=>({"@type":"BlogPosting",headline:p.title,url:`${SITE}/blog/${p.slug}/`,datePublished:p.date,author:{"@type":"Person",name:"Jordan Andrian"}}))}})
+  ld:{"@context":"https://schema.org","@type":"Blog",name:"CrooHQ Blog",url:`${SITE}/blog/`,blogPost:posts.map(p=>({"@type":"BlogPosting",headline:p.title,url:`${SITE}/blog/${p.slug}/`,datePublished:publishedOn(p),author:{"@type":"Person",name:"Jordan Andrian"}}))}})
   + `${HEADER}<main class="wrap list"><div class="kicker">CrooHQ Blog · Operator notes</div><h1>Operator notes</h1><p class="lede">Straight talk on schedules, punches, and labor from someone who ran four restaurant locations. <a href="/">See what CrooHQ does</a>.</p><div class="cards">${cards}</div></main>${FOOTER}</body></html>\n`);
 // latest-posts feed for the homepage "Latest from the blog" block
-fs.writeFileSync(path.join(OUT,"posts.json"), JSON.stringify(posts.slice(0,3).map(p=>({slug:p.slug,title:p.title,date:p.date,dateLabel:fmtDate(p.date),img:`/blog/assets/${p.slug}-1200x627.png`,alt:p.hero_alt||p.title,url:`/blog/${p.slug}/`})),null,1)+"\n");
+fs.writeFileSync(path.join(OUT,"posts.json"), JSON.stringify(posts.slice(0,3).map(p=>({slug:p.slug,title:p.title,date:publishedOn(p),dateLabel:fmtDate(publishedOn(p)),img:`/blog/assets/${p.slug}-1200x627.png`,alt:p.hero_alt||p.title,url:`/blog/${p.slug}/`})),null,1)+"\n");
 const xml = (s) => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 const rssDate = (d) => new Date(`${d}T12:00:00Z`).toUTCString();
 fs.writeFileSync(path.join(OUT,"feed.xml"), `<?xml version="1.0" encoding="UTF-8"?>
@@ -95,12 +100,12 @@ ${posts.map(p => `  <item>
     <title>${xml(p.title)}</title>
     <link>${SITE}/blog/${p.slug}/</link>
     <guid isPermaLink="true">${SITE}/blog/${p.slug}/</guid>
-    <pubDate>${rssDate(p.date)}</pubDate>
+    <pubDate>${rssDate(publishedOn(p))}</pubDate>
     <description>${xml(p.meta_description)}</description>
   </item>`).join("\n")}
 </channel>
 </rss>
 `);
 // blog sitemap (referenced from public/sitemap.xml index). lastmod never exceeds the build date.
-fs.writeFileSync(path.join(ROOT,"public/blog-sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${SITE}/blog/</loc><lastmod>${asOfBuild(posts[0].date)}</lastmod></url>\n${posts.map(p=>`  <url><loc>${SITE}/blog/${p.slug}/</loc><lastmod>${asOfBuild(p.updated||p.date)}</lastmod></url>`).join("\n")}\n</urlset>\n`);
+fs.writeFileSync(path.join(ROOT,"public/blog-sitemap.xml"), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${SITE}/blog/</loc><lastmod>${publishedOn(posts[0])}</lastmod></url>\n${posts.map(p=>`  <url><loc>${SITE}/blog/${p.slug}/</loc><lastmod>${modifiedOn(p)}</lastmod></url>`).join("\n")}\n</urlset>\n`);
 console.log(`listing: ${posts.length} posts; feed public/blog/feed.xml; build date ${buildDate}`);
