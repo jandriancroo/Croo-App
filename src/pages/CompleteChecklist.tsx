@@ -1409,6 +1409,18 @@ export default function CompleteChecklist() {
     if (!local || local.responseId !== row.id) return;
     if (!isCurrentReadToken(row.temperature_read_token, local.readToken)) return;
     const status = row.temperature_read_status as BgReadStatus | null;
+    if (status === 'reading') {
+      // Display hint only (server marks 'dial' after triage): "Reading dial…" vs "Reading temp…".
+      const hint = row.temperature_read_reason ?? null;
+      if (local.readStatus === 'reading' && hint !== (local.readReason ?? null)) {
+        setResponsesWithCompleters(prev => {
+          const cur = prev[row.item_id];
+          if (!cur || cur.readToken !== row.temperature_read_token || cur.readStatus !== 'reading') return prev;
+          return { ...prev, [row.item_id]: { ...cur, readReason: hint } };
+        });
+      }
+      return;
+    }
     if (status !== 'saved' && status !== 'failed') return;
     const key = `${row.temperature_read_token}:${status}`;
     if (bgHandled.current.has(key)) return;
@@ -1783,7 +1795,7 @@ export default function CompleteChecklist() {
         if (flash && now - flash.at < 4000 && temp != null) {
           out.push({ id: it.id, name: it.question, kind: flash.kind, temp, photo, at: flash.at });
         } else if (r?.readStatus === 'reading') {
-          out.push({ id: it.id, name: it.question, kind: 'reading', temp: null, photo, at: r.readStartedAt ? new Date(r.readStartedAt).getTime() : now });
+          out.push({ id: it.id, name: it.question, kind: 'reading', dial: r.readReason === 'dial', temp: null, photo, at: r.readStartedAt ? new Date(r.readStartedAt).getTime() : now });
         } else if (r?.readStatus === 'failed' && temp == null && !isBgRejected(r.readStatus, r.readReason) && photo) {
           out.push({ id: it.id, name: it.question, kind: 'failed', temp: null, photo, at: r.readStartedAt ? new Date(r.readStartedAt).getTime() : now });
         }

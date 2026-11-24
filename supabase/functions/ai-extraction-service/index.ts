@@ -1,6 +1,7 @@
 import { decideReads, needsTiebreak, applyBands, type TempRead } from './temperatureDecision.ts';
 import { parseTempReply } from './parseTempReply.ts';
-import { asEquipmentType } from '../_shared/tempBands.ts';
+import { asEquipmentType, possibleRange, TEMP_BANDS } from '../_shared/tempBands.ts';
+import { rotations, parseOrientReply } from './orient.ts';
 import { readDialWithLuna, LUNA_DIAL_MODEL, type LunaRead } from './lunaDial.ts';
 import { planBackgroundOutcome, jumpCheck, isCurrentReadToken, BG_READ_BUDGET_MS } from '../_shared/bgTempRead.ts';
 
@@ -327,7 +328,7 @@ async function handleExtractTemperature(payload: any) {
  * { background: true, ai } : same Flash-Lite triage, and dials go to Luna's
  * background mode (low effort, no orient, one read).
  */
-async function readTemperature(payload: any, opts: { background?: boolean; ai?: CallAIFn } = {}): Promise<any> {
+async function readTemperature(payload: any, opts: { background?: boolean; ai?: CallAIFn; onDial?: () => void } = {}): Promise<any> {
   const { imageUrl, itemName } = payload;
   const equipmentType = asEquipmentType(payload?.equipmentType);
   const ai: CallAIFn = opts.ai ?? callAI;
@@ -409,18 +410,51 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
     console.error('[extract-temperature] photo download error', String(e));
   }
 
+  // Background path only: Flash-Lite four-copy upright pick, then the triage reads run on
+  // the upright copy. Dials still go to Luna with the photo as taken. Any failure → as taken.
+  const originalPayload = imagePayload;
+  let readPayload = imagePayload;
+  let bgRotation: number | null = null;
+  if (opts.background && photoBytes) {
+    try {
+      const rot = await rotations(photoBytes);
+      if (rot) {
+        const range = possibleRange(equipmentType);
+        const band = equipmentType ? TEMP_BANDS[equipmentType] : null;
+        const rangeHint = band
+          ? ` This is a ${band.label.toLowerCase()} unit; its thermometer should read somewhere between ${range.min} and ${range.max}°F. Use that only to break a tie between orientations.`
+          : '';
+        const orientPrompt = `These are 4 copies of ONE thermometer photo, each turned a different way (Image 1, Image 2, Image 3, Image 4 in order). Exactly one shows the thermometer's display UPRIGHT. Zoom in on the display in each image and pick the upright one.
+Upright means ALL of these:
+- every character is a normal digit standing upright and reading left-to-right;
+- the decimal point sits at the BOTTOM of the digits, just before the last digit (e.g. 36.1);
+- the °F / °C legend and any printed words (brand, HOLD, MAX) read normally, not upside down or mirrored.
+An upside-down 7-segment display still looks like digits but gives it away: a 3 turns into an E, 1 and 7 sit at the wrong edge, and the decimal point floats at the TOP. If an image shows an E, an h, an L, a backwards digit or a top decimal point, it is NOT upright. Two images will be sideways; of the other two, one is the 180° flip of the other — compare those two carefully.${rangeHint} Never decide from the food.
+Reply with one short reason naming the digits you see in the upright image, then the final line exactly: UPRIGHT: <1-4>`;
+        const content: any[] = [{ type: 'text', text: orientPrompt }];
+        rot.thumbs.forEach((url, i) => { content.push({ type: 'text', text: `Image ${i + 1}:` }); content.push({ type: 'image_url', image_url: { url } }); });
+        const data = await ai([{ role: 'user', content }], undefined, undefined, TEMP_READ_MODEL, undefined, { __stage: 'orient' });
+        const r = parseOrientReply(data?.choices?.[0]?.message?.content || '');
+        if (r != null) { bgRotation = r; if (r !== 0) readPayload = await rot.full(r); }
+      }
+    } catch (e: any) {
+      console.warn('[extract-temperature-bg] upright pick failed; reading as taken', e?.status ?? null);
+      readPayload = originalPayload;
+      bgRotation = null;
+    }
+  }
   const msgs = [
     { role: 'system', content: systemPrompt },
-    { role: 'user', content: [ { type: 'text', text: userPrompt }, { type: 'image_url', image_url: { url: imagePayload } } ] },
+    { role: 'user', content: [ { type: 'text', text: userPrompt }, { type: 'image_url', image_url: { url: readPayload } } ] },
   ];
   type DisplayRaw = 'digital' | 'dial' | 'bar' | null;
   type DisplayType = 'digital' | 'analog' | null;
   type ReadOut = TempRead & { defrost?: boolean; displayRaw?: DisplayRaw };
   const toDisplayType = (raw: DisplayRaw): DisplayType =>
     raw === 'digital' ? 'digital' : raw === 'dial' || raw === 'bar' ? 'analog' : null;
-  const readOnce = async (): Promise<ReadOut> => {
+  const readOnce = async (stage: 'read' | 'tiebreak' = 'read'): Promise<ReadOut> => {
     try {
-      const data = await ai(msgs, undefined, undefined, TEMP_READ_MODEL);
+      const data = await ai(msgs, undefined, undefined, TEMP_READ_MODEL, undefined, opts.background ? { __stage: stage } : undefined);
       const text: string = data?.choices?.[0]?.message?.content || '';
       const parsed = parseTempReply(text);
       // parseTempReply only knows digital/dial; keep a glass-tube "bar" tag too.
@@ -435,7 +469,7 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
   };
   const [a, b] = await Promise.all([readOnce(), readOnce()]);
   // At most one tie-break read per photo.
-  const c = needsTiebreak(a, b) ? await readOnce() : null;
+  const c = needsTiebreak(a, b) ? await readOnce('tiebreak') : null;
   const reads = c ? [a, b, c] : [a, b];
   const d = applyBands(decideReads(a, b, c), equipmentType);
   const displayRaw: DisplayRaw = (c && d.tiebreak ? c.displayRaw : null) ?? a.displayRaw ?? b.displayRaw ?? null;
@@ -456,8 +490,9 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
   if (dialRouter && isDial) {
     const tDial = Date.now();
     let luna: Awaited<ReturnType<typeof readDialWithLuna>> | null = null;
+    if (opts.background) { try { opts.onDial?.(); } catch { /* display hint only */ } }
     try {
-      luna = await readDialWithLuna({ photoBytes, imagePayload, equipmentType, userPrompt, callAI: ai, ...(opts.background ? { mode: 'background' as const } : {}) });
+      luna = await readDialWithLuna({ photoBytes, imagePayload: originalPayload, equipmentType, userPrompt, callAI: ai, ...(opts.background ? { mode: 'background' as const } : {}) });
     } catch (e: any) {
       console.error('[extract-temperature] dial reader threw', e?.status ?? null);
       luna = null;
@@ -475,7 +510,7 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
       };
     }
   } else {
-    fin = { decision: d, model: TEMP_READ_MODEL, readerRoute: displayRaw === 'digital' ? 'digital_fast' : 'other_fast', rotation: null, finalReads: reads, readDetails: triageDetails, dialMs: null };
+    fin = { decision: d, model: TEMP_READ_MODEL, readerRoute: displayRaw === 'digital' ? 'digital_fast' : 'other_fast', rotation: opts.background ? bgRotation : null, finalReads: reads, readDetails: triageDetails, dialMs: null };
   }
   const fd = fin.decision;
   console.log('[extract-temperature] reads', JSON.stringify({ route: fin.readerRoute, model: fin.model, displayType, dialMs: fin.dialMs, reads: fin.finalReads.map(r => r.value) }));
@@ -519,17 +554,34 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Gateway call with one short retry on 429 / 5xx, bounded by the overall budget signal. */
-function bgCallAI(overall: AbortSignal): CallAIFn {
+type BgUsage = { model: string; stage: string; prompt_tokens: number | null; completion_tokens: number | null; reasoning_tokens: number | null; ok: boolean };
+function bgCallAI(overall: AbortSignal, usage: BgUsage[]): CallAIFn {
   return async (messages, tools, toolChoice, modelOverride, signal, extraBody) => {
     const sig = signal ? AbortSignal.any([signal, overall]) : overall;
+    // __stage is a local label for the cost log; it is never sent to the gateway.
+    const { __stage, ...rest } = (extraBody ?? {}) as Record<string, unknown>;
+    const body = Object.keys(rest).length ? rest : undefined;
+    const stage = typeof __stage === 'string' ? __stage : 'read';
+    const model = modelOverride || 'google/gemini-2.5-flash';
+    const record = (data: any, ok: boolean) => {
+      const u = data?.usage;
+      usage.push({
+        model, stage, ok,
+        prompt_tokens: typeof u?.prompt_tokens === 'number' ? u.prompt_tokens : null,
+        completion_tokens: typeof u?.completion_tokens === 'number' ? u.completion_tokens : null,
+        reasoning_tokens: typeof u?.completion_tokens_details?.reasoning_tokens === 'number' ? u.completion_tokens_details.reasoning_tokens : null,
+      });
+      return data;
+    };
     try {
-      return await callAI(messages, tools, toolChoice, modelOverride, sig, extraBody);
+      return record(await callAI(messages, tools, toolChoice, modelOverride, sig, body), true);
     } catch (e: any) {
       const s = Number(e?.status);
-      if (sig.aborted || !(s === 429 || s >= 500)) throw e;
+      if (sig.aborted || !(s === 429 || s >= 500)) { record(null, false); throw e; }
       await sleep(1500);
-      if (sig.aborted) throw e;
-      return await callAI(messages, tools, toolChoice, modelOverride, sig, extraBody);
+      if (sig.aborted) { record(null, false); throw e; }
+      try { return record(await callAI(messages, tools, toolChoice, modelOverride, sig, body), true); }
+      catch (e2) { record(null, false); throw e2; }
     }
   };
 }
@@ -626,9 +678,16 @@ async function runBackgroundRead(j: {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), BG_READ_BUDGET_MS);
   let result: any = null;
+  const usage: BgUsage[] = [];
+  // Display hint while still reading: 'dial' lets the phone say "Reading dial…".
+  const onDial = () => {
+    void j.svc.from('checklist_responses').update({ temperature_read_reason: 'dial' })
+      .eq('id', j.responseId).eq('temperature_read_token', j.token).eq('temperature_read_status', 'reading')
+      .then(() => {}, () => {});
+  };
   try {
     result = await Promise.race([
-      readTemperature({ imageUrl: j.imageUrl, itemName: j.itemName, equipmentType: j.equipmentType }, { background: true, ai: bgCallAI(ctl.signal) }),
+      readTemperature({ imageUrl: j.imageUrl, itemName: j.itemName, equipmentType: j.equipmentType }, { background: true, ai: bgCallAI(ctl.signal, usage), onDial }),
       new Promise<null>((r) => ctl.signal.addEventListener('abort', () => r(null))),
     ]);
   } catch (e: any) {
@@ -638,6 +697,8 @@ async function runBackgroundRead(j: {
     clearTimeout(timer);
   }
   const timedOut = result == null && ctl.signal.aborted;
+  // Cost log: one JSON line per photo (no image data, no reply text).
+  console.log('[extract-temperature-bg] usage', JSON.stringify({ responseId: j.responseId, route: result?.readerRoute ?? null, ms: Date.now() - t0, calls: usage }));
   // Token-conditional write: a stale read never overwrites a newer photo.
   const write = async (fields: Record<string, unknown>) => {
     const { data, error } = await j.svc.from('checklist_responses').update(fields)

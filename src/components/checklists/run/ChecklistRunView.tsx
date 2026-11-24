@@ -90,7 +90,7 @@ export interface RunCtx {
   bgStrip?: () => BgStripEntry[];
 }
 
-export interface BgStripEntry { id: string; name: string; kind: 'reading' | 'saved' | 'failed' | 'hand'; temp: number | null; photo: string | null; at: number }
+export interface BgStripEntry { id: string; name: string; kind: 'reading' | 'saved' | 'failed' | 'hand'; dial?: boolean; temp: number | null; photo: string | null; at: number }
 
 /** Design B: one thin strip for the most recent earlier item with a background read. */
 function PreviouslyStrip({ entry, onEnterTemp }: { entry: BgStripEntry; onEnterTemp: () => void }) {
@@ -98,7 +98,7 @@ function PreviouslyStrip({ entry, onEnterTemp }: { entry: BgStripEntry; onEnterT
     : entry.kind === 'failed' ? 'border-[hsl(var(--warning))] text-[hsl(var(--warning))]'
     : 'border-[hsl(var(--success))] text-[hsl(var(--success))]';
   const t = entry.temp != null ? `${Number(entry.temp).toFixed(1)}°F` : '';
-  const text = entry.kind === 'reading' ? 'Reading dial…' : entry.kind === 'saved' ? `${t} saved` : entry.kind === 'hand' ? `${t} entered by hand` : "Couldn't read";
+  const text = entry.kind === 'reading' ? (entry.dial ? 'Reading dial…' : 'Reading temp…') : entry.kind === 'saved' ? `${t} saved` : entry.kind === 'hand' ? `${t} entered by hand` : "Couldn't read";
   const body = (
     <>
       {entry.photo ? <img src={entry.photo} alt="" className="h-[26px] w-[26px] shrink-0 rounded-md object-cover" /> : <span className="h-[26px] w-[26px] shrink-0 rounded-md bg-muted" />}
