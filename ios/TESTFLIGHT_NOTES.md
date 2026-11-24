@@ -6,6 +6,11 @@ Croo Builder's Ship button shows this for editing, posts it to TestFlight, then 
 
 ## Next build
 
+## Build 28 · Nov 23, 2026
+
+What's new:
+- Changes from Jordan’s MacBook Air
+
 ## Build 26 · Nov 16, 2026
 
 What's new:
