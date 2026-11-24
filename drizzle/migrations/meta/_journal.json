@@ -771,6 +771,13 @@
       "when": 1795556887214,
       "tag": "0109_temp_reads_default_on",
       "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "7",
+      "when": 1795557003174,
+      "tag": "0110_guard_temperature_fields",
+      "breakpoints": true
     }
   ]
 }
