@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -2623,9 +2623,13 @@ export type Database = {
           response_image_urls: Json | null
           response_text: string | null
           submission_id: string
+          temperature_ai_latest: number | null
+          temperature_ai_original: number | null
           temperature_edited_at: string | null
           temperature_edited_by: string | null
+          temperature_last_scan_at: string | null
           temperature_previous: number | null
+          temperature_scan_count: number | null
           temperature_unconfirmed: boolean
           temperature_valid: boolean | null
           temperature_validated_at: string | null
@@ -2641,9 +2645,13 @@ export type Database = {
           response_image_urls?: Json | null
           response_text?: string | null
           submission_id: string
+          temperature_ai_latest?: number | null
+          temperature_ai_original?: number | null
           temperature_edited_at?: string | null
           temperature_edited_by?: string | null
+          temperature_last_scan_at?: string | null
           temperature_previous?: number | null
+          temperature_scan_count?: number | null
           temperature_unconfirmed?: boolean
           temperature_valid?: boolean | null
           temperature_validated_at?: string | null
@@ -2659,9 +2667,13 @@ export type Database = {
           response_image_urls?: Json | null
           response_text?: string | null
           submission_id?: string
+          temperature_ai_latest?: number | null
+          temperature_ai_original?: number | null
           temperature_edited_at?: string | null
           temperature_edited_by?: string | null
+          temperature_last_scan_at?: string | null
           temperature_previous?: number | null
+          temperature_scan_count?: number | null
           temperature_unconfirmed?: boolean
           temperature_valid?: boolean | null
           temperature_validated_at?: string | null
@@ -17968,6 +17980,54 @@ export type Database = {
           show_cases: boolean
           show_common_unit: boolean
           show_inner_packs: boolean
+        }[]
+      }
+      get_temperature_validation_entries: {
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_location_id?: string
+          p_offset?: number
+          p_status?: string
+          p_to?: string
+        }
+        Returns: {
+          ai_latest: number
+          ai_original: number
+          ai_saved_known: boolean
+          ai_saved_value: number
+          checklist_title: string
+          completed_by: string
+          completer_name: string
+          created_at: string
+          edited_at: string
+          edited_by: string
+          editor_email: string
+          editor_name: string
+          equipment_type: string
+          extracted_temperature: number
+          id: string
+          is_confirmed: boolean
+          is_override: boolean
+          is_rescan: boolean
+          item_id: string
+          item_question: string
+          last_scan_at: string
+          local_day: string
+          location_id: string
+          location_name: string
+          photo_url: string
+          previous_value: number
+          raw_ai_attempts: Json
+          read_issue_count: number
+          read_issue_reasons: string[]
+          scan_count: number
+          submission_id: string
+          temperature_unconfirmed: boolean
+          temperature_valid: boolean
+          temperature_validated_at: string
+          total_count: number
+          tracked: boolean
         }[]
       }
       get_theo_unread: {
