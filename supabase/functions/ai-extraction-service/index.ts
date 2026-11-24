@@ -1,7 +1,6 @@
 import { decideReads, needsTiebreak, applyBands, type TempRead } from './temperatureDecision.ts';
 import { parseTempReply } from './parseTempReply.ts';
-import { rotations, parseOrientReply, type Rotation } from './orient.ts';
-import { asEquipmentType, possibleRange, TEMP_BANDS } from '../_shared/tempBands.ts';
+import { asEquipmentType } from '../_shared/tempBands.ts';
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -52,8 +51,9 @@ async function callAI(messages: any[], tools?: any[], toolChoice?: any, modelOve
     if (response.status === 402) {
       throw { status: 402, message: 'AI credits exhausted. Please add credits.' };
     }
-    const errorText = await response.text();
-    console.error('AI gateway error:', response.status, errorText);
+    // Read and discard the body: it is never logged.
+    await response.text().catch(() => '');
+    console.error('AI gateway error:', response.status);
     throw { status: 500, message: 'AI service error' };
   }
 
@@ -304,29 +304,39 @@ async function handleParseResume(payload: any) {
   return errorResponse('Failed to parse resume', 500);
 }
 
+// Every thermometer read (both parallel reads and the tie-break) uses this model, all stores.
+const TEMP_READ_MODEL = 'google/gemini-3.1-flash-lite';
+
 async function handleExtractTemperature(payload: any) {
   const { imageUrl, itemName } = payload;
   const equipmentType = asEquipmentType(payload?.equipmentType);
   if (!imageUrl) return errorResponse('Image URL is required', 400);
 
-  // Thermometer reader: GPT-6 Luna, read TWICE in parallel. Agreeing reads are
+  // Thermometer reader: Gemini 3.1 Flash-Lite (TEMP_READ_MODEL), read TWICE in
+  // parallel on the photo as taken (no rotation pre-pass). Agreeing reads are
   // saved. A disagreement or one failed read gets ONE third tie-break read; if
   // that makes an agreeing pair it is saved, otherwise no number comes back and
   // the crew retakes or types it (photo kept). Unclear photos (too far, dark,
   // blurry, glare) come back as reason 'unclear' with a coaching value and the
-  // client rejects the photo with a tip. Decision lives in temperatureDecision.ts.
+  // client rejects the photo with a tip. A defrost/error screen (dEF, HI, LO,
+  // Err) never counts as a number. Decision lives in temperatureDecision.ts.
   const systemPrompt = `You read photos of restaurant thermometers: digital probe thermometers (food temps) and cooler/freezer dial thermometers. Stores use different brands, so read what is printed on THIS thermometer — never assume a layout, and never guess a temperature from the food, the item name or what would be "normal".
 
 DIGITAL / 7-SEGMENT DISPLAYS (probe thermometers):
-- The photo has usually already been turned so the display is upright, but check: it may still be rotated 90°, 180° or 270°, or mirrored by the angle. Before reading, work out which way is UP.
-- Orient with: the °F / °C legend (it sits to the right of, or above, the digits when upright), the decimal point (it sits at the BOTTOM of the digits, before the last digit, e.g. 38.6), any printed brand text or buttons (HOLD, MAX, °C/°F), and the probe body (the metal probe usually leaves the housing at the top or bottom of the screen).
+- The photo is exactly as the crew took it: the display may be rotated 90°, 180° or 270°, tilted, or mirrored by the angle. Before reading, work out which way is UP.
+- Orient ONLY with: the °F / °C legend (right of, or above, the digits when upright), the decimal point (at the BOTTOM of the digits, before the last digit, e.g. 38.6), the small printed words next to the screen and buttons (DIGITAL THERMOMETER, HOLD, MAX/MIN, °C/°F), and the probe body.
+- IGNORE brand logos on the handle (e.g. ANDAXIN): some are printed upside down relative to the digits.
 - If the decimal point appears at the TOP of the digits, the display is upside down: rotate it 180° in your head (the digit order reverses too) and read again.
 - After orienting, read each digit by which of its 7 segments are lit, relative to the UPRIGHT digit:
   * 3 = top, upper-right, middle, lower-right, bottom — NO left-side segments.
-  * 9 = like 3 plus the upper-left segment. 8 = all seven. 5 = top, upper-left, middle, lower-right, bottom. 6 = like 5 plus lower-left. 7 = top plus the right side only. 0 = all but the middle.
+  * 9 = like 3 plus the upper-left segment. 8 = all seven. 5 = top, upper-left, middle, lower-right, bottom. 6 = like 5 plus lower-left. 7 = top plus the right side only. 0 = all but the middle. 1 = right side only (no top bar). 4 = upper-left, middle, and the right side — NO top bar.
+  * 7 vs 1: a 7 has a lit horizontal TOP bar; a 1 does not. Before you read a 1, look hard for that top bar (37.8 is often misread as 31.8, 47.3 as 41.3). Some meters draw the 7 with a short or thin top bar — it is still a 7.
+  * 4 vs 7: a 4 has the upper-left and middle segments and NO top bar; a 7 has the top bar and NO middle or left segments.
+  * 5 vs 9: a 5 has NO upper-right segment; a 9 has BOTH upper-right and upper-left plus the top, middle and lower-right.
   * Rotated displays are easy to misread as 9, 5, 7 or 8 when the digit is really 3. Before choosing 9, 8, 6 or 5, confirm the left-side segment is really lit.
 - Copy the upright digits exactly, including the decimal. Use the Fahrenheit value; if the display shows °C only, convert to °F.
 - TENTHS: say whether you are sure of the LAST digit after the decimal point (sure), not sure (unsure), or there is no decimal digit (none). Never guess a tenths digit you can't see clearly.
+- If the display shows letters instead of a temperature — dEF (defrost), HI, LO, Err, E1, --- — there is NO temperature: answer NONE with ISSUE: defrost_or_error. Never guess a number.
 
 DIAL THERMOMETERS (coolers, freezers, walk-ins):
 - POINTER: the needle has a THIN pointed tip and a WIDE flat tail on the other side of the centre pin. Only the thin tip shows the temperature. The wide dark end is NOT the reading, even though it is easier to see. Many dials' tips are thin and faint — look for them.
@@ -344,14 +354,14 @@ CLARITY:
 
 Steps:
 1. Display type: digital, dial or bar.
-2. Digital: find which way is up (legend, decimal point, probe), then copy the upright digits exactly.
+2. Digital: find which way is up (legend, decimal point, button text — not logos), then copy the upright digits exactly, double-checking 7/1, 4/7 and 5/9.
 3. Dial: find the thin tip. Name the two OUTER Fahrenheit numbers either side of it, count the small ticks, estimate a whole number. Check it against the colour band under the tip; if they disagree, re-check that you used the thin tip and the outer ring.
 4. Cold storage reads between -30 and 80°F; hot food can read up to about 212°F.
 
 Reply with a short explanation, then these final lines exactly:
 DISPLAY: digital|dial|bar
 CLEAR: yes|no
-ISSUE: none|too_far|too_dark|blurry|glare
+ISSUE: none|too_far|too_dark|blurry|glare|defrost_or_error
 CONFIDENCE: <0 to 1>
 TENTHS: sure|unsure|none
 ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
@@ -361,12 +371,11 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
   // Download the photo ourselves and send it inline: the AI provider often
   // can't fetch storage links directly ("Cannot fetch content from URL").
   let imagePayload = imageUrl;
-  let photoBytes: Uint8Array | null = null;
   let photoType = 'image/jpeg';
   try {
     const imgRes = await fetch(imageUrl);
     if (imgRes.ok) {
-      photoBytes = new Uint8Array(await imgRes.arrayBuffer());
+      const photoBytes = new Uint8Array(await imgRes.arrayBuffer());
       photoType = imgRes.headers.get('content-type') || 'image/jpeg';
       let bin = '';
       for (let i = 0; i < photoBytes.length; i += 0x8000) bin += String.fromCharCode(...photoBytes.subarray(i, i + 0x8000));
@@ -379,46 +388,25 @@ ANSWER: <number> (or ANSWER: NONE if it can't be read)`;
     console.error('[extract-temperature] photo download error', String(e));
   }
 
-  // Upright pick: show the photo turned 0/90/180/270 and read the upright copy.
-  // Any failure here falls back to reading the photo as taken.
-  let rotation: Rotation | null = null;
-  if (photoBytes) {
-    try {
-      const rot = await rotations(photoBytes);
-      if (rot) {
-        const range = possibleRange(equipmentType);
-        const band = equipmentType ? TEMP_BANDS[equipmentType] : null;
-        const rangeHint = band
-          ? ` This is a ${band.label.toLowerCase()} unit; its thermometer should read somewhere between ${range.min} and ${range.max}°F. Use that only to break a tie between orientations.`
-          : '';
-        const orientPrompt = `These are 4 copies of ONE thermometer photo, each turned a different way (Image 1, Image 2, Image 3, Image 4 in order). Exactly one shows the thermometer's display UPRIGHT. Zoom in on the display in each image and pick the upright one.
-Upright means ALL of these:
-- every character is a normal digit standing upright and reading left-to-right;
-- the decimal point sits at the BOTTOM of the digits, just before the last digit (e.g. 36.1);
-- the °F / °C legend and any printed words (brand, HOLD, MAX) read normally, not upside down or mirrored.
-An upside-down 7-segment display still looks like digits but gives it away: a 3 turns into an E, 1 and 7 sit at the wrong edge, and the decimal point floats at the TOP. If an image shows an E, an h, an L, a backwards digit or a top decimal point, it is NOT upright. Two images will be sideways; of the other two, one is the 180° flip of the other — compare those two carefully.${rangeHint} Never decide from the food.
-Reply with one short reason naming the digits you see in the upright image, then the final line exactly: UPRIGHT: <1-4>`;
-        const content: any[] = [{ type: 'text', text: orientPrompt }];
-        rot.thumbs.forEach((url, i) => { content.push({ type: 'text', text: `Image ${i + 1}:` }); content.push({ type: 'image_url', image_url: { url } }); });
-        const data = await callAI([{ role: 'user', content }], undefined, undefined, 'openai/gpt-6-luna');
-        rotation = parseOrientReply(data?.choices?.[0]?.message?.content || '');
-        if (rotation) imagePayload = await rot.full(rotation);
-        console.log('[extract-temperature] upright pick', rotation);
-      }
-    } catch (e: any) {
-      console.error('[extract-temperature] upright pick failed', e?.status, e?.message ?? String(e));
-      rotation = null;
-    }
-  }
   const msgs = [
     { role: 'system', content: systemPrompt },
     { role: 'user', content: [ { type: 'text', text: userPrompt }, { type: 'image_url', image_url: { url: imagePayload } } ] },
   ];
-  const readOnce = async (): Promise<TempRead> => {
+  type DisplayRaw = 'digital' | 'dial' | 'bar' | null;
+  type DisplayType = 'digital' | 'analog' | null;
+  type ReadOut = TempRead & { defrost?: boolean; displayRaw?: DisplayRaw };
+  const toDisplayType = (raw: DisplayRaw): DisplayType =>
+    raw === 'digital' ? 'digital' : raw === 'dial' || raw === 'bar' ? 'analog' : null;
+  const readOnce = async (): Promise<ReadOut> => {
     try {
-      const data = await callAI(msgs, undefined, undefined, 'openai/gpt-6-luna');
+      const data = await callAI(msgs, undefined, undefined, TEMP_READ_MODEL);
       const text: string = data?.choices?.[0]?.message?.content || '';
-      return parseTempReply(text);
+      const parsed = parseTempReply(text);
+      // parseTempReply only knows digital/dial; keep a glass-tube "bar" tag too.
+      const displayRaw: DisplayRaw = parsed.display ?? (/^\s*\**DISPLAY\**:\s*\**\s*bar/im.test(text) ? 'bar' : null);
+      // Defrost / error screen: never a number. `unclear` stays as parsed.
+      if (/ISSUE:\s*\**\s*defrost_or_error/i.test(text)) return { ...parsed, value: null, defrost: true, displayRaw };
+      return { ...parsed, displayRaw };
     } catch (e: any) {
       console.error('[extract-temperature] read failed', e?.status, e?.message);
       return { value: null };
@@ -428,10 +416,13 @@ Reply with one short reason naming the digits you see in the upright image, then
   // At most one tie-break read per photo.
   const c = needsTiebreak(a, b) ? await readOnce() : null;
   const reads = c ? [a, b, c] : [a, b];
-  console.log('[extract-temperature] reads', JSON.stringify(reads));
   const d = applyBands(decideReads(a, b, c), equipmentType);
-  if (d.reason || d.tiebreak) console.warn('[extract-temperature] not a clean pair', d.reason, d.tiebreak, JSON.stringify(reads));
-  const display = (c && d.tiebreak ? c.display : null) ?? a.display ?? b.display ?? null;
+  const displayRaw: DisplayRaw = (c && d.tiebreak ? c.displayRaw : null) ?? a.displayRaw ?? b.displayRaw ?? null;
+  const displayType = toDisplayType(displayRaw);
+  const defrostOrError = reads.some(r => r.defrost === true);
+  const readDetails = reads.map(({ displayRaw: raw, ...r }) => ({ ...r, displayType: toDisplayType(raw ?? null) }));
+  console.log('[extract-temperature] reads', JSON.stringify({ model: TEMP_READ_MODEL, displayType, reads: readDetails }));
+  if (d.reason || d.tiebreak) console.warn('[extract-temperature] not a clean pair', d.reason, d.tiebreak, JSON.stringify(readDetails));
   return jsonResponse({
     temperature: d.temperature,
     isValid: d.isValid,
@@ -443,13 +434,17 @@ Reply with one short reason naming the digits you see in the upright image, then
     verdict: d.verdict,
     implausibleValue: d.implausibleValue ?? null,
     equipmentType,
-    rotation,
-    displayType: display,
+    // No rotation pre-pass any more; kept so the response shape doesn't change.
+    rotation: null,
+    displayType,
+    displayRaw,
+    defrostOrError,
+    model: TEMP_READ_MODEL,
     unreadable: d.temperature == null,
     extractedText: d.temperature == null ? 'NONE' : String(d.temperature),
     // Raw numbers stay in `reads` (old shape); the full read detail is in readDetails.
     reads: reads.map(r => r.value),
-    readDetails: reads,
+    readDetails,
   });
 }
 
