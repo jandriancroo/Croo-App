@@ -1026,11 +1026,14 @@ export default function CompleteChecklist() {
         );
         const taskLocationId = currentLocation?.id || checklist?.location_id;
         // A disagreement settled by the third read is still logged (with all reads).
-        const reason: string | null = tempError || !tempData ? 'function_error' : (tempData.reason ?? (tempData.tiebreak ? 'tiebreak_confirmed' : null));
+        const serverReason: string | null = tempError || !tempData ? 'function_error' : (tempData.reason ?? (tempData.tiebreak ? 'tiebreak_confirmed' : null));
         const equipmentType = asEquipmentType(item?.equipment_type);
         const readingPlan = !tempError && tempData && tempData.reason !== 'unclear'
           ? planPhotoReading({ temperature: tempData.temperature, reason: tempData.reason, equipmentType, borderlineRetakeUsed: !!borderlineRetakeUsed.current[itemId] })
           : null;
+        // The app's own band check can reject a number the server returned
+        // cleanly; log those raw reads too so no AI output is ever lost.
+        const reason: string | null = serverReason ?? (readingPlan?.kind === 'no_number' ? 'implausible' : null);
         if (readingPlan?.kind === 'save') {
           extractedTemp = readingPlan.tempF;
           // Bands from the shared config (_shared/tempBands.ts) decide pass/fail.
@@ -1064,7 +1067,7 @@ export default function CompleteChecklist() {
         if (reason && taskLocationId) {
           void supabase.from('temperature_read_issues').insert({
             reason,
-            reads: tempData?.readDetails ?? tempData?.reads ?? null,
+            reads: tempData?.readDetails ?? tempData?.reads ?? (typeof tempData?.temperature === 'number' ? [tempData.temperature] : null),
             saved_temperature: hasNewReading ? extractedTemp : null,
             image_url: data.publicUrl,
             item_id: itemId,

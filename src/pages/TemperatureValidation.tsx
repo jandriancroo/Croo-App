@@ -43,6 +43,9 @@ interface Entry {
   previous_value: number | null;
   read_issue_count: number;
   read_issue_reasons: string[] | null;
+  raw_ai_attempts: unknown;
+  ai_saved_value: number | null;
+  ai_saved_known: boolean;
   tracked: boolean;
   is_rescan: boolean;
   is_override: boolean;
@@ -90,11 +93,42 @@ function rangeFor(tf: Timeframe, day: string, from: string, to: string): { from:
   }
 }
 
-/** What the AI first read for this answer, as best the data allows. */
-function originalScan(e: Entry): { value: number | null; known: boolean } {
-  if (e.tracked) return { value: e.ai_original, known: e.ai_original !== null };
-  if (e.is_override) return { value: e.previous_value, known: e.previous_value !== null };
-  return { value: e.extracted_temperature, known: e.extracted_temperature !== null };
+interface AiAttempt { at: string | null; reason: string; saved: number | null; values: (number | null)[] }
+
+const num = (v: unknown): number | null => {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : null;
+};
+
+/** Raw AI read attempts from temperature_read_issues, parsed strictly to numbers/text. */
+function aiAttempts(e: Entry): AiAttempt[] {
+  if (!Array.isArray(e.raw_ai_attempts)) return [];
+  return (e.raw_ai_attempts as unknown[]).map((a) => {
+    const o = (a && typeof a === 'object' ? a : {}) as Record<string, unknown>;
+    return {
+      at: typeof o.at === 'string' ? o.at : null,
+      reason: typeof o.reason === 'string' ? o.reason : 'unknown',
+      saved: num(o.saved),
+      values: Array.isArray(o.values) ? o.values.map(num) : [],
+    };
+  });
+}
+
+const reasonText = (r: string) => r.replace(/_/g, ' ');
+
+/** One line per AI attempt: raw numbers + what happened to them. */
+function attemptLine(a: AiAttempt): { numbers: string; label: string; tone: 'saved' | 'rejected' | 'none' } {
+  const nums = a.values.filter((v): v is number => v !== null);
+  const numbers = nums.map((v) => `${v}°F`).join(' / ');
+  if (a.saved !== null) return { numbers, label: `Saved ${a.saved}°F · ${reasonText(a.reason)}`, tone: 'saved' };
+  if (nums.length > 0) return { numbers, label: `Rejected · ${reasonText(a.reason)}`, tone: 'rejected' };
+  return { numbers: '', label: `No reading · ${reasonText(a.reason)}`, tone: 'none' };
+}
+
+/** The AI number saved on the row first (tracked) or the best-known AI save (older rows). */
+function originalScan(e: Entry): number | null {
+  if (e.tracked && e.ai_original !== null) return e.ai_original;
+  return e.ai_saved_known ? e.ai_saved_value : null;
 }
 
 export default function TemperatureValidation() {
@@ -363,6 +397,7 @@ export default function TemperatureValidation() {
           <div className="grid gap-3">
             {entries.map((e) => {
               const orig = originalScan(e);
+              const attempts = aiAttempts(e);
               const scans = e.scan_count ?? null;
               return (
                 <Card key={e.id}>
@@ -418,9 +453,26 @@ export default function TemperatureValidation() {
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
-                          <div className="rounded-md border p-2">
+                          <div className="rounded-md border p-2 col-span-2 sm:col-span-1">
                             <p className="text-[11px] text-muted-foreground">Original AI scan</p>
-                            <p className="font-semibold">{orig.known ? fmtT(orig.value) : 'Not recorded'}</p>
+                            {orig !== null ? (
+                              <p className="font-semibold">{fmtT(orig)}</p>
+                            ) : attempts.length === 0 ? (
+                              <p className="font-semibold">{e.ai_saved_known && e.edited_at ? 'No AI number saved' : 'Not recorded'}</p>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">Not recorded on the entry</p>
+                            )}
+                            {attempts.map((a, i) => {
+                              const line = attemptLine(a);
+                              return (
+                                <div key={i} className="mt-1 leading-tight">
+                                  {line.numbers && <p className="font-semibold">{line.numbers}</p>}
+                                  <p className={`text-[11px] ${line.tone === 'rejected' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                    {line.label}{a.at ? ` · ${format(new Date(a.at), 'h:mm a')}` : ''}
+                                  </p>
+                                </div>
+                              );
+                            })}
                           </div>
                           {e.is_rescan && e.tracked && e.ai_latest !== null && e.ai_latest !== e.ai_original && (
                             <div className="rounded-md border p-2">
@@ -441,7 +493,7 @@ export default function TemperatureValidation() {
                             {e.editor_name && e.editor_email ? <span className="text-muted-foreground"> ({e.editor_email})</span> : null}
                             {e.edited_at ? <span className="text-muted-foreground"> · {format(new Date(e.edited_at), 'MMM d h:mm a')}</span> : null}
                             {e.is_override && (
-                              <span className="text-muted-foreground"> · {fmtT(e.tracked ? e.ai_latest : e.previous_value)} → {fmtT(e.extracted_temperature)}</span>
+                              <span className="text-muted-foreground"> · {e.ai_saved_known && e.ai_saved_value === null ? 'AI saved no number' : fmtT(e.ai_saved_value)} → {fmtT(e.extracted_temperature)}</span>
                             )}
                           </p>
                         )}
