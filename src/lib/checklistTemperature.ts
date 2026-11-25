@@ -41,6 +41,9 @@ export type ManualTemperaturePlan =
         temperature_valid: boolean;
         temperature_unconfirmed: false;
         temperature_edited_at: string;
+        /** Cancels any pending background read so it can never overwrite the typed value. */
+        temperature_read_token: null;
+        temperature_read_status: null;
       };
     };
 
@@ -86,6 +89,8 @@ export function planManualTemperature(input: {
       temperature_valid: valid,
       temperature_unconfirmed: false,
       temperature_edited_at: now, // server stamps who/when/replaced value
+      temperature_read_token: null,
+      temperature_read_status: null,
     },
   };
 }

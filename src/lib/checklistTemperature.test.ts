@@ -16,6 +16,8 @@ describe('saveManualTemperature plan', () => {
       temperature_valid: true,
       temperature_unconfirmed: false,
       temperature_edited_at: '2026-11-12T19:00:00.000Z',
+      temperature_read_token: null,
+      temperature_read_status: null,
     });
     for (const k of ['response_image_url', 'response_text', 'completed_by', 'temperature_validated_at']) expect(plan.fields).not.toHaveProperty(k);
   });

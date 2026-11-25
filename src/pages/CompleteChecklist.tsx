@@ -945,12 +945,14 @@ export default function CompleteChecklist() {
         .eq('id', user.id)
         .maybeSingle();
 
+      const hadBgRead = !!rwcRef.current[itemId]?.readStatus;
+      delete bgTokenRef.current[itemId];
       setResponsesWithCompleters(prev => ({
         ...prev,
-        [itemId]: { ...prev[itemId], extractedTemperature: plan.tempF, temperatureValid: plan.valid, temperatureUnconfirmed: false, tempEditedBy: shortName(profile?.full_name) },
+        [itemId]: { ...prev[itemId], extractedTemperature: plan.tempF, temperatureValid: plan.valid, temperatureUnconfirmed: false, tempEditedBy: shortName(profile?.full_name), readStatus: null, readToken: null },
       }));
       setManualTempOpen(prev => ({ ...prev, [itemId]: false }));
-      if (rwcRef.current[itemId]?.readStatus) flashBg(itemId, 'hand');
+      if (hadBgRead) flashBg(itemId, 'hand');
       toast.success(`Saved ${plan.tempF}°F`);
       if (!plan.valid && manualItem) await alertUnsafeTemperature(manualItem, plan.tempF, false);
     } catch (error: any) {
@@ -1672,7 +1674,7 @@ export default function CompleteChecklist() {
     } : null,
     sections: runSections,
     isDone: (it) => isItemDone(it as ChecklistItem),
-    needsTemp: (it) => isTempItem(it as ChecklistItem) && photosFor(it as ChecklistItem).length > 0 && !uploadingItems[it.id] && responsesWithCompleters[it.id]?.extractedTemperature == null,
+    needsTemp: (it) => isTempItem(it as ChecklistItem) && photosFor(it as ChecklistItem).length > 0 && !uploadingItems[it.id] && responsesWithCompleters[it.id]?.readStatus !== 'reading' && responsesWithCompleters[it.id]?.extractedTemperature == null,
     photos: (it) => photosFor(it as ChecklistItem),
     minPhotos: (it) => getMinPhotos(it as ChecklistItem),
     uploading: (id) => !!uploadingItems[id],
@@ -1683,7 +1685,7 @@ export default function CompleteChecklist() {
     choose: (id, v) => { setResponses(prev => ({ ...prev, [id]: v })); autoSaveResponse(id, v, false); },
     submit: (id, v) => autoSaveResponse(id, v, false),
     upload: (id, file, index) => handleImageUpload(id, file, index),
-    reading: (id) => ({ temp: responsesWithCompleters[id]?.extractedTemperature, valid: responsesWithCompleters[id]?.temperatureValid, editedBy: responsesWithCompleters[id]?.tempEditedBy, unconfirmed: !!(responsesWithCompleters[id] as any)?.temperatureUnconfirmed }),
+    reading: (id) => ({ temp: responsesWithCompleters[id]?.extractedTemperature, valid: responsesWithCompleters[id]?.temperatureValid, editedBy: responsesWithCompleters[id]?.tempEditedBy, unconfirmed: !!(responsesWithCompleters[id] as any)?.temperatureUnconfirmed, readStatus: responsesWithCompleters[id]?.readStatus ?? null, readReason: responsesWithCompleters[id]?.readReason ?? null }),
     tempOpen: (id) => !!manualTempOpen[id],
     setTempOpen: (id, open) => setManualTempOpen(prev => ({ ...prev, [id]: open })),
     tempValue: (id) => manualTempValue[id] ?? '',

@@ -61,7 +61,7 @@ export interface RunCtx {
   submit: (id: string, v: string) => void;
   /** Resolves with becameDone when the photo save made the item done for the first time (auto-advance). */
   upload: (id: string, file: File, index?: number) => void | Promise<{ becameDone: boolean } | void>;
-  reading: (id: string) => { temp: number | null | undefined; valid: boolean | null | undefined; editedBy?: string | null; unconfirmed?: boolean };
+  reading: (id: string) => { temp: number | null | undefined; valid: boolean | null | undefined; editedBy?: string | null; unconfirmed?: boolean; readStatus?: string | null; readReason?: string | null };
   tempOpen: (id: string) => boolean;
   setTempOpen: (id: string, open: boolean) => void;
   tempValue: (id: string) => string;
@@ -455,6 +455,8 @@ function Row({ it, ctx, wide, onOpen, flash, sel }: { it: RunItem; ctx: RunCtx; 
           <Name it={it} ctx={ctx} className="block break-words text-[14px] font-semibold leading-[1.25] text-foreground" />
           {amber ? (
             <span className="mt-0.5 block text-sm text-[hsl(var(--warning))]">Photo saved. Type the temperature.</span>
+          ) : isTempTask(it) && ctx.reading(it.id).readStatus === 'reading' && ctx.reading(it.id).temp == null ? (
+            <span className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />{ctx.reading(it.id).readReason === 'dial' ? 'Reading dial…' : 'Reading temp…'}</span>
           ) : (
             <>
               {(subText(it, ctx) || it.manager_shift === 'am' || it.manager_shift === 'pm') && (
@@ -589,7 +591,8 @@ function GuidedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
     const r = ctx.reading(it.id);
     const has = r.temp != null;
     const shot = photos[0];
-    const tone = !has ? 'warn' : r.valid === false ? 'bad' : 'good';
+    const bgReading = !has && r.readStatus === 'reading';
+    const tone = bgReading ? 'muted' : !has ? 'warn' : r.valid === false ? 'bad' : 'good';
     // The number box only fixes the reading on a saved photo (old photo-less readings: managers only).
     const canEdit = !!shot || (has && !!ctx.canFixLegacyTemp);
     const editOpen = canEdit && ctx.tempOpen(it.id);
@@ -608,23 +611,27 @@ function GuidedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
         )}
         {(shot || has) && (
           <div className={cn('flex items-center justify-between gap-3 rounded-xl p-3',
-            tone === 'good' && 'bg-[hsl(var(--success)/0.1)]', tone === 'bad' && 'bg-destructive/10', tone === 'warn' && 'bg-[hsl(var(--warning)/0.12)]')}>
+            tone === 'good' && 'bg-[hsl(var(--success)/0.1)]', tone === 'bad' && 'bg-destructive/10', tone === 'warn' && 'bg-[hsl(var(--warning)/0.12)]', tone === 'muted' && 'bg-muted')}>
             <div className="min-w-0">
+              {bgReading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" aria-hidden />{r.readReason === 'dial' ? 'Reading dial…' : 'Reading temp…'}</div>
+              ) : (<>
               <div className="text-sm text-muted-foreground">{has ? 'We read' : 'No reading yet'}</div>
               <div className={cn('text-3xl font-bold tabular-nums', tone === 'good' && 'text-[hsl(var(--success))]', tone === 'bad' && 'text-destructive', tone === 'warn' && 'text-[hsl(var(--warning))]')}>
                 {has ? `${Number(r.temp).toFixed(1)}°F` : '?'}
               </div>
+              </>)}
               {r.editedBy && <div className="text-xs text-muted-foreground">Edited by {r.editedBy}</div>}
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold',
+              {!bgReading && <span className={cn('rounded-full px-2.5 py-1 text-xs font-semibold',
                 tone === 'good' && 'bg-[hsl(var(--success))] text-primary-foreground', tone === 'bad' && 'bg-destructive text-destructive-foreground', tone === 'warn' && 'bg-[hsl(var(--warning))] text-primary-foreground')}>
                 {tone === 'good' ? 'Safe' : tone === 'bad' ? 'Out of range' : '?'}
-              </span>
+              </span>}
               {canEdit && (
                 <button type="button" onClick={openEdit} aria-label={has ? 'Edit temperature' : 'Enter temperature'}
                   className={cn('flex h-11 w-11 items-center justify-center rounded-full',
-                    tone === 'good' && 'bg-[hsl(var(--success))] text-primary-foreground', tone === 'bad' && 'bg-destructive text-destructive-foreground', tone === 'warn' && 'bg-[hsl(var(--warning))] text-primary-foreground')}>
+                    tone === 'good' && 'bg-[hsl(var(--success))] text-primary-foreground', tone === 'bad' && 'bg-destructive text-destructive-foreground', tone === 'warn' && 'bg-[hsl(var(--warning))] text-primary-foreground', tone === 'muted' && 'bg-muted text-foreground')}>
                   <Pencil className="h-4 w-4" />
                 </button>
               )}
