@@ -833,12 +833,12 @@ function CompletedBody({ it, ctx }: { it: RunItem; ctx: RunCtx }) {
         </div>
       )}
       {hasReading && (
-        <div className={cn('rounded-xl border bg-card p-3', temp && (tone === 'good' ? 'bg-[hsl(var(--success)/0.1)]' : tone === 'bad' ? 'bg-destructive/10' : 'bg-[hsl(var(--warning)/0.12)]'))}>
+        <div className={cn('rounded-xl border bg-card p-3', temp && !(r!.temp == null && r!.readStatus === 'reading') && (tone === 'good' ? 'bg-[hsl(var(--success)/0.1)]' : tone === 'bad' ? 'bg-destructive/10' : 'bg-[hsl(var(--warning)/0.12)]'))}>
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className={capLabel}>Reading</div>
               <div className={cn('text-3xl font-bold tabular-nums', temp && tone === 'bad' && 'text-destructive', temp && tone === 'warn' && 'text-[hsl(var(--warning))]')}>
-                {temp ? (r!.temp != null ? `${Number(r!.temp).toFixed(1)}°F` : '?°F') : String(saved)}
+                {temp ? (r!.temp != null ? `${Number(r!.temp).toFixed(1)}°F` : r!.readStatus === 'reading' ? <span className="flex items-center gap-2 text-base font-semibold text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" aria-hidden />{r!.readReason === 'dial' ? 'Reading dial…' : 'Reading temp…'}</span> : '?°F') : String(saved)}
               </div>
               {temp && r!.editedBy && <div className="text-xs text-muted-foreground">Edited by {r!.editedBy}</div>}
             </div>
