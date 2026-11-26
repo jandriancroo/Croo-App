@@ -5,10 +5,11 @@ import { QRCodeSVG } from "qrcode.react";
 import { Copy, Check, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { getPublicOrigin } from "@/lib/publicOrigin";
 
 export function InviteLinkCard() {
   const [copied, setCopied] = useState(false);
-  const inviteUrl = `${window.location.origin}/auth?signup=true`;
+  const inviteUrl = `${getPublicOrigin()}/auth?signup=true`;
 
   const handleCopy = async () => {
     try {

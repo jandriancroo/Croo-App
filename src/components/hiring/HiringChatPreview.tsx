@@ -8,6 +8,7 @@ import { MessageCircle, ExternalLink, Copy, Check, Loader2 } from 'lucide-react'
 import { ensureHiringConversation } from '@/lib/hiring/interviewActions';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { getPublicOrigin } from '@/lib/publicOrigin';
 
 interface Message {
   id: string;
@@ -74,7 +75,7 @@ export function HiringChatPreview({
 
   const copyApplicantLink = () => {
     if (!accessToken) return;
-    const link = `${window.location.origin}/hiring-chat/${accessToken}`;
+    const link = `${getPublicOrigin()}/hiring-chat/${accessToken}`;
     navigator.clipboard.writeText(link);
     setCopied(true);
     toast.success('Link copied! Share with the applicant');

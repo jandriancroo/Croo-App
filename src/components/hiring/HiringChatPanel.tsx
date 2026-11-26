@@ -12,6 +12,7 @@ import { InterviewScheduleDialog } from './InterviewScheduleDialog';
 import { InterviewInviteMessage } from './InterviewInviteMessage';
 import { ensureHiringConversation, sendInterviewInvite, cancelInterview } from '@/lib/hiring/interviewActions';
 import type { InterviewScheduleDetails } from './InterviewScheduleDialog';
+import { getPublicOrigin } from '@/lib/publicOrigin';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -246,7 +247,7 @@ export function HiringChatPanel({ applicationId, applicantName, onConversationDe
 
   const copyApplicantLink = () => {
     if (!accessToken) return;
-    const link = `${window.location.origin}/hiring-chat/${accessToken}`;
+    const link = `${getPublicOrigin()}/hiring-chat/${accessToken}`;
     navigator.clipboard.writeText(link);
     setCopied(true);
     toast.success('Link copied! Share with the applicant');

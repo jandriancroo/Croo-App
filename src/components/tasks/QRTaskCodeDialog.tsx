@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { QRCodeSVG } from 'qrcode.react';
 import { Download, Copy, Check, Printer, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+import { getPublicOrigin } from '@/lib/publicOrigin';
 
 interface QRTaskCodeDialogProps {
   open: boolean;
@@ -23,7 +24,7 @@ export function QRTaskCodeDialog({
   const [copied, setCopied] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
   
-  const qrUrl = `${window.location.origin}/qr/${qrCode}`;
+  const qrUrl = `${getPublicOrigin()}/qr/${qrCode}`;
 
   const handleCopyLink = async () => {
     try {

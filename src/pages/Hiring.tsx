@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Database } from '@/integrations/supabase/types';
+import { getPublicOrigin } from '@/lib/publicOrigin';
 
 type ApplicationStatus = Database['public']['Enums']['application_status'];
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -468,7 +469,7 @@ export default function Hiring() {
     );
   });
 
-  const applicationUrl = organization ? `${window.location.origin}/apply/${organization.slug}` : '';
+  const applicationUrl = organization ? `${getPublicOrigin()}/apply/${organization.slug}` : '';
 
   const copyLink = () => {
     navigator.clipboard.writeText(applicationUrl);
