@@ -5,6 +5,7 @@ export function safeJsonLd(obj: unknown): string {
 
 const DAY_MS = 86_400_000;
 const VALID_WINDOW_DAYS = 60;
+const VALID_THROUGH_MIN_LEAD_DAYS = 14;
 export const SITE_ORIGIN = 'https://croohq.com';
 
 /**
@@ -14,6 +15,8 @@ export const SITE_ORIGIN = 'https://croohq.com';
  *   current window (posted + 60·n days, first one in the future). Listings
  *   stay active until a manager closes them; the date keeps rolling forward
  *   and the sitemap/JSON-LD drop the job as soon as status != 'active'.
+ * - A window end landing within 14 days of `now` is rolled to the next window
+ *   (n+1), so a build run near a window end never stamps an imminent expiry.
  */
 export function computeValidThrough(postedAt?: string | null, expiresAt?: string | null, now = new Date()): string | undefined {
   if (expiresAt) return new Date(expiresAt).toISOString();
@@ -21,7 +24,8 @@ export function computeValidThrough(postedAt?: string | null, expiresAt?: string
   const posted = new Date(postedAt).getTime();
   if (Number.isNaN(posted)) return undefined;
   const windowMs = VALID_WINDOW_DAYS * DAY_MS;
-  const n = Math.max(1, Math.floor((now.getTime() - posted) / windowMs) + 1);
+  let n = Math.max(1, Math.floor((now.getTime() - posted) / windowMs) + 1);
+  while (posted + n * windowMs - now.getTime() <= VALID_THROUGH_MIN_LEAD_DAYS * DAY_MS) n += 1;
   return new Date(posted + n * windowMs).toISOString();
 }
 

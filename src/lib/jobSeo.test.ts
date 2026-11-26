@@ -10,6 +10,7 @@ import {
   buildJobPosting,
   buildJobSlug,
   buildJobsIndexDocument,
+  computeValidThrough,
   injectJobDocument,
   type JobRecord,
 } from "./jobSeo";
